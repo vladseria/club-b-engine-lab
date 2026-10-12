@@ -28,6 +28,12 @@ export const MAX_SUBS=3;
  * for stamina 4, 8:19 for 6, 12:44 for 9, and a stamina-9 player never runs on
  * empty. Evidence: packages/football-engine/evidence/2026-10-11-tiredness-bite-build.
  *
+ * Re-checked on build 1fbc1cf8 (same harness and fixtures, 5 seeds each: 20
+ * matches, 160 whole-match outfielders): median first drop below 88 at 5:07,
+ * below 79 at 9:53, below 75 at 12:00 (89% get there). All within half a
+ * minute of `around`, so the times stand. Below 79 by stamina: 6:43 for 4,
+ * 8:33 for 6, 9:50 for 7, 10:56 for 8, 12:49 for 9.
+ *
  * History: on build 07ffe814 (acceleration fatigue, cfc3f98c and later) the
  * levels were energy 95 / 90 / 86 at the same times; before that build energy
  * ended near 94, so a stored 95 ("tired") fired late in the match. A code

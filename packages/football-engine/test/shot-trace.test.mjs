@@ -66,8 +66,12 @@ const fixture=JSON.parse(readFileSync(new URL('./feint-release-scene.json',impor
 // (evidence/2026-10-11-tiredness-bite-build/repin.mjs shotTrace). (The regain fixes, built before the tiredness
 // bite, moved it from 13517 to 13549: evidence/2026-10-11-regain-fixes/repin.mjs shotTrace.) The combined build
 // with the collect read and the regain fixes (70c5f925) changed it; 13555 is the next
-// (evidence/2026-10-11-collect-read/repin.mjs shotTrace).
-fixture.seed=13555;fixture.teams[0].lineup[1]='motanescu';Object.assign(fixture.teams[0].tactics,teamApproaches.balanced.settings);Object.assign(fixture.teams[1].tactics,defensiveApproaches.press.tactics);
+// (evidence/2026-10-11-collect-read/repin.mjs shotTrace). Track the runner (2026-10-11: runs read from their
+// start) changed it; 13559 is the next (evidence/2026-10-11-track-runner/repin.mjs shotTrace). Its wider skill
+// range (a run read 0.1-0.8 s ahead by reading) changed it; 13574 is the next (same repin.mjs shotTrace). The
+// pre-push fixes (2026-10-12: a carrier meets a man in his path; an outlet steps off a marker who beats the ball)
+// changed it; 13578 is the next (evidence/2026-10-12-prepush-fixes/repin.mjs shotTrace).
+fixture.seed=13578;fixture.teams[0].lineup[1]='motanescu';Object.assign(fixture.teams[0].tactics,teamApproaches.balanced.settings);Object.assign(fixture.teams[1].tactics,defensiveApproaches.press.tactics);
 const result=runMatch({fixture,durationSeconds:100}).result;
 
 test('goal events identify the beneficiary even when an opponent made the last touch',()=>{

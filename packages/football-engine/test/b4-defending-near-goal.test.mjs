@@ -74,11 +74,16 @@ test('a runner from behind a closing defender\'s shoulder is picked up late, les
  assert(!runnerBehindShoulder(d,{x:18,y:1,vx:.5,vy:0}),'barely moving');
 });
 test('in a match, late pick-ups happen, are short, and only ever for a runner after a press',()=>{
- const f=structuredClone(fixture);f.seed=2030;
+ const f=structuredClone(fixture);f.seed=2031;
  const r=runMatch({fixture:f,durationSeconds:300}).result;
+ // (track the runner, 2026-10-11) The pick-up is the marker's first move that is no longer the old press: following
+ // the man ('track') or, since the marking-and-shape round, hurrying back goal-side of him ('recover'). With runs read
+ // from their start, 2030 now has a pick-up that goes press -> recover (0.16 s) -> track (0.5 s after the press): the
+ // lapse is the first 0.16 s, so 'recover' ends it too (evidence/2026-10-11-track-runner).
+ const picked=k=>k==='track'||k==='recover';
  let lapses=0;const open=new Map();
  for(const c of r.choices){const a=c.assignment;const cur=open.get(c.player);
-  if(cur&&(!a||a.purpose!=='mark'||a.since!==cur.since||c.kind==='track')){open.delete(c.player);if(a&&a.purpose==='mark'&&a.since===cur.since&&c.kind==='track'){lapses++;assert(c.time-cur.t<=RUNNER_LAPSE_MAX+.02,`delay ${c.time-cur.t}`);}}
+  if(cur&&(!a||a.purpose!=='mark'||a.since!==cur.since||picked(c.kind))){open.delete(c.player);if(a&&a.purpose==='mark'&&a.since===cur.since&&picked(c.kind)){lapses++;assert(c.time-cur.t<=RUNNER_LAPSE_MAX+.02,`delay ${c.time-cur.t}`);}}
   if(a&&a.purpose==='mark'&&(c.kind==='press'||c.kind==='jockey')&&!open.has(c.player))open.set(c.player,{t:c.time,since:a.since});}
  assert(lapses>0,'some runners leave from behind a shoulder');
 });
@@ -87,11 +92,12 @@ test('in a match, late pick-ups happen, are short, and only ever for a runner af
 // 2028 since the step-across round, 2026-10-04: 2027 had 7 shots, evidence/2026-10-04-stepacross-giveaways/repin.mjs b4;
 // 2029 since the passing-and-control round, 2026-10-10: 2028 had 9 shots, evidence/2026-10-10-passing-control/repin.mjs b4;
 // still 2029 after the threat-defending round, 2026-10-10: evidence/2026-10-10-threat-defending/repin.mjs b4 confirms it;
-// 2030 since the regain fixes, 2026-10-11: 2029 had 8 shots, evidence/2026-10-11-regain-fixes/repin.mjs b4.)
+// 2030 since the regain fixes, 2026-10-11: 2029 had 8 shots, evidence/2026-10-11-regain-fixes/repin.mjs b4;
+// 2031 since the pre-push fixes, 2026-10-12: evidence/2026-10-12-prepush-fixes/repin.mjs b4, 13 shots, keeper miss 0.41 m.)
 // The keeper keeps setting himself against the ball: at the shot he stands
 // near the line bisecting the posts (before: ~1.1 m off on average).
 test('the defending keeper is set near the bisector of the posts when the shot comes',()=>{
- const f=structuredClone(fixture);f.seed=2030;
+ const f=structuredClone(fixture);f.seed=2031;
  const r=runMatch({fixture:f,durationSeconds:300}).result,miss=[];
  for(const e of r.events.filter(e=>e.kind==='shot'&&e.actor)){
   const s=r.players.find(p=>p.id===e.actor).side,d=1-s,g=r.players.findIndex(p=>p.side===d&&p.role==='GK');

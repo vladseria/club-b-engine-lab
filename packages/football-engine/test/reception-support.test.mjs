@@ -20,6 +20,10 @@ function scene(mirror=false){
  const refine=(fixed=new Set())=>refineReceptionSupport(players,focus,mates,fixture.teams[0].tactics,laneRisk,10,.4,jobs,fixed);
  return {players,focus,mates,jobs,refine};
 }
+// Honest run timing (1d43067a) lengthened every delivery read, so the outlet's spot at (26, 7) keeps no room (his
+// marker gets there 0.26 s before the ball) and stepping to (24, 10) (room 0.16) no longer paid the 0.06/m cost of
+// changing his aim. Since the pre-push fixes (2026-10-12) that cost scales with the room his own spot keeps
+// (refineReceptionSupport, CHANGE_COST): stepping off a marker who beats the ball is not dithering.
 test('a receiving outlet adjusts away from closing pressure without dissolving the runner and cover',()=>{
  for(const mirror of [false,true]){
   const {players,mates,jobs,refine}=scene(mirror),original=structuredClone({players,jobs});

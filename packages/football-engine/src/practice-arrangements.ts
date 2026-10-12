@@ -22,6 +22,8 @@ const depth=(p:PracticePlayer,v:Vec)=>p.side===0?v.x:L-v.x;
 const inside=(v:Vec)=>({x:clamp(v.x,1,L-1),y:clamp(v.y,2-W/2,W/2-2)});
 interface Candidate {opportunity:AttackingSpace;coverage:number[];job:FootballJob;score:number;access:number;gap:number;travel:number;forward:number;path:Vec[];start:Vec}
 
+/** What a metre of change to a team-mate's aim costs in refineReceptionSupport (the price of dithering). */
+export const CHANGE_COST=.06;
 /** Improve the angles of the team's existing invitations as a pass arrives.
  * Keep their purposes, rather than reallocating the whole attack at every
  * handover. Compare physically reachable positions, not occupied destinations. */
@@ -38,14 +40,23 @@ export function refineReceptionSupport(players:PracticePlayer[],focus:PracticePl
    for(const dy of [-3,3])for(const dx of job.kind==='run'?[0]:[-2,0,2])points.push(inside({x:job.aim.x+s*dx,y:job.aim.y+dy}));
    if(job.kind!=='run'&&distance(p,job.aim)<5)points.push({x:p.x,y:p.y});
   }
-  return points.map(aim=>{
+  // points[0] is the spot he is going to; its room is read first (below).
+  let held=1;
+  return points.map((aim,i)=>{
    const projected={...p},duration=Math.min(horizon,Math.max(0,job.until-time));
    for(let t=0;t<duration;t+=.1)steerMotion(projected,aim,Math.min(.1,duration-t),Math.min(p.pace,job.speed));
    const gap=distance(focus,projected),delivery=incoming+.2+expectedPassFlight(gap);
    const lane=risk(focus,projected,future),closing=Math.min(...opponents.map(q=>arrivalTime(q,projected)));
    const room=clamp((closing-delivery)/.8,0,1),access=(1-lane)*room*clamp((gap-3)/2,0,1)*clamp((22-gap)/6,0,1);
+   // Pre-push fixes (2026-10-12): changing his aim costs CHANGE_COST a metre so
+   // he does not dither between spots that both work. A spot an opponent
+   // reaches before the ball (room 0: his marker is on him as it arrives) is
+   // not one that works, and stepping off it is what a receiver does to give
+   // the passer a clean ball: the cost is scaled by the room his own spot
+   // keeps (full while it keeps 0.8 s, none once the marker beats the ball).
+   if(i===0)held=room;
    const change=distance(aim,job.aim);
-   return {job:{...job,aim},projected,access,gap,coverage:exposure.coverage(p,{...job,aim}),score:access-change*.06};
+   return {job:{...job,aim},projected,access,gap,coverage:exposure.coverage(p,{...job,aim}),score:access-change*CHANGE_COST*held};
   });
  });
  if(candidates.some(c=>!c.length))return null;

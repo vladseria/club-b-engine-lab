@@ -140,7 +140,9 @@ test('a standing mark order survives a counter-press window',()=>{
 test('a player who has just been tackled cannot go straight back in',async()=>{
  const {runMatch}=await import('../dist/index.js');
  const {BEATEN_BALANCE}=await import('../dist/practice-challenge.js');
- const f=structuredClone(fixture);f.seed=2026;
+ // (track the runner, 2026-10-11: runs read from their start) 2026 now has 3 tackles won in its 240 s; 2027 is the next
+ // seed with five or more, every one unanswered inside BEATEN_BALANCE (evidence/2026-10-11-track-runner/repin.mjs tackled)
+ const f=structuredClone(fixture);f.seed=2027;
  const r=runMatch({fixture:f,durationSeconds:240}).result;
  const id=i=>r.players[i].id;
  const challenges=r.choices.filter(c=>c.kind==='challenge'&&c.challenge);

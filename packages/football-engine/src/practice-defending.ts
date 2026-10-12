@@ -233,7 +233,7 @@ export const BALL_CLEAR=3.5;
 /** Regroup ("On losing it"): everyone not yet this far goal-side of the ball drops behind it first. */
 export const REGROUP_BEHIND=5;
 
-type View=(reader:PracticePlayer,target:PracticePlayer)=>PracticePlayer;
+type View=(reader:PracticePlayer,target:PracticePlayer,before?:number)=>PracticePlayer;
 export type Matter='ball'|'danger'|'watch'|'spare';
 export interface DefendMemory {side:Side;attacking:Side;
  /** Each defender's own man and since when. */
@@ -341,12 +341,18 @@ export const EDGE=3;
 export function readMan(d:PracticePlayer,a:PracticePlayer,input:Pick<DefendInput,'defending'|'tactics'|'time'|'carrier'|'receiver'|'view'|'threat'>,ref:Vec,own:boolean):ManRead{
  const {defending,tactics,time}=input,g={x:world(defending,0),y:0};
  const isBall=a.id===input.carrier?.id||a.id===input.receiver?.id;
- const v=a.id===input.carrier?.id?a:input.view(d,a);
+ const seen=a.id===input.carrier?.id?a:input.view(d,a);
+ const da=depth(defending,seen.x),db=depth(defending,ref.x);
+ // (track the runner) a run setting off is read from its start: he is a runner, and he is followed (marked, taken)
+ // at where the run is taking him. How far he is from our goal and his threat stay what is seen: a run anticipated is
+ // not yet a man in front of our goal (read from the extrapolation, the threat of every run from deep outweighed the
+ // striker the line was holding, and the striker went through: evidence/2026-10-11-track-runner, version 2)
+ const run=isBall||goalward(seen,defending)>=RUN_GOALWARD?undefined:readRun(d,a,seen,input,da,db,g);
+ const v=seen;
  const exact=Math.min(distance(v,g),distance(ahead(v,RUN_LEAD),g));
  const dg=perceive(d,'threat',exact,DANGER_SPREAD*exact+.5,v,{time,salt:`dg${a.id}`});
- const running=goalward(v,defending)>=RUN_GOALWARD;
+ const running=goalward(seen,defending)>=RUN_GOALWARD||!!run;
  const R=DANGER_R[tactics.line]+DANGER_PRESS[tactics.press]+(own?KEEP_MATTER:0)+CENTRAL*clamp(1-(Math.abs(v.y)-3)/6,0,1);
- const da=depth(defending,v.x),db=depth(defending,ref.x);
  const close=clamp((R+6-dg)/12,0,1)*clamp(1-(Math.abs(v.y)-5)/14,.4,1);
  const within=(r:number)=>clamp((r+EDGE-dg)/(2*EDGE),0,1);
  const danger=isBall?1:Math.max(within(da>db+BEHIND&&Math.abs(v.y)>BEHIND_WIDE?R-BEHIND_R:R),running?within(R+RUN_R):0,da<db-AHEAD?within(R+AHEAD_R):0);
@@ -370,7 +376,47 @@ export function readMan(d:PracticePlayer,a:PracticePlayer,input:Pick<DefendInput
  const base=.3+.3*close+(.7+close)*danger+(running?.5*danger:0);
  // (Tight marking follows its men wherever they are: its weights are never scaled down for a harmless man)
  const scale=THREAT_MIX+THREAT_W*threat,weight=matter==='ball'?3:matter==='spare'?0:pic?base*(tactics.marking==='tight'?Math.max(1,scale):scale):base;
- return {id:a.id,v,matter,weight,dg,running,danger,threat,reach};
+ return {id:a.id,v:run??v,matter,weight,dg,running,danger,threat,reach};
+}
+
+/** (track the runner, 2026-10-11, evidence/2026-10-11-track-runner) A run read from where it starts and where it is
+ * going, not only from its speed. Before, a man was "running" only from RUN_GOALWARD m/s at our goal as seen, so a
+ * midfielder setting off from behind the ball into the space in front of our line (the direct-edge "pin and arrive":
+ * about 2 m/s when the pass left) was marked with the ordinary read-ahead and cushions, or left unmarked as a man in
+ * midfield, until he was past his marker. Now a defender who sees a man setting off towards our goal (moving at it
+ * RUN_SET m/s or more, mostly straight at it: RUN_AIM of his anticipated speed) from deep (HABIT_IN m or more from our
+ * goal: nearer, the goal-side habit of the marking-and-shape round already follows his movement at our goal, read
+ * ahead by reading), from behind the ball or from in front of him (behind his marker), reads where the run is taking
+ * him: his seen velocity plus his seen acceleration (two looks RUN_LOOK s apart on his own late picture) carried
+ * RUN_EARLY s ahead, from RUN_EARLY.min for a defender who
+ * cannot read the game to RUN_EARLY.max for a sharp one (acuity 'threat': reading and defending), never faster than
+ * the man's pace. When he reads that anticipated speed at our goal at RUN_GOALWARD or more (misjudged by up to
+ * RUN_SPREAD m/s for a player who cannot read the game) the man is a runner to him, followed at that velocity: he
+ * matters as any runner does (his distance from our goal and his threat are still read from what is seen, not from
+ * the anticipation), the team's choice takes him from goal-side of where he is going (so a team-mate goal-side and
+ * better placed takes him now, before he is past his marker), and his marker goes with him (TRACK_LEAD, the runner's
+ * velocity share, no sag). Whether he is the man to take, against the other men and the cover and balance, is the
+ * same threat-weighted choice and the same commitment rules as for every man; whether he stays with him is his legs.
+ * (Skill range widened 2026-10-11: RUN_EARLY was 0.15..0.6 s, and the skill arms showed reading barely told in
+ * matches, 6 v 9 only 0.42 v 0.55 s. The horizon is how many seconds sooner he spots the run, so it is the skill
+ * gap itself: now 0.1 s for a man who cannot read the game (he sees the run at about its speed as seen), 0.8 s for
+ * a sharp one (about the whole first acceleration of a run, the most a look can carry ahead), so a 3 reads it at
+ * 0.31 s, a 6 at 0.52 s, a 9 at 0.73 s: a good reader spots it a fifth of a second before an average one.) */
+export const RUN_LOOK=.2,RUN_SET=1,RUN_AIM=.6,RUN_SPREAD=1.2,RUN_EARLY={min:.1,max:.8};
+export function readRun(d:PracticePlayer,a:PracticePlayer,v:PracticePlayer,input:Pick<DefendInput,'defending'|'time'|'view'>,da:number,db:number,g:Vec):PracticePlayer|undefined{
+ const {defending,time}=input;
+ if(goalward(v,defending)<RUN_SET)return undefined;
+ // from deep: beyond the zone where the goal-side habit already follows a man's movement at our goal (HABIT_IN),
+ // and from behind the ball (not clearly ahead of it) or from in front of this defender (behind his marker)
+ if(distance(v,g)<HABIT_IN||!(da>=db-AHEAD||distance(d,g)<distance(v,g)-.5))return undefined;
+ const before=input.view(d,a,RUN_LOOK),h=RUN_EARLY.min+(RUN_EARLY.max-RUN_EARLY.min)*acuity(d,'threat');
+ let ax=v.vx+(v.vx-before.vx)/RUN_LOOK*h,ay=v.vy+(v.vy-before.vy)/RUN_LOOK*h;
+ const sp=Math.hypot(ax,ay),cap=Math.max(a.pace,Math.hypot(v.vx,v.vy));
+ if(sp>cap){ax*=cap/sp;ay*=cap/sp;}
+ const toward=goalward({x:0,y:0,vx:ax},defending);
+ if(toward<RUN_AIM*Math.max(sp>cap?cap:sp,1e-6))return undefined;
+ if(perceive(d,'threat',toward,RUN_SPREAD,v,{time,salt:`run${a.id}`})<RUN_GOALWARD)return undefined;
+ return {...v,vx:ax,vy:ay};
 }
 
 /** Where a defender meets his man to take him (the solve's run): goal-side of where he is going. */

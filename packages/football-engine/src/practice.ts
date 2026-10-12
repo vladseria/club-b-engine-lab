@@ -648,9 +648,9 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
     // and after it arrives their picture of the rest comes back quickly.
     const watching=!ball.owner&&ball.mode==='pass'?clamp(time-releaseAt,0,1):Math.max(0,watchedFlight-2*(time-receivedAt));
     const seenBy=new Map<string,PracticePlayer>();
-    const sight:Sight=(reader,target)=>{
-     const key=reader.id+'>'+target.id;let v=seenBy.get(key);
-     if(!v){v=sightings.at(target,time,sightLag(reader,{energy:reader.energy,inView:inView(reader,lookingAt(reader,ball),target),watching,at:target,time,salt:target.id}));seenBy.set(key,v);}
+    const sight:Sight=(reader,target,before=0)=>{
+     const key=reader.id+'>'+target.id+(before>0?'@'+before:'');let v=seenBy.get(key);
+     if(!v){v=sightings.at(target,time,sightLag(reader,{energy:reader.energy,inView:inView(reader,lookingAt(reader,ball),target),watching,at:target,time,salt:target.id})+Math.max(0,before));seenBy.set(key,v);}
      return v;
     };
     coordination=coordinateFootball(players,ball,side,[tacticsFor(0),tacticsFor(1)],laneRisk,

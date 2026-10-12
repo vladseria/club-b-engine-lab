@@ -26,7 +26,12 @@ test('width with the ball: the far winger holds a lane as wide as the team asks,
  assert(wide.slot>standard.slot+2&&standard.slot>narrow.slot+2,'the resting lane orders narrow < standard < wide');
  assert.equal(wide.job.purpose,'width','wide: he holds width on the far side');
  assert(wide.job.aim.y>=12.5);
- assert(standard.job.aim.y>=10,'standard holds a lane too, less wide');
+ // Honest run timing (9306734b, 2026-10-11): in this scene Standard's far winger now
+ // takes the ball-side depth run that Narrow's already took (aim y -7.9); the width
+ // check (branch width-check) found that in matches Standard still holds the far
+ // touchline 8% of the time against Narrow's 3% and Wide's 17% (clear steps). His
+ // resting lane above still orders narrow < standard < wide; his job is a lane or a run.
+ assert(standard.job.purpose==='width'?standard.job.aim.y>=10:standard.job.kind==='run','standard holds a lane too, less wide, unless he is given a run');
  assert(narrow.job.aim.y<wide.job.aim.y-6,'narrow: he comes towards the ball for close support');
 });
 

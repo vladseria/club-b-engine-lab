@@ -173,8 +173,10 @@ test('an order whose trigger never fires changes nothing; identical inputs repro
 test('slot-addressed plans pass to the newcomer when he inherits the slot',()=>{
  // A seeded passage: seed 2026's side 0 selected plans after the half-time
  // change until the counter-press after a loss (2026-10-01, B3); 2027 is the
- // next seed that does (evidence/2026-10-01-b3-losing-the-ball/repin.mjs slot).
- const f=withBench(2027),playbooks=[0,1].map(side=>({side,adaptive:true,plans:defaultPlans().map(p=>({...p,id:`team-${side}-${p.id}`,name:`Team ${side} ${p.name}`}))}));
+ // next seed that does (evidence/2026-10-01-b3-losing-the-ball/repin.mjs slot). Track the runner's wider skill
+ // range (2026-10-11: a run read 0.1-0.8 s ahead by reading) changed 2027; 2028 is the next
+ // (evidence/2026-10-11-track-runner/repin.mjs slot).
+ const f=withBench(2028),playbooks=[0,1].map(side=>({side,adaptive:true,plans:defaultPlans().map(p=>({...p,id:`team-${side}-${p.id}`,name:`Team ${side} ${p.name}`}))}));
  const r=runMatch({fixture:f,durationSeconds:240,playbooks,substitutionOrders:[{id:'h',side:0,in:'r10',out:'van',trigger:{kind:'half'}}]}).result;
  const [e]=subs(r);assert(e);assertAtStoppage(r);
  const incoming=r.players.find(p=>p.id==='0:r10');

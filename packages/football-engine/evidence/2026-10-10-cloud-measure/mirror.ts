@@ -15,6 +15,21 @@
 //   di-<skill> | sh-<skill> | co-<skill>   the style arm plus +3 on <skill>
 //   <a>v<b>, a,b in ba|di|sh|co  treated side on style a, the other side on style b
 //                              (2026-10-11, for the style round robin; same players)
+//   dx-<k>                     (2026-10-11, direct-edge ablation) treated side on Direct with ONE setting reset
+//                              to Balanced's value; the other side Balanced. k: prog | wid | com | str
+//                              (progression direct->mixed, width wide->standard, commit 4->3, striker run->mixed;
+//                              ps = progression AND striker)
+//   bx-<k>                     Balanced with ONE setting switched to Direct's value; the other side Balanced
+//   ds-<skill>                 (2026-10-11, track-runner) treated side Balanced with +3 on <skill> for every outfielder,
+//                              the other side Direct: does the skilled defence read Direct's runs better?
+//   ks-<NN>                    (2026-10-11, hold-line) treated side Balanced with its keeper's keeperSweep NN/100 (the
+//                              mirror's keepers are 0.5), the other side Direct: does the sweep trait become a must-have?
+//   di0f121 | di0f22           Direct v Balanced with BOTH sides in 1-2-1 | 2-2 (the engine takes each slot's
+//                              role from the formation, model.ts; the players are the same neutral five)
+//   <a><f>v<b><g>              (2026-10-11, cloud formations) treated side on style a in formation f, the other
+//                              side on style b in formation g; a,b in ba|di|sh|co, f,g in 211|121|22. Each
+//                              style keeps its own preset; only the formation changes. <a>211v<b>211 builds
+//                              exactly the inputs of <a>v<b> (and di211vba211 those of di0).
 // Treated side = seed % 2; kick-off = (seed >> 1) % 2, so every 4 seeds cover
 // both sides x both kick-offs. Match id `skill-<seed>`, as the audit's, so a
 // base-revision row on the same platform reproduces the audit's tape score.
@@ -30,22 +45,32 @@ const GK_SKILLS:Record<Skill,number>={pace:5,aerial:6,control:5,passing:5,readin
 const TRAITS={risk:.5,runs:.5,dribble:.5,comesShort:.5,engagement:.5,discipline:.8,frustration:1,audacity:.5};
 const ROLES=[['GK'],['CB'],['CB'],['CM'],['ST']] as const;
 const STYLE:Record<string,Style>={di:'direct',sh:'combinations',co:'counter'};
+const FORM:Record<string,string>={'211':'2-1-1','121':'1-2-1','22':'2-2'};
+const ABLATE:Record<string,string[]>={prog:['progression'],wid:['width'],com:['commit'],str:['striker'],ps:['progression','striker']};
 
-function side(code:string,treat:{skill?:Skill;delta?:number;style?:Style}):FrozenSide{
+function side(code:string,treat:{skill?:Skill;delta?:number;style?:Style;from?:Style;key?:string[];formation?:string;sweep?:number}):FrozenSide{
  const players=ROLES.map((roles,i)=>{
   const gk=i===0,skills={...(gk?GK_SKILLS:OUT_SKILLS)};
   if(treat.skill&&(treat.skill==='keeping'?gk:!gk))skills[treat.skill]=Math.max(0,Math.min(10,skills[treat.skill]+treat.delta!));
-  return {id:`${code}${i+1}`,name:`${code} ${i+1}`,short:`${code}${i+1}`,number:i+1,roles:[...roles],skills,traits:gk?{...TRAITS,keeperSweep:.5}:{...TRAITS},energy:100,archetype:'x',temperament:'x',note:'x',portrait:'p0001'};
+  return {id:`${code}${i+1}`,name:`${code} ${i+1}`,short:`${code}${i+1}`,number:i+1,roles:[...roles],skills,traits:gk?{...TRAITS,keeperSweep:treat.sweep??.5}:{...TRAITS},energy:100,archetype:'x',temperament:'x',note:'x',portrait:'p0001'};
  });
  const style=treat.style??'balanced',approach=(PRESETS as any)[style];
  if(!approach)throw Error(`this revision has no ${style} preset`);
- return {club:{id:code,name:code,code,color:code==='AAA'?'#3fd38a':'#d33f6a'},formation:'2-1-1',style,approach:{...approach},captain:`${code}2`,lineup:players.map(p=>p.id),bench:[],players,plans:[]} as any;
+ const tuned:any={...approach};for(const k of treat.key??[])tuned[k]=(PRESETS as any)[treat.from!][k];
+ return {club:{id:code,name:code,code,color:code==='AAA'?'#3fd38a':'#d33f6a'},formation:(treat.formation??'2-1-1') as any,style,approach:tuned,captain:`${code}2`,lineup:players.map(p=>p.id),bench:[],players,plans:[]} as any;
 }
 
-export function armTreatment(arm:string):{skill?:Skill;delta?:number;style?:Style;vs?:Style}{
+export function armTreatment(arm:string):{skill?:Skill;delta?:number;style?:Style;vs?:Style;from?:Style;key?:string[];formation?:string;vsFormation?:string;sweep?:number}{
  if(arm==='base')return {};
+ const ks=/^ks-(\d\d)$/.exec(arm);if(ks)return {style:'balanced',vs:'direct',sweep:Number(ks[1])/100};
+ const ff=/^(ba|di|sh|co)(211|121|22)v(ba|di|sh|co)(211|121|22)$/.exec(arm);
+ if(ff){const st=(k:string)=>k==='ba'?'balanced' as Style:STYLE[k];return {style:st(ff[1]),formation:FORM[ff[2]],vs:st(ff[3]),vsFormation:FORM[ff[4]]};}
+ const mf=/^di0f(121|22)$/.exec(arm);if(mf)return {style:'direct',vs:'balanced',formation:mf[1]==='121'?'1-2-1':'2-2'};
+ const mx=/^(dx|bx)-(prog|wid|com|str|ps)$/.exec(arm);
+ if(mx)return mx[1]==='dx'?{style:'direct',from:'balanced',key:ABLATE[mx[2]]}:{style:'balanced',from:'direct',key:ABLATE[mx[2]]};
  const mv=/^(ba|di|sh|co)v(ba|di|sh|co)$/.exec(arm);if(mv){const st=(k:string)=>k==='ba'?'balanced' as Style:STYLE[k];return {style:st(mv[1]),vs:st(mv[2])};}
  const m0=/^(di|sh|co)0$/.exec(arm);if(m0)return {style:STYLE[m0[1]]};
+ const ds=/^ds-(\w+)$/.exec(arm);if(ds){if(!SKILLS.includes(ds[1] as Skill))throw Error('unknown arm '+arm);return {skill:ds[1] as Skill,delta:3,style:'balanced',vs:'direct'};}
  const [k,s]=arm.split('-') as [string,Skill];
  if(!SKILLS.includes(s))throw Error('unknown arm '+arm);
  if(k==='p')return {skill:s,delta:3};
@@ -56,7 +81,7 @@ export function armTreatment(arm:string):{skill?:Skill;delta?:number;style?:Styl
 
 export function inputOf(arm:string,seed:number):FrozenInput{
  const treated=seed%2,t=armTreatment(arm);
- const sides=[0,1].map(s=>side(s===0?'AAA':'BBB',s===treated?t:(t.vs?{style:t.vs}:{}))) as [FrozenSide,FrozenSide];
+ const sides=[0,1].map(s=>side(s===0?'AAA':'BBB',s===treated?t:(t.vs?{style:t.vs,formation:t.vsFormation??t.formation}:{}))) as [FrozenSide,FrozenSide];
  return {v:1,match:`skill-${seed}`,seed,kickoff:((seed>>1)%2) as 0|1,duration:900,sides};
 }
 

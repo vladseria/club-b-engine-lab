@@ -448,7 +448,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
  const sight=context.sight;
  // A defender's picture of an attacker off the ball is his own, a moment old
  // (M3). The carrier is the ball: always exact.
- const seen=(p:PracticePlayer,q:PracticePlayer)=>sight&&q.id!==owner?.id&&p.side!==q.side?sight(p,q):q;
+ const seen=(p:PracticePlayer,q:PracticePlayer,before?:number)=>sight&&q.id!==owner?.id&&p.side!==q.side?sight(p,q,before):q;
  // Defending rebuild (2026-10-03): the side without the ball has no
  // ball-anchored block any more (practice-defending replaces it); its shape
  // record only carries the time, for the possession-change bookkeeping.

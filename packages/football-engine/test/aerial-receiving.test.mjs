@@ -179,8 +179,14 @@ test('ordinary match aerial releases have matching physical contacts without a c
  // built on the matchups-combined build before the tiredness bite, moved its header from 14172 to 14177:
  // evidence/2026-10-11-regain-fixes/repin.mjs header / volley.) The combined build with both (70c5f925) changed
  // 14215-14221 for headers; 14222 has one, and 14077 still has its volley (collect-read repin.mjs header / volley).
+ // Track the runner (2026-10-11: runs read from their start) changed 14222-14225 for headers and 14077 for volleys;
+ // 14226 has a header, 14078 a volley (evidence/2026-10-11-track-runner/repin.mjs header / volley). Its wider skill
+ // range (a run read 0.1 s ahead by a man who cannot read the game, 0.8 s by a sharp one) changed 14226-14227 for
+ // headers; 14228 has one, and 14078 still has its volley (same repin.mjs header / volley). The pre-push fixes
+ // (2026-10-12: a carrier meets a man in his path; an outlet steps off a marker who beats the ball) kept 14228's
+ // header and changed 14078 for volleys; 14079 has one (evidence/2026-10-12-prepush-fixes/repin.mjs header / volley).
  const sandbox=JSON.parse(readFileSync(new URL('../../../deliverables/football-practice/engine-audition/sandbox-fixture.json',import.meta.url)));
- for(const [technique,seed] of [['header',14222],['volley',14077]]){
+ for(const [technique,seed] of [['header',14228],['volley',14079]]){
   const f=structuredClone(sandbox);f.seed=seed;
   f.teams[0].lineup[1]='motanescu';Object.assign(f.teams[0].tactics,teamApproaches.combinations.settings);
   Object.assign(f.teams[1].tactics,defensiveApproaches.press.tactics);

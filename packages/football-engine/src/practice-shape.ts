@@ -6,7 +6,8 @@ import type {PracticePlayer,Duty} from './practice.js';
 import {acuity,perceive} from './practice-perception.js';
 /** A defender's view of an attacker who is not on the ball (M3): the man as
  * this defender last saw him. Absent, reads are exact (scenes and tests). */
-export type Sight=(reader:PracticePlayer,target:PracticePlayer)=>PracticePlayer;
+/** What `reader` sees of `target` (his own picture, a moment late); `before` s earlier still, when asked (the track-runner read of a run setting off compares the two). */
+export type Sight=(reader:PracticePlayer,target:PracticePlayer,before?:number)=>PracticePlayer;
 
 export interface ShapeSlot {aim:Vec;kind:Duty;speed:number;reason:string}
 export interface TeamShape {

@@ -4,7 +4,7 @@
 // (lib/ballers/engine.worker.ts) run exactly the same code path.
 import {runMatch,ENGINE_BUILD,validatePlans,playbookProgress,type PlaybookConfig,type PlaybookPlan} from '../../packages/football-engine/src/index';
 import type {Player as EnginePlayer,Team,Tactics} from '../../packages/football-engine/src/model';
-import {engineApproach,type StoredApproach} from './approach';
+import {engineApproach,playedApproach,type StoredApproach} from './approach';
 import {validateSubstitutionOrders,type SubstitutionNote,type SubstitutionOrder,type SubstitutionTrigger} from '../../packages/football-engine/src/practice-substitutions';
 import {CHUNK_SECONDS,FRAME_STEP,REPLAY_VERSION,cm,mrad,ms,type CompactMatch,type ReplayChunk,type ReplayEvent,type ReplayFrame,type ReplayHeader,type ReplayIdea,type ReplayPlayer,type TeamStats} from './replay';
 import {resolveIdea} from './ideas';
@@ -35,7 +35,8 @@ export function engineTeam(side:FrozenSide):Team{
  // (lib/ballers/approach.ts), the one place every Tactics build goes through
  // (here, and the Lab's tacticsOf/demoSide and trial side). A frozen input
  // without `onLoss` plays as 'balanced', exactly as an explicit 'balanced'.
- const tactics:Tactics=settingsTactics({...engineApproach(side.approach),formation:side.formation,setPiece:'mixed',fullbacks:'balanced',marking:'balanced'} as unknown as Tactics,settings);
+ // In 2-1-1 Width plays Standard whatever is stored (approach.ts playedApproach).
+ const tactics:Tactics=settingsTactics({...engineApproach(playedApproach(side.formation,side.approach)),formation:side.formation,setPiece:'mixed',fullbacks:'balanced',marking:'balanced'} as unknown as Tactics,settings);
  const squad=settingsSquad(side.players.map(p=>({id:p.id,name:p.name,roles:[...p.roles],skills:{...p.skills},traits:{...p.traits},energy:p.energy,note:p.note,archetype:p.archetype,temperament:p.temperament}) as EnginePlayer),settings);
  return {id:side.club.id,name:side.club.name,short:side.club.code,color:side.club.color,description:'Ballers',squad,lineup:[...side.lineup],tactics,orders:[]};
 }

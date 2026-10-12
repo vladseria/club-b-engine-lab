@@ -104,16 +104,12 @@ test('Free kick: the call sets the routine in their half (two in the box and one
  assert.ok(Math.abs(d.b-m.b-(FK_LEAN+FK_CONTEST*.6))<1e-9&&Math.abs(d.a-m.a+FK_PLAN_B)<1e-9);
 });
 
-test('Width in 2-1-1: the midfielder leans to the ball\'s side when narrow and holds the far half-space when wide',async()=>{
- const {buildUpSpread}=await import('../dist/practice-shape.js');
- const {MID_DISCIPLINE}=await import('../dist/practice-coordination.js');
- const two=[{side:0,role:'CB'},{side:0,role:'CB'},{side:0,role:'CM'},{side:0,role:'ST'}];
- assert.ok(buildUpSpread(two,0,'narrow').middle>1&&buildUpSpread(two,0,'wide').middle<1&&buildUpSpread(two,0,'standard').middle===1);
- assert.ok(MID_DISCIPLINE>0);
- // The ball with a centre-back out on the left (y = -9): where does the midfielder go?
- const at=[[3,0],[16,-9],[15,5],[22,0],[30,1],[45,0],[34,0],[30,-6],[30,6],[24,-2]];
- const cm=w=>{const {players,plan:p}=plan({width:w},'2-1-1',at);const m=players.find(q=>q.side===0&&q.role==='CM');return p.jobs[m.id].aim.y;};
- const n=cm('narrow'),s=cm('standard'),w=cm('wide');
- assert.ok(n<=s+1e-9&&s<=w+1e-9&&n<w-1,`towards the ball's side (negative y): narrow ${n.toFixed(2)}, standard ${s.toFixed(2)}, wide ${w.toFixed(2)}`);
-});
+// Retired (2026-10-12): 'Width in 2-1-1: the midfielder leans to the ball's side when
+// narrow and holds the far half-space when wide'. Width is no longer offered in 2-1-1
+// (8aa2bbe9, from the width check on branch width-check, 234 matches): the app plays
+// Standard there whatever is stored (lib/ballers/approach.ts playedApproach), so the
+// engine never receives Narrow or Wide in 2-1-1 and the midfielder lean this test
+// guarded is no longer a choice anyone can make. (It had also stopped reading true: on
+// 9306734b and later, Wide's midfielder joins the other two on the same depth run in the
+// test's scene, and in matches Standard and Wide never differed, even on live.)
 

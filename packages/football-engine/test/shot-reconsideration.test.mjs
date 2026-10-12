@@ -96,7 +96,8 @@ test('release review preserves an ordinary shot when its opportunity remains use
  // (2026-10-04) removed it again; 13008 has one (evidence/2026-10-04-stepacross-giveaways/repin.mjs ordinary).
  // The tiredness bite (2026-10-11) removed it again; 13009 has one (evidence/2026-10-11-tiredness-bite-build/repin.mjs ordinary).
  // The collect read (2026-10-11) removed it again; 13010 has one (evidence/2026-10-11-collect-read/repin.mjs ordinary).
- const r=match(13010,'press',75),shots=r.events.filter(e=>e.kind==='shot');
+ // Track the runner (2026-10-11) removed it again; 13011 has one (evidence/2026-10-11-track-runner/repin.mjs ordinary).
+ const r=match(13011,'press',75),shots=r.events.filter(e=>e.kind==='shot');
  assert(shots.length,'The review must not suppress shooting as a class');
  assert(shots.some(e=>{const index=r.players.findIndex(p=>p.id===e.actor),preparation=r.choices.findLast(c=>c.player===index&&c.action&&c.time<e.time);return !e.firstTime&&!e.technique&&!e.freeKick&&preparation?.action==='shoot'&&e.time-preparation.time<2&&!r.events.some(n=>n.actor===e.actor&&n.kind==='receive'&&n.time>preparation.time&&n.time<e.time);}), 'An ordinary prepared foot shot must still release');
  for(const shot of shots){

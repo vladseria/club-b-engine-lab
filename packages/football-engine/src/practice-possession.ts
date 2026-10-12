@@ -112,29 +112,72 @@ export function readerMargin(r:PasserRead,opponent:{id:string},at:Vec,read:'lane
  * at the kick better (AUC 0.61 -> 0.71 on 2bec595c) at the same scale (a read
  * of 1 still loses about 27% of kicks there). */
 export const LAUNCH_REACT=.25;
+/** Pre-push fixes (2026-10-12): he cannot run through a man. The lane and
+ * launch reads forecast the carrier by his momentum until the kick (honest
+ * reads), but a man standing in his path, or stepping into it, is met before
+ * he gets there: by visible momentum (both of them), the first opponent in
+ * front of him (ahead in the direction he is running) who comes within
+ * MEET_GAP of him while they are closing. The carrier's forecast stops where
+ * they meet; that man has engaged him and, for what is left of the horizon,
+ * goes on closing on the ball at his feet (from his speed towards him,
+ * accelerating at his own rate to his own pace), so he contests any kick
+ * played from there, whatever its direction: he blocks the pass or he is on
+ * the ball before it is away. Everyone else moves on over the whole horizon.
+ * MEET_GAP: a stride, where a standing man's foot reaches a ball at the
+ * carrier's feet. A man moving with him, beside his path or chasing him from
+ * behind is never met, and the open-field forecast is unchanged (a pursuer
+ * closing from behind is read by his own momentum as before: stopping the
+ * carrier for him would invent a block ahead of him).
+ * Returns the time the carrier's forecast runs (`lead` when he meets nobody),
+ * the id of the opponent met and where that opponent is at `lead`. */
+export const MEET_GAP=1;
+type Mover={x:number;y:number;vx:number;vy:number;side:0|1};
+export function carrierMeets(p:Mover,players:(Mover&{id:string;pace:number;acceleration:number})[],lead:number):{t:number;met:string|null;at:Vec|null}{
+ let t=lead,met:(typeof players)[number]|null=null;
+ for(const q of players){
+  if(q.side===p.side)continue;
+  const rx=q.x-p.x,ry=q.y-p.y,wx=q.vx-p.vx,wy=q.vy-p.vy,b=rx*wx+ry*wy;
+  if(b>=0||rx*p.vx+ry*p.vy<=0)continue;// not closing on each other, or not in front of him
+  const c=rx*rx+ry*ry-MEET_GAP*MEET_GAP,a=wx*wx+wy*wy;
+  let at:number;
+  if(c<=0)at=0;
+  else{const disc=b*b-a*c;if(disc<0)continue;at=(-b-Math.sqrt(disc))/a;}
+  if(at<t){t=at;met=q;}
+ }
+ if(!met)return {t,met:null,at:null};
+ const cx=p.x+p.vx*t,cy=p.y+p.vy*t,qx=met.x+met.vx*t,qy=met.y+met.vy*t,gap=Math.max(.01,Math.hypot(qx-cx,qy-cy)),ux=(qx-cx)/gap,uy=(qy-cy)/gap;
+ const rest=lead-t,towards=clamp(-(met.vx*ux+met.vy*uy),0,met.pace),accelerating=Math.min(rest,(met.pace-towards)/met.acceleration);
+ const left=Math.max(0,gap-(towards*accelerating+.5*met.acceleration*accelerating*accelerating+met.pace*(rest-accelerating)));
+ return {t,met:met.id,at:{x:cx+ux*left,y:cy+uy*left}};
+}
 export function launchRisk(p:PracticePlayer,aim:Vec,players:PracticePlayer[],delay=0,reach=4,read?:PasserRead):number{
  // Forecast both sides over the same horizon. Moving only opponents
  // invents blocks at the passer's old position when both are advancing.
  // Visible momentum is an estimate, not knowledge of future decisions.
- const look=Math.min(1,delay),from={x:p.x+p.vx*look,y:p.y+p.vy*look},closing=look-LAUNCH_REACT;
+ // (pre-push fixes) ...but he stops where he meets a man in his path (carrierMeets).
+ const look=Math.min(1,delay),meet=carrierMeets(p,players,look),from={x:p.x+p.vx*meet.t,y:p.y+p.vy*meet.t},closing=look-LAUNCH_REACT;
  const length=distance(from,aim),ux=(aim.x-from.x)/Math.max(.01,length),uy=(aim.y-from.y)/Math.max(.01,length);
  const start={x:from.x+ux*.65,y:from.y+uy*.65},segment=Math.min(reach,Math.max(.1,length-.65));
  let risk=0;
  for(const q of players){
   if(q.side===p.side)continue;
   // Short visible-momentum forecast, not knowledge of the opponent's next decision.
-  const x=q.x+q.vx*look,y=q.y+q.vy*look;
+  const engaged=q.id===meet.met,x=engaged?meet.at!.x:q.x+q.vx*look,y=engaged?meet.at!.y:q.y+q.vy*look;
   const raw=(x-start.x)*ux+(y-start.y)*uy,along=clamp(raw,0,segment);
   let gap=Math.hypot(x-start.x-ux*along,y-start.y-uy*along);
-  if(closing>0&&gap>0){
+  // (the man he meets is already going for the ball: carrierMeets has closed him on it)
+  if(closing>0&&gap>0&&!engaged){
    // what he adds to his momentum by going for the lane once he has seen it
    const towards=clamp(((start.x+ux*along-x)*q.vx+(start.y+uy*along-y)*q.vy)/gap,0,q.pace);
    const accelerating=Math.min(closing,(q.pace-towards)/q.acceleration);
    gap=Math.max(0,gap-(.5*q.acceleration*accelerating*accelerating+(q.pace-towards)*(closing-accelerating)));
   }
   // (his read of a foot in the way is of one in front of the kick: a man behind him cannot block a ball played away from him)
-  const m=read&&raw>0?Math.max(-1,readerMargin(read,q,aim,'block')):0;
+  const m=read&&(raw>0||engaged)?Math.max(-1,readerMargin(read,q,aim,'block')):0;
   risk=Math.max(risk,clamp((1.25+m-gap)/.8,0,1));
+  // (pre-push fixes) the man he meets contests the ball at his feet, whichever way it is played: on the same scale,
+  // by how close he has got to it (from) by the kick
+  if(engaged)risk=Math.max(risk,clamp((1.25+m-Math.hypot(x-from.x,y-from.y))/.8,0,1));
  }
  return risk;
 }

@@ -17,7 +17,7 @@ import {PASS_DRAG,preferredArrival} from './practice-flight.js';
 import {receptionResidual} from './practice-reception.js';
 import {turnoverPrice,deliveryLossWeight} from './practice-rest-defence.js';
 import {daring,perceive} from './practice-perception.js';
-import {feltPressure,possessionSafety,readerMargin,readKickHorizon} from './practice-possession.js';
+import {feltPressure,possessionSafety,readerMargin,readKickHorizon,carrierMeets} from './practice-possession.js';
 import type {PasserRead} from './practice-possession.js';
 export {PASS_DRAG} from './practice-flight.js';
 
@@ -123,8 +123,11 @@ export function groundPassRisk(from:Vec,to:Vec,opponents:PracticePlayer[],speed:
  // theirs, before the flight is read.
  const lead=read?.lead??0;
  if(lead>0){
-  const ahead=<T extends Vec&{vx:number;vy:number}>(q:T):T=>({...q,x:q.x+q.vx*lead,y:q.y+q.vy*lead});
-  from={x:from.x+read!.p.vx*lead,y:from.y+read!.p.vy*lead};opponents=opponents.map(ahead);if(receiver)receiver=ahead(receiver);
+  // (pre-push fixes, 2026-10-12) ...unless a man in his path meets him first: then
+  // he is forecast only to where they meet, and that man on to the ball at his feet (carrierMeets).
+  const meet=carrierMeets(read!.p,opponents,lead);
+  const ahead=<T extends Vec&{vx:number;vy:number;id:string}>(q:T):T=>q.id===meet.met?{...q,...meet.at!}:{...q,x:q.x+q.vx*lead,y:q.y+q.vy*lead};
+  from={x:from.x+read!.p.vx*meet.t,y:from.y+read!.p.vy*meet.t};opponents=opponents.map(ahead);if(receiver)receiver=ahead(receiver);
  }
  const dx=to.x-from.x,dy=to.y-from.y,length=Math.hypot(dx,dy);if(length<1||!Number.isFinite(passFlightTime(length,speed)))return 1;
  // The receiver may meet the ball before its aimed endpoint. An opponent arriving
