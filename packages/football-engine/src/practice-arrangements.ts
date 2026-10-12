@@ -14,6 +14,7 @@ import type {TeamShape} from './practice-shape.js';
 import type {SupportMove} from './practice-support.js';
 import {readSupportLocation,shortSupportPoints} from './practice-support.js';
 import {arrivalTime} from './practice-defense.js';
+import {expectedPassFlight} from './practice-flight.js';
 
 type Risk=(from:Vec,to:Vec,defenders:PracticePlayer[],speed?:number)=>number;
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
@@ -40,7 +41,7 @@ export function refineReceptionSupport(players:PracticePlayer[],focus:PracticePl
   return points.map(aim=>{
    const projected={...p},duration=Math.min(horizon,Math.max(0,job.until-time));
    for(let t=0;t<duration;t+=.1)steerMotion(projected,aim,Math.min(.1,duration-t),Math.min(p.pace,job.speed));
-   const gap=distance(focus,projected),delivery=incoming+.2+gap/(14+focus.skills.passing*.5);
+   const gap=distance(focus,projected),delivery=incoming+.2+expectedPassFlight(gap);
    const lane=risk(focus,projected,future),closing=Math.min(...opponents.map(q=>arrivalTime(q,projected)));
    const room=clamp((closing-delivery)/.8,0,1),access=(1-lane)*room*clamp((gap-3)/2,0,1)*clamp((22-gap)/6,0,1);
    const change=distance(aim,job.aim);

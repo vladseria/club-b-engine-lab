@@ -90,13 +90,29 @@ test('with the striker marked, his marker keeps him in front; the other centre-b
   let v=null;for(let k=0;k<6;k++)v=coordinateFootball(players,ball,0,tactics,laneRisk,{time:20+k*.25,recoveredAt:-10},v);
   const cbs=players.filter(p=>p.side===1&&p.role==='CB'),marker=cbs.find(p=>v.jobs[p.id].purpose==='mark'&&v.jobs[p.id].target===players[4].id);
   const other=cbs.find(p=>p!==marker);
-  return {marker:marker&&v.jobs[marker.id],other:other&&v.jobs[other.id]};
+  return {marker:marker&&v.jobs[marker.id],other:other&&v.jobs[other.id],striker:players[4].id};
  };
+ // (Cover-defender round, 2026-10-10, evidence/2026-10-10-cover-defender.) This test came from the defending
+ // round of 3 Oct, whose complaint was columns: defenders stacked one behind the other towards their own goal
+ // line, several aims on one spot. It used to say so as depth only ("the other's aim at least 1 m upfield of the
+ // marker's"), which also forbade the one deeper position real futsal defenders take on purpose: the diagonal
+ // cover behind and inside a team-mate whose man is ahead of the ball (here the marker is still 5 m upfield of
+ // the striker, running back). The intent is kept as geometry: the other centre-back is either upfield of the
+ // marker as before, or, if deeper, off the marker's line to goal by at least 1.2 m (not in a column), outside
+ // the goal area, and a real cover for that striker (his job covers him, goal-side of him, within 4 m: close
+ // enough to step in), not a man parked behind his team-mate.
+ const g1={x:L,y:0},striker={x:39,y:2};
+ const offLine=(p,m)=>{const d=Math.hypot(g1.x-m.x,g1.y-m.y)||1;return Math.abs((p.x-m.x)*(g1.y-m.y)-(p.y-m.y)*(g1.x-m.x))/d;};
  for(const line of ['deep','high']){
   const s=run(line);
   assert.ok(s.marker,`${line}: a centre-back marks the striker`);
   assert.ok(depth1(s.marker.aim.x)<9,`${line}: goal-side of him (${depth1(s.marker.aim.x).toFixed(2)})`);
-  assert.ok(depth1(s.other.aim.x)>depth1(s.marker.aim.x)+1,`${line}: the other is not stacked behind the marker (${depth1(s.other.aim.x).toFixed(2)})`);
+  if(depth1(s.other.aim.x)>depth1(s.marker.aim.x)+1)continue;
+  const o=s.other.aim,m=s.marker.aim;
+  assert.ok(offLine(o,m)>=1.2,`${line}: the other, deeper, is not in a column behind the marker (${offLine(o,m).toFixed(2)} m off his line to goal)`);
+  assert.ok(depth1(o.x)>=4,`${line}: and not in the goal area (${depth1(o.x).toFixed(2)})`);
+  assert.ok(s.other.kind==='cover'&&s.other.target===s.striker,`${line}: deeper only as the striker's cover (${s.other.purpose}/${s.other.kind})`);
+  assert.ok(Math.hypot(o.x-g1.x,o.y-g1.y)<Math.hypot(striker.x-g1.x,striker.y-g1.y)&&Math.hypot(o.x-striker.x,o.y-striker.y)<4,`${line}: goal-side of the striker and close enough to step in (${Math.hypot(o.x-striker.x,o.y-striker.y).toFixed(2)} m)`);
  }
 });
 

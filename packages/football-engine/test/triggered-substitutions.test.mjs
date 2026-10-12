@@ -117,8 +117,10 @@ test('score, margin and half-time triggers fire at stoppages when true; three pe
  // that, and 2028 is the next (evidence/2026-09-30-balance-v3/repin.mjs subs).
  // The settings-truth round (2026-10-04: line keepers stay home, Counter-press
  // goes whatever the numbers) changed it; 2029 is the next
- // (evidence/2026-10-04-settings-truth/repin.mjs subs).
- const f=withBench(2029);
+ // (evidence/2026-10-04-settings-truth/repin.mjs subs). The matchups-combined
+ // build (2026-10-10) changed it; 2030 is the next
+ // (evidence/2026-10-10-matchups-combined/repin.mjs subs).
+ const f=withBench(2030);
  const orders=[
   {id:'h',side:0,in:'r10',trigger:{kind:'half'}},
   {id:'chain',side:0,in:'r20',out:'r10',trigger:{kind:'tired',player:'r10',threshold:99.9},notBefore:200},

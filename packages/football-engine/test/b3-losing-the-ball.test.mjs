@@ -133,3 +133,22 @@ test('a standing mark order survives a counter-press window',()=>{
  assert.equal(s.job(marker).purpose,'playbook');assert.equal(s.job(marker).target,target.id,'the ordered defender keeps his man');
  assert(s.purposes.includes('counter-press'),`the other wide player still counter-presses (${s.purposes})`);
 });
+
+// Regain fixes (2026-10-11): the tackle ping-pong. A player whose ball was just taken in a tackle is off balance:
+// he never commits a challenge of his own for BEATEN_BALANCE s (more for a weaker player). (His team-mates are
+// untouched by the rule; how often they counter-press is measured, evidence/2026-10-11-regain-fixes.)
+test('a player who has just been tackled cannot go straight back in',async()=>{
+ const {runMatch}=await import('../dist/index.js');
+ const {BEATEN_BALANCE}=await import('../dist/practice-challenge.js');
+ const f=structuredClone(fixture);f.seed=2026;
+ const r=runMatch({fixture:f,durationSeconds:240}).result;
+ const id=i=>r.players[i].id;
+ const challenges=r.choices.filter(c=>c.kind==='challenge'&&c.challenge);
+ const won=challenges.filter(c=>r.events.some(e=>e.kind==='tackle'&&e.actor===id(c.player)&&Math.abs(e.time-c.challenge.resolvesAt)<.05));
+ assert(won.length>=5,`tackles won (${won.length})`);
+ for(const c of won){
+  const loser=c.challenge.opponent,t=c.challenge.resolvesAt;
+  const again=challenges.find(x=>id(x.player)===loser&&x.time>t+1e-6&&x.time<t+BEATEN_BALANCE-1e-6);
+  assert(!again,`${loser} tackled at ${t.toFixed(2)} s went in again at ${again?.time.toFixed(2)} s`);
+ }
+});

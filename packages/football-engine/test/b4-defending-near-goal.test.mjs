@@ -74,7 +74,7 @@ test('a runner from behind a closing defender\'s shoulder is picked up late, les
  assert(!runnerBehindShoulder(d,{x:18,y:1,vx:.5,vy:0}),'barely moving');
 });
 test('in a match, late pick-ups happen, are short, and only ever for a runner after a press',()=>{
- const f=structuredClone(fixture);f.seed=2028;
+ const f=structuredClone(fixture);f.seed=2030;
  const r=runMatch({fixture:f,durationSeconds:300}).result;
  let lapses=0;const open=new Map();
  for(const c of r.choices){const a=c.assignment;const cur=open.get(c.player);
@@ -84,11 +84,14 @@ test('in a match, late pick-ups happen, are short, and only ever for a runner af
 });
 
 // (Seed 2027 since the defending rebuild, 2026-10-03: evidence/2026-10-03-defending-build/repin.mjs b4;
-// 2028 since the step-across round, 2026-10-04: 2027 had 7 shots, evidence/2026-10-04-stepacross-giveaways/repin.mjs b4.)
+// 2028 since the step-across round, 2026-10-04: 2027 had 7 shots, evidence/2026-10-04-stepacross-giveaways/repin.mjs b4;
+// 2029 since the passing-and-control round, 2026-10-10: 2028 had 9 shots, evidence/2026-10-10-passing-control/repin.mjs b4;
+// still 2029 after the threat-defending round, 2026-10-10: evidence/2026-10-10-threat-defending/repin.mjs b4 confirms it;
+// 2030 since the regain fixes, 2026-10-11: 2029 had 8 shots, evidence/2026-10-11-regain-fixes/repin.mjs b4.)
 // The keeper keeps setting himself against the ball: at the shot he stands
 // near the line bisecting the posts (before: ~1.1 m off on average).
 test('the defending keeper is set near the bisector of the posts when the shot comes',()=>{
- const f=structuredClone(fixture);f.seed=2028;
+ const f=structuredClone(fixture);f.seed=2030;
  const r=runMatch({fixture:f,durationSeconds:300}).result,miss=[];
  for(const e of r.events.filter(e=>e.kind==='shot'&&e.actor)){
   const s=r.players.find(p=>p.id===e.actor).side,d=1-s,g=r.players.findIndex(p=>p.side===d&&p.role==='GK');

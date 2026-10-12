@@ -37,7 +37,7 @@ test('review preserves the purpose of a committed duel and stronger manager pref
 });
 
 test('live take-on can become a pass before its old timeout without skipping the fake, preparation or foot contact',()=>{
- const fixture=structuredClone(scene.fixture);fixture.seed=2048;fixture.teams[0].lineup[1]='motanescu';Object.assign(fixture.teams[0].tactics,teamApproaches.direct.settings);
+ const fixture=structuredClone(scene.fixture);fixture.seed=2070;fixture.teams[0].lineup[1]='motanescu';Object.assign(fixture.teams[0].tactics,teamApproaches.direct.settings);
  const r=runMatch({fixture,durationSeconds:40}).result;
  // Live restart setups (2026-09-29) changed the seed-2026 passage (Fleasca to
  // Van). The recorded encounter was Crocodinho's take-on at 6.53 s of seed
@@ -64,12 +64,22 @@ test('live take-on can become a pass before its old timeout without skipping the
  // settings-truth round (2026-10-04: line keepers stay home, the spare man's
  // marker takes a free job, Counter-press goes whatever the numbers) moved it to
  // seed 2048: Crocodinho's take-on at 6.500 s, released to Van at 8.133 s
- // (evidence/2026-10-04-settings-truth/repin.mjs takeon).
- const attempt=r.events.find(e=>e.kind==='feint'&&e.actor==='0:crocodinho'&&e.time>6.45&&e.time<6.55);assert(attempt,'Recorded encounter still occurs');
+ // (evidence/2026-10-04-settings-truth/repin.mjs takeon). The passing-and-control
+ // round (2026-10-10) moved it to seed 2051: Crocodinho's take-on at 10.367 s,
+ // released to Golusor at 11.133 s (evidence/2026-10-10-passing-control/repin.mjs takeon). The honest-reads
+ // round (2026-10-10) moved it within the same seed: Crocodinho's take-on at 6.600 s, released to Golusor at
+ // 7.883 s (evidence/2026-10-10-honest-reads/repin.mjs takeon). The matchups-combined build (2026-10-10) moved it
+ // to seed 2063: Crocodinho's take-on at 8.183 s, released to Golusor at 9.283 s
+ // (evidence/2026-10-10-matchups-combined/repin.mjs takeonGolusor). With movement intensity merged in, it moved
+ // to seed 2066: Crocodinho's take-on at 6.617 s, released to Golusor at 8.067 s (same repin.mjs takeonGolusor).
+ // The final matchups-combined build (2026-10-11: threat defending + honest run timing) moved it to seed 2070:
+ // Crocodinho's take-on at 37.083 s, released to Golusor at 38.117 s
+ // (evidence/2026-10-10-threat-defending/repin.mjs takeonGolusor).
+ const attempt=r.events.find(e=>e.kind==='feint'&&e.actor==='0:crocodinho'&&e.time>37.033&&e.time<37.133);assert(attempt,'Recorded encounter still occurs');
  const player=r.players.findIndex(p=>p.id===attempt.actor),prepare=r.choices.find(c=>c.player===player&&c.kind==='prepare'&&c.action&&c.time>attempt.time);
  const pass=r.events.find(e=>e.kind==='pass'&&e.actor===attempt.actor&&e.time>attempt.time);
  assert(prepare&&pass);assert(prepare.time>=attempt.time+.41,'Fake and initial burst must complete');
- assert(pass.time>prepare.time+.2,'New action must prepare normally');assert(pass.time<attempt.time+1.7,'Release need not wait for the old two-second duel timeout');assert.equal(pass.target,'0:van');
+ assert(pass.time>prepare.time+.2,'New action must prepare normally');assert(pass.time<attempt.time+1.7,'Release need not wait for the old two-second duel timeout');assert.equal(pass.target,'0:golusor');
  assert(r.controlContacts.some(c=>c.actor===pass.actor&&c.kind==='pass'&&Math.abs(c.time-pass.time)<1e-6&&c.foot),'Pass requires recorded physical contact');
  assert(r.events.some(e=>e.kind==='receive'&&e.actor===pass.target&&e.time>pass.time&&e.time<pass.time+2));
 });

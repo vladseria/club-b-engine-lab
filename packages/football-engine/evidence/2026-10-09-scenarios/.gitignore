@@ -1,0 +1,4 @@
+results/.bundle.*
+results/.rev-*
+# smoke-test rows prove the harness runs; their results are not part of the evidence
+results/smoke*.jsonl

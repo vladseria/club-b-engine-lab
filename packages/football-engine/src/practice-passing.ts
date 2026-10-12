@@ -13,11 +13,11 @@ import type {SupportPlan} from './practice-support.js';
 import {assessShot,goalAngle} from './practice-football.js';
 import {keeperReadyPosition} from './practice-keeper.js';
 import {arrivalTime} from './practice-defense.js';
-import {PASS_DRAG} from './practice-flight.js';
+import {PASS_DRAG,preferredArrival} from './practice-flight.js';
 import {receptionResidual} from './practice-reception.js';
-import {turnoverPrice} from './practice-rest-defence.js';
+import {turnoverPrice,deliveryLossWeight} from './practice-rest-defence.js';
 import {daring,perceive} from './practice-perception.js';
-import {feltPressure,possessionSafety,readerMargin} from './practice-possession.js';
+import {feltPressure,possessionSafety,readerMargin,readKickHorizon} from './practice-possession.js';
 import type {PasserRead} from './practice-possession.js';
 export {PASS_DRAG} from './practice-flight.js';
 
@@ -118,6 +118,14 @@ export function receptionTime(p:PracticePlayer,aim:Vec):number{
 /** Decelerating flight, including opponents able to reach the receiver's end of the lane.
  * `read`: the passer's own read of each opponent's reach (readerMargin, step-across round); without it, the exact picture. */
 export function groundPassRisk(from:Vec,to:Vec,opponents:PracticePlayer[],speed:number,receiver?:PracticePlayer,read?:PasserRead):number{
+ // (honest-reads round) the ball leaves his foot `lead` s from now: the lane
+ // starts where his momentum takes him, and everyone else has moved on
+ // theirs, before the flight is read.
+ const lead=read?.lead??0;
+ if(lead>0){
+  const ahead=<T extends Vec&{vx:number;vy:number}>(q:T):T=>({...q,x:q.x+q.vx*lead,y:q.y+q.vy*lead});
+  from={x:from.x+read!.p.vx*lead,y:from.y+read!.p.vy*lead};opponents=opponents.map(ahead);if(receiver)receiver=ahead(receiver);
+ }
  const dx=to.x-from.x,dy=to.y-from.y,length=Math.hypot(dx,dy);if(length<1||!Number.isFinite(passFlightTime(length,speed)))return 1;
  // The receiver may meet the ball before its aimed endpoint. An opponent arriving
  // farther downstream after that contact is not a reason to reject this delivery.
@@ -169,8 +177,7 @@ export function activePassRun(support:SupportPlan|null,owner:PracticePlayer,targ
 }
 
 /** The same moving target and kick speed are used when weighing and releasing a ground pass. */
-/** The comfortable arrival speed of a ground pass of this length, and its firm end. */
-const preferredArrival=(length:number)=>clamp(5.5+length*.24,6,14);
+/** The comfortable arrival speed of a ground pass of this length (practice-flight), and its firm end. */
 export const firmArrival=(length:number)=>Math.min(19,preferredArrival(length)+4);
 export function groundPassCandidates(p:PracticePlayer,q:PracticePlayer,through:boolean,run?:PassRun,from:Vec=p,opponents:PracticePlayer[]=[],space?:ReceivingSpace,read?:PasserRead):GroundPass[]{
  const initialDistance=distance(from,q),preferred=preferredArrival(initialDistance);
@@ -307,14 +314,15 @@ export function groundOptions(p:PracticePlayer,q:PracticePlayer,players:Practice
  // What losing it here costs: where, and the rest defence behind the ball.
  const lossCost=turnoverPrice(p,players,from);
  // (step-across round) the lane as HE reads it: his read of each opponent's reach (readerMargin)
- const read:PasserRead={p,pressure,danger:possessionSafety(p,players).danger};
+ // (honest-reads round) read over his own estimate of when the ball is away (readKickHorizon)
+ const read:PasserRead={p,pressure,danger:possessionSafety(p,players).danger,lead:readKickHorizon(p,q,through?'through':'pass')};
  return groundPassCandidates(p,q,through,run,from,defenders,receivingSpace,read).map((pass):Option=>{
    const {aim,risk}=pass;
    const space=receivingRoom(aim,defenders,pass.flight),caught=receiverCaught(p,q,aim,space,players);
    const advance=passAdvance(p,p,aim),threat=clamp((depth(p,aim.x)-X(65))/X(32),0,1)*(1-Math.abs(aim.y)/Y(40));
    const delivery=readDelivery(p,q,aim,players,risk,laneRisk,pass.flight,context);
    const next=passProspects(p,from,q,aim,players,pass.flight,own)*(1-risk);
-   const score=-caught+next-teammatePassObstruction(p,q,aim,players,pass.flight)*.75+.25+advance*(.24+p.traits.risk*.15)*(1-risk)+space*.14+threat*.21-(risk+(1-skill(p.skills.passing))*d/75)*(.68-p.traits.risk*.3+lossCost)-(1-space)*.12-d*.002-(q.id===lastFrom&&held<1.2?.035:0)+(through?.06*p.traits.risk:0)+(pressure*.2*space)
+   const score=-caught+next-teammatePassObstruction(p,q,aim,players,pass.flight)*.75+.25+advance*(.24+p.traits.risk*.15)*(1-risk)+space*.14+threat*.21-(risk+(1-skill(p.skills.passing))*d/75)*deliveryLossWeight(p,lossCost)-(1-space)*.12-d*.002-(q.id===lastFrom&&held<1.2?.035:0)+(through?.06*p.traits.risk:0)+(pressure*.2*space)
     +delivery.shotGain*(.55+skill(p.skills.reading)*.2)*(delivery.shotGain>0?(1-risk)*space:1)
     +delivery.connectionGain*(.22+skill(p.skills.reading)*.16+p.traits.comesShort*.08)*(1-risk)*(1-pass.controlRisk)*clamp(1+pass.reachMargin,0,1)-pass.controlRisk*.45-Math.max(0,-pass.reachMargin)*.18;
    const reason=delivery.shotGain>.1&&delivery.kind==='cutback'?'Întoarce mingea din lateral spre un coleg cu un unghi de șut mai bun.'
