@@ -7,7 +7,8 @@
 //   size     reserve size D'                                                       (reserveBalance)
 //   hl       reserve refill half-life                                              (reserveBalance)
 // Combined: energy = drain+csE, reserve = csR+size+hl. `hook` adds the read-only legs hook stamina.ts reads (no
-// effect on play). A bundle name is a '+'-joined list, e.g. `hook+reserve`; `base` is the source as it is.
+// effect on play). fixA / fixB apply only to the fix branch: the sprint threshold fixed at 0.8 of listed pace (A),
+// or following the square root of today's top-pace factor (B, half the tracking). A bundle name is a '+'-joined list, e.g. `hook+reserve`; `base` is the source as it is.
 import {readFileSync} from 'node:fs';
 
 const PM=/football-engine\/src\/practice-match\.ts$/,PR=/football-engine\/src\/practice\.ts$/;
@@ -17,6 +18,9 @@ const T={
  csR:[[PM,' const cs=criticalSpeed(stamina,topPace),v=Math.max(0,speed)',' const cs=criticalSpeed(6,topPace),v=Math.max(0,speed)']],
  size:[[PM,'reserve-(v-cs)*dt/reserveSize(stamina)','reserve-(v-cs)*dt/reserveSize(6)']],
  hl:[[PM,'Math.LN2/reserveHalfLife(stamina)*dt','Math.LN2/reserveHalfLife(6)*dt']],
+ // on the fix branch (2026-10-12 stamina build): how much the sprint threshold should follow today's legs
+ fixA:[[PM,'const cs=sprintThreshold(topPace,energy),','const cs=.8*topPace,']],
+ fixB:[[PM,'=>SPRINT_SHARE*topPace*energyTop(energy);','=>.8125*topPace*Math.sqrt(energyTop(energy));']],
  hook:[[PR,'p.pace=p.basePace*energyTop(p.energy,p.role===\'GK\')*fit.top;p.acceleration=rested*fit.acceleration;',
   'p.pace=p.basePace*energyTop(p.energy,p.role===\'GK\')*fit.top;p.acceleration=rested*fit.acceleration;(globalThis as any).__staminaHook?.(time,p,fit,reserveOf(p));']],
 };
