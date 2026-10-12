@@ -57,7 +57,7 @@ function official(inp:any,c:any,engineBuild:string){
 }
 
 // ---- the match ------------------------------------------------------------------------------------------------
-export function play(t:{label:string;arm:string;seed:number;rev:string}){
+export function play(t:{label:string;arm:string;seed:number;rev:string},extra?:(R:any,inp:any)=>any){
  const inp=inputOf(t.arm,t.seed),teams=inp.sides.map(engineTeam) as any,t0=performance.now();
  const run:any=runMatch({fixture:{teams,seed:inp.seed,kickoff:inp.kickoff},durationSeconds:inp.duration,policy:'coordinated',substitutions:'none',record:true} as any);
  const ms=Math.round(performance.now()-t0),R=run.result;
@@ -259,7 +259,7 @@ export function play(t:{label:string;arm:string;seed:number;rev:string}){
  return {label:t.label,kind:'deep',arm:t.arm,seed:t.seed,rev:t.rev,ours:treated,kickoff:inp.kickoff,duration:inp.duration,
   styles:sides.map(s=>s.style),forms:sides.map(s=>s.formation),skill:tr.skill?{side:treated,name:tr.skill,delta:tr.delta}:null,
   plat:`${process.platform}-${process.arch}-node${process.versions.node}`,build:run.engineBuild.slice(0,8),tableBuild:CHANCE_TABLE.build.slice(0,8),
-  ...off,dropped:[],agg:out,ms};
+  ...off,dropped:[],agg:out,ms,...(extra?{st:extra(R,inp)}:{})};
 }
 // agg[side] keys (per match, that side):
 //  goals shots clear good(sum of table rates) onTarget(goals + opponent saves) headers goalsHalf[1st,2nd] goalsLate(after 12:00)
