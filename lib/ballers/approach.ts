@@ -11,8 +11,7 @@
 // - engineApproach() is the ONE place the value reaches engine tactics: every
 //   Tactics the app builds goes through it — lib/ballers/compute.ts
 //   `engineTeam` (official matches and browser practice),
-//   lib/ballers/lab/team.ts `tacticsOf` and `demoSide`, and the Lab's trial
-//   side (components/ballers/lab/Lab.tsx).
+//   lib/ballers/lab/team.ts `tacticsOf` and `demoSide`.
 import type {ApproachSettings} from '../../packages/football-engine/src/team-approach';
 
 export type OnLoss='regroup'|'balanced'|'counterpress';

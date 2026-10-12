@@ -5,7 +5,7 @@ import type {PrepOrder} from './subs';
 import type {MatchSettings} from './match-settings';
 import type {Voice} from './voice';
 import type {Player as EnginePlayer, Role} from '../../packages/football-engine/src/model';
-import {LOCK_MS, nextKickoff} from './schedule';
+import {LOCK_MS} from './schedule';
 import {LAST_ATTACK_MAX} from '../../packages/football-engine/src/practice-match';
 export {ON_LOSS,engineApproach,onLossOf,playedApproach,widthChosen,withOnLoss,type Approach,type OnLoss,type StoredApproach} from './approach';
 
@@ -114,7 +114,7 @@ export const APPROACH_FIELDS:ApproachField[]=[
  // practice-shape.ts WIDTH (lane, pull, hold, follow, reach, allowance, inward), buildUpSpread; practice-coordination.ts hold-width job.
  // Wide no longer says "Hurts a side that presses hard": the width check (2026-10-11, 234 matches, branch
  // width-check) found no support for it (flat against the press in 1-2-1, likely worse in 2-2).
- // Not offered in 2-1-1 (approach.ts widthChosen): the screens show WIDTH_NONE in its place.
+ // Not offered in 2-1-1 (approach.ts widthChosen).
  {key:'width',label:'Width',about:'How far apart your players spread when you have the ball.',options:[
   {value:'narrow',label:'Narrow',line:'Players stay close to help each other and the middle is shut, but a switch to the far side hurts you.'},
   {value:'standard',label:'Standard',line:'A bit of both: some width to switch play, and a middle that stays fairly closed. Fits any squad.'},
@@ -178,7 +178,6 @@ export const APPROACH_FIELDS:ApproachField[]=[
 /** What stands where Width would in 2-1-1, which has no Width choice (approach.ts widthChosen):
  * how that shape spreads with the ball (width check, 2026-10-11: the centre-backs split wider to
  * start attacks and the midfielder stays central). `we` is the plan paragraph's own voice. */
-export const WIDTH_NONE='No wingers in this shape: your centre-backs split to start attacks and the midfielder links play through the middle.';
 export const WIDTH_NONE_WE='No wingers in this shape: our centre-backs split to start attacks and the midfielder links play through the middle.';
 
 /** Keeper and free-kick calls (Match prep, and a plan's set pieces): the one
@@ -259,8 +258,6 @@ export type LockState='open'|'locked';
 export function lockState(round:Pick<Round,'locks_at'|'status'>,now=Date.now()):LockState{
  return round.status==='open'&&now<Date.parse(round.locks_at)?'open':'locked';
 }
-/** When nobody has opened the round yet, the calendar still knows the slot. */
-export function nextSlot(now=Date.now()){const kickoff=nextKickoff(now);return {kickoff,locks:kickoff-LOCK_MS};}
 export function countdown(ms:number){const s=Math.max(0,Math.floor(ms/1000));return {d:Math.floor(s/86400),h:Math.floor(s%86400/3600),m:Math.floor(s%3600/60),s:s%60};}
 const fmt=(opts:Intl.DateTimeFormatOptions)=>new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Bucharest',...opts});
 const dayFmt=fmt({weekday:'short'}),timeFmt=fmt({hour:'2-digit',minute:'2-digit',hourCycle:'h23'}),dateFmt=fmt({weekday:'short',day:'numeric',month:'short'});
@@ -345,8 +342,6 @@ export function swapIn(players:Player[],lineup:string[],slot:number,benchId:stri
 export function ideaMissing(idea:Pick<Idea,'lineup'>,lineup:string[]){return idea.lineup.filter(id=>!lineup.includes(id));}
 export const MAX_IDEAS_ON=3,MAX_IDEAS_SAVED=12;
 
-/** A stored player as the engine's Player (practice/official matches). */
-export function enginePlayer(p:Player):EnginePlayer{return {id:p.id,name:p.name,roles:[...p.roles],skills:{...p.skills},traits:{...p.traits},energy:p.energy,note:p.note};}
 
 // ---------- founding a club ----------
 /** A three-character code from a club name (FC Prelungitorul -> FCP, Malpraxis -> MAL). */

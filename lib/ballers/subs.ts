@@ -90,7 +90,7 @@ export function triggerOf(when:When,player:string,threshold:number):Substitution
 
 const clock=(s:number)=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
 type Name=(id:string)=>string;
-export function triggerPhrase(t:SubstitutionTrigger,name:Name):string{
+function triggerPhrase(t:SubstitutionTrigger,name:Name):string{
  switch(t.kind){
   case 'tired':return `if ${name(t.player)} is ${tiredLevel(t.threshold).label}`;
   case 'score':return t.state==='losing'?'if we’re losing':t.state==='winning'?'if we’re winning':'if we’re drawing';
@@ -112,7 +112,7 @@ export function subsProblem(orders:PrepOrder[],squad:SquadPlayer[],lineup:string
  catch(e){return e instanceof Error?e.message:'Invalid substitution.';}
 }
 /** Only what validateSubstitutionOrders reads: squad ids and roles, the lineup. */
-export function oneTeam(squad:SquadPlayer[],lineup:string[]):Fixture{
+function oneTeam(squad:SquadPlayer[],lineup:string[]):Fixture{
  const team={squad:squad.map(p=>({id:p.id,roles:[...p.roles]})),lineup:[...lineup]};
  return {seed:0,kickoff:0,teams:[team,{squad:[],lineup:[]}]} as unknown as Fixture;
 }
