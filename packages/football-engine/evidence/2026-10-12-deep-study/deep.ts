@@ -57,7 +57,7 @@ function official(inp:any,c:any,engineBuild:string){
 }
 
 // ---- the match ------------------------------------------------------------------------------------------------
-export function play(t:{label:string;arm:string;seed:number;rev:string}){
+export function play(t:{label:string;arm:string;seed:number;rev:string},extra?:(R:any,inp:any)=>any){
  const inp=inputOf(t.arm,t.seed),teams=inp.sides.map(engineTeam) as any,t0=performance.now();
  const run:any=runMatch({fixture:{teams,seed:inp.seed,kickoff:inp.kickoff},durationSeconds:inp.duration,policy:'coordinated',substitutions:'none',record:true} as any);
  const ms=Math.round(performance.now()-t0),R=run.result;
@@ -122,7 +122,7 @@ export function play(t:{label:string;arm:string;seed:number;rev:string}){
   regain:[0,0,0],regainHow:{} as Record<string,number>,ownThirdHanded:[0,0],counter:[0,0,0,0,0],
   looseWon:0,receives:0,quickLoss:0,restarts:{} as Record<string,number>,
   dist:0,hs:[0,0,0],energyEnd:0,energyMin:100,energyHalf:0,eng:null as any,
-  x:{press:[0,0,0,0],long:[0,0,0,0,0,0],sweep:[0,0],mv:[] as any[],lr:[] as any[]}});
+  x:{press:[0,0,0,0],long:[0,0,0,0,0,0],sweep:[0,0]}});
  const A=[mk(),mk()];
 
  // goals and shots (engine events; the official row has the per-shot list)
@@ -230,111 +230,6 @@ export function play(t:{label:string;arm:string;seed:number;rev:string}){
   }else k++;
  }
 
- // (2026-10-12, long-ball origins) x.mv one entry per shot (where the move came from), x.lr one entry per long ball
- // (the reception). Additive: nothing above changes. Keys documented at the end of this file.
- {
-  const L1=(v:number)=>Math.round(v*10)/10;
-  const choiceAt=(i:number,time:number)=>{const a=jobsBy.get(i);if(!a)return null;let lo=0,hi=a.length-1,best=-1;while(lo<=hi){const m=(lo+hi)>>1;if(a[m].time<=time+1e-6){best=m;lo=m+1;}else hi=m-1;}return best>=0?a[best]:null;};
-  const ownerAt=(k:number)=>{const g=frames[k];return g.restart?null:(g.control?.owner??g.ball?.owner??null);};
-  const facing=(S:number,ang:number)=>Math.cos(ang)*(S===0?1:-1);
-  // goals -> the shot that scored (same rule as the official row: the side's last shot within 4 s before the goal)
-  const shotEv=events.filter(e=>e.kind==='shot'&&(e.side===0||e.side===1));
-  const scoredT=new Set<number>();
-  for(const g of events)if(g.kind==='goal'&&(g.side===0||g.side===1)){for(let k=shotEv.length-1;k>=0;k--){const x=shotEv[k];if(x.time>g.time+1e-6)continue;if(x.time<g.time-4)break;if(x.side===g.side){scoredT.add(x.time);break;}}}
-  const passLen=(e:any)=>{const f=frames[frameAt(e.time)],p=pos(f,idx.get(e.actor)!),aim=e.pass?.aim??e.aerial?.aim;return p&&aim?{p,aim,len:dist(p,aim)}:null;};
-  for(const e of shotEv){
-   const S=e.side,sp=spellAt(e.time,S),ks=frameAt(e.time);
-   const shooter=idx.get(e.actor),shPos=shooter!==undefined?pos(frames[ks],shooter):null;
-   const row:any[]=[r3(chanceOf(e)),scoredT.has(e.time)?1:0,sp?sp.how:'?',sp?L1(sp.startDepth):-1,sp?L1(e.time-sp.t0):-1];
-   let type='none',tEntry=-1,eLen=-1,eFrom=-1,second=0,passesAfter=-1,playersAfter=-1,selfShot=0,recvRole='?';
-   let lp:any=null,spellLong=0;
-   if(sp){
-    // the last time the ball crossed into the attacking third (>= 32 m) in this spell before the shot
-    let ke=-1;for(let k=ks;k>sp.k0;k--){if(depth(S,frames[k].ball.x)>=32&&depth(S,frames[k-1].ball.x)<32){ke=k;break;}}
-    if(ke<0)type=sp.startDepth>=32?'high':'none';
-    else{
-     const fe=frames[ke],te=fe.time,o=ownerAt(ke);type='other';
-     if(o&&sideOf(o)===S){
-      let ctl=-1;for(let r=evIdxAt(te);r>=0&&events[r].time>=sp.t0-1e-6;r--){const x=events[r];if(x.actor===o&&(x.kind==='receive'||x.kind==='turnover'||x.kind==='save')){ctl=x.time;break;}}
-      const cq=ctl>=0?pos(frames[frameAt(ctl)],idx.get(o)!):null;
-      if(cq&&depth(S,cq.x)<31.5&&te-ctl>.15)type='carry';
-     }
-     let entryPass:any=null;
-     if(type==='other'){
-      for(let r=evIdxAt(te);r>=0&&events[r].time>=sp.t0-1e-6;r--){const x=events[r];
-       if(x.side===S&&(x.kind==='pass'||x.kind==='clearance')){
-        if(x.kind==='pass'){const pl=passLen(x);type=x.aerial?'loft':pl&&pl.len>=15?'ground15':'groundShort';entryPass=x;if(pl){eLen=L1(pl.len);eFrom=L1(depth(S,pl.p.x));}}
-        else type='clearance';
-        break;}
-      }
-     }
-     tEntry=L1(e.time-te);
-     // the entry's reception: the first owner after the entry pass (or the carrier at the entry)
-     let tr=te,recv=o;
-     if(entryPass){for(let k=frameAt(entryPass.time)+1;k<=ks;k++){const g=frames[k],ow=g.ball?.owner;if(ow&&!(ow===entryPass.actor&&g.time<entryPass.time+.3)){recv=ow;tr=g.time;break;}if(g.ball?.mode==='loose')second=1;}}
-     if(recv&&idx.has(recv))recvRole=roleOf(recv);
-     passesAfter=0;const touched=new Set<string>();
-     for(let k=frameAt(tr);k<=ks;k++){const ow=frames[k].ball?.owner;if(ow&&sideOf(ow)===S)touched.add(ow);}
-     playersAfter=touched.size;
-     for(let r=evIdxAt(tr)+1;r<events.length&&events[r].time<e.time-1e-6;r++){const x=events[r];if(x.kind==='pass'&&x.side===S&&x.time>tr+1e-6)passesAfter++;}
-     selfShot=recv===e.actor&&passesAfter===0?1:0;
-    }
-    // the last pass by the side before the shot (in the spell)
-    for(let r=evIdxAt(e.time-1e-4);r>=0&&events[r].time>=sp.t0-1e-6;r--){const x=events[r];
-     if(x.kind==='pass'&&x.side===S&&!x.restartKind&&x.actor!==e.actor){const pl=passLen(x);if(pl)lp=[L1(pl.len),L1(depth(S,pl.p.x)),L1(depth(S,pl.aim.x)),L1(Math.abs(pl.p.y-15)),x.aerial?1:0,L1(e.time-x.time)];break;}
-     if(x.kind==='pass'&&x.side===S&&x.actor===e.actor)break;}
-    for(let r=evIdxAt(e.time-1e-4);r>=0&&events[r].time>=sp.t0-1e-6;r--){const x=events[r];if(x.kind==='pass'&&x.side===S&&!x.restartKind){const pl=passLen(x);if(pl&&(x.aerial||pl.len>=15)&&depth(S,pl.aim.x)-depth(S,pl.p.x)>=5){spellLong=1;break;}}}
-   }
-   // the shooter's own carry: from his last control start to the shot
-   let carryM=-1,heldS=-1;
-   if(shooter!==undefined&&shPos){for(let r=evIdxAt(e.time-1e-4);r>=0&&events[r].time>e.time-15;r--){const x=events[r];if(x.actor===e.actor&&(x.kind==='receive'||x.kind==='turnover'||x.kind==='save'||x.kind==='restart')){const q=pos(frames[frameAt(x.time)],shooter);if(q){carryM=L1(dist(q,shPos));heldS=L1(e.time-x.time);}break;}if(x.kind==='pass'||x.kind==='shot'||x.kind==='clearance')break;}}
-   row.push(type,tEntry,eLen,eFrom,second,passesAfter,playersAfter,selfShot,recvRole,lp,carryM,heldS,spellLong,e.technique??null,shPos?L1(depth(S,shPos.x)):-1,e.firstTime?1:0);
-   A[S].x.mv.push(row);
-  }
-  // long balls: the reception
-  for(let q=0;q<events.length;q++){
-   const e=events[q];if(e.kind!=='pass'||(e.side!==0&&e.side!==1)||e.restartKind)continue;
-   const S=e.side,D=1-S,k0=frameAt(e.time),f=frames[k0],p=pos(f,idx.get(e.actor)!),aim=e.pass?.aim??e.aerial?.aim;if(!p||!aim)continue;
-   const len=dist(p,aim),from=depth(S,p.x),to=depth(S,aim.x);
-   if(!((e.aerial||len>=15)&&to-from>=5))continue;
-   const ti=idx.get(e.target);if(ti===undefined)continue;
-   const defs0=team(f,D),tq0=pos(f,ti);if(!tq0||!defs0.length)continue;
-   const lastLine=Math.min(...defs0.map(d=>depth(D,d.q.x)));
-   const dRel=Math.min(...defs0.map(d=>dist(tq0,d.q)));
-   // the defender marking the target at the pass (his job's target is the receiver)
-   let marker=-1;for(const d of defs0){const c=choiceAt(d.i,e.time);if(c?.assignment?.target===e.target&&(c.assignment.purpose==='mark'||c.kind==='track')){marker=d.i;break;}}
-   // arrival: the first frame the ball has an owner (not the passer just after release) or a restart
-   let ka=-1,loose=false,cat=5;
-   for(let k=k0+1;k<n&&frames[k].time<=e.time+4;k++){const g=frames[k];if(g.restart){cat=5;ka=k;break;}const o=g.ball?.owner;
-    if(o&&!(o===e.actor&&g.time<e.time+.3)){const w=sideOf(o);cat=loose?(w===S?3:4):(w===S?1:2);ka=k;break;}
-    if(g.ball?.mode==='loose')loose=true;}
-   if(ka<0){A[S].x.lr.push([e.aerial?1:0,L1(len),L1(from),L1(to),cat,-1]);continue;}
-   const fa=frames[ka],ta=fa.time,tq=pos(fa,ti),ow=ownerAt(ka)??fa.ball?.owner;
-   const defs=team(fa,D);let near=-1,dNear=99;
-   if(tq)for(const d of defs){const dd=dist(tq,d.q);if(dd<dNear){dNear=dd;near=d.i;}}
-   const nq=near>=0?pos(fa,near):null,goalSide=nq&&tq?(depth(D,nq.x)<depth(D,tq.x)?1:0):-1;
-   const mq=marker>=0?pos(fa,marker):null,dMark=mq&&tq?dist(mq,tq):-1;
-   const nc=near>=0?choiceAt(near,ta):null;
-   const clean=cat===1&&ow===e.target?1:0;
-   // outcomes from the reception (only when the side has it)
-   let turned=0,faced=0,lost3=0,cl8=0,sh8=0,gl8=0;
-   if(ow&&sideOf(ow)===S){
-    const ri=idx.get(ow)!,rq=pos(fa,ri);
-    for(let k=ka;k<n&&frames[k].time<=ta+1.5;k++){const g=frames[k];if(g.restart)break;const o2=g.ball?.owner;if(o2&&sideOf(o2)!==S)break;
-     if(o2===ow){const z=pos(g,ri);if(z&&rq&&depth(S,z.x)-depth(S,rq.x)>=2)turned=1;if(z&&g.time>=ta+.3&&facing(S,z.angle)>.5)faced=1;}}
-    for(let r=evIdxAt(ta)+1;r<events.length&&events[r].time<=ta+1.5;r++){const x=events[r];if(x.actor!==ow)continue;
-     if(x.kind==='shot'){turned=1;break;}
-     if(x.kind==='pass'){const pl=passLen(x);if(pl&&depth(S,pl.aim.x)-depth(S,pl.p.x)>=3)turned=1;break;}
-     if(x.kind==='turnover'||x.kind==='clearance')break;}
-    for(let k=ka;k<n&&frames[k].time<=ta+3;k++){const g=frames[k];const o2=g.restart?null:g.ball?.owner;if(o2&&sideOf(o2)===D){lost3=1;break;}if(g.restart&&g.restartInfo?.side===D){lost3=1;break;}}
-    const sp2=spellAt(ta,S);const [s8,c8]=after(sp2,ta-1e-3,ta+8);sh8=s8;cl8=c8;
-    if(sp2)for(const x of sp2.shots)if(x.t>ta&&x.t<=ta+8&&scoredT.has(x.t))gl8++;
-   }
-   A[S].x.lr.push([e.aerial?1:0,L1(len),L1(from),L1(to),cat,r2(ta-e.time),L1(dRel),L1(dNear),goalSide,near>=0&&near===marker?1:0,L1(dMark),clean,turned,faced,lost3,sh8,cl8,gl8,
-    roster[ti].role,L1(depth(D,aim.x)-lastLine),nc?.assignment?.purpose??nc?.kind??null,ow===e.target?1:0]);
-  }
- }
-
  // receptions lost within 1.5 s before the receiver releases (heavy touch / dispossessed on receipt)
  for(let q=0;q<events.length;q++){
   const e=events[q];if(e.kind!=='receive'||(e.side!==0&&e.side!==1))continue;
@@ -364,7 +259,7 @@ export function play(t:{label:string;arm:string;seed:number;rev:string}){
  return {label:t.label,kind:'deep',arm:t.arm,seed:t.seed,rev:t.rev,ours:treated,kickoff:inp.kickoff,duration:inp.duration,
   styles:sides.map(s=>s.style),forms:sides.map(s=>s.formation),skill:tr.skill?{side:treated,name:tr.skill,delta:tr.delta}:null,
   plat:`${process.platform}-${process.arch}-node${process.versions.node}`,build:run.engineBuild.slice(0,8),tableBuild:CHANCE_TABLE.build.slice(0,8),
-  ...off,dropped:[],agg:out,ms};
+  ...off,dropped:[],agg:out,ms,...(extra?{st:extra(R,inp)}:{})};
 }
 // agg[side] keys (per match, that side):
 //  goals shots clear good(sum of table rates) onTarget(goals + opponent saves) headers goalsHalf[1st,2nd] goalsLate(after 12:00)
@@ -393,21 +288,3 @@ export function play(t:{label:string;arm:string;seed:number;rev:string}){
 //    long   open-play long balls (lofted, or ground 15 m+), gaining >= 5 m: [n, first touch ours with no loose ball,
 //           first touch theirs with no loose ball, ran loose then ours, ran loose then theirs, nobody within 4 s / restart]
 //    sweep  [keeper 'sweep' duty starts, the keeper had the ball within 3 s of the start]
-//  x.mv, x.lr (2026-10-12, long-ball origins; rows made before it lack them):
-//    mv   one entry per shot: [chance, goal (the side's last shot within 4 s before a goal), spell start (r:<restart> |
-//         regain how), spell start depth, s from spell start, entry (the LAST time the ball crossed into >= 32 m in the
-//         spell before the shot: carry | loft | ground15 | groundShort | clearance | other; high = spell began >= 32 m
-//         and never left; none), s from entry to shot, entry pass length, entry pass from depth, second ball (the entry
-//         pass ran loose before the side got it), passes by the side between the entry reception and the shot, players of
-//         the side who had the ball from the reception to the shot, the entry receiver shot with no pass between, entry
-//         receiver's role, last pass by a team-mate before the shot [len, from depth, to depth, from |y - 15|, lofted,
-//         s before the shot] | null, shooter's carry m from his last control start, s he held it, the spell had a long
-//         ball before the shot, technique, shot depth, first time]
-//    lr   one entry per open-play long ball (lofted or ground 15 m+, gaining >= 5 m) with a named target: [lofted, len,
-//         from depth, aim depth, cat (as x.long), s to arrival (first owner/restart; -1 none within 4 s: then only 6
-//         fields), nearest defender to the target at the pass (m), at arrival (m), that defender goal-side of the target,
-//         he is the target's marker (job target = target at the pass), the marker's distance at arrival (-1 none), clean
-//         (cat 1 and the target has it), turned (within 1.5 s: shot, pass gaining >= 3 m, or carried >= 2 m forward),
-//         faced goal (owning, 0.3-1.5 s, facing within 60 deg), lost within 3 s, shots / clear / goals within 8 s in the
-//         spell, target role, aim depth beyond the deepest defender (m, from the defence's goal: negative = behind him),
-//         nearest defender's job purpose at arrival, the target himself got it]
