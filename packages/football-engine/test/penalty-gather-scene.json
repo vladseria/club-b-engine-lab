@@ -1,0 +1,537 @@
+{
+  "origin": {
+    "build": "f0fc1234",
+    "seed": 3156540301,
+    "time": 626.8
+  },
+  "players": [
+    {
+      "id": "0:mircea",
+      "name": "Mircea Portarescu",
+      "roles": [
+        "GK"
+      ],
+      "skills": {
+        "passing": 4,
+        "control": 5,
+        "finishing": 2,
+        "defending": 3,
+        "pace": 4,
+        "strength": 5,
+        "stamina": 6,
+        "reading": 7,
+        "aerial": 5,
+        "setPieces": 2,
+        "keeping": 9
+      },
+      "traits": {
+        "risk": 0.15,
+        "dribble": 0.05,
+        "runs": 0.35,
+        "comesShort": 0.3,
+        "engagement": 0.5,
+        "discipline": 0.8,
+        "keeperSweep": 0.08
+      },
+      "energy": 99.36583111608998,
+      "note": "Mingea poate intra. Mai \u00eent\u00e2i trebuie s\u0103 treac\u0103 de el.",
+      "archetype": "wall",
+      "temperament": "Rece ca gresia",
+      "portrait": {
+        "library": "portraits-v1",
+        "portrait": 166
+      },
+      "slot": 0,
+      "side": 0,
+      "number": 1,
+      "role": "GK",
+      "lane": 0,
+      "x": 1.9295017985781242,
+      "y": 2.2459528207954356,
+      "vx": -0.12591462096365166,
+      "vy": 0.4299238824501559,
+      "angle": -0.6600448215770103,
+      "basePace": 5.86,
+      "pace": 5.86,
+      "acceleration": 3.8600000000000003,
+      "job": "",
+      "duty": "keeper"
+    },
+    {
+      "id": "0:flavius",
+      "name": "Flavius Copac",
+      "roles": [
+        "CB"
+      ],
+      "skills": {
+        "passing": 5,
+        "control": 4,
+        "finishing": 2,
+        "defending": 8,
+        "pace": 4,
+        "strength": 8,
+        "stamina": 6,
+        "reading": 6,
+        "aerial": 7,
+        "setPieces": 3,
+        "keeping": 1
+      },
+      "traits": {
+        "risk": 0.15,
+        "dribble": 0.3,
+        "runs": 0.35,
+        "comesShort": 0.3,
+        "engagement": 0.45,
+        "discipline": 0.95
+      },
+      "energy": 96.55086612411299,
+      "note": "Nu se mi\u0219c\u0103 mult. Nici ceilal\u021bi nu trec.",
+      "archetype": "anchor",
+      "temperament": "Rece ca gresia",
+      "portrait": {
+        "library": "portraits-v1",
+        "portrait": 75
+      },
+      "slot": 2,
+      "side": 0,
+      "number": 2,
+      "role": "CB",
+      "lane": 0,
+      "x": 7.725641170660121,
+      "y": 0.7735724715613161,
+      "vx": 1.2323038183024175,
+      "vy": -0.24844375881425063,
+      "angle": 50.06654009176393,
+      "basePace": 6.15,
+      "pace": 6.15,
+      "acceleration": 4.38,
+      "job": "",
+      "duty": "track"
+    },
+    {
+      "id": "0:crocodinho",
+      "name": "Crocodinho",
+      "roles": [
+        "W",
+        "AM"
+      ],
+      "skills": {
+        "passing": 5,
+        "control": 9,
+        "finishing": 4,
+        "defending": 2,
+        "pace": 8,
+        "strength": 4,
+        "stamina": 6,
+        "reading": 4,
+        "aerial": 5,
+        "setPieces": 7,
+        "keeping": 1
+      },
+      "traits": {
+        "risk": 0.75,
+        "dribble": 0.9,
+        "runs": 0.35,
+        "comesShort": 0.3,
+        "engagement": 0.5,
+        "discipline": 0.8
+      },
+      "energy": 94.20775779134947,
+      "note": "Publicul a venit s\u0103 vad\u0103 ceva. El a venit s\u0103 fie acel ceva.",
+      "archetype": "artist",
+      "temperament": "Primadona",
+      "portrait": {
+        "library": "portraits-v1",
+        "portrait": 120
+      },
+      "slot": 8,
+      "side": 0,
+      "number": 3,
+      "role": "W",
+      "lane": -1,
+      "x": 3.165840469732769,
+      "y": 1.7493100612592138,
+      "vx": -0.6237288901039498,
+      "vy": 2.670765753569554,
+      "angle": -35.898888215403915,
+      "basePace": 7.55,
+      "pace": 7.55,
+      "acceleration": 5.26,
+      "job": "",
+      "duty": "challenge"
+    },
+    {
+      "id": "0:van",
+      "name": "Van Pisi",
+      "roles": [
+        "W",
+        "ST"
+      ],
+      "skills": {
+        "passing": 4,
+        "control": 6,
+        "finishing": 5,
+        "defending": 3,
+        "pace": 9,
+        "strength": 4,
+        "stamina": 6,
+        "reading": 5,
+        "aerial": 5,
+        "setPieces": 8,
+        "keeping": 1
+      },
+      "traits": {
+        "risk": 0.4,
+        "dribble": 0.3,
+        "runs": 0.95,
+        "comesShort": 0.1,
+        "engagement": 0.5,
+        "discipline": 0.8
+      },
+      "energy": 93.5882938882887,
+      "note": "C\u00e2nd \u00eei strigi numele, a ajuns deja la urm\u0103torul bloc.",
+      "archetype": "runner",
+      "temperament": "Rece ca gresia",
+      "portrait": {
+        "library": "portraits-v1",
+        "portrait": 159
+      },
+      "slot": 10,
+      "side": 0,
+      "number": 4,
+      "role": "W",
+      "lane": 1,
+      "x": 10.389745767613684,
+      "y": 7.046105385569234,
+      "vx": -0.480077320257011,
+      "vy": 1.8904617104499217,
+      "angle": -42.162810681225906,
+      "basePace": 7.9,
+      "pace": 7.9,
+      "acceleration": 5.48,
+      "job": "",
+      "duty": "track"
+    },
+    {
+      "id": "0:golusor",
+      "name": "Golusor Dan",
+      "roles": [
+        "ST",
+        "AM"
+      ],
+      "skills": {
+        "passing": 4,
+        "control": 4,
+        "finishing": 9,
+        "defending": 2,
+        "pace": 5,
+        "strength": 6,
+        "stamina": 6,
+        "reading": 6,
+        "aerial": 6,
+        "setPieces": 6,
+        "keeping": 1
+      },
+      "traits": {
+        "risk": 0.6,
+        "dribble": 0.3,
+        "runs": 0.75,
+        "comesShort": 0.1,
+        "engagement": 0.5,
+        "discipline": 0.8
+      },
+      "energy": 95.13641567042922,
+      "note": "N-a atins mingea 40 de minute. Acum \u00eentreab\u0103 cine d\u0103 centrarea.",
+      "archetype": "predator",
+      "temperament": "Primadona",
+      "portrait": {
+        "library": "portraits-v1",
+        "portrait": 29
+      },
+      "slot": 9,
+      "side": 0,
+      "number": 5,
+      "role": "ST",
+      "lane": 0,
+      "x": 14.728220019122807,
+      "y": 2.9131032674958495,
+      "vx": 0.693444222737626,
+      "vy": 1.8996375558151526,
+      "angle": -36.47832591454751,
+      "basePace": 6.5,
+      "pace": 6.5,
+      "acceleration": 4.6,
+      "job": "",
+      "duty": "track"
+    },
+    {
+      "id": "1:mircea",
+      "name": "Mircea Portarescu",
+      "roles": [
+        "GK"
+      ],
+      "skills": {
+        "passing": 4,
+        "control": 5,
+        "finishing": 2,
+        "defending": 3,
+        "pace": 4,
+        "strength": 5,
+        "stamina": 6,
+        "reading": 7,
+        "aerial": 5,
+        "setPieces": 2,
+        "keeping": 9
+      },
+      "traits": {
+        "risk": 0.15,
+        "dribble": 0.05,
+        "runs": 0.35,
+        "comesShort": 0.3,
+        "engagement": 0.5,
+        "discipline": 0.8,
+        "keeperSweep": 0.08
+      },
+      "energy": 98.9676878469513,
+      "note": "Mingea poate intra. Mai \u00eent\u00e2i trebuie s\u0103 treac\u0103 de el.",
+      "archetype": "wall",
+      "temperament": "Rece ca gresia",
+      "portrait": {
+        "library": "portraits-v1",
+        "portrait": 166
+      },
+      "slot": 0,
+      "side": 1,
+      "number": 1,
+      "role": "GK",
+      "lane": 0,
+      "x": 35.76146174881799,
+      "y": 0.36018271814373287,
+      "vx": 4.365078156828584,
+      "vy": -0.07889002680418415,
+      "angle": 15.693787008740616,
+      "basePace": 5.86,
+      "pace": 5.86,
+      "acceleration": 3.8600000000000003,
+      "job": "",
+      "duty": "keeper"
+    },
+    {
+      "id": "1:flavius",
+      "name": "Flavius Copac",
+      "roles": [
+        "CB"
+      ],
+      "skills": {
+        "passing": 5,
+        "control": 4,
+        "finishing": 2,
+        "defending": 8,
+        "pace": 4,
+        "strength": 8,
+        "stamina": 6,
+        "reading": 6,
+        "aerial": 7,
+        "setPieces": 3,
+        "keeping": 1
+      },
+      "traits": {
+        "risk": 0.15,
+        "dribble": 0.3,
+        "runs": 0.35,
+        "comesShort": 0.3,
+        "engagement": 0.45,
+        "discipline": 0.95
+      },
+      "energy": 96.38415910696743,
+      "note": "Nu se mi\u0219c\u0103 mult. Nici ceilal\u021bi nu trec.",
+      "archetype": "anchor",
+      "temperament": "Rece ca gresia",
+      "portrait": {
+        "library": "portraits-v1",
+        "portrait": 75
+      },
+      "slot": 2,
+      "side": 1,
+      "number": 2,
+      "role": "CB",
+      "lane": 0,
+      "x": 17.958265197574207,
+      "y": 3.0390669938693127,
+      "vx": 1.0828236134792424,
+      "vy": 1.062080647511174,
+      "angle": 7.741917591159655,
+      "basePace": 6.15,
+      "pace": 6.15,
+      "acceleration": 4.38,
+      "job": "",
+      "duty": "support"
+    },
+    {
+      "id": "1:crocodinho",
+      "name": "Crocodinho",
+      "roles": [
+        "W",
+        "AM"
+      ],
+      "skills": {
+        "passing": 5,
+        "control": 9,
+        "finishing": 4,
+        "defending": 2,
+        "pace": 8,
+        "strength": 4,
+        "stamina": 6,
+        "reading": 4,
+        "aerial": 5,
+        "setPieces": 7,
+        "keeping": 1
+      },
+      "traits": {
+        "risk": 0.75,
+        "dribble": 0.9,
+        "runs": 0.35,
+        "comesShort": 0.3,
+        "engagement": 0.5,
+        "discipline": 0.8
+      },
+      "energy": 94.48820275904744,
+      "note": "Publicul a venit s\u0103 vad\u0103 ceva. El a venit s\u0103 fie acel ceva.",
+      "archetype": "artist",
+      "temperament": "Primadona",
+      "portrait": {
+        "library": "portraits-v1",
+        "portrait": 120
+      },
+      "slot": 8,
+      "side": 1,
+      "number": 3,
+      "role": "W",
+      "lane": -1,
+      "x": 7.502741388100468,
+      "y": 1.3815680222830657,
+      "vx": -0.8692799851068165,
+      "vy": -0.8795456004153254,
+      "angle": 15.55863763133656,
+      "basePace": 7.55,
+      "pace": 7.55,
+      "acceleration": 5.26,
+      "job": "",
+      "duty": "run"
+    },
+    {
+      "id": "1:van",
+      "name": "Van Pisi",
+      "roles": [
+        "W",
+        "ST"
+      ],
+      "skills": {
+        "passing": 4,
+        "control": 6,
+        "finishing": 5,
+        "defending": 3,
+        "pace": 9,
+        "strength": 4,
+        "stamina": 6,
+        "reading": 5,
+        "aerial": 5,
+        "setPieces": 8,
+        "keeping": 1
+      },
+      "traits": {
+        "risk": 0.4,
+        "dribble": 0.3,
+        "runs": 0.95,
+        "comesShort": 0.1,
+        "engagement": 0.5,
+        "discipline": 0.8
+      },
+      "energy": 93.47633276871089,
+      "note": "C\u00e2nd \u00eei strigi numele, a ajuns deja la urm\u0103torul bloc.",
+      "archetype": "runner",
+      "temperament": "Rece ca gresia",
+      "portrait": {
+        "library": "portraits-v1",
+        "portrait": 159
+      },
+      "slot": 10,
+      "side": 1,
+      "number": 4,
+      "role": "W",
+      "lane": 1,
+      "x": 12.23041863369014,
+      "y": 6.765080038073555,
+      "vx": 0.8875463272503588,
+      "vy": -1.6661421780499523,
+      "angle": -7.748452979199681,
+      "basePace": 7.9,
+      "pace": 7.9,
+      "acceleration": 5.48,
+      "job": "",
+      "duty": "run"
+    },
+    {
+      "id": "1:golusor",
+      "name": "Golusor Dan",
+      "roles": [
+        "ST",
+        "AM"
+      ],
+      "skills": {
+        "passing": 4,
+        "control": 4,
+        "finishing": 9,
+        "defending": 2,
+        "pace": 5,
+        "strength": 6,
+        "stamina": 6,
+        "reading": 6,
+        "aerial": 6,
+        "setPieces": 6,
+        "keeping": 1
+      },
+      "traits": {
+        "risk": 0.6,
+        "dribble": 0.3,
+        "runs": 0.75,
+        "comesShort": 0.1,
+        "engagement": 0.5,
+        "discipline": 0.8
+      },
+      "energy": 95.28045325960404,
+      "note": "N-a atins mingea 40 de minute. Acum \u00eentreab\u0103 cine d\u0103 centrarea.",
+      "archetype": "predator",
+      "temperament": "Primadona",
+      "portrait": {
+        "library": "portraits-v1",
+        "portrait": 29
+      },
+      "slot": 9,
+      "side": 1,
+      "number": 5,
+      "role": "ST",
+      "lane": 0,
+      "x": 4.294320831809789,
+      "y": 1.141146973851618,
+      "vx": -1.724585474911925,
+      "vy": 1.9321920104372763,
+      "angle": 15.254882363603413,
+      "basePace": 6.5,
+      "pace": 6.5,
+      "acceleration": 4.6,
+      "job": "",
+      "duty": "prepare"
+    }
+  ],
+  "restart": {
+    "kind": "penalty",
+    "side": 1,
+    "spot": {
+      "x": 6,
+      "y": 0
+    },
+    "taker": "1:golusor",
+    "phase": "gather"
+  }
+}

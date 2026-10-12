@@ -1,0 +1,122 @@
+{
+  "origin": {
+    "baselineBuild": "164ded745f58",
+    "experiment": "moving-passer launchRisk",
+    "style": "direct",
+    "seed": 13063,
+    "time": 200
+  },
+  "player": {
+    "id": "1:van",
+    "name": "C\u0103t\u0103lin Ancor\u0103",
+    "roles": [
+      "W",
+      "ST"
+    ],
+    "skills": {
+      "passing": 4,
+      "control": 6,
+      "finishing": 5,
+      "defending": 3,
+      "pace": 9,
+      "strength": 4,
+      "stamina": 6,
+      "reading": 5,
+      "aerial": 5,
+      "setPieces": 8,
+      "keeping": 1
+    },
+    "traits": {
+      "risk": 0.4,
+      "dribble": 0.3,
+      "runs": 0.95,
+      "comesShort": 0.1,
+      "engagement": 0.5,
+      "discipline": 0.8
+    },
+    "energy": 98.33715962348195,
+    "note": "C\u00e2nd \u00eei strigi numele, a ajuns deja la urm\u0103torul bloc.",
+    "archetype": "runner",
+    "temperament": "Rece ca gresia",
+    "portrait": {
+      "library": "portraits-v1",
+      "portrait": 95
+    },
+    "slot": 10,
+    "side": 1,
+    "number": 4,
+    "role": "W",
+    "lane": 1,
+    "x": 0.8972602640826284,
+    "y": -13.865640969500532,
+    "vx": 0,
+    "vy": 0,
+    "angle": -1.4627001733560252,
+    "basePace": 7.9,
+    "pace": 7.860590683076523,
+    "acceleration": 5.48,
+    "job": "Preg\u0103te\u0219te lovitura",
+    "duty": "prepare"
+  },
+  "ball": {
+    "x": 0.44884883446081625,
+    "y": -14.19182432677701,
+    "vx": 0,
+    "vy": 0,
+    "z": 0,
+    "vz": 0,
+    "owner": "1:van",
+    "mode": "control"
+  },
+  "state": {
+    "owner": "1:van",
+    "time": 200,
+    "readyAt": 171.83051564009043,
+    "active": "left",
+    "intent": "A\u0219az\u0103 piciorul pentru pas\u0103",
+    "contacts": [],
+    "feet": [
+      {
+        "side": "left",
+        "x": 0.44884883446081625,
+        "y": -14.19182432677701,
+        "active": true
+      },
+      {
+        "side": "right",
+        "x": 1.113354645685002,
+        "y": -14.003129944476301,
+        "active": false
+      }
+    ],
+    "lastTouch": {
+      "time": 171.5245156400904,
+      "x": 0.44884883446081625,
+      "y": -14.19182432677701,
+      "actor": "1:van",
+      "kind": "settle",
+      "foot": "right",
+      "footPoint": {
+        "x": 0.6086007651178177,
+        "y": -14.18291811257789
+      },
+      "body": {
+        "x": 1.059990698261927,
+        "y": -13.896834294553058,
+        "angle": -2.606382339975638
+      },
+      "incoming": {
+        "x": -1.5690181590571242,
+        "y": 0.026828831215954103
+      },
+      "outgoing": {
+        "x": 0,
+        "y": 0
+      }
+    }
+  },
+  "aim": {
+    "x": 10.08591229811892,
+    "y": -13.000230118461285
+  }
+}

@@ -1,0 +1,5 @@
+node_modules/
+packages/football-engine/dist/
+deliverables/football-practice/engine-audition/local-five-sandbox/
+**/results/
+.DS_Store

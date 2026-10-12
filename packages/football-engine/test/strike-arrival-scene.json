@@ -1,0 +1,122 @@
+{
+  "origin": {
+    "baselineBuild": "164ded745f58",
+    "experiment": "moving-passer launchRisk",
+    "style": "counter",
+    "seed": 13037,
+    "time": 100
+  },
+  "player": {
+    "id": "0:crocodinho",
+    "name": "Crocodinho",
+    "roles": [
+      "W",
+      "AM"
+    ],
+    "skills": {
+      "passing": 5,
+      "control": 9,
+      "finishing": 4,
+      "defending": 2,
+      "pace": 8,
+      "strength": 4,
+      "stamina": 6,
+      "reading": 4,
+      "aerial": 5,
+      "setPieces": 7,
+      "keeping": 1
+    },
+    "traits": {
+      "risk": 0.75,
+      "dribble": 0.9,
+      "runs": 0.35,
+      "comesShort": 0.3,
+      "engagement": 0.5,
+      "discipline": 0.8
+    },
+    "energy": 99.06675815878545,
+    "note": "Publicul a venit s\u0103 vad\u0103 ceva. El a venit s\u0103 fie acel ceva.",
+    "archetype": "artist",
+    "temperament": "Primadona",
+    "portrait": {
+      "library": "portraits-v1",
+      "portrait": 120
+    },
+    "slot": 8,
+    "side": 0,
+    "number": 3,
+    "role": "W",
+    "lane": -1,
+    "x": 24.414716749157865,
+    "y": -14.120331988811294,
+    "vx": -1.163984875017317e-07,
+    "vy": -6.066783147665614e-08,
+    "angle": -21.365159211746164,
+    "basePace": 7.55,
+    "pace": 7.52886207229649,
+    "acceleration": 5.26,
+    "job": "Preg\u0103te\u0219te lovitura",
+    "duty": "prepare"
+  },
+  "ball": {
+    "x": 24.47321966148275,
+    "y": -14.674427234713663,
+    "vx": 0,
+    "vy": 0,
+    "z": 0,
+    "vz": 0,
+    "owner": "0:crocodinho",
+    "mode": "control"
+  },
+  "state": {
+    "owner": "0:crocodinho",
+    "time": 100,
+    "readyAt": 92.91233333333334,
+    "active": "right",
+    "intent": "A\u0219az\u0103 piciorul pentru pas\u0103",
+    "contacts": [],
+    "feet": [
+      {
+        "side": "left",
+        "x": 24.167875468603633,
+        "y": -14.051999110821654,
+        "active": false
+      },
+      {
+        "side": "right",
+        "x": 24.47321966148275,
+        "y": -14.674427234713663,
+        "active": true
+      }
+    ],
+    "lastTouch": {
+      "time": 92.63333333333334,
+      "x": 24.547234392056637,
+      "y": -14.640559716376947,
+      "actor": "0:crocodinho",
+      "kind": "settle",
+      "foot": "left",
+      "footPoint": {
+        "x": 24.547234392056637,
+        "y": -14.640559716376947
+      },
+      "body": {
+        "x": 24.46213200544062,
+        "y": -14.096590665527108,
+        "angle": -21.31516309854359
+      },
+      "incoming": {
+        "x": -0.6779360602812939,
+        "y": -0.31020868109172317
+      },
+      "outgoing": {
+        "x": -0.29086922726394643,
+        "y": -0.13309538265640947
+      }
+    }
+  },
+  "aim": {
+    "x": 16.92786736724165,
+    "y": -3.9580905599024505
+  }
+}

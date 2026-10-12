@@ -1,0 +1,13 @@
+{
+  "name": "club-b-engine-lab",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:football-engine": "node packages/football-engine/scripts/build.mjs",
+    "test:football-engine": "npm run build:football-engine && node --test packages/football-engine/test/*.test.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.1",
+    "typescript": "5.9.3"
+  }
+}

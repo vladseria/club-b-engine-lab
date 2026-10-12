@@ -1,0 +1,158 @@
+# Batch football-engine simulations: one shell command, split across up to 20
+# runner jobs. Dispatch only (no push / pull_request triggers, so nothing from
+# a fork or a pull request can ever run here).
+#   gh workflow run sims.yml --ref main -f ref=<tag|sha> -f command="..."
+# The workflow is read from main; `ref` picks the snapshot that actually runs
+# (tags p-<sha12> name the upstream engine commit a snapshot was taken from).
+# Each shard gets SHARD_INDEX / SHARD_TOTAL / SIM_WORKERS in its environment;
+# a harness that opts in (packages/football-engine/evidence/_ci/shard.mjs)
+# keeps only tasks i % SHARD_TOTAL == SHARD_INDEX.
+name: sims
+run-name: "sims ${{ inputs.label }} (${{ inputs.ref }}, ${{ inputs.shards }} shards)"
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Snapshot to check out and run (a p-<sha12> tag or a commit of this repo)
+        required: true
+        type: string
+      command:
+        description: Shell command each shard runs from the repo root
+        required: true
+        type: string
+      shards:
+        description: Number of shard jobs (1-20)
+        required: true
+        default: 20
+        type: number
+      workers:
+        description: SIM_WORKERS per shard (standard runners in a public repo have 4 vCPUs)
+        required: true
+        default: 4
+        type: number
+      out:
+        description: Result files to upload per shard (newline-separated globs; only files the command created or appended to, and only the appended part)
+        required: true
+        default: packages/football-engine/evidence/**/results/*.jsonl
+        type: string
+      timeout:
+        description: Minutes before a shard is killed (hard cap 360)
+        required: true
+        default: 90
+        type: number
+      node:
+        description: Exact Node version (x.y.z)
+        required: true
+        default: 24.8.0
+        type: string
+      runner:
+        description: "Runner image. V8's Math.sin/exp/pow/... differ in the last bits between x64 and arm64 builds, so rows only reproduce on the architecture that produced the rows they are compared with."
+        required: true
+        default: ubuntu-24.04-arm
+        type: choice
+        options: [ubuntu-24.04-arm, ubuntu-latest]
+      label:
+        description: Free text shown in the run name (the driver puts a unique id here)
+        required: false
+        default: manual
+        type: string
+permissions:
+  contents: read
+concurrency:
+  # One round at a time. A second dispatch waits; a third replaces the waiting
+  # second (GitHub keeps one pending run per group).
+  group: sims
+  cancel-in-progress: false
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      shards: ${{ steps.plan.outputs.shards }}
+    steps:
+      - id: plan
+        env:
+          SHARDS: ${{ inputs.shards }}
+          NODE_VERSION: ${{ inputs.node }}
+        run: |
+          if ! [ "$SHARDS" -ge 1 ] 2>/dev/null || [ "$SHARDS" -gt 20 ]; then
+            echo "::error::shards must be 1-20, got '$SHARDS'"; exit 1
+          fi
+          if ! [[ "$NODE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::node must be an exact version x.y.z, got '$NODE_VERSION'"; exit 1
+          fi
+          echo "shards=$(seq 0 $((SHARDS - 1)) | jq -cs .)" >> "$GITHUB_OUTPUT"
+  shard:
+    needs: plan
+    name: shard ${{ matrix.shard }}
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.ref }}
+          # Harnesses extract other engine snapshots with `git archive <tag>`
+          # (evidence/_ci/revs.mjs), so every tag must be reachable.
+          # fetch-depth 0 fetches all branches and tags; blob:none keeps the
+          # clone small and fetches an old snapshot's blobs on demand.
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: true
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ inputs.node }}
+      - name: install
+        run: |
+          start=$(date +%s)
+          # Only the bundler the harnesses import, at the version package.json pins.
+          ver=$(node -p "require('./package.json').devDependencies.esbuild")
+          mkdir -p "$RUNNER_TEMP/simdeps"
+          npm install --prefix "$RUNNER_TEMP/simdeps" --no-save --no-audit --no-fund "esbuild@$ver"
+          ln -s "$RUNNER_TEMP/simdeps/node_modules" node_modules
+          echo "install took $(( $(date +%s) - start )) s"
+      - name: run
+        env:
+          SHARD_INDEX: ${{ matrix.shard }}
+          SHARD_TOTAL: ${{ inputs.shards }}
+          SIM_WORKERS: ${{ inputs.workers }}
+          SIM_COMMAND: ${{ inputs.command }}
+        run: |
+          echo "shard $SHARD_INDEX/$SHARD_TOTAL, $SIM_WORKERS workers, $(nproc) cpus, $(uname -m), node $(node -v), $(git rev-parse --short HEAD)"
+          lscpu | grep -m1 'Model name' || true
+          start=$(date +%s)
+          eval "$SIM_COMMAND"
+          echo "command took $(( $(date +%s) - start )) s"
+      - name: collect results
+        if: always()
+        env:
+          OUT: ${{ inputs.out }}
+        run: |
+          # Only what this shard produced: untracked files matching `out`, and
+          # for tracked files only the bytes past the committed version.
+          # Copied under $RUNNER_TEMP/results with repo-relative paths.
+          pats=(); while IFS= read -r p; do pats+=("$p"); done <<< "$OUT"
+          dest="$RUNNER_TEMP/results"; mkdir -p "$dest"
+          { git ls-files -o; git ls-files -m; } | sort -u | while IFS= read -r f; do
+            [ -f "$f" ] || continue
+            hit=; for p in "${pats[@]}"; do [ -n "$p" ] && [[ "$f" == $p ]] && hit=1; done
+            [ -n "$hit" ] || continue
+            mkdir -p "$dest/$(dirname "$f")"
+            if git cat-file -e "HEAD:$f" 2>/dev/null; then
+              tail -c +$(( $(git cat-file -s "HEAD:$f") + 1 )) "$f" > "$dest/$f"
+            else
+              cp "$f" "$dest/$f"
+            fi
+            echo "$f: $(wc -l < "$dest/$f") lines"
+          done
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: shard-${{ matrix.shard }}
+          path: ${{ runner.temp }}/results
+          if-no-files-found: warn
+          retention-days: 7

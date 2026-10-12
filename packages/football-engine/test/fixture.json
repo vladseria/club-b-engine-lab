@@ -1,0 +1,440 @@
+{
+  "seed": 2026,
+  "teams": [
+    {
+      "id": "founding-club",
+      "name": "FC Prelungitorul",
+      "short": "FC Prelungitor",
+      "color": "#37d3c0",
+      "description": "Ne ține un prelungitor.",
+      "squad": [
+        {
+          "id": "mircea",
+          "name": "Mircea Portarescu",
+          "roles": [
+            "GK"
+          ],
+          "skills": {
+            "passing": 4,
+            "control": 5,
+            "finishing": 2,
+            "defending": 3,
+            "pace": 4,
+            "strength": 5,
+            "stamina": 6,
+            "reading": 7,
+            "aerial": 5,
+            "setPieces": 2,
+            "keeping": 9
+          },
+          "traits": {
+            "risk": 0.15,
+            "dribble": 0.05,
+            "runs": 0.35,
+            "comesShort": 0.3,
+            "engagement": 0.5,
+            "discipline": 0.8,
+            "keeperSweep": 0.08
+          },
+          "energy": 100,
+          "note": "Mingea poate intra. Mai întâi trebuie să treacă de el.",
+          "archetype": "wall",
+          "temperament": "Rece ca gresia",
+          "portrait": {
+            "library": "portraits-v1",
+            "portrait": 166
+          },
+          "slot": 0
+        },
+        {
+          "id": "flavius",
+          "name": "Flavius Copac",
+          "roles": [
+            "CB"
+          ],
+          "skills": {
+            "passing": 5,
+            "control": 4,
+            "finishing": 2,
+            "defending": 8,
+            "pace": 4,
+            "strength": 8,
+            "stamina": 6,
+            "reading": 6,
+            "aerial": 7,
+            "setPieces": 3,
+            "keeping": 1
+          },
+          "traits": {
+            "risk": 0.15,
+            "dribble": 0.3,
+            "runs": 0.35,
+            "comesShort": 0.3,
+            "engagement": 0.45,
+            "discipline": 0.95
+          },
+          "energy": 100,
+          "note": "Nu se mișcă mult. Nici ceilalți nu trec.",
+          "archetype": "anchor",
+          "temperament": "Rece ca gresia",
+          "portrait": {
+            "library": "portraits-v1",
+            "portrait": 75
+          },
+          "slot": 2
+        },
+        {
+          "id": "crocodinho",
+          "name": "Crocodinho",
+          "roles": [
+            "W",
+            "AM"
+          ],
+          "skills": {
+            "passing": 5,
+            "control": 9,
+            "finishing": 4,
+            "defending": 2,
+            "pace": 8,
+            "strength": 4,
+            "stamina": 6,
+            "reading": 4,
+            "aerial": 5,
+            "setPieces": 7,
+            "keeping": 1
+          },
+          "traits": {
+            "risk": 0.75,
+            "dribble": 0.9,
+            "runs": 0.35,
+            "comesShort": 0.3,
+            "engagement": 0.5,
+            "discipline": 0.8
+          },
+          "energy": 100,
+          "note": "Publicul a venit să vadă ceva. El a venit să fie acel ceva.",
+          "archetype": "artist",
+          "temperament": "Primadona",
+          "portrait": {
+            "library": "portraits-v1",
+            "portrait": 120
+          },
+          "slot": 8
+        },
+        {
+          "id": "van",
+          "name": "Van Pisi",
+          "roles": [
+            "W",
+            "ST"
+          ],
+          "skills": {
+            "passing": 4,
+            "control": 6,
+            "finishing": 5,
+            "defending": 3,
+            "pace": 9,
+            "strength": 4,
+            "stamina": 6,
+            "reading": 5,
+            "aerial": 5,
+            "setPieces": 8,
+            "keeping": 1
+          },
+          "traits": {
+            "risk": 0.4,
+            "dribble": 0.3,
+            "runs": 0.95,
+            "comesShort": 0.1,
+            "engagement": 0.5,
+            "discipline": 0.8
+          },
+          "energy": 100,
+          "note": "Când îi strigi numele, a ajuns deja la următorul bloc.",
+          "archetype": "runner",
+          "temperament": "Rece ca gresia",
+          "portrait": {
+            "library": "portraits-v1",
+            "portrait": 159
+          },
+          "slot": 10
+        },
+        {
+          "id": "golusor",
+          "name": "Golusor Dan",
+          "roles": [
+            "ST",
+            "AM"
+          ],
+          "skills": {
+            "passing": 4,
+            "control": 4,
+            "finishing": 9,
+            "defending": 2,
+            "pace": 5,
+            "strength": 6,
+            "stamina": 6,
+            "reading": 6,
+            "aerial": 6,
+            "setPieces": 6,
+            "keeping": 1
+          },
+          "traits": {
+            "risk": 0.6,
+            "dribble": 0.3,
+            "runs": 0.75,
+            "comesShort": 0.1,
+            "engagement": 0.5,
+            "discipline": 0.8
+          },
+          "energy": 100,
+          "note": "N-a atins mingea 40 de minute. Acum întreabă cine dă centrarea.",
+          "archetype": "predator",
+          "temperament": "Primadona",
+          "portrait": {
+            "library": "portraits-v1",
+            "portrait": 29
+          },
+          "slot": 9
+        }
+      ],
+      "lineup": [
+        "mircea",
+        "flavius",
+        "crocodinho",
+        "van",
+        "golusor"
+      ],
+      "tactics": {
+        "formation": "1-2-1",
+        "line": "standard",
+        "press": "balanced",
+        "width": "standard",
+        "progression": "mixed",
+        "setPiece": "mixed",
+        "commit": 3,
+        "fullbacks": "balanced",
+        "striker": "mixed"
+      },
+      "orders": []
+    },
+    {
+      "id": "practice-beton",
+      "name": "Inter Beton",
+      "short": "BETON",
+      "color": "#37d3c0",
+      "description": "Ne ține un prelungitor.",
+      "squad": [
+        {
+          "id": "mircea",
+          "name": "Mircea Seif",
+          "roles": [
+            "GK"
+          ],
+          "skills": {
+            "passing": 4,
+            "control": 5,
+            "finishing": 2,
+            "defending": 3,
+            "pace": 4,
+            "strength": 5,
+            "stamina": 6,
+            "reading": 7,
+            "aerial": 5,
+            "setPieces": 2,
+            "keeping": 9
+          },
+          "traits": {
+            "risk": 0.15,
+            "dribble": 0.05,
+            "runs": 0.35,
+            "comesShort": 0.3,
+            "engagement": 0.5,
+            "discipline": 0.8,
+            "keeperSweep": 0.08
+          },
+          "energy": 100,
+          "note": "Mingea poate intra. Mai întâi trebuie să treacă de el.",
+          "archetype": "wall",
+          "temperament": "Rece ca gresia",
+          "portrait": {
+            "library": "portraits-v1",
+            "portrait": 41
+          },
+          "slot": 0
+        },
+        {
+          "id": "sorin",
+          "name": "Petre Beton",
+          "roles": [
+            "CB",
+            "FB"
+          ],
+          "skills": {
+            "passing": 4,
+            "control": 4,
+            "finishing": 2,
+            "defending": 8,
+            "pace": 5,
+            "strength": 8,
+            "stamina": 7,
+            "reading": 5,
+            "aerial": 7,
+            "setPieces": 2,
+            "keeping": 1
+          },
+          "traits": {
+            "risk": 0.4,
+            "dribble": 0.3,
+            "runs": 0.35,
+            "comesShort": 0.3,
+            "engagement": 0.75,
+            "discipline": 0.55,
+            "frustration": 1
+          },
+          "energy": 100,
+          "note": "La 0–3, nu mai discută despre posesie.",
+          "archetype": "ballwinner",
+          "temperament": "Fitil scurt",
+          "portrait": {
+            "library": "portraits-v1",
+            "portrait": 155
+          },
+          "slot": 3
+        },
+        {
+          "id": "motanescu",
+          "name": "Florin Paznic",
+          "roles": [
+            "CM",
+            "AM"
+          ],
+          "skills": {
+            "passing": 9,
+            "control": 6,
+            "finishing": 4,
+            "defending": 4,
+            "pace": 4,
+            "strength": 4,
+            "stamina": 7,
+            "reading": 6,
+            "aerial": 5,
+            "setPieces": 6,
+            "keeping": 1
+          },
+          "traits": {
+            "risk": 0.8,
+            "dribble": 0.3,
+            "runs": 0.35,
+            "comesShort": 0.7,
+            "engagement": 0.5,
+            "discipline": 0.8
+          },
+          "energy": 100,
+          "note": "Vede culoare și unde primăria vede parcare.",
+          "archetype": "architect",
+          "temperament": "Ambițiosul",
+          "portrait": {
+            "library": "portraits-v1",
+            "portrait": 162
+          },
+          "slot": 6
+        },
+        {
+          "id": "van",
+          "name": "Cătălin Ancoră",
+          "roles": [
+            "W",
+            "ST"
+          ],
+          "skills": {
+            "passing": 4,
+            "control": 6,
+            "finishing": 5,
+            "defending": 3,
+            "pace": 9,
+            "strength": 4,
+            "stamina": 6,
+            "reading": 5,
+            "aerial": 5,
+            "setPieces": 8,
+            "keeping": 1
+          },
+          "traits": {
+            "risk": 0.4,
+            "dribble": 0.3,
+            "runs": 0.95,
+            "comesShort": 0.1,
+            "engagement": 0.5,
+            "discipline": 0.8
+          },
+          "energy": 100,
+          "note": "Când îi strigi numele, a ajuns deja la următorul bloc.",
+          "archetype": "runner",
+          "temperament": "Rece ca gresia",
+          "portrait": {
+            "library": "portraits-v1",
+            "portrait": 95
+          },
+          "slot": 10
+        },
+        {
+          "id": "fleasca",
+          "name": "Fleașcă",
+          "roles": [
+            "ST",
+            "AM"
+          ],
+          "skills": {
+            "passing": 5,
+            "control": 6,
+            "finishing": 7,
+            "defending": 2,
+            "pace": 3,
+            "strength": 8,
+            "stamina": 6,
+            "reading": 5,
+            "aerial": 6,
+            "setPieces": 5,
+            "keeping": 1
+          },
+          "traits": {
+            "risk": 0.4,
+            "dribble": 0.3,
+            "runs": 0.15,
+            "comesShort": 0.95,
+            "engagement": 0.5,
+            "discipline": 0.8
+          },
+          "energy": 100,
+          "note": "Mingea e la el. Programul de vizită s-a terminat.",
+          "archetype": "pivot",
+          "temperament": "Omul de vestiar",
+          "portrait": {
+            "library": "portraits-v1",
+            "portrait": 90
+          },
+          "slot": 17
+        }
+      ],
+      "lineup": [
+        "mircea",
+        "sorin",
+        "motanescu",
+        "van",
+        "fleasca"
+      ],
+      "tactics": {
+        "formation": "1-2-1",
+        "line": "deep",
+        "press": "selective",
+        "width": "narrow",
+        "progression": "direct",
+        "setPiece": "mixed",
+        "commit": 2
+      },
+      "orders": []
+    }
+  ],
+  "kickoff": 0
+}
