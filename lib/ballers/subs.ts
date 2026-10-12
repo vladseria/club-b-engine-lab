@@ -34,6 +34,15 @@ export const MAX_SUBS=3;
  * minute of `around`, so the times stand. Below 79 by stamina: 6:43 for 4,
  * 8:33 for 6, 9:50 for 7, 10:56 for 8, 12:49 for 9.
  *
+ * Re-checked for stamina as lasting (2026-10-12, branch ballers-stamina: the
+ * sprint reserve the same at any stamina; same harness and fixtures, 5 seeds
+ * each, 160 whole-match outfielders): median first drop below 88 at 4:33,
+ * below 79 at 9:23, below 75 at 11:56 (80% get there), against 4:57 / 9:32 /
+ * 11:47 (88%) on main in the same run. All within half a minute of `around`,
+ * so the times stand. Stamina spreads them wider: below 79 at 4:39 for 4, 7:04
+ * for 6, 9:30 for 7, 11:35 for 8, never for 9. Evidence:
+ * packages/football-engine/evidence/2026-10-12-stamina (scen-base/scen-fix).
+ *
  * History: on build 07ffe814 (acceleration fatigue, cfc3f98c and later) the
  * levels were energy 95 / 90 / 86 at the same times; before that build energy
  * ended near 94, so a stored 95 ("tired") fired late in the match. A code

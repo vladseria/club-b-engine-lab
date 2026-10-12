@@ -831,16 +831,16 @@ export function markSpot(q:PracticePlayer,r:ManRead,ref:Vec,tactics:Tactics,defe
  * together they close the shooter's angle (one blocks, the next takes the corner he leaves open), at least
  * PROTECT_NEAR m in front of the ball (the second defender's distance: a body close to the ball covers most of the
  * goal, measured below; the presser has the first PROTECT_OFF m) and no deeper than he already is; two of us keep
- * SPACING apart (protectSpacing). He goes PROTECT of the way by the
- * Line: a deep block collapses into the lane, a standard one part of the way, a high one stays near its men to win
- * the ball higher. The more his own man's chance from where he is (goal angle and distance, as he reads it) nears
+ * SPACING apart (protectSpacing). He goes PROTECT of the way by the Line: a deep block collapses into the lane, a
+ * standard one part of the way, a high one stays near its men to win the ball higher. The more his own man's chance from where he is (goal angle and distance, as he reads it) nears
  * the ball's, the less he goes: PROTECT_FRONT of it at an equal chance, none for a man PROTECT_BETTER times better
  * placed (the cut-back, the far post: still marked). Both are his own reads (acuity 'threat': reading and
  * defending): how much better placed his man is, off by up to PROTECT_READ (of the ratio) for a player who cannot read
  * the game, so a poor reader leaves a dangerous man for the lane or stays on a harmless one; and which lane is open,
- * its end off sideways by up to PROTECT_SPREAD m, so a sharp reader gets his body in it and a poor one beside it. Only the marker's spot moves: his pace, his tackle, the shooter
- * and the keeper are unchanged. (Measured on 4,000 base shots: a defender within 0.6 m of the shot line at the
- * strike blocks 70-78% of shots and 3-5% score; 1-2 m off it, 10% blocked and 19% score; nobody, 39% score.) */
+ * its end off sideways by up to PROTECT_SPREAD m, so a sharp reader gets his body in it and a poor one beside it.
+ * Only the marker's spot moves: his pace, his tackle, the shooter and the keeper are unchanged. (Measured on 4,000
+ * base shots: a defender within 0.6 m of the shot line at the strike blocks 70-78% of shots and 3-5% score; 1-2 m
+ * off it, 10% blocked and 19% score; nobody between, 39% score.) */
 export const PROTECT_R:Record<Tactics['line'],number>={deep:19,standard:16,high:13};
 export const PROTECT:Record<Tactics['line'],number>={deep:1,standard:.6,high:.3};
 export const PROTECT_FADE=4,PROTECT_OFF=1.5,PROTECT_NEAR=3.5,PROTECT_FRONT=.35,PROTECT_BETTER=1.6,PROTECT_READ=.6,PROTECT_SPREAD=1.2,PROTECT_ON=.3;
@@ -899,6 +899,7 @@ export const BOX_BLOCK_NEAR=7,BOX_BLOCK_DANGER=.32;
  * 0.3 m of the shot line blocked 78% of shots, 0.3-0.6 m 67%, 0.6-1 m 42%; a body alone was the whole block. */
 export const BLOCK_LEG=.35,BLOCK_LEG_HEIGHT=.5;
 export const blockLeg=(p:{skills:{defending:number}})=>.31+BLOCK_LEG*(.5+.5*clamp(p.skills.defending/10,0,1));
+/** (box defending) A marker may leave his man to block the shot only when his man would not have the better shot. */
 export function mayLeaveForBall(man:Vec,ball:Vec,defending:Side):boolean{
  const g={x:world(defending,0),y:0};return openShot(man,g)<=openShot(ball,g);
 }
@@ -1207,7 +1208,7 @@ export function defendOutOfPossession(given:DefendInput):DefendPlan{
    // a sag that would put him beside a team-mate's man (two on one, his own free) is taken back
    const others=Object.entries(memory.men).filter(([id,x])=>id!==q.id&&x.target!==m.id&&!isRole(x.target)).map(([,x])=>byId.get(x.target)).filter((a):a is PracticePlayer=>!!a&&a.side===attacking&&a.id!==carrier?.id&&distance(a,r.v)>SAG_CLEAR+1);
    for(const k of [.6,.3,0]){if(!others.some(a=>distance(view(q,a),aim)<SAG_CLEAR))break;aim=markSpot(q,r,ref,tactics,defending,squeeze,k*sagScale,time);}
-   // (box defending) the ball near our goal: he steps from his man towards the shooting lane, as far as he can afford
+   // (box defending) the ball near our goal: he steps from his man towards the open shooting lane (protectBox)
    if(!restart&&!(carrier&&carrier.role==='GK')&&m.id!==carrier?.id){const was=aim;aim=protectBox(q,r.v,aim,ref,tactics,defending,time,laneSpots);if(aim!==was){aim=protectSpacing(aim,laneSpots,ref,defending);laneSpots.push(aim);}}
    // (marking and shape round) level with or upfield of his man near our goal: he hurries back goal-side, at full pace
    hurry=habit(md,r.running)>=.5&&distance(q,g)>md-.3;

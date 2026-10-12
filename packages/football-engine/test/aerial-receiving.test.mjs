@@ -185,8 +185,10 @@ test('ordinary match aerial releases have matching physical contacts without a c
  // headers; 14228 has one, and 14078 still has its volley (same repin.mjs header / volley). The pre-push fixes
  // (2026-10-12: a carrier meets a man in his path; an outlet steps off a marker who beats the ball) kept 14228's
  // header and changed 14078 for volleys; 14079 has one (evidence/2026-10-12-prepush-fixes/repin.mjs header / volley).
+ // Box defending (2026-10-12: markers near goal step into the open shot lane, a set blocker's leg) changed 14228's
+ // header and 14079's volley; 14229 has a header, 14080 a volley (evidence/2026-10-12-box-defending/repin.mjs header / volley).
  const sandbox=JSON.parse(readFileSync(new URL('../../../deliverables/football-practice/engine-audition/sandbox-fixture.json',import.meta.url)));
- for(const [technique,seed] of [['header',14228],['volley',14079]]){
+ for(const [technique,seed] of [['header',14229],['volley',14080]]){
   const f=structuredClone(sandbox);f.seed=seed;
   f.teams[0].lineup[1]='motanescu';Object.assign(f.teams[0].tactics,teamApproaches.combinations.settings);
   Object.assign(f.teams[1].tactics,defensiveApproaches.press.tactics);
