@@ -119,7 +119,7 @@ const runningCost=(slope:number)=>{const e=clamp(slope,-.45,.45);return 155.4*e*
  * spread of real CS, ± 10%). Energy only: the sprint reserve uses `sprintThreshold`, the same for every stamina. */
 export const criticalSpeed=(stamina:number,topPace:number)=>(.74+clamp(stamina,0,12)*.01)*topPace;
 export const INTENSITY_SHARE=.42,MOVEMENT_SHARE=1-INTENSITY_SHARE,INTENSITY_COST=.4108;
-export const STAMINA6_DRAIN=1.04,STAMINA_DRAIN_SLOPE=.11,STAMINA_DRAIN_FLOOR=.3;
+export const STAMINA6_DRAIN=.98,STAMINA_DRAIN_SLOPE=.11,STAMINA_DRAIN_FLOOR=.3;
 const staminaDrain=(stamina:number)=>STAMINA6_DRAIN*Math.max(STAMINA_DRAIN_FLOOR,1-STAMINA_DRAIN_SLOPE*(clamp(stamina,0,12)-6));
 export function fatigueCost(speed:number,stamina:number,seconds:number,acceleration=0,topPace?:number):number{
  const movement=Math.max(0,speed),slope=Math.max(0,acceleration)/G_ACC;
