@@ -38,6 +38,13 @@
 //                              changes, the other side Balanced 1-2-1 (cx) | Direct 1-2-1 (cd). k: ref (none) |
 //                              std (line standard) | bal (press balanced) | tb (transition balanced: no counter window).
 //                              cx-ref builds exactly the inputs of co121vba121; cx-std_bal_tb those of ba121vba121.
+//   s1-<k>-<o>                 (2026-10-13, settings audit) treated side Balanced 1-2-1 with ONE choice changed, the other
+//                              side opponent o in ba121 | di121 | sh121 | co121 | ba211 (that style's preset in that formation).
+//                              k: ref (none) | pat | dir (progression) | nar | wid (width) | deep | high (line) | sel | agg
+//                              (press) | c1 | c2 | c4 | c5 (bodies forward) | link | piv | run (striker) | reg | cp (on losing
+//                              it) | sec | cou (on winning it) | kln | ksw (keeper call Stay on line | Sweeper, match settings)
+//                              | fks | fkd (free-kick call Short | Into the box, match settings) | f211 | f22 (formation).
+//                              s1-ref-<o> builds exactly the inputs of ba121v<o>.
 // Treated side = seed % 2; kick-off = (seed >> 1) % 2, so every 4 seeds cover
 // both sides x both kick-offs. Match id `skill-<seed>`, as the audit's, so a
 // base-revision row on the same platform reproduces the audit's tape score.
@@ -59,7 +66,14 @@ const ABLATE:Record<string,string[]>={prog:['progression'],wid:['width'],com:['c
 const ANTI:Record<string,{set?:Record<string,string|number>;keeper?:'sweeper'|'line'}>={ref:{},nar:{set:{width:'narrow'}},agg:{set:{press:'aggressive'}},
  swp:{keeper:'sweeper'},c2:{set:{commit:2}},deep:{set:{line:'deep'}},reg:{set:{onLoss:'regroup'}}};
 const CPRE:Record<string,Record<string,string|number>>={ref:{},std:{line:'standard'},bal:{press:'balanced'},tb:{transition:'balanced'}};
-function side(code:string,treat:{skill?:Skill;delta?:number;style?:Style;from?:Style;key?:string[];formation?:string;sweep?:number;set?:Record<string,string|number>;keeper?:'sweeper'|'line'}):FrozenSide{
+const ONE:Record<string,{set?:Record<string,string|number>;keeper?:'sweeper'|'line';fk?:'short'|'delivery';formation?:string}>={ref:{},
+ pat:{set:{progression:'patient'}},dir:{set:{progression:'direct'}},nar:{set:{width:'narrow'}},wid:{set:{width:'wide'}},
+ deep:{set:{line:'deep'}},high:{set:{line:'high'}},sel:{set:{press:'selective'}},agg:{set:{press:'aggressive'}},
+ c1:{set:{commit:1}},c2:{set:{commit:2}},c4:{set:{commit:4}},c5:{set:{commit:5}},
+ link:{set:{striker:'link'}},piv:{set:{striker:'pivot'}},run:{set:{striker:'run'}},reg:{set:{onLoss:'regroup'}},cp:{set:{onLoss:'counterpress'}},
+ sec:{set:{transition:'secure'}},cou:{set:{transition:'counter'}},kln:{keeper:'line'},ksw:{keeper:'sweeper'},fks:{fk:'short'},fkd:{fk:'delivery'},
+ f211:{formation:'2-1-1'},f22:{formation:'2-2'}};
+function side(code:string,treat:{skill?:Skill;delta?:number;style?:Style;from?:Style;key?:string[];formation?:string;sweep?:number;set?:Record<string,string|number>;keeper?:'sweeper'|'line';fk?:'short'|'delivery'}):FrozenSide{
  const players=ROLES.map((roles,i)=>{
   const gk=i===0,skills={...(gk?GK_SKILLS:OUT_SKILLS)};
   if(treat.skill&&(treat.skill==='keeping'?gk:!gk))skills[treat.skill]=Math.max(0,Math.min(10,skills[treat.skill]+treat.delta!));
@@ -69,11 +83,14 @@ function side(code:string,treat:{skill?:Skill;delta?:number;style?:Style;from?:S
  if(!approach)throw Error(`this revision has no ${style} preset`);
  const tuned:any={...approach};for(const k of treat.key??[])tuned[k]=(PRESETS as any)[treat.from!][k];
  for(const [k,v] of Object.entries(treat.set??{})){if(!(k in tuned))throw Error('unknown setting '+k);tuned[k]=v;}
- return {club:{id:code,name:code,code,color:code==='AAA'?'#3fd38a':'#d33f6a'},formation:(treat.formation??'2-1-1') as any,style,approach:tuned,captain:`${code}2`,lineup:players.map(p=>p.id),bench:[],players,plans:[],...(treat.keeper?{settings:{keeper:treat.keeper}}:{})} as any;
+ return {club:{id:code,name:code,code,color:code==='AAA'?'#3fd38a':'#d33f6a'},formation:(treat.formation??'2-1-1') as any,style,approach:tuned,captain:`${code}2`,lineup:players.map(p=>p.id),bench:[],players,plans:[],...(treat.keeper||treat.fk?{settings:{...(treat.keeper?{keeper:treat.keeper}:{}),...(treat.fk?{setPiece:treat.fk}:{})}}:{})} as any;
 }
 
-export function armTreatment(arm:string):{skill?:Skill;delta?:number;style?:Style;vs?:Style;from?:Style;key?:string[];formation?:string;vsFormation?:string;sweep?:number;set?:Record<string,string|number>;keeper?:'sweeper'|'line'}{
+export function armTreatment(arm:string):{skill?:Skill;delta?:number;style?:Style;vs?:Style;from?:Style;key?:string[];formation?:string;vsFormation?:string;sweep?:number;set?:Record<string,string|number>;keeper?:'sweeper'|'line';fk?:'short'|'delivery'}{
  if(arm==='base')return {};
+ const s1=/^s1-([a-z0-9]+)-(ba|di|sh|co)(211|121|22)$/.exec(arm);
+ if(s1){const o=ONE[s1[1]];if(!o)throw Error('unknown arm '+arm);const st=(k:string)=>k==='ba'?'balanced' as Style:STYLE[k];
+  return {style:'balanced',formation:o.formation??'1-2-1',vs:st(s1[2]),vsFormation:FORM[s1[3]],...(o.set?{set:{...o.set}}:{}),...(o.keeper?{keeper:o.keeper}:{}),...(o.fk?{fk:o.fk}:{})};}
  const ad=/^ad-([a-z0-9_]+)$/.exec(arm);
  if(ad){const set:Record<string,string|number>={};let keeper:'sweeper'|'line'|undefined;
   for(const k of ad[1].split('_')){const a=ANTI[k];if(!a)throw Error('unknown arm '+arm);Object.assign(set,a.set??{});if(a.keeper)keeper=a.keeper;}
