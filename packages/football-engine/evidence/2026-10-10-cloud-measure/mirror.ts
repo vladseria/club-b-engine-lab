@@ -26,10 +26,6 @@
 //                              mirror's keepers are 0.5), the other side Direct: does the sweep trait become a must-have?
 //   di0f121 | di0f22           Direct v Balanced with BOTH sides in 1-2-1 | 2-2 (the engine takes each slot's
 //                              role from the formation, model.ts; the players are the same neutral five)
-//   ad-<k>[_<k>...]           (2026-10-12, stop-direct) treated side Balanced 1-2-1 with the named changes, the other
-//                              side Direct 1-2-1. k: ref (none) | nar (width narrow) | agg (press aggressive) |
-//                              swp (keeper call Sweeper, match settings) | c2 (bodies forward 2) | deep (line deep) |
-//                              reg (on losing it regroup). ad-ref builds exactly the inputs of ba121vdi121.
 //   <a><f>v<b><g>              (2026-10-11, cloud formations) treated side on style a in formation f, the other
 //                              side on style b in formation g; a,b in ba|di|sh|co, f,g in 211|121|22. Each
 //                              style keeps its own preset; only the formation changes. <a>211v<b>211 builds
@@ -52,9 +48,7 @@ const STYLE:Record<string,Style>={di:'direct',sh:'combinations',co:'counter'};
 const FORM:Record<string,string>={'211':'2-1-1','121':'1-2-1','22':'2-2'};
 const ABLATE:Record<string,string[]>={prog:['progression'],wid:['width'],com:['commit'],str:['striker'],ps:['progression','striker']};
 
-const ANTI:Record<string,{set?:Record<string,string|number>;keeper?:'sweeper'|'line'}>={ref:{},nar:{set:{width:'narrow'}},agg:{set:{press:'aggressive'}},
- swp:{keeper:'sweeper'},c2:{set:{commit:2}},deep:{set:{line:'deep'}},reg:{set:{onLoss:'regroup'}}};
-function side(code:string,treat:{skill?:Skill;delta?:number;style?:Style;from?:Style;key?:string[];formation?:string;sweep?:number;set?:Record<string,string|number>;keeper?:'sweeper'|'line'}):FrozenSide{
+function side(code:string,treat:{skill?:Skill;delta?:number;style?:Style;from?:Style;key?:string[];formation?:string;sweep?:number}):FrozenSide{
  const players=ROLES.map((roles,i)=>{
   const gk=i===0,skills={...(gk?GK_SKILLS:OUT_SKILLS)};
   if(treat.skill&&(treat.skill==='keeping'?gk:!gk))skills[treat.skill]=Math.max(0,Math.min(10,skills[treat.skill]+treat.delta!));
@@ -63,16 +57,11 @@ function side(code:string,treat:{skill?:Skill;delta?:number;style?:Style;from?:S
  const style=treat.style??'balanced',approach=(PRESETS as any)[style];
  if(!approach)throw Error(`this revision has no ${style} preset`);
  const tuned:any={...approach};for(const k of treat.key??[])tuned[k]=(PRESETS as any)[treat.from!][k];
- for(const [k,v] of Object.entries(treat.set??{})){if(!(k in tuned))throw Error('unknown setting '+k);tuned[k]=v;}
- return {club:{id:code,name:code,code,color:code==='AAA'?'#3fd38a':'#d33f6a'},formation:(treat.formation??'2-1-1') as any,style,approach:tuned,captain:`${code}2`,lineup:players.map(p=>p.id),bench:[],players,plans:[],...(treat.keeper?{settings:{keeper:treat.keeper}}:{})} as any;
+ return {club:{id:code,name:code,code,color:code==='AAA'?'#3fd38a':'#d33f6a'},formation:(treat.formation??'2-1-1') as any,style,approach:tuned,captain:`${code}2`,lineup:players.map(p=>p.id),bench:[],players,plans:[]} as any;
 }
 
-export function armTreatment(arm:string):{skill?:Skill;delta?:number;style?:Style;vs?:Style;from?:Style;key?:string[];formation?:string;vsFormation?:string;sweep?:number;set?:Record<string,string|number>;keeper?:'sweeper'|'line'}{
+export function armTreatment(arm:string):{skill?:Skill;delta?:number;style?:Style;vs?:Style;from?:Style;key?:string[];formation?:string;vsFormation?:string;sweep?:number}{
  if(arm==='base')return {};
- const ad=/^ad-([a-z0-9_]+)$/.exec(arm);
- if(ad){const set:Record<string,string|number>={};let keeper:'sweeper'|'line'|undefined;
-  for(const k of ad[1].split('_')){const a=ANTI[k];if(!a)throw Error('unknown arm '+arm);Object.assign(set,a.set??{});if(a.keeper)keeper=a.keeper;}
-  return {style:'balanced',formation:'1-2-1',vs:'direct',vsFormation:'1-2-1',...(Object.keys(set).length?{set}:{}),...(keeper?{keeper}:{})};}
  const ks=/^ks-(\d\d)$/.exec(arm);if(ks)return {style:'balanced',vs:'direct',sweep:Number(ks[1])/100};
  const ff=/^(ba|di|sh|co)(211|121|22)v(ba|di|sh|co)(211|121|22)$/.exec(arm);
  if(ff){const st=(k:string)=>k==='ba'?'balanced' as Style:STYLE[k];return {style:st(ff[1]),formation:FORM[ff[2]],vs:st(ff[3]),vsFormation:FORM[ff[4]]};}
