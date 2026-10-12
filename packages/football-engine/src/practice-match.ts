@@ -114,6 +114,10 @@ const runningCost=(slope:number)=>{const e=clamp(slope,-.45,.45);return 155.4*e*
  * (branch ballers-overnight-run, 3caaeb6a: variant bite-mid in patch.mjs,
  * results/tables.md).
  */
+/** The aerobic threshold for the energy drain: running above it costs energy (INTENSITY_COST), and a fitter
+ * player's is higher, so the same running costs him less (0.77–0.83 of top pace from stamina 3 to 9, about the
+ * spread of real CS, ± 10%). Energy only: the sprint reserve uses `sprintThreshold`, the same for every stamina. */
+export const criticalSpeed=(stamina:number,topPace:number)=>(.74+clamp(stamina,0,12)*.01)*topPace;
 export const INTENSITY_SHARE=.42,MOVEMENT_SHARE=1-INTENSITY_SHARE,INTENSITY_COST=.4108;
 export const STAMINA6_DRAIN=1.02,STAMINA_DRAIN_SLOPE=.11,STAMINA_DRAIN_FLOOR=.3;
 const staminaDrain=(stamina:number)=>STAMINA6_DRAIN*Math.max(STAMINA_DRAIN_FLOOR,1-STAMINA_DRAIN_SLOPE*(clamp(stamina,0,12)-6));
@@ -133,42 +137,55 @@ export function halfEnergy(energy:number):number{return clamp(energy+6,0,100);}
 /**
  * Short-term sprint reserve: D′, the running form of W′ (the work available
  * above critical power), kept as a fraction 0–1 of the player's own reserve.
- * - Above critical speed (CS) it falls by the distance run above CS (the
- *   distance form of the CS model: Hughson et al. 1984; Pettitt et al. 2012).
+ * - Above the sprint threshold (CS, critical speed) it falls by the distance
+ *   run above it (the distance form of the CS model: Hughson et al. 1984;
+ *   Pettitt et al. 2012).
  * - Below CS it refills exponentially, faster the further below CS he runs
- *   (Skiba et al. 2012, 2015): standing still halves the deficit in about
- *   30 s, a jog at half of CS in about a minute. PCr resynthesis half-time is
- *   21–57 s (Harris et al. 1976; Bogdanis et al. 1995; McMahon & Jenkins
- *   2002), and aerobic fitness speeds it (Tomlin & Wenger 2001): 35 s at
- *   stamina 6, 2 s less per stamina point, then all 15% slower for the
- *   tiredness bite (below): stamina 3 / 6 / 9 gives 47 / 40 / 33 s.
+ *   (Skiba et al. 2012, 2015). PCr resynthesis half-time is 21–57 s (Harris et
+ *   al. 1976; Bogdanis et al. 1995; McMahon & Jenkins 2002).
  * - CS is set by the share of match time spent above it, not by its real
  *   3.9 m/s: the engine's outfielders cover ~190 m/min with 38% of their time
  *   above 4 m/s, against ~110–120 m/min and roughly a tenth of the time above
  *   CS in real futsal and football (Barbero-Alvarez et al. 2008; Bradley et al.
  *   2009). At 0.8 × top pace (the engine's 5.5 m/s high-intensity line for
- *   pace 6) they spend 13% of the time above it. Stamina moves it 0.77–0.83
- *   of top pace from stamina 3 to 9, about the spread of real CS (± 10%).
+ *   pace 6) they spend 13% of the time above it.
  * - Accelerations are not charged here. The engine's steering speeds up and
  *   brakes at full rate every few seconds (smoothed acceleration above
  *   3 m/s² for 16% of the time, against roughly 1% in real matches), so a
  *   metabolic-power charge left every outfielder near empty all match.
- * - D′ (metres above CS) is sized so repeated-sprint tests lose 3–8% (see
- *   `legs`); stamina moves it 6.5% a point around stamina 6 (±20% from
- *   stamina 3 to 9, a little wider than D′'s real ±15%, so stamina shows).
- * - Tiredness bite (2026-10-11, see `fatigueCost`): D′ 13 m at stamina 6
- *   (was 16 m, ±15%) and the 15% slower refill, so a run of sprints or a long
- *   press empties the reserve sooner and it takes longer to come back; the
- *   reserve is below half for about half of a match (was a seventh).
+ * - D′ is 13 m, sized so repeated-sprint tests lose 3–8% (see `legs`); the
+ *   tiredness bite (2026-10-11, see `fatigueCost`) made it smaller and the
+ *   refill slower, so a run of sprints or a long press empties it sooner.
+ *
+ * Stamina is how long a player lasts, not a second pace skill (2026-10-12).
+ * Stamina used to raise CS (0.77–0.83 of top pace from stamina 3 to 9), D′
+ * (±20%) and the refill (47 / 40 / 33 s), so a fresh +3 side had a fuller
+ * reserve within two minutes: +10–14% acceleration all match, which carried
+ * the whole of stamina's +3.5 goal swing and put a +3 side ahead from the
+ * first minutes. Now a fresh player's burst is the same at any stamina, and
+ * stamina acts through energy, which it drains more slowly (`fatigueCost`):
+ * - CS is 0.8 × his top pace of the moment (`energyTop`), so it falls as he
+ *   tires: CS and W′ both decline after prolonged exercise (Clark et al.
+ *   2019). Before, a tired player whose top speed sank under a CS fixed on his
+ *   listed pace stopped drawing on the reserve at all; it refilled, his
+ *   acceleration came back, and tiredness cancelled itself (a 27-point energy
+ *   gap at 15:00 was worth nothing in the last five minutes).
+ * - The refill slows as he tires: 34 s at energy 100, 41 s at 83 and 47 s at
+ *   69 (a stamina-6 player's match average and usual end; it was a flat 40 s
+ *   at stamina 6). Repeated-sprint ability
+ *   falls late in matches with the glycogen emptied from the fast fibres
+ *   (Krustrup et al. 2006; Mohr et al. 2005), so whoever has more left in the
+ *   tank recovers faster between efforts.
+ * Evidence: evidence/2026-10-12-stamina.
  */
-export const criticalSpeed=(stamina:number,topPace:number)=>(.74+clamp(stamina,0,12)*.01)*topPace;
-export const RESERVE_SIZE=13,RESERVE_STAMINA_SLOPE=.065;
-export const reserveSize=(stamina:number)=>RESERVE_SIZE*(1+RESERVE_STAMINA_SLOPE*(clamp(stamina,0,12)-6));
-export const RESERVE_HALF_LIFE=35,RESERVE_HALF_LIFE_SLOPE=2,RESERVE_REFILL_SLOWER=1.15;
-export const reserveHalfLife=(stamina:number)=>RESERVE_REFILL_SLOWER*(RESERVE_HALF_LIFE-RESERVE_HALF_LIFE_SLOPE*(clamp(stamina,0,12)-6));
-export function reserveBalance(reserve:number,speed:number,stamina:number,topPace:number,seconds:number):number{
- const cs=criticalSpeed(stamina,topPace),v=Math.max(0,speed),dt=Math.max(0,seconds);
- const next=v>cs?reserve-(v-cs)*dt/reserveSize(stamina):reserve+(1-reserve)*(cs-v)/cs*Math.LN2/reserveHalfLife(stamina)*dt;
+export const SPRINT_SHARE=.8;
+export const sprintThreshold=(topPace:number,energy:number)=>SPRINT_SHARE*topPace*energyTop(energy);
+export const RESERVE_SIZE=13;
+export const RESERVE_HALF_LIFE_FRESH=34,RESERVE_FATIGUE_SLOWER=1.2;
+export const reserveHalfLife=(energy:number)=>RESERVE_HALF_LIFE_FRESH*(1+RESERVE_FATIGUE_SLOWER*(100-clamp(energy,0,100))/100);
+export function reserveBalance(reserve:number,speed:number,energy:number,topPace:number,seconds:number):number{
+ const cs=sprintThreshold(topPace,energy),v=Math.max(0,speed),dt=Math.max(0,seconds);
+ const next=v>cs?reserve-(v-cs)*dt/RESERVE_SIZE:reserve+(1-reserve)*(cs-v)/cs*Math.LN2/reserveHalfLife(energy)*dt;
  return clamp(next,0,1);
 }
 /**
