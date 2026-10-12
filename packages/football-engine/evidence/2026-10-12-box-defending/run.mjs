@@ -1,50 +1,46 @@
-// Stamina study (2026-10-12): stamina.ts matches, laptop (<= 3 workers) or cloud (SIM_WORKERS, <= 4 a runner).
-//   node run.mjs --label diag --revs eng=working --vars hook,hook+reserve p-stamina,m-stamina:0-39
-//   node run.mjs --label fix --revs base=<rev>,fix=working --vars hook p-stamina,m-stamina,p-pace,m-pace:0-79
-// The deep-study runner (../2026-10-12-deep-study/run.mjs) with stamina.ts as the entry and one bundle per
-// (rev, variant) pair (variants.mjs). Rows go to results/<label>.jsonl, appended; finished (arm, seed, rev, var)
-// rows are skipped, so a stopped run resumes. A row's `rev` is `<rev>` for variant base/hook, else `<rev>~<var>`.
+// Box defending (2026-10-12): the deep-study runner with box.ts as the entry. Original:
+// Deep study (2026-10-12): deep.ts matches, laptop (<= 3 workers) or cloud (SIM_WORKERS, <= 4 on a 4-vCPU runner).
+//   node run.mjs --label rr --revs eng=working ba211vdi121,di211vco22:0-59 p-pace,m-pace:0-79
+// The cloud-measure runner (../2026-10-10-cloud-measure/run.mjs) with deep.ts as the entry. Output
+// results/<label>.jsonl, appended; finished (arm, seed, rev) rows are skipped, so a stopped run resumes.
+// Parity: the same seeds through the official path, then parity.mjs:
+//   node ../2026-10-10-cloud-measure/run.mjs --label <x> --revs eng=working <same arms:seeds>
 import {Worker,isMainThread,parentPort,workerData} from 'node:worker_threads';
 import {existsSync,readFileSync,appendFileSync} from 'node:fs';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import path from 'node:path';
 import {shardTasks,simWorkers,shardNote} from '../_ci/shard.mjs';
 import {bundleRevs,parseRevs} from '../_ci/revs.mjs';
-import {variantPlugin} from './variants.mjs';
 
 const here=path.dirname(fileURLToPath(import.meta.url));
 
 if(!isMainThread){
  const mods={};
- for(const [key,bundle] of Object.entries(workerData.bundles))mods[key]=await import(pathToFileURL(bundle).href);
- parentPort.on('message',task=>{try{parentPort.postMessage({ok:true,line:{...mods[task.key].play(task),var:task.var}});}catch(e){parentPort.postMessage({ok:false,task,error:String(e?.stack??e)});}});
+ for(const [rev,bundle] of Object.entries(workerData.bundles))mods[rev]=await import(pathToFileURL(bundle).href);
+ parentPort.on('message',task=>{try{parentPort.postMessage({ok:true,line:mods[task.rev].play(task)});}catch(e){parentPort.postMessage({ok:false,task,error:String(e?.stack??e)});}});
 }else{
  const argv=process.argv.slice(2);
  const arg=(k,d)=>{const i=argv.indexOf(`--${k}`);return i>=0?argv[i+1]:d;};
  const range=s=>s.split(',').flatMap(p=>{const [a,b]=p.split('-').map(Number);return b===undefined?[a]:Array.from({length:b-a+1},(_,i)=>a+i);});
  const label=arg('label');if(!label)throw Error('--label is required');
- const flagVals=new Set(['label','revs','workers','vars'].map(k=>arg(k)).filter(Boolean));
+ const flagVals=new Set(['label','revs','workers'].map(k=>arg(k)).filter(Boolean));
  const blocks=argv.filter(a=>a.includes(':')&&!a.startsWith('--')&&!flagVals.has(a)).map(b=>{const [arms,seeds]=b.split(':');return {arms:arms.split(','),seeds:range(seeds)};});
  if(!blocks.length)throw Error('give at least one <arm,arm>:<seeds> block');
- const revs=parseRevs(arg('revs','eng=working')),vars=arg('vars','hook').split(',');
- const outDir=path.join(here,'results'),bundles={};
- for(const v of vars){
-  const b=await bundleRevs({entry:path.join(here,'stamina.ts'),revs,outDir,extraPlugins:[variantPlugin(v)],tag:v.replace(/\+/g,'-')});
-  for(const [rev,file] of Object.entries(b))bundles[`${rev}~${v}`]=file;
- }
+ const revs=parseRevs(arg('revs','base=working'));
+ const outDir=path.join(here,'results');
+ const bundles=await bundleRevs({entry:path.join(here,'box.ts'),revs,outDir});
  const chk=await import(pathToFileURL(Object.values(bundles)[0]).href);
  for(const b of blocks)for(const a of b.arms)chk.armTreatment(a);// throws on an unknown arm
- const plain=v=>v==='base'||v==='hook';
+
  const every=[];
- for(const b of blocks)for(const seed of b.seeds)for(const arm of b.arms)for(const rev of Object.keys(revs))for(const v of vars)
-  every.push({label,arm,seed,rev:plain(v)?rev:`${rev}~${v}`,var:v,key:`${rev}~${v}`});
- const key=j=>`${j.arm}:${j.seed}:${j.rev}:${j.var}`;
+ for(const b of blocks)for(const seed of b.seeds)for(const arm of b.arms)for(const rev of Object.keys(bundles))every.push({label,arm,seed,rev});
+ const key=j=>`${j.arm}:${j.seed}:${j.rev}`;
  const out=path.join(outDir,`${label}.jsonl`);
  const done=new Set(existsSync(out)?readFileSync(out,'utf8').trim().split('\n').filter(Boolean).map(l=>key(JSON.parse(l))):[]);
  const tasks=shardTasks(every).filter(t=>!done.has(key(t)));
  const workers=Math.min(4,simWorkers(Number(arg('workers',3))));
- console.log(`${label}${shardNote()}: ${tasks.length} matches of ${every.length} on ${workers} workers; revs ${Object.entries(revs).map(([n,r])=>`${n}=${r}`).join(', ')}; variants ${vars.join(', ')} (${done.size} already in ${path.basename(out)})`);
- if(argv.includes('--dry')){const by={};for(const t of tasks)by[t.arm+' '+t.rev]=(by[t.arm+' '+t.rev]??0)+1;console.log(by);process.exit(0);}
+ console.log(`${label}${shardNote()}: ${tasks.length} mirror matches of ${every.length} on ${workers} workers; revs ${Object.entries(revs).map(([n,r])=>`${n}=${r}`).join(', ')} (${done.size} already in ${path.basename(out)})`);
+ if(argv.includes('--dry')){const by={};for(const t of tasks)by[t.arm]=(by[t.arm]??0)+1;console.log(by);process.exit(0);}
  let finished=0,failed=0;const t0=Date.now();
  await Promise.all(Array.from({length:Math.min(workers,tasks.length)},()=>new Promise(resolve=>{
   const w=new Worker(fileURLToPath(import.meta.url),{workerData:{bundles}});

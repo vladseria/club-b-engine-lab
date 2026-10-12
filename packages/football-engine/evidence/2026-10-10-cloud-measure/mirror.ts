@@ -34,6 +34,10 @@
 //                              side on style b in formation g; a,b in ba|di|sh|co, f,g in 211|121|22. Each
 //                              style keeps its own preset; only the formation changes. <a>211v<b>211 builds
 //                              exactly the inputs of <a>v<b> (and di211vba211 those of di0).
+//   cx-<k>[_<k>...] | cd-<k>[_<k>...]   (2026-10-12, counter-preset) treated side Counter 1-2-1 with the named
+//                              changes, the other side Balanced 1-2-1 (cx) | Direct 1-2-1 (cd). k: ref (none) |
+//                              std (line standard) | bal (press balanced) | tb (transition balanced: no counter window).
+//                              cx-ref builds exactly the inputs of co121vba121; cx-std_bal_tb those of ba121vba121.
 // Treated side = seed % 2; kick-off = (seed >> 1) % 2, so every 4 seeds cover
 // both sides x both kick-offs. Match id `skill-<seed>`, as the audit's, so a
 // base-revision row on the same platform reproduces the audit's tape score.
@@ -54,6 +58,7 @@ const ABLATE:Record<string,string[]>={prog:['progression'],wid:['width'],com:['c
 
 const ANTI:Record<string,{set?:Record<string,string|number>;keeper?:'sweeper'|'line'}>={ref:{},nar:{set:{width:'narrow'}},agg:{set:{press:'aggressive'}},
  swp:{keeper:'sweeper'},c2:{set:{commit:2}},deep:{set:{line:'deep'}},reg:{set:{onLoss:'regroup'}}};
+const CPRE:Record<string,Record<string,string|number>>={ref:{},std:{line:'standard'},bal:{press:'balanced'},tb:{transition:'balanced'}};
 function side(code:string,treat:{skill?:Skill;delta?:number;style?:Style;from?:Style;key?:string[];formation?:string;sweep?:number;set?:Record<string,string|number>;keeper?:'sweeper'|'line'}):FrozenSide{
  const players=ROLES.map((roles,i)=>{
   const gk=i===0,skills={...(gk?GK_SKILLS:OUT_SKILLS)};
@@ -73,6 +78,10 @@ export function armTreatment(arm:string):{skill?:Skill;delta?:number;style?:Styl
  if(ad){const set:Record<string,string|number>={};let keeper:'sweeper'|'line'|undefined;
   for(const k of ad[1].split('_')){const a=ANTI[k];if(!a)throw Error('unknown arm '+arm);Object.assign(set,a.set??{});if(a.keeper)keeper=a.keeper;}
   return {style:'balanced',formation:'1-2-1',vs:'direct',vsFormation:'1-2-1',...(Object.keys(set).length?{set}:{}),...(keeper?{keeper}:{})};}
+ const cx=/^c([xd])-([a-z_]+)$/.exec(arm);
+ if(cx){const set:Record<string,string|number>={};
+  for(const k of cx[2].split('_')){const a=CPRE[k];if(!a)throw Error('unknown arm '+arm);Object.assign(set,a);}
+  return {style:'counter',formation:'1-2-1',vs:cx[1]==='x'?'balanced':'direct',vsFormation:'1-2-1',...(Object.keys(set).length?{set}:{})};}
  const ks=/^ks-(\d\d)$/.exec(arm);if(ks)return {style:'balanced',vs:'direct',sweep:Number(ks[1])/100};
  const ff=/^(ba|di|sh|co)(211|121|22)v(ba|di|sh|co)(211|121|22)$/.exec(arm);
  if(ff){const st=(k:string)=>k==='ba'?'balanced' as Style:STYLE[k];return {style:st(ff[1]),formation:FORM[ff[2]],vs:st(ff[3]),vsFormation:FORM[ff[4]]};}

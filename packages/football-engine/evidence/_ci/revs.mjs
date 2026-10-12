@@ -53,14 +53,12 @@ const at=root=>({name:'rev-at',setup(b){
 }});
 
 /** One esm bundle of `entry` per revision, written under outDir (git-ignore `.bundle.*` and `.rev-*` there). */
-//   extraPlugins / tag (optional): more esbuild plugins for every bundle (e.g. a harness's read-only source transform)
-//   and a name part that keeps such bundles apart from plain ones.
-export async function bundleRevs({entry,revs,outDir,extraPlugins=[],tag=''}){
+export async function bundleRevs({entry,revs,outDir}){
  mkdirSync(outDir,{recursive:true});
  const bundles={};
  for(const [name,rev] of Object.entries(revs)){
-  bundles[name]=path.join(outDir,`.bundle.${name}${tag?'.'+tag:''}.${createHash('md5').update(rev).digest('hex').slice(0,8)}.mjs`);
-  await build({entryPoints:[entry],bundle:true,format:'esm',platform:'node',target:'node22',outfile:bundles[name],logLevel:'warning',plugins:[at(revRoot(rev,outDir)),...extraPlugins]});
+  bundles[name]=path.join(outDir,`.bundle.${name}.${createHash('md5').update(rev).digest('hex').slice(0,8)}.mjs`);
+  await build({entryPoints:[entry],bundle:true,format:'esm',platform:'node',target:'node22',outfile:bundles[name],logLevel:'warning',plugins:[at(revRoot(rev,outDir))]});
  }
  return bundles;
 }

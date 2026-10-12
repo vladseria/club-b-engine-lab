@@ -817,6 +817,64 @@ export function markSpot(q:PracticePlayer,r:ManRead,ref:Vec,tactics:Tactics,defe
  return along<need?{x:p.x+u.x*(need-along),y:p.y+u.y*(need-along)}:p;
 }
 
+/** Box defending (2026-10-12, evidence/2026-10-12-box-defending). With the ball near our goal the defence protects
+ * the box, not only its men. Measured before (engine 3af89fa9): with their man on the ball within 10 m of our goal,
+ * only 1.5 of our 4 outfielders were nearer our goal than the ball; at the strike 0.2 stood in the triangle from the
+ * ball to the posts and about 80% of shots had nobody in it, under every Line; shots came from about 10 m whatever
+ * the defence. Near our goal every marker stayed goal-side of his own man (markSpot's NEAR_GOAL and threat tightness),
+ * so the markers of the men behind the ball stood level with it or upfield of it, and a deep block crowded nothing.
+ * Futsal's priority near goal: the ball is the danger; a pass to a man who is worse placed than it can be given (it
+ * becomes a shot from further out, or from a worse angle). Now, while the ball (the man on it, or where a pass to him
+ * is met) is within PROTECT_R m of our goal (by the Line, fading in over PROTECT_FADE m), a marker moves from his
+ * marking spot towards the shooting lane: the middle PROTECT_WIDTH of the triangle from the ball to the posts, at
+ * least PROTECT_DEPTH of the way from the ball to the goal (a second layer in front of the keeper, never nearer the
+ * ball than PROTECT_OFF m: the presser's room), and no deeper than he already is. He goes PROTECT of the way by the
+ * Line: a deep block collapses into the lane, a standard one part of the way, a high one stays near its men to win
+ * the ball higher. The more his own man's chance from where he is (goal angle and distance, as he reads it) nears
+ * the ball's, the less he goes: PROTECT_FRONT of it at an equal chance, none for a man PROTECT_BETTER times better
+ * placed (the cut-back, the far post: still marked). Both are his own reads (acuity 'threat': reading and
+ * defending): how much better placed his man is, off by up to PROTECT_READ (of the ratio) for a player who cannot read
+ * the game, so a poor reader leaves a dangerous man for the lane or stays on a harmless one; and where the lane is,
+ * off sideways by up to PROTECT_SPREAD m, so a sharp reader gets his body in it and a poor one stands beside it. Only the marker's spot moves: his pace, his tackle, the shooter
+ * and the keeper are unchanged. */
+export const PROTECT_R:Record<Tactics['line'],number>={deep:19,standard:16,high:13};
+export const PROTECT:Record<Tactics['line'],number>={deep:1,standard:.6,high:.3};
+export const PROTECT_FADE=4,PROTECT_OFF=1.5,PROTECT_DEPTH=.45,PROTECT_FRONT=.35,PROTECT_BETTER=1.6,PROTECT_READ=.6,PROTECT_SPREAD=1.2,PROTECT_WIDTH=.5;
+/** How good a shot from here looks: goal angle times nearness (the shooter's assessShot terms, without the people). */
+const openShot=(v:Vec,g:Vec)=>{const d=distance(v,g),x=Math.max(.01,Math.abs(g.x-v.x));return Math.abs(Math.atan2(GH-v.y,x)-Math.atan2(-GH-v.y,x))*clamp(1-d/45,.05,1);};
+/** His share of the way to the lane, by his man's chance against the ball's (1 = the man is no better placed). */
+export function protectShare(man:Vec,ball:Vec,g:Vec,q?:PracticePlayer,time?:number):number{
+ const exact=openShot(man,g)/Math.max(1e-6,openShot(ball,g));
+ const better=q?perceive(q,'threat',exact,PROTECT_READ,man,{time,salt:'boxman'}):exact;
+ if(better<=1)return 1;if(better>=PROTECT_BETTER)return 0;
+ const k=(better-1)/(PROTECT_BETTER-1);
+ return k<.5?1-(1-PROTECT_FRONT)*k*2:PROTECT_FRONT*(1-(k-.5)*2);
+}
+export function protectBox(q:PracticePlayer,man:Vec,aim:Vec,ball:Vec,tactics:Tactics,defending:Side,time?:number):Vec{
+ const g={x:world(defending,0),y:0},db=distance(ball,g);
+ const zone=clamp((PROTECT_R[tactics.line]-db)/PROTECT_FADE,0,1);
+ if(zone<=0||db<PROTECT_OFF+GOAL_LINE_FLOOR)return aim;
+ const share=protectShare(man,ball,g,q,time)*PROTECT[tactics.line]*zone;if(share<=0)return aim;
+ // the lane as he reads it: the ball end shifted sideways by his misread
+ const ux=(g.x-ball.x)/db,uy=(g.y-ball.y)/db,nx=-uy,ny=ux;
+ const off=perceive(q,'threat',0,PROTECT_SPREAD,ball,{time,salt:'box'});
+ const raw=(aim.x-ball.x)*ux+(aim.y-ball.y)*uy,along=clamp(Math.max(raw,db*PROTECT_DEPTH),PROTECT_OFF,db-GOAL_LINE_FLOOR);
+ const across=(aim.x-ball.x)*nx+(aim.y-ball.y)*ny-off,half=GH*along/db*PROTECT_WIDTH;
+ if(Math.abs(across)<=half&&raw>=along-1e-9)return aim;
+ const c=off+Math.sign(across)*Math.min(Math.abs(across),half);
+ const lane={x:ball.x+ux*along+nx*c,y:ball.y+uy*along+ny*c};
+ return {x:aim.x+(lane.x-aim.x)*share,y:aim.y+(lane.y-aim.y)*share};
+}
+
+/** (box defending) A defender within BOX_BLOCK_NEAR m of the man on the ball who reads a shot of danger above
+ * BOX_BLOCK_DANGER coming (practice-shot-defense readShotDanger: the visible shooter's angle, distance and body, his own
+ * reading setting how early he gets there) and can put his body in its lane in time, steps into it (practice.ts), as
+ * the presser and the cover already did: futsal blocks shots. Not when his own man would have the better shot. */
+export const BOX_BLOCK_NEAR=7,BOX_BLOCK_DANGER=.32;
+export function mayLeaveForBall(man:Vec,ball:Vec,defending:Side):boolean{
+ const g={x:world(defending,0),y:0};return openShot(man,g)<=openShot(ball,g);
+}
+
 /** The block's height now (m from our goal), by the Line. */
 export function blockDepth(tactics:Tactics,refDepth:number,squeeze:number):number{
  const b=BLOCK[tactics.line];
@@ -1119,6 +1177,8 @@ export function defendOutOfPossession(given:DefendInput):DefendPlan{
    // a sag that would put him beside a team-mate's man (two on one, his own free) is taken back
    const others=Object.entries(memory.men).filter(([id,x])=>id!==q.id&&x.target!==m.id&&!isRole(x.target)).map(([,x])=>byId.get(x.target)).filter((a):a is PracticePlayer=>!!a&&a.side===attacking&&a.id!==carrier?.id&&distance(a,r.v)>SAG_CLEAR+1);
    for(const k of [.6,.3,0]){if(!others.some(a=>distance(view(q,a),aim)<SAG_CLEAR))break;aim=markSpot(q,r,ref,tactics,defending,squeeze,k*sagScale,time);}
+   // (box defending) the ball near our goal: he steps from his man towards the shooting lane, as far as he can afford
+   if(!restart&&!(carrier&&carrier.role==='GK')&&m.id!==carrier?.id)aim=protectBox(q,r.v,aim,ref,tactics,defending,time);
    // (marking and shape round) level with or upfield of his man near our goal: he hurries back goal-side, at full pace
    hurry=habit(md,r.running)>=.5&&distance(q,g)>md-.3;
    // a man level with or behind the ball beside the carrier in midfield: his marker stays goal-side of the ball, BALL_CLEAR m off it (one dribble must not beat the presser, the cover and him)
