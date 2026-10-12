@@ -977,7 +977,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    const previous=old.get(p.id)!;
    p.x=clamp(p.x,Math.min(-margin,previous.x),Math.max(L+margin,previous.x));
    p.y=clamp(p.y,Math.min(-W/2-margin,previous.y),Math.max(W/2+margin,previous.y));
-   const speed=Math.hypot(p.vx,p.vy);p.energy=fatigueEnergy(p.energy,speed,p.skills.stamina,STEP,(speed-previous.speed)/STEP,p.role==='GK'?undefined:p.basePace);reserves.set(p.id,reserveBalance(reserveOf(p),speed,p.energy,p.basePace,STEP));
+   const speed=Math.hypot(p.vx,p.vy);p.energy=fatigueEnergy(p.energy,speed,p.skills.stamina,STEP,(speed-previous.speed)/STEP,p.role==='GK'?undefined:p.basePace);reserves.set(p.id,reserveBalance(reserveOf(p),speed,p.skills.stamina,p.basePace,STEP));
    if(kind==='press')stats[p.side].pressSeconds+=STEP;if(kind==='cover'||kind==='hold'||kind==='track')stats[p.side].coverSeconds+=STEP;
    if(!physicalOwner&&p.id===owner?.id&&(prepared||firstTouch)){
     const target=prepared?.option.aim??firstTouch!.aim;p.angle=facing;const a=Math.atan2(target.y-p.y,target.x-p.x);p.angle+=clamp(angleDiff(a,p.angle),-4*STEP,4*STEP);
