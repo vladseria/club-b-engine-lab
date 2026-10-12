@@ -19,9 +19,8 @@ import {practiceFixture} from './practice-data.js';
 import {carryOptions,chooseFootballOption,commitCarry,CarryPlan,CarryAssessment,CarryOption} from './practice-carry.js';
 import type {ShotAssessment} from './practice-football.js';
 import {assessShot,strikeShot,keeperReach,goalBoundFlight,markPosition,goalAngle,pitchExit} from './practice-football.js';
-import {arrivalTime,assignDefense,containMovement,coverPosition,shootingThreat,BLOCK_NEAR,BLOCK_GAP,DefenseAssignment,assignFlight,assignMarking,FlightAssignment,runnerBehindShoulder,runnerPickupDelay} from './practice-defense.js';
-import {offGoalLine,mayLeaveForBall,BOX_BLOCK_NEAR,BOX_BLOCK_DANGER} from './practice-defending.js';
-import {readShotDanger} from './practice-shot-defense.js';
+import {arrivalTime,assignDefense,containMovement,coverPosition,shootingThreat,DefenseAssignment,assignFlight,assignMarking,FlightAssignment,runnerBehindShoulder,runnerPickupDelay} from './practice-defense.js';
+import {offGoalLine} from './practice-defending.js';
 import {duelChance,readChallenge,startChallenge,bodyScreensBall,recoveryPosition,resolveChallengeContact,beatenRecovery,BEATEN_WINDOW,BEATEN_NEAR,BEATEN_TOUCH,ChallengeContact,ChallengeRead,ChallengeAttempt} from './practice-challenge.js';
 import {possessionSafety,lookAgain,securePossessionOptions,feltPressure,recoveryTouch,preparationTime,strikeClearance,launchRisk,ClearanceIntent,footToBall} from './practice-possession.js';
 import {perceive,Sightings,sightLag,inView,lookingAt} from './practice-perception.js';
@@ -856,18 +855,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
       blocks.set(p.id,{opponent:owner.id,aim:{...aim},until:time+.35});
      }else if(p.id===presser&&dist(p,owner)<4.5&&read.mode==='recover'){aim=recoveryPosition(p,owner);kind='recover';reason=read.reason;}
      else if(p.id===presser&&dist(p,owner)<4.5&&read.mode==='contain'){
-      // (box defending) near our goal he keeps the block stance on the shot line (containMovement's BLOCK_GAP), not the
-      // midfield jockey 1.8 m off: from 1.8 m his body covered about 10 degrees of a goal 28 degrees wide at 10 m
-      const u=unit(world(p.side,0)-owner.x,-owner.y),gap=dist(owner,{x:world(p.side,0),y:0})<BLOCK_NEAR?BLOCK_GAP:1.8;
-      aim=inside({x:owner.x+u.x*gap,y:owner.y+u.y*gap});kind='jockey';reason=read.reason;
-     }
-    }else if(owner&&coordinatedOutfield&&p.side!==side&&p.role!=='GK'&&dist(p,owner)<BOX_BLOCK_NEAR&&!['challenge','intercept','receive','recover','wrongfoot'].includes(kind)){
-     // (box defending) any defender near the shooter who reads the shot coming and can get his body into its lane in
-     // time (readShotDanger: the visible shooter, his reading) steps into it, unless his own man would have the better shot
-     const shot=readShotDanger(p,owner,ball,players),man=marks.has(p.id)?get(marks.get(p.id)!):undefined;
-     if(shot.canBlock&&shot.level>BOX_BLOCK_DANGER&&(!man||mayLeaveForBall(lastObserved.get(man.id)??man,owner,p.side))){
-      aim=shot.blockAim;kind='block';reason='E lângă culoarul șutului: intră cu corpul pe traiectorie.';limit=p.pace*.94;trackingVelocity=undefined;
-      blocks.set(p.id,{opponent:owner.id,aim:{...aim},until:time+.35});
+      const u=unit(world(p.side,0)-owner.x,-owner.y);aim=inside({x:owner.x+u.x*1.8,y:owner.y+u.y*1.8});kind='jockey';reason=read.reason;
      }
     }
     const block=blocks.get(p.id);

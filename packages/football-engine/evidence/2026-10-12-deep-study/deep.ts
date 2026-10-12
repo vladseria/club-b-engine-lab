@@ -122,7 +122,7 @@ export function play(t:{label:string;arm:string;seed:number;rev:string}){
   regain:[0,0,0],regainHow:{} as Record<string,number>,ownThirdHanded:[0,0],counter:[0,0,0,0,0],
   looseWon:0,receives:0,quickLoss:0,restarts:{} as Record<string,number>,
   dist:0,hs:[0,0,0],energyEnd:0,energyMin:100,energyHalf:0,eng:null as any,
-  x:{press:[0,0,0,0],long:[0,0,0,0,0,0],sweep:[0,0],mv:[] as any[],lr:[] as any[]}});
+  x:{press:[0,0,0,0],long:[0,0,0,0,0,0],sweep:[0,0],mv:[] as any[],lr:[] as any[],pl:[] as any[]}});
  const A=[mk(),mk()];
 
  // goals and shots (engine events; the official row has the per-shot list)
@@ -179,6 +179,8 @@ export function play(t:{label:string;arm:string;seed:number;rev:string}){
     if(o&&!(o===e.actor&&g.time<e.time+.3)){const w=sideOf(o);cat=loose?(w===S?3:4):(w===S?1:2);break;}
     if(g.ball?.mode==='loose')loose=true;}
    x.long[cat]++;
+   // (2026-10-12, passer pressure) x.pl: the passer's nearest outfield defender at every long ball
+   x.pl.push([e.aerial?1:0,Math.round(len),Math.round(from),Math.round(to),Math.round(Math.min(...team(f,D).map(d=>dist(p,d.q)))*10)/10,cat,roster[idx.get(e.actor)!].role]);
   }
  }
  for(const S of [0,1]){const gk=roster.findIndex(p=>p.side===S&&p.role==='GK');if(gk<0)continue;let prev='';
@@ -403,6 +405,8 @@ export function play(t:{label:string;arm:string;seed:number;rev:string}){
 //         receiver's role, last pass by a team-mate before the shot [len, from depth, to depth, from |y - 15|, lofted,
 //         s before the shot] | null, shooter's carry m from his last control start, s he held it, the spell had a long
 //         ball before the shot, technique, shot depth, first time]
+//  x.pl (2026-10-12, passer pressure; rows made before it lack it): one entry per open-play long ball (as x.long):
+//       [lofted, len (m), from depth, aim depth, nearest outfield defender to the passer at the pass (m), cat (as x.long), passer role]
 //    lr   one entry per open-play long ball (lofted or ground 15 m+, gaining >= 5 m) with a named target: [lofted, len,
 //         from depth, aim depth, cat (as x.long), s to arrival (first owner/restart; -1 none within 4 s: then only 6
 //         fields), nearest defender to the target at the pass (m), at arrival (m), that defender goal-side of the target,
