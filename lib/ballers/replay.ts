@@ -32,7 +32,10 @@ export interface ReplayPlayer {
 export interface ReplayTeam {club:string;name:string;code:string;color:string;formation:string;style:string;
  /** The club's voice as frozen at the lock (lib/ballers/voice.ts); present only when it has lines. */ voice?:Voice}
 export interface ReplayHeader {
- v:typeof REPLAY_VERSION;engineBuild:string;duration:number;chunkSeconds:number;chunks:number;
+ v:typeof REPLAY_VERSION;engineBuild:string;
+ /** Seconds until the final whistle: the match length, or a few seconds more when the last attack played out. */ duration:number;
+ /** The match length (the clock's full time), present only when the whistle came after it (last attack, engine practice-match.ts). */ fullTime?:number;
+ chunkSeconds:number;chunks:number;
  teams:[ReplayTeam,ReplayTeam];players:ReplayPlayer[];
 }
 /** One frame: t ms; p = [x, y, angle] per player; b = ball [x, y, z]; o = ball

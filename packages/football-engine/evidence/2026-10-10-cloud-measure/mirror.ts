@@ -115,8 +115,14 @@ export function play(t:{label:string;arm:string;seed:number;rev:string}){
   if(cl.restart){for(let k=ev.indexOf(e)-1;k>=0;k--){const x=ev[k];if(x.t<cl.startT-1500)break;if(x.rk){rk=x.rk;break;}}if(!rk)rk='restart';}
   return [side,r3(shotChance(e)??0),e.q!==undefined?0:e.sk??-1,rk??'won',Math.round(cl.startX*10)/10,Math.round((e.t-cl.startT)/100)/10,Math.round(e.t/1000),e.a??null,scored.has(e)?1:0,e.q??null];
  });
+ // (2026-10-12, last attack) what happened past the match length: the whistle's time, the score at the
+ // match length, and per side the goals, shots and clear chances (a read shot worth >= 0.3) after it.
+ const full=inp.duration*1000,lateEv=ev.filter((e:any)=>e.t>full),f900=frames.filter((f:any)=>f.t<=full).at(-1);
+ const per=(pick:(e:any)=>boolean)=>[0,1].map(s=>lateEv.filter((e:any)=>pick(e)&&(e.s??sideOf.get(e.a))===s).length);
+ const late={played:c.header.duration,at900:f900?.s??null,goals:per((e:any)=>e.k==='goal'),shots:per((e:any)=>e.k==='shot'),
+  clear:per((e:any)=>e.k==='shot'&&(shotChance(e)??0)>=.3),last:lateEv.filter((e:any)=>e.k!=='end').at(-1)?.k??null};
  const st=(s:0|1)=>{const x:any=c.stats[s];return {poss:Math.round(x.possession*10)/10,passes:x.passes,completed:x.completed,shots:x.shots,turnovers:x.turnovers,tackles:x.tackles,tacklesWon:x.tacklesWon,fouls:x.fouls};};
  return {label:t.label,kind:'mirror',arm:t.arm,seed:t.seed,rev:t.rev,ours:t.seed%2,kickoff:inp.kickoff,duration:inp.duration,
   plat:`${process.platform}-${process.arch}-node${process.versions.node}`,build:r.engineBuild.slice(0,8),tableBuild:CHANCE_TABLE.build.slice(0,8),score:c.score,
-  chances:ch?ch.map(r3):null,chancesAny:any?any.map(r3):null,stats:[st(0),st(1)],shots:shotRows,dropped:r.dropped,ms};
+  chances:ch?ch.map(r3):null,chancesAny:any?any.map(r3):null,stats:[st(0),st(1)],shots:shotRows,late,dropped:r.dropped,ms};
 }

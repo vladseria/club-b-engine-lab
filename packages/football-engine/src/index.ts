@@ -24,6 +24,7 @@ export type {LessonScene, SceneRestart, SceneSpot, SceneZone} from './practice-l
 export {defensiveApproaches,withDefensiveApproach} from './defensive-approaches.js';
 export type {DefensiveApproach} from './defensive-approaches.js';
 export {validateSubstitutionOrders,MAX_TRIGGERED_SUBSTITUTIONS} from './practice-substitutions.js';
+export {LAST_ATTACK_MAX} from './practice-match.js';
 export type {SubstitutionOrder,SubstitutionTrigger,SubstitutionNote,SubstitutionRecord} from './practice-substitutions.js';
 
 interface CommonInput {
@@ -75,7 +76,8 @@ export function runSimulation(request: SimulationRequest, progress?: Progress): 
  if(!request||request.schemaVersion!==INPUT_SCHEMA_VERSION)throw Error('Unsupported simulation input schema.');
  if(request.engineBuild!==ENGINE_BUILD)throw Error('This match requires a different football engine build.');
  const snapshot=createSimulationRequest(request.input),input=snapshot.input;
- const result=simulatePractice(input.fixture,input.durationSeconds,progress,input.record,{policy:input.policy,substitutions:input.substitutions,...(input.kind==='training'?{trainingSetup:input.setup}:{}),...(input.coaching?{coaching:input.coaching}:{}),...(input.playbook?{playbook:input.playbook}:{}),...(input.playbooks?{playbooks:input.playbooks}:{}),...(input.substitutionOrders?{substitutionOrders:input.substitutionOrders}:{})});
+ // A match plays out the attack in progress at full time (practice-match.ts attackAtFullTime); training ends on the clock.
+ const result=simulatePractice(input.fixture,input.durationSeconds,progress,input.record,{policy:input.policy,substitutions:input.substitutions,...(input.kind==='match'?{lastAttack:true}:{}),...(input.kind==='training'?{trainingSetup:input.setup}:{}),...(input.coaching?{coaching:input.coaching}:{}),...(input.playbook?{playbook:input.playbook}:{}),...(input.playbooks?{playbooks:input.playbooks}:{}),...(input.substitutionOrders?{substitutionOrders:input.substitutionOrders}:{})});
  return {...snapshot,engineVersion:ENGINE_VERSION,result};
 }
 export function runMatch(input: Omit<MatchInput, 'kind'>, progress?: Progress): SimulationRun {

@@ -100,7 +100,7 @@ interface EngineFrame {time:number;cut?:boolean;lineup?:number[];players:{x:numb
 interface EngineEvent {time:number;kind:string;text:string;actor?:string;target?:string;side?:0|1;lastTouch?:string;restartKind?:string;shot?:{aim:{x:number;y:number};origin:{x:number;y:number};assessment?:{quality:number}};technique?:string;freeKick?:unknown;
  substitution?:{order:string;trigger:SubstitutionTrigger;energy:number;score:[number,number]}}
 interface EngineSelection {time:number;planId:string|null;name:string;status:string;endedAt?:number;endReason?:string;endDetail?:string;side?:0|1;trace?:{time:number;stepId:string;phase:string;intent?:string;actor?:string;target?:string;responsibility?:string;evidence?:{spaceId?:string}}[]}
-export interface EngineResult {duration:number;players:{id:string;side:0|1;role:string}[];frames:EngineFrame[];events:EngineEvent[];stats:[TeamStats,TeamStats];score:[number,number];playbookSelections?:EngineSelection[];substitutionNotes?:SubstitutionNote[]}
+export interface EngineResult {duration:number;played?:number;players:{id:string;side:0|1;role:string}[];frames:EngineFrame[];events:EngineEvent[];stats:[TeamStats,TeamStats];score:[number,number];playbookSelections?:EngineSelection[];substitutionNotes?:SubstitutionNote[]}
 
 export function compact(input:FrozenInput,r:EngineResult):CompactMatch{
  // Engine roster ids are `${side}:${playerId}`. Replay indices: 0-9 the
@@ -120,7 +120,12 @@ export function compact(input:FrozenInput,r:EngineResult):CompactMatch{
   players.push({i:index.get(`${side}:${id}`)!,side:side as 0|1,slot:-1,id,name:p.name,short:p.short,number:p.number,role:p.roles[0],portrait:p.portrait,captain:false,bench:true});
  }));
  players.sort((a,b)=>a.i-b.i);
- const header:ReplayHeader={v:REPLAY_VERSION,engineBuild:'',duration:r.duration,chunkSeconds:CHUNK_SECONDS,chunks:Math.ceil(r.duration/CHUNK_SECONDS),
+ // Full time can come a few seconds past the match length, when the last attack
+ // plays out (engine practice-match.ts attackAtFullTime): the header's duration
+ // is when the whistle went (the watch screens' timeline); the chunk count stays
+ // the match length's (what ballers_submit checks), and the last chunk holds the rest.
+ const played=r.played===undefined?r.duration:Math.round(r.played*1000)/1000;
+ const header:ReplayHeader={v:REPLAY_VERSION,engineBuild:'',duration:played,...(played>r.duration?{fullTime:r.duration}:{}),chunkSeconds:CHUNK_SECONDS,chunks:Math.ceil(r.duration/CHUNK_SECONDS),
   teams:input.sides.map(s=>{const voice=normalizeVoice(s.voice);
    // No voice = the key is omitted: the header is byte-identical to before.
    return {club:s.club.id,name:s.club.name,code:s.club.code,color:s.club.color,formation:s.formation,style:s.style,...(voice?{voice}:{})};}) as ReplayHeader['teams'],players};
@@ -157,7 +162,7 @@ export function compact(input:FrozenInput,r:EngineResult):CompactMatch{
  });
  const chunks:ReplayChunk[]=[];
  for(let i=0;i<header.chunks;i++){
-  const t0=i*CHUNK_SECONDS*1000,t1=Math.min((i+1)*CHUNK_SECONDS,r.duration)*1000,final=i===header.chunks-1;
+  const final=i===header.chunks-1,t0=i*CHUNK_SECONDS*1000,t1=(final?played:Math.min((i+1)*CHUNK_SECONDS,r.duration))*1000;
   const inside=(t:number)=>t>=t0&&(t<t1||final);
   chunks.push({v:REPLAY_VERSION,i,t0,t1,f:frames.filter(f=>inside(f.t)),e:events.filter(e=>inside(e.t))});
  }

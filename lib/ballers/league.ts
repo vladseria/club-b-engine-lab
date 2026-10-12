@@ -6,6 +6,7 @@ import type {MatchSettings} from './match-settings';
 import type {Voice} from './voice';
 import type {Player as EnginePlayer, Role} from '../../packages/football-engine/src/model';
 import {LOCK_MS, nextKickoff} from './schedule';
+import {LAST_ATTACK_MAX} from '../../packages/football-engine/src/practice-match';
 export {ON_LOSS,engineApproach,onLossOf,playedApproach,widthChosen,withOnLoss,type Approach,type OnLoss,type StoredApproach} from './approach';
 
 export type Formation='1-2-1'|'2-2'|'2-1-1';
@@ -268,8 +269,15 @@ export const clock=(t:number|string)=>timeFmt.format(new Date(t));
 export const dateLine=(t:number|string)=>dateFmt.format(new Date(t));
 
 // ---------- a match's state on the clock ----------
-/** Broadcast length (the engine plays 15:00). */
+/** Match length (the engine plays 15:00). */
 export const MATCH_SECONDS=900;
+/** The longest a broadcast can run: full time plays out the attack in progress for
+ * at most LAST_ATTACK_MAX (engine practice-match.ts). A match's real end is its
+ * replay header's `duration`; this is only for screens that don't hold it. */
+export {LAST_ATTACK_MAX};
+export const BROADCAST_MAX_SECONDS=MATCH_SECONDS+LAST_ATTACK_MAX;
+/** Timeline minute marks: every minute up to a Quick match (and its last attack), else every 3. */
+export const tickEvery=(duration:number)=>duration<=QUICK_SECONDS+LAST_ATTACK_MAX?60:180;
 /** A practice match's short length. Named "Quick", never "Short": Short is a style. */
 export const QUICK_SECONDS=300;
 /** The two practice lengths as a picker lists them. */

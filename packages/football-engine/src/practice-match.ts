@@ -8,6 +8,42 @@ export type MatchLength=typeof MATCH_LENGTHS[number];
 export const HALF_SECONDS=2700;
 export const SUB_MINUTES=[60,70,80] as const;
 
+/**
+ * Full time plays out the last attack (owner-approved, 12 Oct 2026). Matches
+ * only (runSimulation's kind 'match'); training runs end on the clock.
+ *
+ * When the clock reaches the match length, a side is IN AN ATTACK if, with
+ * play live, its shot is in flight or it has the ball (at its feet, in flight
+ * from its own kick, or loose since it last had it) in the opponents' half;
+ * an awarded penalty waiting to be taken counts too. Anything else ends the
+ * match on the clock, exactly as before. An attack carries on until:
+ *  - the ball goes out of play or the referee stops it (goal, out, foul, offside),
+ *    except an awarded penalty, which is taken;
+ *  - a shot is resolved: it is no longer in flight (goal, save, miss, block);
+ *  - the defending side wins the ball (a keeper's catch included);
+ *  - the ball goes back into the attacking side's own half (the attack is over);
+ *  - LAST_ATTACK_MAX seconds past full time, whatever is happening.
+ * The engine's play before full time is untouched: a match that ends in an
+ * attack is the same match up to the clock, plus these seconds.
+ * Half-time (matches over 2700 s) is left alone: delaying it would shift the
+ * whole second half's clock.
+ */
+export const LAST_ATTACK_MAX=20;
+export interface LastAttackView {restart:{kind:string}|null;side:0|1;ball:{x:number;mode:'control'|'pass'|'shot'|'loose'}}
+const ownHalf=(side:0|1,x:number)=>(side===0?x:L-x)<=L/2;
+/** At full time: is `view.side` in an attack worth playing out? */
+export function attackAtFullTime(view:LastAttackView):boolean{
+ if(view.restart)return view.restart.kind==='penalty';
+ return view.ball.mode==='shot'||!ownHalf(view.side,view.ball.x);
+}
+/** After full time: is the attack by `attacking` over? `shotSeen`: one of its shots has been in flight since full time. */
+export function lastAttackOver(view:LastAttackView,attacking:0|1,shotSeen:boolean):boolean{
+ if(view.side!==attacking)return true;
+ if(view.restart)return view.restart.kind!=='penalty';
+ if(view.ball.mode==='shot')return false;
+ return shotSeen||ownHalf(attacking,view.ball.x);
+}
+
 export interface PlannedReplacement {outgoing:PracticePlayer;incoming:Player}
 
 /**
