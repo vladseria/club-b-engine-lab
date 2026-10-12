@@ -121,7 +121,8 @@ export function play(t:{label:string;arm:string;seed:number;rev:string}){
   entryPasses:[0,0,0,0,0,0,0],runs:{} as Record<string,Record<string,number[]>>,depthDeep:[0,0,0,0,0,0],
   regain:[0,0,0],regainHow:{} as Record<string,number>,ownThirdHanded:[0,0],counter:[0,0,0,0,0],
   looseWon:0,receives:0,quickLoss:0,restarts:{} as Record<string,number>,
-  dist:0,hs:[0,0,0],energyEnd:0,energyMin:100,energyHalf:0,eng:null as any});
+  dist:0,hs:[0,0,0],energyEnd:0,energyMin:100,energyHalf:0,eng:null as any,
+  x:{press:[0,0,0,0],long:[0,0,0,0,0,0],sweep:[0,0]}});
  const A=[mk(),mk()];
 
  // goals and shots (engine events; the official row has the per-shot list)
@@ -165,6 +166,25 @@ export function play(t:{label:string;arm:string;seed:number;rev:string}){
    if(job?.purpose==='depth'&&rRole!=='ST'){const dd=a.depthDeep;dd[0]++;dd[1]+=kept;dd[2]+=sh8;dd[3]+=cl8;dd[4]+=gd8;dd[5]+=lastLine;}
   }
  }
+
+ // (2026-10-12, stop-direct) extra keys in agg[side].x; nothing above changes
+ for(let q=0;q<events.length;q++){
+  const e=events[q];if(e.kind!=='pass'||(e.side!==0&&e.side!==1)||e.restartKind)continue;
+  const S=e.side,D=1-S,x=A[S].x,f=frames[frameAt(e.time)],p=pos(f,idx.get(e.actor)!),aim=e.pass?.aim??e.aerial?.aim;if(!p||!aim)continue;
+  const len=dist(p,aim),from=depth(S,p.x),to=depth(S,aim.x);
+  if(from<32&&to>=28){const near=Math.min(...team(f,D).map(d=>dist(p,d.q)));x.press[0]++;x.press[1]+=near;if(near<2.5)x.press[2]++;if(near<4)x.press[3]++;}
+  if((e.aerial||len>=15)&&to-from>=5){
+   x.long[0]++;let k=frameAt(e.time)+1,loose=false,cat=5;
+   for(;k<n&&frames[k].time<=e.time+4;k++){const g=frames[k];if(g.restart){cat=5;break;}const o=g.ball?.owner;
+    if(o&&!(o===e.actor&&g.time<e.time+.3)){const w=sideOf(o);cat=loose?(w===S?3:4):(w===S?1:2);break;}
+    if(g.ball?.mode==='loose')loose=true;}
+   x.long[cat]++;
+  }
+ }
+ for(const S of [0,1]){const gk=roster.findIndex(p=>p.side===S&&p.role==='GK');if(gk<0)continue;let prev='';
+  for(const ch of jobsBy.get(gk)??[]){if(ch.kind==='sweep'&&prev!=='sweep'){A[S].x.sweep[0]++;
+    for(let k=frameAt(ch.time);k<n&&frames[k].time<=ch.time+3;k++)if(frames[k].ball?.owner===roster[gk].id){A[S].x.sweep[1]++;break;}}
+   prev=ch.kind;}}
 
  // spells: funnel and entries into the attacking third, regains, counters
  for(const sp of spells){
@@ -233,7 +253,7 @@ export function play(t:{label:string;arm:string;seed:number;rev:string}){
  }
  const out=A.map(a=>{const o:any={...a};
   o.good=r3(a.good);o.dist=Math.round(a.dist);o.hs=a.hs.map(Math.round);o.energyEnd=r1(a.energyEnd);o.energyMin=r1(a.energyMin);o.energyHalf=r1(a.energyHalf);
-  for(const k of Object.keys(o.ent))o.ent[k][3]=r3(o.ent[k][3]);o.entryPasses[6]=r3(a.entryPasses[6]);o.depthDeep[4]=r3(a.depthDeep[4]);o.depthDeep[5]=r1(a.depthDeep[5]);o.counter[4]=r3(a.counter[4]);
+  for(const k of Object.keys(o.ent))o.ent[k][3]=r3(o.ent[k][3]);o.entryPasses[6]=r3(a.entryPasses[6]);o.depthDeep[4]=r3(a.depthDeep[4]);o.depthDeep[5]=r1(a.depthDeep[5]);o.counter[4]=r3(a.counter[4]);o.x={...a.x,press:[a.x.press[0],r1(a.x.press[1]),a.x.press[2],a.x.press[3]]};
   const e:any={};for(const [k,v] of Object.entries(a.eng??{}))e[k]=typeof v==='number'?r2(v):v;o.eng=e;return o;});
  const sides=inp.sides as any[];
  return {label:t.label,kind:'deep',arm:t.arm,seed:t.seed,rev:t.rev,ours:treated,kickoff:inp.kickoff,duration:inp.duration,
@@ -262,3 +282,9 @@ export function play(t:{label:string;arm:string;seed:number;rev:string}){
 //  looseWon  loose balls (open play) this side got first; receives / quickLoss (lost within 1.5 s before releasing)
 //  restarts[kind] restarts taken (the event that took it); dist / hs[>4, >5.5, >6.5 m/s] metres covered by the four outfielders
 //  energyHalf / energyEnd mean outfield energy at 7:30 / 15:00, energyMin the lowest at 15:00; eng = engine stats
+//  x (2026-10-12, stop-direct; rows made before it lack the key):
+//    press  entry passes (as entryPasses) [n, sum of the nearest outfield defender's distance to the passer (m),
+//           within 2.5 m, within 4 m]
+//    long   open-play long balls (lofted, or ground 15 m+), gaining >= 5 m: [n, first touch ours with no loose ball,
+//           first touch theirs with no loose ball, ran loose then ours, ran loose then theirs, nobody within 4 s / restart]
+//    sweep  [keeper 'sweep' duty starts, the keeper had the ball within 3 s of the start]
