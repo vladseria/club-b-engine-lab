@@ -119,7 +119,7 @@ const runningCost=(slope:number)=>{const e=clamp(slope,-.45,.45);return 155.4*e*
  * spread of real CS, ± 10%). Energy only: the sprint reserve uses `sprintThreshold`, the same for every stamina. */
 export const criticalSpeed=(stamina:number,topPace:number)=>(.74+clamp(stamina,0,12)*.01)*topPace;
 export const INTENSITY_SHARE=.42,MOVEMENT_SHARE=1-INTENSITY_SHARE,INTENSITY_COST=.4108;
-export const STAMINA6_DRAIN=1.05,STAMINA_DRAIN_SLOPE=.11,STAMINA_DRAIN_FLOOR=.3;
+export const STAMINA6_DRAIN=1.04,STAMINA_DRAIN_SLOPE=.11,STAMINA_DRAIN_FLOOR=.3;
 const staminaDrain=(stamina:number)=>STAMINA6_DRAIN*Math.max(STAMINA_DRAIN_FLOOR,1-STAMINA_DRAIN_SLOPE*(clamp(stamina,0,12)-6));
 export function fatigueCost(speed:number,stamina:number,seconds:number,acceleration=0,topPace?:number):number{
  const movement=Math.max(0,speed),slope=Math.max(0,acceleration)/G_ACC;
@@ -211,7 +211,7 @@ export function reserveBalance(reserve:number,speed:number,energy:number,topPace
  * - Energy, the long-term fatigue, also scales acceleration (`energyAcceleration`),
  *   as it scales top pace (`energyTop`). Keepers keep 0.8 + 0.2 × energy/100.
  */
-export const RESERVE_TOP=.15,RESERVE_ACCELERATION=.6,TYPICAL_SPENT=.31;
+export const RESERVE_TOP=.15,RESERVE_ACCELERATION=.6,TYPICAL_SPENT=.32;
 export function legs(energy:number,reserve?:number):{top:number;acceleration:number}{
  // Keepers: short dives from set positions never draw the reserve (it stays above 0.96 all match),
  // so it is not applied to them; centring on outfielders would otherwise make every keeper sharper.
@@ -242,7 +242,7 @@ export function legs(energy:number,reserve?:number):{top:number;acceleration:num
  * Evidence: evidence/2026-10-11-tiredness-bite (branch ballers-overnight-run,
  * 3caaeb6a: patch.mjs, centre.mjs on results/pilot*.jsonl, results/tables.md).
  */
-export const ENERGY_TOP_MEAN=.9729,ENERGY_ACCELERATION_MEAN=.9819,ENERGY_SPENT_SQ_MEAN=352;
+export const ENERGY_TOP_MEAN=.9729,ENERGY_ACCELERATION_MEAN=.9819,ENERGY_SPENT_SQ_MEAN=425;
 export const ENERGY_TOP_LOSS=.9e-4,ENERGY_ACCELERATION_LOSS=1.2e-4;
 const spentSq=(energy:number)=>(100-clamp(energy,0,100))**2;
 export const energyTop=(energy:number,keeper=false)=>keeper?.7+.3*energy/100:Math.max(.5,ENERGY_TOP_MEAN-ENERGY_TOP_LOSS*(spentSq(energy)-ENERGY_SPENT_SQ_MEAN));
