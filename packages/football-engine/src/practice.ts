@@ -20,7 +20,7 @@ import {carryOptions,chooseFootballOption,commitCarry,CarryPlan,CarryAssessment,
 import type {ShotAssessment} from './practice-football.js';
 import {assessShot,strikeShot,keeperReach,goalBoundFlight,markPosition,goalAngle,pitchExit} from './practice-football.js';
 import {arrivalTime,assignDefense,containMovement,coverPosition,shootingThreat,BLOCK_NEAR,BLOCK_GAP,DefenseAssignment,assignFlight,assignMarking,FlightAssignment,runnerBehindShoulder,runnerPickupDelay} from './practice-defense.js';
-import {offGoalLine,mayLeaveForBall,BOX_BLOCK_NEAR,BOX_BLOCK_DANGER} from './practice-defending.js';
+import {offGoalLine,mayLeaveForBall,BOX_BLOCK_NEAR,BOX_BLOCK_DANGER,blockLeg,BLOCK_LEG_HEIGHT} from './practice-defending.js';
 import {readShotDanger} from './practice-shot-defense.js';
 import {duelChance,readChallenge,startChallenge,bodyScreensBall,recoveryPosition,resolveChallengeContact,beatenRecovery,BEATEN_WINDOW,BEATEN_NEAR,BEATEN_TOUCH,ChallengeContact,ChallengeRead,ChallengeAttempt} from './practice-challenge.js';
 import {possessionSafety,lookAgain,securePossessionOptions,feltPressure,recoveryTouch,preparationTime,strikeClearance,launchRisk,ClearanceIntent,footToBall} from './practice-possession.js';
@@ -1144,7 +1144,10 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
     const feet=meeting?.fraction??null;
     const previous=old.get(p.id)!,normal=unit(before.x-previous.x,before.y-previous.y);
     const separating=before.z<=1.1&&dist(before,previous)<=.310001&&(before.vx-p.vx)*normal.x+(before.vy-p.vy)*normal.y>=-1e-8;
-    const body=separating?null:flightContact(before,ball,previous,p,.31,1.1);
+    const torso=separating?null:flightContact(before,ball,previous,p,.31,1.1);
+    // (box defending) a defender set to block puts a leg across a low shot (blockLeg)
+    const leg=!separating&&ball.mode==='shot'&&p.duty==='block'&&p.role!=='GK'&&!!releaseBy&&get(releaseBy).side!==p.side?flightContact(before,ball,previous,p,blockLeg(p),BLOCK_LEG_HEIGHT):null;
+    const body=torso===null?leg:leg===null?torso:Math.min(torso,leg);
     const area=p.side===0?{minX:0,maxX:BOX_DEPTH,minY:-BOX_HALF,maxY:BOX_HALF}:{minX:(L-BOX_DEPTH),maxX:L,minY:-BOX_HALF,maxY:BOX_HALF};
     const handRadius=goalThreats.has(p.id)?keeperReach(p,time-releaseAt):aerialDelivery?1.1:.72+(p.side===side?.15:0);
     const catchAt=canUseHands(p)&&time>=(duelAfter.get('touch:'+p.id)??0)?flightContact(before,ball,previous,p,handRadius,2.3,area):null;

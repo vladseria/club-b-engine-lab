@@ -893,6 +893,12 @@ export function protectSpacing(aim:Vec,taken:readonly Vec[],ball:Vec,defending:S
  * reading setting how early he gets there) and can put his body in its lane in time, steps into it (practice.ts), as
  * the presser and the cover already did: futsal blocks shots. Not when his own man would have the better shot. */
 export const BOX_BLOCK_NEAR=7,BOX_BLOCK_DANGER=.32;
+/** (box defending) A defender set to block (on a 'block' job: in the shot's lane, reading it) puts a leg across it,
+ * so a low shot (under BLOCK_LEG_HEIGHT m: the first metres of its flight) meets him wider than his body (0.31 m):
+ * up to BLOCK_LEG m more, half of it for anyone and the rest by his defending. Measured before: a defender within
+ * 0.3 m of the shot line blocked 78% of shots, 0.3-0.6 m 67%, 0.6-1 m 42%; a body alone was the whole block. */
+export const BLOCK_LEG=.35,BLOCK_LEG_HEIGHT=.5;
+export const blockLeg=(p:{skills:{defending:number}})=>.31+BLOCK_LEG*(.5+.5*clamp(p.skills.defending/10,0,1));
 export function mayLeaveForBall(man:Vec,ball:Vec,defending:Side):boolean{
  const g={x:world(defending,0),y:0};return openShot(man,g)<=openShot(ball,g);
 }
