@@ -78,6 +78,11 @@ export const KEEPER_LANE=.6,KEEPER_LANE_FULL=1.6,KEEPER_OVER=3.5,KEEPER_LOFT=.75
  * giveaway study every release into the man on him was a ball along the ground, read as a low lane risk because the man
  * stood beside the line rather than across it; with that priced, lofts into a man 1 m away were the next.) */
 export const KEEPER_INTO=1.5,KEEPER_INTO_W=1.5,KEEPER_INTO_FULL=.9,KEEPER_INTO_LEN=3,KEEPER_LOFT_W=1.1,KEEPER_LOFT_FULL=.6,KEEPER_LOFT_LEN=2;
+/** A last look before he lets it go: if the man on him has stepped into the throw he set (throwIntoMan at least
+ * KEEPER_LAST), he holds it and chooses again, once a spell; his last choice comes KEEPER_SPARE s before the four
+ * seconds would leave no time for a throw, so that look still fits inside them. (Every pressed release into the man
+ * left in the first measurement came right at the end of the four seconds, chosen before the man stepped across.) */
+export const KEEPER_LAST=.6,KEEPER_SPARE=.4;
 export type Duty='hold'|'support'|'run'|'show'|'width'|'press'|'jockey'|'challenge'|'block'|'track'|'cover'|'intercept'|'recover'|'carry'|'prepare'|'receive'|'feint'|'wrongfoot'|'keeper'|'dive'|'sweep'|'restart';
 export const dutyNames:Record<Duty,string>={hold:'Protejează spațiul',support:'Oferă o pasă',run:'Atacă spațiul',show:'Vine la picior',width:'Ține lățimea',press:'Închide purtătorul',jockey:'Îl ține în față',challenge:'Încearcă deposedarea',block:'Acoperă șutul',track:'Urmărește o cursă',cover:'Acoperă un coleg',intercept:'Atacă mingea',recover:'Revine în apărare',carry:'Conduce mingea',prepare:'Pregătește lovitura',receive:'Iese la primire',feint:'Încearcă o fentă',wrongfoot:'Își reface echilibrul',keeper:'Închide unghiul',dive:'Plonjează după minge',sweep:'Iese din poartă',restart:'Pregătește reluarea'};
 export interface PracticePlayer extends MovingPlayer {role:Role;skills:Skills;traits:Traits;energy:number;archetype:string;temperament:string;lane:number;basePace:number;duty:Duty}
@@ -332,7 +337,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
  let dispossessed:{id:string;at:number}|null=null;
  const recovering=new Map<string,{until:number;opponent:string}>();
  const blocks=new Map<string,{opponent:string;aim:Vec;until:number}>();
- let inHands=false,groundDelivery=false,aerialDelivery=false,keeperStep:Vec|null=null,keeperLook:Vec|null=null,keeperFrom:Vec={x:0,y:0};
+ let inHands=false,groundDelivery=false,aerialDelivery=false,keeperStep:Vec|null=null,keeperLook:Vec|null=null,keeperFrom:Vec={x:0,y:0},keeperRelook=false;
  // (keeper upgrade) the defending keeper's edge against the shot in flight (practice-football keeperEdge); set at the
  // strike, gone as soon as the ball is no longer a shot
  let shotEdge:(KeeperEdge&{id:string})|null=null;
@@ -380,7 +385,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
   // A new receiver changes the threat even when possession stays with the same team.
   assignmentAt=0;for(const q of players)if(q.side!==p.side)intents.delete(q.id);
   challenge=null;
-  actionReasons.delete(p.id);carryPlan=null;dives.delete(p.id);groundDelivery=false;aerialDelivery=false;inHands=hands;keeperStep=null;keeperLook=null;keeperFrom={x:p.x,y:p.y};
+  actionReasons.delete(p.id);carryPlan=null;dives.delete(p.id);groundDelivery=false;aerialDelivery=false;inHands=hands;keeperStep=null;keeperLook=null;keeperFrom={x:p.x,y:p.y};keeperRelook=false;
   const expected=arrivingPass&&(intended===p.id||flight.receiver===p.id);
   watchedFlight=arrivingPass?clamp(time-releaseAt,0,1):0;
   ball.owner=p.id;ball.mode='control';if(hands){ball.vx=p.vx;ball.vy=p.vy;ball.z=1;ball.vz=0;}receivedAt=time;
@@ -1220,8 +1225,8 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
       // (keeper with the ball in his hands) futsal's four seconds: he waits only while a throw can still get away in
       // time, walking to where one opens (keeperMove), and looks again when that runs out (KEEPER_HOLD)
       const best=available.reduce((a,b)=>b.score>a.score?b:a),lead=Math.max(preparationTime(p,best.kind),Math.max(0,Math.abs(angleDiff(Math.atan2(best.aim.y-p.y,best.aim.x-p.x),p.angle))-.32)/KEEPER_TURN);
-      if(time-receivedAt+lead<KEEPER_HOLD){
-       holdUntil=receivedAt+KEEPER_HOLD-lead;
+      if(time-receivedAt+lead+KEEPER_SPARE<KEEPER_HOLD){
+       holdUntil=receivedAt+KEEPER_HOLD-lead-KEEPER_SPARE;
        const move=keeperMove(p,keeperFrom,sidePlayers(p.side).filter(q=>q.id!==p.id&&q.role!=='GK'),sidePlayers(other(p.side)).filter(q=>q.role!=='GK'));
        const moving=dist(move.spot,p)>.2;
        available.push({kind:'carry',aim:move.spot,score:.38,reason:moving?'Se mută cu mingea în mâini, în careu, unde se deschide o repunere.':'Ține mingea în mâini și așteaptă să se deschidă o soluție de repunere.'});
@@ -1255,6 +1260,9 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
      }
      }
     }
+    // (keeper with the ball in his hands) a last look: the man on him has stepped into the throw he set, so he holds it
+    // and chooses again (once a spell, inside the four seconds)
+    if(inHands&&prepared&&!keeperRelook&&time>=prepared.at&&time-receivedAt<KEEPER_HOLD-STEP&&throwIntoMan(p,prepared.option.aim,sidePlayers(other(p.side)).filter(q=>q.role!=='GK'),prepared.option.kind==='loft')>=KEEPER_LAST){keeperRelook=true;prepared=null;nextThink=time;}
     if(prepared&&time>=prepared.at&&(restart||inHands?Math.abs(angleDiff(Math.atan2(prepared.option.aim.y-p.y,prepared.option.aim.x-p.x),p.angle))<.32:controlStrikeReady(p,ball,controlFor(p),prepared.option.aim,prepared.option.kind==='shoot'?'shot':prepared.option.kind==='clear'?'clearance':'pass'))&&(!restart||restartPlayersReady(restart,players,routineRelaxed(restart,time))&&(restart.kind==='throw'||controlReleaseAvailable(p,ball,prepared.option.aim)))){
      releaseOption(p,prepared.option);
     }
