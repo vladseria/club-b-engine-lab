@@ -181,24 +181,6 @@ export const SCENARIOS={
  },
 };
 
-// ---------------------------------------------------- one-off fixtures
-// Played only when named with --scenarios (run.mjs, match.ts); NOT in
-// SCENARIOS, so every harness that enumerates the set above is unchanged.
-export const ADHOC={
- // ------------------------------------------------- one-off: today's fixture
- // Rapid Pensia v F.C Chior Dior as both clubs had it set on 2026-10-13
- // 13:27 UTC (global round 5, lock 16:00 UTC): stored preps only, no arms.
- 'rap-fcd':{
-  n:5,title:'Rapid Pensia v F.C Chior Dior',fixture:'global round 5, match 8bce6eaa (Rapid Pensia home), preps as of 2026-10-13 13:27 UTC',
-  source:{kind:'sides',home:'sides/RAP.jsonb.txt',away:'sides/FCD.jsonb.txt'},ours:1,matchId:seed=>`scenario-rap-fcd-${seed}`,
-  stresses:'Both stored preps as set, ~100 matches on the live engine (asked 13 Oct).',
-  arms:{prep:{stored:true,label:'Stored prep (manager: 1-2-1 Direct, wide, striker run, Parchet on at half-time)'}},
-  core:['prep'],trim:['prep'],headline:'prep',
-  control:{id:'rapStored',opp:'stored',why:'none: no control was run'},
-  seeds:{main:770000,control:771000},
- },
-};
-
 /** Run plans: which arms, opponent variants and seeds each scenario plays
  * (every plan's seeds are the first ones of the full plan's ranges, so rows
  * of a smaller plan are a subset of the full plan's).
