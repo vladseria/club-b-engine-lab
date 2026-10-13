@@ -76,7 +76,8 @@ export const KEEPER_LANE=.6,KEEPER_LANE_FULL=1.6,KEEPER_OVER=3.5,KEEPER_LOFT=.75
  * a lofted one is still low over its first KEEPER_LOFT_LEN m, so a man within KEEPER_LOFT_W m of that stretch blocks it
  * (fully within KEEPER_LOFT_W - KEEPER_LOFT_FULL m). He goes round him or over him from further away instead. (In the
  * giveaway study every release into the man on him was a ball along the ground, read as a low lane risk because the man
- * stood beside the line rather than across it; with that priced, lofts into a man 1 m away were the next.) */
+ * stood beside the line rather than across it; with that priced, lofts into a man 1 m away were the next.) While any
+ * throw clear of the men near him (throwIntoMan below KEEPER_LAST) is on, he takes none into them. */
 export const KEEPER_INTO=1.5,KEEPER_INTO_W=1.5,KEEPER_INTO_FULL=.9,KEEPER_INTO_LEN=3,KEEPER_LOFT_W=1.1,KEEPER_LOFT_FULL=.6,KEEPER_LOFT_LEN=2;
 /** A last look before he lets it go: if the man on him has stepped into the throw he set (throwIntoMan at least
  * KEEPER_LAST), he holds it and chooses again, once a spell; his last choice comes KEEPER_SPARE s before the four
@@ -1221,7 +1222,12 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
       if(!available.length){const q=sidePlayers(p.side).filter(q=>q.id!==p.id).sort((a,b)=>dist(a,p)-dist(b,p))[0];available.push({kind:'loft',target:q.id,aim:q,score:.1,reason:'Colegul e departe; caută o repunere lungă.'});}
       // not into a man next to him: round him, or over him from further away (throwIntoMan)
       const men=sidePlayers(other(p.side)).filter(q=>q.role!=='GK'&&dist(q,p)<KEEPER_INTO_LEN+1);
-      if(men.length)available=available.map(o=>{const into=throwIntoMan(p,o.aim,men,o.kind==='loft');return into>0?{...o,score:o.score-KEEPER_INTO*into}:o;});
+      if(men.length){
+       const into=new Map(available.map(o=>[o,throwIntoMan(p,o.aim,men,o.kind==='loft')]));
+       // while any throw clear of them is on he takes none into them (KEEPER_LAST); otherwise they cost (KEEPER_INTO)
+       const clear=available.filter(o=>into.get(o)!<KEEPER_LAST);
+       available=(clear.length?clear:available).map(o=>into.get(o)!>0?{...o,score:o.score-KEEPER_INTO*into.get(o)!}:o);
+      }
       // (keeper with the ball in his hands) futsal's four seconds: he waits only while a throw can still get away in
       // time, walking to where one opens (keeperMove), and looks again when that runs out (KEEPER_HOLD)
       const best=available.reduce((a,b)=>b.score>a.score?b:a),lead=Math.max(preparationTime(p,best.kind),Math.max(0,Math.abs(angleDiff(Math.atan2(best.aim.y-p.y,best.aim.x-p.x),p.angle))-.32)/KEEPER_TURN);
