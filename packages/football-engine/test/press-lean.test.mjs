@@ -159,11 +159,7 @@ test('the memory returns what he saw a moment ago, interpolated',()=>{
  assert.equal(s.at({...now,id:'0:new'},2,.3).x,8,'nobody seen yet: read as he is');
 });
 test('pressing the ball is never delayed; a marker marks the man where he last saw him',()=>{
- // (box defending, 2026-10-12: with the ball within PROTECT_R of their goal team 1's markers now leave their men for
- // the shooting lane, by the Line; this check is about where a marker reads his man from, so team 1 plays a High
- // line, whose box protection starts nearer goal than this ball, 16 m out)
- const f=structuredClone(fixture);f.teams[1].tactics={...f.teams[1].tactics,line:'high'};
- const players=practicePlayers(f),owner=players[3];
+ const f=structuredClone(fixture),players=practicePlayers(f),owner=players[3];
  // Team 0 attacks x = 48; the ball near team 1's box so everyone is engaged.
  place(players,[[4,0],[20,-2],[30,-6],[33,6],[36,-1],[46,0],[40,0],[36,-5],[38,5],[34,4]]);
  const tactics=f.teams.map(t=>t.tactics);

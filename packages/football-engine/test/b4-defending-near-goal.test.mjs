@@ -93,9 +93,7 @@ test('in a match, late pick-ups happen, are short, and only ever for a runner af
 // 2029 since the passing-and-control round, 2026-10-10: 2028 had 9 shots, evidence/2026-10-10-passing-control/repin.mjs b4;
 // still 2029 after the threat-defending round, 2026-10-10: evidence/2026-10-10-threat-defending/repin.mjs b4 confirms it;
 // 2030 since the regain fixes, 2026-10-11: 2029 had 8 shots, evidence/2026-10-11-regain-fixes/repin.mjs b4;
-// 2031 since the pre-push fixes, 2026-10-12: evidence/2026-10-12-prepush-fixes/repin.mjs b4, 13 shots, keeper miss 0.41 m;
-// still 2031 on the combined build with stamina as lasting and box defending (b0174c30, 2026-10-13):
-// evidence/2026-10-12-box-defending/repin.mjs b4, 4 late pick-ups, 14 shots, keeper miss 0.40 m.)
+// 2031 since the pre-push fixes, 2026-10-12: evidence/2026-10-12-prepush-fixes/repin.mjs b4, 13 shots, keeper miss 0.41 m.)
 // The keeper keeps setting himself against the ball: at the shot he stands
 // near the line bisecting the posts (before: ~1.1 m off on average).
 test('the defending keeper is set near the bisector of the posts when the shot comes',()=>{
