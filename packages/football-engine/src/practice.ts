@@ -58,14 +58,16 @@ export const SET_STILL=3,SET_FACING=.2,SET_SPOT=1.5,SET_PLANT=1.3,SET_READ=.15,S
  * and cannot be challenged while he holds it. He waits for a throw to open only while he can still set and release
  * one inside that (his preparation, or turning to the best throw at KEEPER_TURN rad/s, whichever is longer), and looks
  * again when that runs out, so he chooses his release (a throw, a roll or the long ball) in time. While he waits he
- * moves like a keeper inside his area (keeperMove): at KEEPER_WALK m/s, up to KEEPER_STEP m a look, KEEPER_EDGE m
- * inside its lines and never more than KEEPER_BACK m deeper than where he had it first, away from a man on him and to where a
- * throw (along the ground, or over the man) is on, turned to the team-mate he means to find. Nobody stands on him:
- * whatever his job, an opponent stays at least KEEPER_BODY m from him. (Before, he stood rooted, a presser stood 0.3-0.6 m
- * from the ball in his hands, the wait ran 3.5 s whatever was around him, and then he had to throw, often straight
- * into that man: evidence/2026-10-13-keeper-giveaway. Holding the presser 2.5 m off raised goals after keeper losses,
- * and releasing early to any clear lane fed interceptions next to goal: evidence/2026-10-13-keeper-fix.) */
-export const KEEPER_HOLD=4,KEEPER_TURN=4,KEEPER_WALK=1.5,KEEPER_STEP=1.5,KEEPER_EDGE=.8,KEEPER_BACK=.3,KEEPER_BODY=1;
+ * moves like a keeper anywhere inside his area (keeperMove): at a brisk jog, KEEPER_JOG of his pace (about 3.4 m/s for
+ * an average keeper; he slows to set his throw), up to KEEPER_STEP x KEEPER_RING m a look, KEEPER_EDGE m inside its
+ * lines and not back towards his goal line once within KEEPER_DEEP m of it, away from a man on him and to where a throw (along the ground, or over the man) is on, turned to the
+ * team-mate he means to find. (A walk, and a limit near where he caught it, left him pinned by a presser 1 m away.) Nobody stands on
+ * him: whatever his job, an opponent stays at least KEEPER_BODY m from him. (Before, he stood rooted, a presser stood
+ * 0.3-0.6 m from the ball in his hands, the wait ran 3.5 s whatever was around him, and then he had to throw, often
+ * straight into that man: evidence/2026-10-13-keeper-giveaway. Holding the presser 2.5 m off raised goals after keeper
+ * losses, and releasing early to any clear lane fed interceptions next to goal: evidence/2026-10-13-keeper-fix;
+ * evidence/2026-10-13-keeper-2.) */
+export const KEEPER_HOLD=4,KEEPER_TURN=4,KEEPER_JOG=.55,KEEPER_STEP=1.5,KEEPER_RING=1.6,KEEPER_EDGE=.8,KEEPER_DEEP=2,KEEPER_BODY=1;
 /** keeperMove's read of a spot: a throw's lane is open from KEEPER_LANE m clear of every opponent (fully at
  * KEEPER_LANE + KEEPER_LANE_FULL m), one over the man ignores opponents within KEEPER_OVER m of him and is worth
  * KEEPER_LOFT of a ground one, and a spot within KEEPER_ROOM m of an opponent costs up to KEEPER_CROWDED; he moves
@@ -222,14 +224,13 @@ export function practiceOptions(p:PracticePlayer,players:PracticePlayer[],runnin
 // (B2) the duel's odds live with the challenge model, where the carrier's own read of them can use them too
 export {duelChance} from './practice-challenge.js';
 /** (keeper with the ball in his hands) Where a keeper holding the ball walks to, and whom he turns to: of his spot and
- * spots up to KEEPER_STEP m round it (inside his area, never more than KEEPER_BACK m deeper than `from`, where he had
- * the ball first), the one
- * with the best throw on (an open lane along the ground from in front of him, or over a man near him, to a team-mate
- * with room, shorter throws a little better, none into a man next to him: throwIntoMan) less what standing near an
- * opponent costs. He moves only for a gain of
- * KEEPER_GAIN; `look` is the team-mate of the best throw from there. */
-export function keeperMove(p:PracticePlayer,from:Vec,mates:readonly Vec[],opponents:readonly Vec[]):{spot:Vec;look:Vec|null}{
- const now=depth(p.side,p.x),lo=Math.min(now,Math.max(KEEPER_EDGE,depth(p.side,from.x)-KEEPER_BACK)),hi=BOX_DEPTH-KEEPER_EDGE,wide=BOX_HALF-KEEPER_EDGE;
+ * spots round it at 0.6, 1 and KEEPER_RING x KEEPER_STEP m (anywhere inside his area, KEEPER_EDGE m in from its
+ * lines, but no deeper once within KEEPER_DEEP m of his goal line, where a man in front would pin him), the one with the best throw on (an open lane along the ground from in front of him, or over a man
+ * near him, to a team-mate with room, shorter throws a little better, none into a man next to him: throwIntoMan) less
+ * what standing near an opponent costs. He moves only for a gain of KEEPER_GAIN; `look` is the team-mate of the best
+ * throw from there. */
+export function keeperMove(p:PracticePlayer,mates:readonly Vec[],opponents:readonly Vec[]):{spot:Vec;look:Vec|null}{
+ const now=depth(p.side,p.x),lo=Math.max(KEEPER_EDGE,Math.min(now,KEEPER_DEEP)),hi=BOX_DEPTH-KEEPER_EDGE,wide=BOX_HALF-KEEPER_EDGE;
  const lane=(from:Vec,to:Vec,over:boolean)=>{
   const dx=to.x-from.x,dy=to.y-from.y,len2=dx*dx+dy*dy||1;let clear=99;
   for(const q of opponents){if(over&&dist(q,from)<KEEPER_OVER)continue;const t=clamp(((q.x-from.x)*dx+(q.y-from.y)*dy)/len2,0,1);clear=Math.min(clear,Math.hypot(q.x-from.x-dx*t,q.y-from.y-dy*t));}
@@ -249,8 +250,8 @@ export function keeperMove(p:PracticePlayer,from:Vec,mates:readonly Vec[],oppone
  };
  const here={x:p.x,y:p.y},stay=read(here);
  let spot=here,top={value:stay.value+KEEPER_GAIN,look:stay.look};
- for(let k=0;k<16;k++){
-  const a=k*Math.PI/8,r=k%2?KEEPER_STEP:KEEPER_STEP*.6;
+ for(let k=0;k<24;k++){
+  const a=k<16?k*Math.PI/8:(k-16)*Math.PI/4,r=k>=16?KEEPER_STEP*KEEPER_RING:k%2?KEEPER_STEP:KEEPER_STEP*.6;
   const c={x:world(p.side,clamp(now+Math.cos(a)*r,lo,hi)),y:clamp(p.y+Math.sin(a)*r,-wide,wide)};
   if(dist(c,here)<.3)continue;
   const v=read(c);if(v.value>top.value){top=v;spot=c;}
@@ -338,7 +339,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
  let dispossessed:{id:string;at:number}|null=null;
  const recovering=new Map<string,{until:number;opponent:string}>();
  const blocks=new Map<string,{opponent:string;aim:Vec;until:number}>();
- let inHands=false,groundDelivery=false,aerialDelivery=false,keeperStep:Vec|null=null,keeperLook:Vec|null=null,keeperFrom:Vec={x:0,y:0},keeperRelook=false;
+ let inHands=false,groundDelivery=false,aerialDelivery=false,keeperStep:Vec|null=null,keeperLook:Vec|null=null,keeperRelook=false;
  // (keeper upgrade) the defending keeper's edge against the shot in flight (practice-football keeperEdge); set at the
  // strike, gone as soon as the ball is no longer a shot
  let shotEdge:(KeeperEdge&{id:string})|null=null;
@@ -386,7 +387,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
   // A new receiver changes the threat even when possession stays with the same team.
   assignmentAt=0;for(const q of players)if(q.side!==p.side)intents.delete(q.id);
   challenge=null;
-  actionReasons.delete(p.id);carryPlan=null;dives.delete(p.id);groundDelivery=false;aerialDelivery=false;inHands=hands;keeperStep=null;keeperLook=null;keeperFrom={x:p.x,y:p.y};keeperRelook=false;
+  actionReasons.delete(p.id);carryPlan=null;dives.delete(p.id);groundDelivery=false;aerialDelivery=false;inHands=hands;keeperStep=null;keeperLook=null;keeperRelook=false;
   const expected=arrivingPass&&(intended===p.id||flight.receiver===p.id);
   watchedFlight=arrivingPass?clamp(time-releaseAt,0,1):0;
   ball.owner=p.id;ball.mode='control';if(hands){ball.vx=p.vx;ball.vy=p.vy;ball.z=1;ball.vz=0;}receivedAt=time;
@@ -942,8 +943,8 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    if(supportMove){aim=supportMove.aim;limit=supportMove.speed;kind=supportMove.kind;reason=supportMove.reason;}
    if(p.id===owner?.id){aim=carry;limit=carryPace(p,carry,players.filter(q=>q.side!==p.side));kind='carry';reason='Avansează cu mingea și caută următoarea soluție.';
     if(prepared||mustRelease||inHands){aim=prepared?.option.aim??{x:p.x,y:p.y};limit=inHands||mustRelease?0:p.pace*.68;kind='prepare';reason='Își pregătește atingerea înainte să dea drumul mingii.';}
-    // (keeper with the ball in his hands) he walks to a better spot while he waits (keeperMove)
-    if(inHands&&!prepared&&keeperStep){aim=keeperStep;limit=KEEPER_WALK;}
+    // (keeper with the ball in his hands) he jogs to a better spot while he waits (keeperMove)
+    if(inHands&&!prepared&&keeperStep){aim=keeperStep;limit=p.pace*KEEPER_JOG;}
     if(recoveryAim){aim=recoveryAim;limit=p.pace*.4;kind='carry';reason='Prima atingere caută partea ferită de adversar; ridică privirea pentru ieșire.';}
     reason=actionReasons.get(p.id)??reason;
     controlFor(p).pace=kind==='carry'?limit:undefined;
@@ -1233,7 +1234,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
       const best=available.reduce((a,b)=>b.score>a.score?b:a),lead=Math.max(preparationTime(p,best.kind),Math.max(0,Math.abs(angleDiff(Math.atan2(best.aim.y-p.y,best.aim.x-p.x),p.angle))-.32)/KEEPER_TURN);
       if(time-receivedAt+lead+KEEPER_SPARE<KEEPER_HOLD){
        holdUntil=receivedAt+KEEPER_HOLD-lead-KEEPER_SPARE;
-       const move=keeperMove(p,keeperFrom,sidePlayers(p.side).filter(q=>q.id!==p.id&&q.role!=='GK'),sidePlayers(other(p.side)).filter(q=>q.role!=='GK'));
+       const move=keeperMove(p,sidePlayers(p.side).filter(q=>q.id!==p.id&&q.role!=='GK'),sidePlayers(other(p.side)).filter(q=>q.role!=='GK'));
        const moving=dist(move.spot,p)>.2;
        available.push({kind:'carry',aim:move.spot,score:.38,reason:moving?'Se mută cu mingea în mâini, în careu, unde se deschide o repunere.':'Ține mingea în mâini și așteaptă să se deschidă o soluție de repunere.'});
        keeperLook=move.look;
