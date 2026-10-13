@@ -14,6 +14,7 @@ import {keeperReadyPosition,readKeeperFlight,keeperHandling,keeperSweepReach,kee
 import {coordinateFootball,CoordinationPlan,FootballJob} from './practice-coordination.js';
 import {Fixture,Player,Role,Side,Skills,Traits,Tactics,clamp,rng,shapes} from './model.js';
 import {MovingPlayer,MovingBall,Vec,steer,steerMotion,contact,STEP} from './movement.js';
+import {MARKING_PROBE,MarkingProbe} from './practice-marking-probe.js';
 import {receptionTarget} from './decisions.js';
 import {practiceFixture} from './practice-data.js';
 import {carryOptions,chooseFootballOption,commitCarry,CarryPlan,CarryAssessment,CarryOption} from './practice-carry.js';
@@ -316,6 +317,8 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
  // carries on with that job a moment longer when the runner he is now asked
  // to mark left from behind his shoulder (practice-defense runnerPickupDelay).
  const lapses=new Map<string,{until:number;attacking:Side;job:FootballJob}>();
+ // PROBE (marking-probe, off by default): imperfect off-ball marking (practice-marking-probe).
+ const markingProbe=MARKING_PROBE.on?new MarkingProbe():null;
  const observedLine=(p:PracticePlayer)=>awareness.lineFor(p,players,time,clamp((5-Math.min(...players.filter(q=>q.side!==p.side).map(q=>dist(q,p))))/5,0,1));
  let ball:MovingBall={x:(L/2),y:0,vx:0,vy:0,z:0,vz:0,owner:null,mode:'loose'},restart:Restart|null=null as Restart|null,prepared:{option:Option;at:number}|null=null,carry:Vec={x:(L/2),y:0},reception:Vec|null=null,receptionAt=0;
  let cueState:{prepared:{option:{kind:string;target?:string;aim:Vec}};since:number}|null=null;
@@ -928,6 +931,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    const speedOf=(q:PracticePlayer)=>q.id===r.taker?q.pace*.8:r.live?.jobs[q.id]?.speed??q.pace*.8;
    restartPace={kickIn:restartKickIn(r.ready,time,[...needed].map(id=>{const q=get(id);return {distance:dist(q,aimOf(q)),speed:speedOf(q)};})),needed};
   }
+  if(markingProbe){if(restart||!coordinated)markingProbe.reset();else{const flying=!ball.owner&&ball.mode==='pass';markingProbe.update(time,STEP,players,side,ball,flying,coordination?.attacking===side?coordination.jobs:undefined,id=>id===owner?.id||flying&&flight.receiver===id);}}
   for(const p of players){
    // Today's legs (energy and the sprint reserve) are what every race read uses:
    // arrivalTime and the rest read p.pace and p.acceleration.
@@ -942,6 +946,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    if(coordinatedOutfield)intent={kind:job?.kind??'hold',aim:job?.aim??{x:p.x,y:p.y},speed:job?.speed??0,reason:job?.reason??'Așteaptă o responsabilitate.',since:time,until:time+.25,teamSide:side};
    else if(!intent||time>=intent.until||intent.teamSide!==side||p.role==='GK'&&side!==p.side&&keeperRereads(p,intent)){intent=offball(p);intents.set(p.id,intent);}
    let aim=intent!.aim,limit=intent!.speed,kind=intent!.kind,reason=intent!.reason,trackingVelocity:Vec|undefined=job?.velocity;
+   if(markingProbe&&coordinatedOutfield&&!restart&&p.side!==side&&p.role!=='GK'&&job?.purpose==='mark'){const m=markingProbe.movement(p,{x:world(p.side,0),y:0},players,STEP);if(m){aim=m.aim;trackingVelocity=m.velocity;limit=m.limit;}}
 
    const unitSlot=teamShapes[p.side]?.slots[p.id];
    if(!restart&&intent!.shapeOffset&&unitSlot){
