@@ -5,25 +5,6 @@ import type {MovingBall,MovingPlayer,Vec} from './movement.js';
 import {goalBoundFlight,keeperReach} from './practice-football.js';
 
 export const PASS_DRAG=.65;
-/** The comfortable arrival speed of a ground pass of this length (the passer's weighting, practice-passing). */
-export const preferredArrival=(length:number)=>clamp(5.5+length*.24,6,14);
-/** Honest-reads round (2026-10-10): how long a team-mate expects a ground pass
- * of this length to take, to time his run or judge his room. Before, every
- * such read assumed a ball travelling at a steady 14 + 0.5 x passing m/s
- * (17 m/s at passing 6), but a pass's speed does not depend on passing and
- * real ones decelerate: on 2bec595c open-play ground passes left the foot at
- * a median 10.6 m/s (0-6 m), 11.3 (6-10 m), 12.4 (10-14 m), 13.4 (14-18 m),
- * between the passer's measured and firm weights. EXPECTED_FIRMNESS m/s above
- * the comfortable arrival speed reproduces them within about 0.4 m/s; the
- * flight then decelerates with PASS_DRAG as the ball does. */
-export const EXPECTED_FIRMNESS=3;
-export function expectedPassFlight(length:number):number{
- if(length<=0)return 0;
- const arrival=preferredArrival(length)+EXPECTED_FIRMNESS,speed=Math.sqrt(arrival*arrival+2*PASS_DRAG*length);
- return 2*length/(speed+arrival);
-}
-/** Its mean speed over the flight, for the reads that take a steady speed (laneRisk). */
-export const expectedPassSpeed=(length:number)=>length>0?length/expectedPassFlight(length):PASS_DRAG;
 export interface FlightSample extends Vec {time:number;z:number;vx:number;vy:number;vz:number}
 export interface FlightMeeting {aim:Vec;time:number;reachable:boolean;gap:number}
 export type FlightPlayer=Omit<MovingPlayer,'side'|'role'> & Partial<Pick<MovingPlayer,'side'|'role'>> & {skills?:{reading:number;keeping:number}};

@@ -1,5 +1,0 @@
-results/.bundle.*
-results/.rev-*
-# smoke and preflight rows prove the pipeline runs; they are not evidence
-results/smoke*.jsonl
-results/preflight*.jsonl

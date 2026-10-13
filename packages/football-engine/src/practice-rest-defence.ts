@@ -64,12 +64,6 @@ export function restDefence(p:Body,players:readonly Body[],at:Vec=p):RestRead{
  * his reading (a relative error up to LOSS_SPREAD). Without the player's
  * skills (a bare body) the read is exact. */
 export const LOSS_OPTIMISM=.35,LOSS_SPREAD=.4;
-/** What one ball lost costs a kick's valuation (the ground pass's and the
- * loft's loss term, per unit of their loss read): a base that a daring player
- * (risk) weighs less, plus the price of losing it there (turnoverPrice).
- * Shared since B2 (2026-10-09) with the carry, whose read of being tackled
- * is priced the same way: one ball lost, one price, whatever lost it. */
-export const deliveryLossWeight=(p:{traits:{risk:number}},lossCost:number)=>.68-p.traits.risk*.3+lossCost;
 export function lossRead(p:Body&Reader,at:Vec):number{
  return clamp(perceive(p,'loss',1-LOSS_OPTIMISM*daring(p),LOSS_SPREAD,at,{salt:'loss'}),.4,1.6);
 }

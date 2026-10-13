@@ -1,13 +1,12 @@
 // Ballers league: row shapes as stored in Supabase (see the ballers_p1_*
 // migrations) plus the pure helpers the screens share. No I/O here.
-import {playedApproach,withOnLoss,type Approach,type StoredApproach} from './approach';
+import {withOnLoss,type Approach,type StoredApproach} from './approach';
 import type {PrepOrder} from './subs';
 import type {MatchSettings} from './match-settings';
 import type {Voice} from './voice';
 import type {Player as EnginePlayer, Role} from '../../packages/football-engine/src/model';
-import {LOCK_MS} from './schedule';
-import {LAST_ATTACK_MAX} from '../../packages/football-engine/src/practice-match';
-export {ON_LOSS,engineApproach,onLossOf,playedApproach,widthChosen,withOnLoss,type Approach,type OnLoss,type StoredApproach} from './approach';
+import {LOCK_MS, nextKickoff} from './schedule';
+export {ON_LOSS,engineApproach,onLossOf,withOnLoss,type Approach,type OnLoss,type StoredApproach} from './approach';
 
 export type Formation='1-2-1'|'2-2'|'2-1-1';
 export type Style='balanced'|'combinations'|'direct'|'counter';
@@ -111,14 +110,11 @@ export const APPROACH_FIELDS:ApproachField[]=[
   {value:'patient',label:'Patient',line:'Keeps the ball longest, but is slower to goal and gives them time to set. Suits good passers who read the game.'},
   {value:'mixed',label:'Mixed',line:'Keeps it or goes forward, whichever each attack offers. No big strength or weakness. Fits any squad.'},
   {value:'direct',label:'Direct',line:'Gets the ball forward fast and makes the most shots, but gives it away more. Suits quick forwards.'}]},
- // practice-shape.ts WIDTH (lane, pull, hold, follow, reach, allowance, inward), buildUpSpread; practice-coordination.ts hold-width job.
- // Wide no longer says "Hurts a side that presses hard": the width check (2026-10-11, 234 matches, branch
- // width-check) found no support for it (flat against the press in 1-2-1, likely worse in 2-2).
- // Not offered in 2-1-1 (approach.ts widthChosen).
+ // practice-shape.ts WIDTH (lane, pull, hold, follow, reach, allowance, inward), buildUpSpread; practice-coordination.ts hold-width job
  {key:'width',label:'Width',about:'How far apart your players spread when you have the ball.',options:[
   {value:'narrow',label:'Narrow',line:'Players stay close to help each other and the middle is shut, but a switch to the far side hurts you.'},
   {value:'standard',label:'Standard',line:'A bit of both: some width to switch play, and a middle that stays fairly closed. Fits any squad.'},
-  {value:'wide',label:'Wide',line:'Stretches them so you can switch to a free man, but gaps open in your middle.'}]},
+  {value:'wide',label:'Wide',line:'Stretches them so you can switch to a free man, but gaps open in your middle. Hurts a side that presses hard.'}]},
  // Without the ball (settings-truth round, 2026-10-04): practice-defending.ts DANGER_R (who is marked, by the
  // Line), BLOCK (how high the block sits and how hard it squeezes up when their man is pressed or plays it
  // back: blockDepth), ENGAGE_LINE; their furthest forward is always somebody's man, marked goal-side of him
@@ -175,11 +171,6 @@ export const APPROACH_FIELDS:ApproachField[]=[
   {value:'counterpress',label:'Counter-press',line:'Goes straight after the ball to win it back at once. Beat it and your pressers are out of the game. Suits good tacklers.'}]},
 ];
 
-/** What stands where Width would in 2-1-1, which has no Width choice (approach.ts widthChosen):
- * how that shape spreads with the ball (width check, 2026-10-11: the centre-backs split wider to
- * start attacks and the midfielder stays central). `we` is the plan paragraph's own voice. */
-export const WIDTH_NONE_WE='No wingers in this shape: our centre-backs split to start attacks and the midfielder links play through the middle.';
-
 /** Keeper and free-kick calls (Match prep, and a plan's set pieces): the one
  * source of their words. A keeper option's `does` reads after his name
  * ("Lulu stays home: …"); `line` is the same with "He". 'own' and 'mixed' are
@@ -210,8 +201,7 @@ export const FREE_KICK_OPTIONS:readonly {value:'short'|'mixed'|'delivery';label:
  {value:'delivery',label:'Into the box',line:'Two players attack the posts and one waits on the edge for the knock-down. The taker looks for a ball into the box; if it’s cleared, nobody is back.'},
 ];
 /** Same fine-tune, reading a missing "On losing it" as 'balanced' on either side. */
-/** Whether two approaches play the same. With a `formation` that has no Width choice (2-1-1), Width is left out. */
-export const sameApproach=(a:StoredApproach,b:StoredApproach,formation='')=>{const x=playedApproach(formation,withOnLoss(a)),y=playedApproach(formation,withOnLoss(b));return (Object.keys(PRESETS.balanced) as (keyof Approach)[]).every(k=>String(x[k])===String(y[k]));};
+export const sameApproach=(a:StoredApproach,b:StoredApproach)=>{const x=withOnLoss(a),y=withOnLoss(b);return (Object.keys(PRESETS.balanced) as (keyof Approach)[]).every(k=>String(x[k])===String(y[k]));};
 
 export const ARCHETYPES:Record<Archetype,string>={wall:'Shot-stopper',libero:'Sweeper keeper',anchor:'Anchor',ballwinner:'Ball-winner',architect:'Playmaker',motor:'Engine',artist:'Dribbler',runner:'Runner',pivot:'Target man',predator:'Poacher',maverick:'Maverick'};
 /** What each player type brings, and what it costs (creation, player cards). */
@@ -258,6 +248,8 @@ export type LockState='open'|'locked';
 export function lockState(round:Pick<Round,'locks_at'|'status'>,now=Date.now()):LockState{
  return round.status==='open'&&now<Date.parse(round.locks_at)?'open':'locked';
 }
+/** When nobody has opened the round yet, the calendar still knows the slot. */
+export function nextSlot(now=Date.now()){const kickoff=nextKickoff(now);return {kickoff,locks:kickoff-LOCK_MS};}
 export function countdown(ms:number){const s=Math.max(0,Math.floor(ms/1000));return {d:Math.floor(s/86400),h:Math.floor(s%86400/3600),m:Math.floor(s%3600/60),s:s%60};}
 const fmt=(opts:Intl.DateTimeFormatOptions)=>new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Bucharest',...opts});
 const dayFmt=fmt({weekday:'short'}),timeFmt=fmt({hour:'2-digit',minute:'2-digit',hourCycle:'h23'}),dateFmt=fmt({weekday:'short',day:'numeric',month:'short'});
@@ -266,15 +258,8 @@ export const clock=(t:number|string)=>timeFmt.format(new Date(t));
 export const dateLine=(t:number|string)=>dateFmt.format(new Date(t));
 
 // ---------- a match's state on the clock ----------
-/** Match length (the engine plays 15:00). */
+/** Broadcast length (the engine plays 15:00). */
 export const MATCH_SECONDS=900;
-/** The longest a broadcast can run: full time plays out the attack in progress for
- * at most LAST_ATTACK_MAX (engine practice-match.ts). A match's real end is its
- * replay header's `duration`; this is only for screens that don't hold it. */
-export {LAST_ATTACK_MAX};
-export const BROADCAST_MAX_SECONDS=MATCH_SECONDS+LAST_ATTACK_MAX;
-/** Timeline minute marks: every minute up to a Quick match (and its last attack), else every 3. */
-export const tickEvery=(duration:number)=>duration<=QUICK_SECONDS+LAST_ATTACK_MAX?60:180;
 /** A practice match's short length. Named "Quick", never "Short": Short is a style. */
 export const QUICK_SECONDS=300;
 /** The two practice lengths as a picker lists them. */
@@ -342,6 +327,8 @@ export function swapIn(players:Player[],lineup:string[],slot:number,benchId:stri
 export function ideaMissing(idea:Pick<Idea,'lineup'>,lineup:string[]){return idea.lineup.filter(id=>!lineup.includes(id));}
 export const MAX_IDEAS_ON=3,MAX_IDEAS_SAVED=12;
 
+/** A stored player as the engine's Player (practice/official matches). */
+export function enginePlayer(p:Player):EnginePlayer{return {id:p.id,name:p.name,roles:[...p.roles],skills:{...p.skills},traits:{...p.traits},energy:p.energy,note:p.note};}
 
 // ---------- founding a club ----------
 /** A three-character code from a club name (FC Prelungitorul -> FCP, Malpraxis -> MAL). */

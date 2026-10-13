@@ -232,14 +232,6 @@ export interface FlightAssignment {
  theirs?:number;
 }
 export interface ReceivingAssignment {intended?:string;passer?:string;previous?:string;defensiveUnit?:DefensiveUnitContext & {tactics:Tactics}}
-/** Interceptions (marking and shape round, item 5): a good defender reads a passing lane. How much better than the
- * engine's plain read (which everyone keeps: nobody is worse than before) a player reads the ball's path when it
- * is the opponents' pass, 0..1: reading and defending together, above a typical 5. It buys him LANE_READ.slack s
- * of slack on a ground ball he steps into (he is off the mark sooner), LANE_READ.air s off his reaction to a ball
- * in the air, LANE_READ.margin s more daring when the defence picks its man for the ball, and his feet set for
- * the ball's path as a reader and defender (practice-control receivingContact). */
-export const LANE_READ={slack:.1,air:.08,margin:.1};
-export function laneSkill(p:{skills:{defending:number;reading:number}}):number{return clamp(((p.skills.defending+p.skills.reading)/2-5)/5,0,1);}
 /** Read reachable points on the visible flight; each team sends one challenger. */
 export function assignFlight(players:PracticePlayer[],ball:import('./movement.js').MovingBall,attacking:0|1,unavailable:ReadonlySet<string>=new Set(),receiving:ReceivingAssignment={}):FlightAssignment{
  const result:FlightAssignment={hunters:[],meetings:{},coverer:''};
@@ -258,13 +250,12 @@ export function assignFlight(players:PracticePlayer[],ball:import('./movement.js
   const visibleCandidates=players.filter(p=>p.side===side&&!unavailable.has(p.id)&&
    (p.role!=='GK'||side===attacking&&ball.mode==='pass')&&
    !(side===attacking&&ball.mode==='pass'&&p.id===receiving.passer)).flatMap(p=>{
-   const lane=side!==attacking?laneSkill(p):0;
    if(airborne){
-    const meeting=flightMeeting(p,ball,.2-LANE_READ.air*lane,samples),high=p.role==='GK'?undefined:playableAerialMeetings(p,ball,players,samples).sort((a,b)=>a.ball.time-b.ball.time)[0];
+    const meeting=flightMeeting(p,ball,.2,samples),high=p.role==='GK'?undefined:playableAerialMeetings(p,ball,players,samples).sort((a,b)=>a.ball.time-b.ball.time)[0];
     if(high&&high.ball.time<meeting.time)return [{p,point:{...high.aim,time:high.ball.time,z:high.ball.z},score:high.ball.time}];
     if(!meeting.reachable&&meeting.gap>5)return [];return [{p,point:{...meeting.aim,time:meeting.time,z:0},score:meeting.time+(meeting.reachable?0:meeting.gap/p.pace)}];
    }
-   const reachable=points.find(q=>arrivalTime(p,q)<=q.time+.12+LANE_READ.slack*lane),point=reachable??points.at(-1)!;
+   const reachable=points.find(q=>arrivalTime(p,q)<=q.time+.12),point=reachable??points.at(-1)!;
    const arrival=arrivalTime(p,point);if(!reachable&&arrival>point.time+1.1)return [];
    return [{p,point,score:reachable?point.time:arrival+.3}];
   }).sort((a,b)=>a.score-b.score||a.p.id.localeCompare(b.p.id));

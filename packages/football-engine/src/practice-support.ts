@@ -11,7 +11,6 @@ import {launchRisk} from './practice-possession.js';
 import {assignBuildUp} from './practice-build-up.js';
 import type {TeamShape} from './practice-shape.js';
 import {strikeTurnTime} from './practice-striking.js';
-import {expectedPassFlight} from './practice-flight.js';
 
 export type SupportPurpose='playbook'|'join'|'recovery-outlet'|'recycle'|'overlap'|'give-and-go'|'near-post'|'far-post'|'cutback'|'link'|'channel'|'build-up'|'counter-cover';
 export interface SupportMove {
@@ -46,7 +45,7 @@ const boxArrival=(purpose:SupportPurpose)=>purpose==='near-post'||purpose==='cut
  * while the passer is still waiting for the ball. A closing marker removes
  * the luxury of delaying. This changes movement, never pass execution. */
 export function timeSupportRun(p:PracticePlayer,aim:Vec,speed:number,reference:PracticePlayer,players:PracticePlayer[],incoming=0):{speed:number;waiting:boolean}{
- const travel=arrivalTime(p,aim),delivery=expectedPassFlight(distance(reference,aim));
+ const travel=arrivalTime(p,aim),delivery=distance(reference,aim)/(14+reference.skills.passing*.5);
  const ready=incoming+.12+strikeTurnTime(reference,aim);
  const window=ready+delivery-.15;
  const threatened=players.some(q=>q.side!==p.side&&arrivalTime(q,aim)<window+.3);
@@ -85,7 +84,7 @@ export function readSupportLocation(p:PracticePlayer,aim:Vec,players:PracticePla
  // Space now is not necessarily time after the pass. The supporter must
  // reach it and the ball must travel there before he can use the opening.
  // This is a conservative read of reachable pressure, not future intentions.
- const delivery=Math.max(travel,.2+expectedPassFlight(gap));
+ const delivery=Math.max(travel,.2+gap/(14+reference.skills.passing*.5));
  const closing=Math.min(...outfield.map(q=>arrivalTime(q,aim)));
  const releaseRoom=clamp((closing-delivery)/.8,0,1);
  return {gap,travel,room,risk,crowding,releaseRoom};

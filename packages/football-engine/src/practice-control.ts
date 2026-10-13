@@ -6,7 +6,7 @@ import {Vec,MovingBall,steer,steerMotion,contact} from './movement.js';
 import {advanceFlight,flightContact,PASS_DRAG} from './practice-flight.js';
 import type {PracticePlayer} from './practice.js';
 import {bodyScreensBall} from './practice-challenge.js';
-import {controlTouchBudget as touchBudget,cushionedVelocity,touchGap,bodyTurnRate,openBody,turnWithBall,setTolerance} from './practice-reception.js';
+import {controlTouchBudget as touchBudget,cushionedVelocity} from './practice-reception.js';
 import {strikeStance,fitStrikeToStance,StrikeKind} from './practice-striking.js';
 
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
@@ -78,8 +78,8 @@ function clearKick(p:PracticePlayer,ball:Vec,direction:Vec,length=.9):boolean{
  * begin while running to meet a pass, before it is within foot reach. */
 export function faceControl(p:PracticePlayer,ball:Vec,aim:Vec,dt:number):number{
  const ballAngle=Math.atan2(ball.y-p.y,ball.x-p.x),routeAngle=Math.atan2(aim.y-ball.y,aim.x-ball.x);
- const open=openBody(p),desired=ballAngle+clamp(difference(routeAngle,ballAngle),-open,open);
- const turnRate=bodyTurnRate(p);
+ const desired=ballAngle+clamp(difference(routeAngle,ballAngle),-1.05,1.05);
+ const turnRate=(3.4+p.skills.control*.12)/(1+Math.hypot(p.vx,p.vy)*.22);
  p.angle+=clamp(difference(desired,p.angle),-turnRate*dt,turnRate*dt);
  return desired;
 }
@@ -100,7 +100,7 @@ export function steerControl(p:PracticePlayer,ball:MovingBall,state:TouchControl
   // stances around the ball instead of clamping the ideal into a blocked one.
   const stances=Array.from({length:24},(_,i)=>{
    const a=i*Math.PI/12,point={x:future.x+Math.cos(a)*.65,y:future.y+Math.sin(a)*.65};
-   const incoming=Math.atan2(future.y-point.y,future.x-point.x),open=openBody(p),angle=incoming+clamp(difference(Math.atan2(route.y,route.x),incoming),-open,open);
+   const incoming=Math.atan2(future.y-point.y,future.x-point.x),angle=incoming+clamp(difference(Math.atan2(route.y,route.x),incoming),-1.05,1.05);
    return {...point,angle};
   }).filter(stance=>inBounds(stance)&&controlReleaseAvailable({...p,...stance},future,aim));
   stances.sort((a,b)=>distance(p,a)-distance(p,b));if(stances[0])target=stances[0];
@@ -116,7 +116,7 @@ export function steerControl(p:PracticePlayer,ball:MovingBall,state:TouchControl
  // Preparing a kick is not a universal walking-speed cap. Catch up with a
  // rolling first touch, then brake when the next contact is actually reachable.
  const receivingPace=Math.max(1.8,Math.hypot(ball.vx,ball.vy)+Math.max(0,gap-.65)*2);
- let maxSpeed=preparing?Math.min(limit,receivingPace):turning?Math.min(limit,turnWithBall(p)):limit;
+ let maxSpeed=preparing?Math.min(limit,receivingPace):turning?Math.min(limit,2.4):limit;
  // A heavy touch is still a ball to reach. The ordinary carrying/turning pace
  // must not prevent a physically possible recovery until ownership is lost.
  const separating=((ball.vx-p.vx)*(ball.x-p.x)+(ball.vy-p.vy)*(ball.y-p.y))/Math.max(.001,gap);
@@ -176,7 +176,7 @@ export function steerControl(p:PracticePlayer,ball:MovingBall,state:TouchControl
 /** A short movement preview checks whether another foot contact is possible
  * before the touch leaves the pitch. It never grants that contact in play. */
 function recoverableTouch(p:PracticePlayer,ball:MovingBall,aim:Vec):boolean{
- const runner={...p},flight={...ball},state=captureControl(runner,flight),wait=touchGap(p);
+ const runner={...p},flight={...ball},state=captureControl(runner,flight),wait=.36-p.skills.control*.009;
  state.readyAt=wait;
  for(let t=0;t<1.2;t+=.06){
   steerControl(runner,flight,state,aim,[],.06);
@@ -219,7 +219,7 @@ function settlingVelocity(p:PracticePlayer,ball:MovingBall,aim:Vec,opponents:Pra
  const forward={x:route.x*along,y:route.y*along},braked=brakedShare(p);
  const setting=use==='set';
  const ordinary=setting?{x:forward.x+(p.vx-forward.x)*braked,y:forward.y+(p.vy-forward.y)*braked}:use==='carry'?runningWith(p,route):{x:p.vx,y:p.vy},speed=Math.hypot(p.vx,p.vy);
- const horizon=Math.max(touchGap(p)+.12,Math.min(.8,speed/Math.max(.001,p.acceleration)));
+ const horizon=Math.max(.36-p.skills.control*.009+.12,Math.min(.8,speed/Math.max(.001,p.acceleration)));
  // Where the touch and the braking body go over the next moments: in play,
  // not through the body or an opponent, and still within reach.
  const trial=(velocity:Vec)=>{
@@ -277,7 +277,7 @@ function touchVelocity(p:PracticePlayer,ball:MovingBall,aim:Vec,opponents:Practi
   // defender moving across it before another touch is physically available.
   const change={x:velocity.x-ball.vx,y:velocity.y-ball.vy},factor=Math.min(1,touchBudget(p)/Math.max(.001,Math.hypot(change.x,change.y)));
   const outgoing=cushion?cushionedVelocity(p,ball,velocity):{x:ball.vx+change.x*factor,y:ball.vy+change.y*factor};
-  const flight={...ball,vx:outgoing.x,vy:outgoing.y},next={...flight},horizon=touchGap(p);
+  const flight={...ball,vx:outgoing.x,vy:outgoing.y},next={...flight},horizon=.36-p.skills.control*.009;
   advanceFlight(next,horizon);
   return opponents.every(d=>{
    const normal=unit({x:ball.x-d.x,y:ball.y-d.y});
@@ -302,21 +302,18 @@ function registerTouch(p:PracticePlayer,ball:MovingBall,state:TouchControl,foot:
  const outgoing=kind==='settle'&&!finalStrike?cushionedVelocity(p,ball,velocity):{x:ball.vx+change.x*factor,y:ball.vy+change.y*factor};
  ball.vx=outgoing.x;ball.vy=outgoing.y;
  const event:ControlContact={time,x:ball.x,y:ball.y,actor:p.id,kind,foot:foot.side,footPoint:{x:foot.x,y:foot.y},body:{x:p.x,y:p.y,angle:p.angle},incoming,outgoing:{x:ball.vx,y:ball.vy}};
- state.contacts.push(event);state.lastTouch=event;state.readyAt=time+touchGap(p);state.active=null;
+ state.contacts.push(event);state.lastTouch=event;state.readyAt=time+.36-p.skills.control*.009;state.active=null;
 }
 
 export interface ReceivingContact {fraction:number;foot:ControlFeet;body:PracticePlayer}
 /** Off-ball feet prepare at bounded speed. Proximity alone never claims the ball.
  * The caller advances the ball once and resolves the earliest foot/hand/body hit. */
-export function receivingContact(p:PracticePlayer,previous:Vec,before:MovingBall,after:MovingBall,state:TouchControl,time:number,dt:number,enabled=true,intercepting=false):ReceivingContact|null{
+export function receivingContact(p:PracticePlayer,previous:Vec,before:MovingBall,after:MovingBall,state:TouchControl,time:number,dt:number,enabled=true):ReceivingContact|null{
  state.time=time;
  // Prepare for the visible trajectory before it enters leg reach. The target is
  // body-relative and the foot still travels at finite speed; contact itself is
  // resolved against the live ball, never the forecast.
- // (marking and shape round) stepping into the opponents' pass, his feet set as a reader and a defender: the
- // better of his reading and his defending sets how early, of his control and his defending how quickly
- const horizon=.22+clamp((intercepting?Math.max(p.skills.reading,p.skills.defending):p.skills.reading)/10,0,1)*.16;
- const footSkill=intercepting?Math.max(p.skills.control,p.skills.defending):p.skills.control;
+ const horizon=.22+clamp(p.skills.reading/10,0,1)*.16;
  let target:Vec|null=null;
  for(let lead=0;lead<=horizon+1e-8;lead+=.02){
   const forecast={...after};advanceFlight(forecast,lead);
@@ -333,7 +330,7 @@ export function receivingContact(p:PracticePlayer,previous:Vec,before:MovingBall
  for(const foot of state.feet){
   const old={x:foot.x-(p.x-previous.x),y:foot.y-(p.y-previous.y)};
   const aim=foot===chosen?target!:neutralFoot(p,foot.side),length=distance(foot,aim);
-  const step=Math.min(1,(6+footSkill*.3)*dt/Math.max(.001,length));
+  const step=Math.min(1,(6+p.skills.control*.3)*dt/Math.max(.001,length));
   foot.x+=(aim.x-foot.x)*step;foot.y+=(aim.y-foot.y)*step;
   // A forecast may already be past the body. It must not erase contact
   // that exists at the beginning of this swept interval.
@@ -427,13 +424,7 @@ export function advanceControl(p:PracticePlayer,previous:Vec,ball:MovingBall,sta
  // The ball is already settled during a precision stance correction. Move
  // around it without repeatedly rolling it along with the stepping body;
  // physical ball/body collisions and the eventual strike still apply below.
- // A ball he can already strike, moving within this of how he wants it set,
- // needs no re-setting touch before the kick: a good controller strikes the
- // ball as it runs instead of setting it again (setTolerance,
- // passing-and-control round). A ball he cannot strike from where it is (his
- // body in the kick's way, out of reach) is set as before.
- const wanted=touchVelocity(p,ball,aim,opponents,preparing,false,state.pace),mismatch=Math.hypot(wanted.velocity.x-ball.vx,wanted.velocity.y-ball.vy);
- const needTouch=!state.preciseArrival&&mismatch>.35&&!(preparing&&mismatch<=setTolerance(p)&&controlReleaseAvailable(p,ball,aim));
+ const wanted=touchVelocity(p,ball,aim,opponents,preparing,false,state.pace),needTouch=!state.preciseArrival&&Math.hypot(wanted.velocity.x-ball.vx,wanted.velocity.y-ball.vy)>.35;
  if(allowTouches&&end>=state.readyAt&&(needTouch||preparing)&&!state.active){
   state.active=state.feet.filter(f=>footCanReach(p,ball,f.side)).sort((a,b)=>distance(a,ball)-distance(b,ball))[0]?.side??null;
  }

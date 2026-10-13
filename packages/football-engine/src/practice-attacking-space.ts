@@ -7,7 +7,6 @@ import type {PracticePlayer} from './practice.js';
 import type {FootballJob} from './practice-coordination.js';
 import {arrivalTime,BACK_REACH,QUICK_RELEASE,QUICK_REACT} from './practice-defense.js';
 import {strikeTurnTime} from './practice-striking.js';
-import {expectedPassFlight} from './practice-flight.js';
 
 type Risk=(from:Vec,to:Vec,defenders:PracticePlayer[],speed?:number)=>number;
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
@@ -47,10 +46,11 @@ export function attackingSpaceReader(players:PracticePlayer[],carrier:PracticePl
  const firstLeg=(option:AttackingSpace)=>{
   if(firstLegs.has(option))return firstLegs.get(option)!;
   firstLegs.set(option,null);
-  let at=Math.max(option.at,.2+expectedPassFlight(distance(carrier,option.point))),point:PracticePlayer|null=null;
+  const speed=14+carrier.skills.passing*.5;
+  let at=Math.max(option.at,.2+distance(carrier,option.point)/speed),point:PracticePlayer|null=null;
   for(let i=0;i<3;i++){
    point=positionAt(option,at);if(!point)return null;
-   at=Math.max(option.at,.2+expectedPassFlight(distance(carrier,point)));
+   at=Math.max(option.at,.2+distance(carrier,point)/speed);
   }
   point=positionAt(option,at);if(!point)return null;
   const gap=distance(carrier,point),closing=Math.min(...outfield.map(d=>arrivalTime(d,point!)));
@@ -103,7 +103,7 @@ export function attackingSpaceReader(players:PracticePlayer[],carrier:PracticePl
     const at=tick*.1;if(at>duration+.001)break;
     if(tick){steerMotion(moving,job.aim,.1,Math.min(p.pace,job.speed));path.push({x:moving.x,y:moving.y,vx:moving.vx,vy:moving.vy});}
     if(tick%6!==0)continue;
-    const gap=distance(carrier,moving),flight=.2+expectedPassFlight(gap);
+    const gap=distance(carrier,moving),flight=.2+gap/(14+carrier.skills.passing*.5);
     const closing=Math.min(...outfield.map(d=>arrivalTime(d,moving)));
     const room=clamp((closing-Math.max(at,flight)+.2)/.9,0,1);
     const access=(1-risk(carrier,moving,future))*room*clamp((gap-3)/2,0,1)*clamp((32-gap)/8,0,1);
@@ -129,16 +129,17 @@ export function attackingSpaceReader(players:PracticePlayer[],carrier:PracticePl
    // best instant while the two passes travel.
    const leg=firstLeg(a);if(!leg||a.access<=0&&!leg.back.length||leg.access<=0&&leg.layAccess<=0)return 0;
    const {point:first,at:firstAt}=leg;
-   let arrival=firstAt+.15+strikeTurnTime(first,b.point)+expectedPassFlight(distance(first,b.point));
+   const secondSpeed=14+first.skills.passing*.5;
+   let arrival=firstAt+.15+strikeTurnTime(first,b.point)+distance(first,b.point)/secondSpeed;
    let second:PracticePlayer|null=null;
    for(let i=0;i<3;i++){
     second=positionAt(b,arrival);if(!second)return 0;
-    arrival=firstAt+.15+strikeTurnTime(first,second)+expectedPassFlight(distance(first,second));
+    arrival=firstAt+.15+strikeTurnTime(first,second)+distance(first,second)/secondSpeed;
    }
    second=positionAt(b,arrival);if(!second)return 0;
    const gap=distance(first,second);if(gap<3||gap>26)return 0;
    const preparation=.15+strikeTurnTime(first,second);
-   if(Math.abs(arrival-(firstAt+preparation+expectedPassFlight(gap)))>.1)return 0;
+   if(Math.abs(arrival-(firstAt+preparation+gap/secondSpeed))>.1)return 0;
    // A quick ball played away from the men on his back (a lay-off, a wall
    // pass) is read without them; anything else with them (as before).
    const quick=leg.back.length>0&&preparation<=QUICK_RELEASE&&leg.back.every(d=>(second!.x-first.x)*(d.x-first.x)+(second!.y-first.y)*(d.y-first.y)<0);

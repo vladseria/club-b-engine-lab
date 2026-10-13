@@ -10,7 +10,6 @@ import {loftOptions} from './practice-loft.js';
 import {activePassRun,groundOptions} from './practice-passing.js';
 import {carryOptions,dribbleConfidence,readDribbleRoute} from './practice-carry.js';
 import {possessionSafety,securePossessionOptions} from './practice-possession.js';
-import {bodyTurnRate,touchGap} from './practice-reception.js';
 
 export const PASS_OPENING_SECONDS=1.1;
 /** The most an idea may lift a ball carrier's option above its ordinary score
@@ -343,9 +342,9 @@ export class LessonResponsibilities {
     match=!arrived&&alignment>.5&&progress>.25;
     const local=o.carry??readDribbleRoute(p,o.aim,players,o.kind==='feint'?o.target:undefined);
     const contactRisk=local.contactRisk??0,crowding=Math.max(0,(local.nearbyChallenges??0)-(o.kind==='feint'?0:1));
-    const turnRate=bodyTurnRate(p);
+    const turnRate=(3.4+p.skills.control*.12)/(1+Math.hypot(p.vx,p.vy)*.22);
     const turnAngle=Math.abs(Math.atan2(Math.sin(Math.atan2(oy,ox)-p.angle),Math.cos(Math.atan2(oy,ox)-p.angle)));
-    const touchInterval=touchGap(p);
+    const touchInterval=.36-p.skills.control*.009;
     const contactRoom=clamp((safety.contactTime-turnAngle/turnRate-touchInterval)/.2,0,1);
     if(match){
      teachingFit=alignment;

@@ -71,26 +71,6 @@ export function keeperSweepReach(sweep:number):{margin:number;range:number}{
  const s=clamp(sweep,0,1);
  return {margin:-.5+s*.8,range:BOX_DEPTH+1+s*9};
 }
-/** B3 (2026-10-09), answering the long ball. A pass whose receiver will meet
- * it behind the keeper's last outfielder (the space a deep line leaves in
- * front of him) is his to read. He compares, on his own picture, his earliest
- * meeting with the flight against the attackers' earliest touch (the
- * defence's own read of who gets there first) and comes when he reads he is
- * first or level by the lead his habit demands (`keeperSweepNeed`, seconds:
- * positive means he must be first by that much). A keeper who stays at home
- * wants to be clearly first (0.15 s); a sweeper goes when he reads it level,
- * and accepts being a little late (up to 0.3 s at the trait's top: the risk
- * the Sweeper call states, "if he's late the goal is open"), about as eager
- * as the old ground-ball rule left him, so the call keeps its meaning. How good
- * the read is comes from his keeping and reading (perception 'keeper'): a
- * sharp keeper is off by a few hundredths, a poor one by a couple of tenths,
- * both ways. His pace is already in his forecast, so a slow keeper reaches
- * fewer of these balls whatever his habit. He does not stand anywhere new:
- * where he stands is unchanged (keeperSweepDepth, keeperLineDepth). */
-export const SWEEP_NEED_HOME=.15,SWEEP_NEED_SWEEPER=-.3,SWEEP_READ_SPREAD=.5;
-export function keeperSweepNeed(sweep:number):number{
- return SWEEP_NEED_HOME+(SWEEP_NEED_SWEEPER-SWEEP_NEED_HOME)*clamp(sweep,0,1);
-}
 /** Extra metres off his line a keeper stands while the ball is far away: a
  * sweeper stands higher, a keeper who stays on his line deeper. Zero at the
  * engine's default trait (0.2), so untouched keepers stand where they did. */

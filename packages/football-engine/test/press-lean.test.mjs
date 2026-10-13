@@ -170,14 +170,7 @@ test('pressing the ball is never delayed; a marker marks the man where he last s
  const late=coordinateFootball(players,ballAt(owner),0,tactics,laneRisk,{...context,sight:stale},null);
  const presser=exact.defense.presser;
  assert(presser&&late.defense.presser===presser,'the same man goes at the ball');
- // B2 (2026-10-09): a presser alone on the ball bends his run through the lane
- // to a free man (shadowAim), and that man is read from the presser's own
- // picture of him, a moment old like every off-ball man (M3). His run at the
- // ball is never delayed: same man, same kind of run, same pace, and only the
- // bend may differ, by a fraction of the lane point's pull.
- const a=late.jobs[presser],b=exact.jobs[presser];
- assert.equal(a.kind,b.kind);assert.equal(a.speed,b.speed);
- assert(Math.hypot(a.aim.x-b.aim.x,a.aim.y-b.aim.y)<.25,`the press is never delayed (${a.aim.x.toFixed(2)},${a.aim.y.toFixed(2)} v ${b.aim.x.toFixed(2)},${b.aim.y.toFixed(2)})`);
+ assert.deepEqual(late.jobs[presser].aim,exact.jobs[presser].aim,'the press is never delayed');
  // Defending round (2026-10-03): a marker's spot also sags towards the ball
  // line and the last man keeps his cushion, so the exact spot is no longer
  // markPosition alone; what holds is that it is read from where he last saw

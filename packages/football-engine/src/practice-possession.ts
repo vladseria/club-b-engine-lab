@@ -7,7 +7,6 @@ import {strikeTurnTime} from './practice-striking.js';
 import {PASS_DRAG} from './practice-flight.js';
 import {nerve,perceive,daring,composure} from './practice-perception.js';
 import {turnoverPrice} from './practice-rest-defence.js';
-import {controlEdge} from './practice-reception.js';
 
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
 const depth=(p:PracticePlayer,x=p.x)=>p.side===0?x:L-x;
@@ -25,57 +24,12 @@ export function possessionSafety(p:PracticePlayer,players:PracticePlayer[]):Poss
  return {danger,pressure,urgency:danger*pressure,contactTime,adventure:p.traits.risk*.65+p.traits.dribble*.35};
 }
 
-/** B2, the pressed carrier (2026-10-09): how soon a man on the ball looks
- * again, from the moment he chose. "A man is closing me: I decide before he
- * gets here." He reads when the nearest opponent arrives on him (the
- * contact time: positions and momentum he can see, misjudged by his read of
- * an arrival) and looks again at a share of it that his reading sets: a top
- * reader at LOOK_SHARE[0] of it (he has already seen the escape), one who
- * cannot read at LOOK_SHARE[1] (he holds the plan he has a little longer,
- * and is caught on it more often). Never sooner than LOOK_MIN; the prepared
- * kick's 0.18 margin and the carry's commitment are still the minimum hold
- * against dithering. Wherever he is: before this round only danger near his
- * own goal sped it up, so a carrier pressed in midfield re-thought every
- * 0.38-0.56 s against a presser arriving in a median 0.41 s. With nobody
- * closing him the arrival is beyond the ordinary cadence and nothing changes. */
-export const LOOK_MIN=.12,LOOK_SHARE:readonly [number,number]=[.3,.75],LOOK_SPREAD=.3;
-export function lookAgain(p:PracticePlayer,players:PracticePlayer[],time?:number):number{
- const {contactTime}=possessionSafety(p,players);
- if(!Number.isFinite(contactTime))return Infinity;
- const reading=clamp((p.skills.reading??7)/10,0,1);
- const seen=Math.max(0,perceive(p,'arrival',contactTime,LOOK_SPREAD,p,{time,salt:'look'}));
- return Math.max(LOOK_MIN,seen*(LOOK_SHARE[1]-(LOOK_SHARE[1]-LOOK_SHARE[0])*reading));
-}
-
 export function preparationTime(p:PracticePlayer,kind:Option['kind']):number{
  return kind==='clear'?.08+(10-p.skills.control)*.01:.22+(10-p.skills.control)*.015;
 }
 export function releaseTime(p:PracticePlayer,aim:Vec,kind:Option['kind']):number{
  const turn=strikeTurnTime(p,aim,kind==='shoot'?'shot':kind==='clear'?'clearance':'pass');
  return Math.max(preparationTime(p,kind),turn);
-}
-/** Honest-reads round (2026-10-10): the time until a kick he chooses now is
- * actually away. releaseTime is when he is set (preparation, or turning to the
- * aim); getting his foot to the ball, as it rolls and as he steps to it, takes
- * footToBall more. Measured on 2bec595c (mirror arms, open-play ground passes
- * kicked from the preparation they were chosen in): choice to kick a median
- * 0.47 s at control 6, 0.19 s longer than releaseTime (0.28 s), and nearly the
- * same whatever the turn, the ball's distance or his speed; the extra is
- * 0.22 s at control 3 and 0.11 s at control 9 (a good controller's ball is
- * playable sooner: touchGap, setTolerance). FOOT_BASE - FOOT_CONTROL x control
- * - FOOT_EDGE x controlEdge reproduces all three within 0.01 s. */
-export const FOOT_BASE=.26,FOOT_CONTROL=.01,FOOT_EDGE=.0625;
-export const footToBall=(p:{skills:{control:number}})=>Math.max(.05,FOOT_BASE-FOOT_CONTROL*p.skills.control-FOOT_EDGE*controlEdge(p));
-export function kickHorizon(p:PracticePlayer,aim:Vec,kind:Option['kind']):number{return releaseTime(p,aim,kind)+footToBall(p);}
-/** His own read of that time (the release horizon his lane and launch reads
- * forecast over). How well he judges it is how well he reads the lane
- * (reading and passing): a passer who cannot read errs by up to
- * RELEASE_SPREAD s, a top one is nearly exact; a daring one (risk, audacity)
- * believes the ball is away RELEASE_OPTIMISM s x daring sooner than it is.
- * The real spread of the delay (quartiles 0.35-0.56 s) is about this size. */
-export const RELEASE_SPREAD=.15,RELEASE_OPTIMISM=.1;
-export function readKickHorizon(p:PracticePlayer,aim:Vec,kind:Option['kind']):number{
- return clamp(perceive(p,'lane',kickHorizon(p,aim,kind),RELEASE_SPREAD,aim,{salt:'release',bias:-RELEASE_OPTIMISM*daring(p)}),.1,1);
 }
 
 /** Step-across round (2026-10-04): the passer's OWN read of how far an
@@ -93,91 +47,30 @@ export function readKickHorizon(p:PracticePlayer,aim:Vec,kind:Option['kind']):nu
  *    composed (discipline and reading).
  * A read, never the kick: execution and its accuracy are unchanged. */
 export const LANE_RESPECT=.45,LANE_OPTIMISM=.5,LANE_SPREAD=.9;
-/** `lead` (honest-reads round): his read of how long until the ball is away
- * (readKickHorizon); a lane read with it forecasts everyone over that time by
- * visible momentum before the ball's flight begins. */
-export interface PasserRead {p:PracticePlayer;pressure:number;danger:number;lead?:number}
+export interface PasserRead {p:PracticePlayer;pressure:number;danger:number}
 export function readerMargin(r:PasserRead,opponent:{id:string},at:Vec,read:'lane'|'block'='lane'):number{
  const bias=LANE_RESPECT*r.danger-LANE_OPTIMISM*daring(r.p);
  return perceive(r.p,read,bias,LANE_SPREAD*(1+clamp(r.pressure,0,1)*(1-composure(r.p))),at,{salt:'reach'+opponent.id});
 }
 /** A kick must get past nearby feet before a distant receiver or a loft can help.
- * `read`: the passer's own read of those feet (readerMargin); without it, the exact picture.
- * `delay`: how long until the ball is away (the release horizon). Honest-reads
- * round (2026-10-10): the horizon is no longer cut to 0.3 s (the choice-to-kick
- * time is a median 0.47 s), and an opponent who has LAUNCH_REACT s of it
- * left after seeing the kick shaped also closes on the lane: from his
- * momentum, accelerating at his own rate to his own pace (body and foot as
- * far as his legs take them in that time). The read then ranks the kicks lost
- * at the kick better (AUC 0.61 -> 0.71 on 2bec595c) at the same scale (a read
- * of 1 still loses about 27% of kicks there). */
-export const LAUNCH_REACT=.25;
-/** Pre-push fixes (2026-10-12): he cannot run through a man. The lane and
- * launch reads forecast the carrier by his momentum until the kick (honest
- * reads), but a man standing in his path, or stepping into it, is met before
- * he gets there: by visible momentum (both of them), the first opponent in
- * front of him (ahead in the direction he is running) who comes within
- * MEET_GAP of him while they are closing. The carrier's forecast stops where
- * they meet; that man has engaged him and, for what is left of the horizon,
- * goes on closing on the ball at his feet (from his speed towards him,
- * accelerating at his own rate to his own pace), so he contests any kick
- * played from there, whatever its direction: he blocks the pass or he is on
- * the ball before it is away. Everyone else moves on over the whole horizon.
- * MEET_GAP: a stride, where a standing man's foot reaches a ball at the
- * carrier's feet. A man moving with him, beside his path or chasing him from
- * behind is never met, and the open-field forecast is unchanged (a pursuer
- * closing from behind is read by his own momentum as before: stopping the
- * carrier for him would invent a block ahead of him).
- * Returns the time the carrier's forecast runs (`lead` when he meets nobody),
- * the id of the opponent met and where that opponent is at `lead`. */
-export const MEET_GAP=1;
-type Mover={x:number;y:number;vx:number;vy:number;side:0|1};
-export function carrierMeets(p:Mover,players:(Mover&{id:string;pace:number;acceleration:number})[],lead:number):{t:number;met:string|null;at:Vec|null}{
- let t=lead,met:(typeof players)[number]|null=null;
- for(const q of players){
-  if(q.side===p.side)continue;
-  const rx=q.x-p.x,ry=q.y-p.y,wx=q.vx-p.vx,wy=q.vy-p.vy,b=rx*wx+ry*wy;
-  if(b>=0||rx*p.vx+ry*p.vy<=0)continue;// not closing on each other, or not in front of him
-  const c=rx*rx+ry*ry-MEET_GAP*MEET_GAP,a=wx*wx+wy*wy;
-  let at:number;
-  if(c<=0)at=0;
-  else{const disc=b*b-a*c;if(disc<0)continue;at=(-b-Math.sqrt(disc))/a;}
-  if(at<t){t=at;met=q;}
- }
- if(!met)return {t,met:null,at:null};
- const cx=p.x+p.vx*t,cy=p.y+p.vy*t,qx=met.x+met.vx*t,qy=met.y+met.vy*t,gap=Math.max(.01,Math.hypot(qx-cx,qy-cy)),ux=(qx-cx)/gap,uy=(qy-cy)/gap;
- const rest=lead-t,towards=clamp(-(met.vx*ux+met.vy*uy),0,met.pace),accelerating=Math.min(rest,(met.pace-towards)/met.acceleration);
- const left=Math.max(0,gap-(towards*accelerating+.5*met.acceleration*accelerating*accelerating+met.pace*(rest-accelerating)));
- return {t,met:met.id,at:{x:cx+ux*left,y:cy+uy*left}};
-}
+ * `read`: the passer's own read of those feet (readerMargin); without it, the exact picture. */
 export function launchRisk(p:PracticePlayer,aim:Vec,players:PracticePlayer[],delay=0,reach=4,read?:PasserRead):number{
- // Forecast both sides over the same horizon. Moving only opponents
+ // Forecast both sides over the same short horizon. Moving only opponents
  // invents blocks at the passer's old position when both are advancing.
  // Visible momentum is an estimate, not knowledge of future decisions.
- // (pre-push fixes) ...but he stops where he meets a man in his path (carrierMeets).
- const look=Math.min(1,delay),meet=carrierMeets(p,players,look),from={x:p.x+p.vx*meet.t,y:p.y+p.vy*meet.t},closing=look-LAUNCH_REACT;
+ const look=Math.min(.3,delay),from={x:p.x+p.vx*look,y:p.y+p.vy*look};
  const length=distance(from,aim),ux=(aim.x-from.x)/Math.max(.01,length),uy=(aim.y-from.y)/Math.max(.01,length);
  const start={x:from.x+ux*.65,y:from.y+uy*.65},segment=Math.min(reach,Math.max(.1,length-.65));
  let risk=0;
  for(const q of players){
   if(q.side===p.side)continue;
   // Short visible-momentum forecast, not knowledge of the opponent's next decision.
-  const engaged=q.id===meet.met,x=engaged?meet.at!.x:q.x+q.vx*look,y=engaged?meet.at!.y:q.y+q.vy*look;
+  const x=q.x+q.vx*look,y=q.y+q.vy*look;
   const raw=(x-start.x)*ux+(y-start.y)*uy,along=clamp(raw,0,segment);
-  let gap=Math.hypot(x-start.x-ux*along,y-start.y-uy*along);
-  // (the man he meets is already going for the ball: carrierMeets has closed him on it)
-  if(closing>0&&gap>0&&!engaged){
-   // what he adds to his momentum by going for the lane once he has seen it
-   const towards=clamp(((start.x+ux*along-x)*q.vx+(start.y+uy*along-y)*q.vy)/gap,0,q.pace);
-   const accelerating=Math.min(closing,(q.pace-towards)/q.acceleration);
-   gap=Math.max(0,gap-(.5*q.acceleration*accelerating*accelerating+(q.pace-towards)*(closing-accelerating)));
-  }
+  const gap=Math.hypot(x-start.x-ux*along,y-start.y-uy*along);
   // (his read of a foot in the way is of one in front of the kick: a man behind him cannot block a ball played away from him)
-  const m=read&&(raw>0||engaged)?Math.max(-1,readerMargin(read,q,aim,'block')):0;
+  const m=read&&raw>0?Math.max(-1,readerMargin(read,q,aim,'block')):0;
   risk=Math.max(risk,clamp((1.25+m-gap)/.8,0,1));
-  // (pre-push fixes) the man he meets contests the ball at his feet, whichever way it is played: on the same scale,
-  // by how close he has got to it (from) by the kick
-  if(engaged)risk=Math.max(risk,clamp((1.25+m-Math.hypot(x-from.x,y-from.y))/.8,0,1));
  }
  return risk;
 }
@@ -210,15 +103,6 @@ export const SHOT_ON_FROM=.25,SHOT_ON_SPAN=.2,RELIEF_CUT=.75,CARRY_RELIEF=.5;
 export function feltPressure(p:PracticePlayer,pressure:number,time?:number):number{
  return clamp(pressure*Math.max(0,perceive(p,'pressure',nerve(p),PRESSURE_SPREAD,p,{time,salt:'felt'})),0,1);
 }
-/** Regain fixes (2026-10-11): how far a pass takes the ball out of a duel
- * near our own goal, from the receiver's time on the ball (the first opponent's
- * arrival at it, after the flight and the release): none with less than
- * ESCAPE_FROM s, all of it with ESCAPE_FROM + ESCAPE_SPAN s or more. Before,
- * the urgency credit paid every safe-laned pass the same, so centre-backs
- * pressed in their own six-yard area played two-metre passes to each other
- * instead of clearing, carrying out, or finding a pass that escapes. */
-export const ESCAPE_FROM=.3,ESCAPE_SPAN=1.1;
-export const escapeFrom=(receiverTime:number)=>clamp((receiverTime-ESCAPE_FROM)/ESCAPE_SPAN,0,1);
 export function securePossessionOptions(p:PracticePlayer,players:PracticePlayer[],options:Option[],laneRisk:LaneRisk):Option[]{
  const exact=possessionSafety(p,players),felt=feltPressure(p,exact.pressure);
  const safety={...exact,pressure:felt,urgency:exact.danger*felt},{urgency,adventure}=safety;
@@ -236,17 +120,16 @@ export function securePossessionOptions(p:PracticePlayer,players:PracticePlayer[
   // Getting a kick past the nearest opponent matters anywhere on the pitch.
   // Own-goal danger separately prices the consequence of losing it here.
   if(o.kind==='pass'||o.kind==='through'||o.kind==='loft'){
-   // (honest-reads round) the launch is read over his own estimate of when the ball is away, not his set time
-   const delay=releaseTime(p,o.aim,o.kind),blocked=launchRisk(p,o.aim,players,readKickHorizon(p,o.aim,o.kind),4,read);
+   const delay=releaseTime(p,o.aim,o.kind),blocked=launchRisk(p,o.aim,players,delay,4,read);
    // (step-across round) a blocked kick is lost where he stands: priced as a loss there, as the pass's own risk is
    score-=blocked*(.8+safety.danger*.15+lossHere);
    const delivery=o.pass??o.loft;
-   // Do not merely transfer the same problem to a marked teammate: account
-   // for the time the ball spends travelling before the receiver can act.
-   const receiverTime=delivery?Math.min(...opponents.map(q=>arrivalTime(q,o.aim)))-delivery.flight-delay:Infinity;
    if(delivery&&safety.pressure>.15){
     // Relieving pressure has value everywhere, not only near our own goal.
-    const relief=escapeFrom(receiverTime)*(1-delivery.risk)*(1-delivery.controlRisk)*clamp(1+delivery.reachMargin,0,1)*(1-blocked);
+    // Do not merely transfer the same problem to a marked teammate: account
+    // for the time the ball spends travelling before the receiver can act.
+    const receiverTime=Math.min(...opponents.map(q=>arrivalTime(q,o.aim)))-delivery.flight-delay;
+    const relief=clamp((receiverTime-.3)/1.1,0,1)*(1-delivery.risk)*(1-delivery.controlRisk)*clamp(1+delivery.reachMargin,0,1)*(1-blocked);
     credits+=safety.pressure*relief*(.22+(1-adventure)*.12);
     // Ground-pass valuation charges for metres conceded. Under pressure, a
     // retreat that buys actual time need not pay that entire territorial cost:
@@ -260,16 +143,11 @@ export function securePossessionOptions(p:PracticePlayer,players:PracticePlayer[
    }
    if(urgency>=.06){
     const risk=o.loft?.risk??o.pass?.risk??laneRisk(p,o.aim,opponents);
-    // (regain fixes) "out of the duel" only for a pass that escapes it: the
-    // receiver has time on the ball before anyone, the presser included,
-    // reaches him (escapeFrom). A two-metre pass to a team-mate the same man
-    // presses next moves the duel two metres; it no longer earns the credit.
-    const escape=Number.isFinite(receiverTime)?escapeFrom(receiverTime):1;
-    score+=urgency*(.27*(1-risk)*escape-risk*.55-delay*.18);
-    if(risk<.25&&blocked<.25&&urgency>.25&&escape>.5)reason='E presat lângă poartă; găsește o pasă care scoate mingea din duel.';
+    score+=urgency*(.27*(1-risk)-risk*.55-delay*.18);
+    if(risk<.25&&blocked<.25&&urgency>.25)reason='E presat lângă poartă; găsește o pasă care scoate mingea din duel.';
    }
   }else if(o.kind==='carry'&&o.carry&&o.carry.goalGain>1&&o.carry.escapeGain>0&&safety.pressure>.15){
-   credits+=safety.pressure*clamp(o.carry.escapeGain/.3,0,1)*(.22+(1-adventure)*.12)*CARRY_RELIEF*(1-o.carry.obstruction)*(1-(o.carry.beaten??0));
+   credits+=safety.pressure*clamp(o.carry.escapeGain/.3,0,1)*(.22+(1-adventure)*.12)*CARRY_RELIEF*(1-o.carry.obstruction);
   }
   if(o.kind==='carry'&&urgency>=.06){
    const obstruction=o.carry?.obstruction??0;

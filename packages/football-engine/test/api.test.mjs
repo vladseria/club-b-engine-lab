@@ -17,8 +17,7 @@ test('serialized job snapshots tactics, emphasis and roster, and replays exactly
  const run=runSimulation(request);
  assert.equal(run.input.coaching.emphasis,.25);assert.deepEqual(request,original);
  assert.deepEqual(run,runSimulation(JSON.parse(JSON.stringify(request))));
- // A match plays out the attack in progress at full time (practice-match.ts attackAtFullTime, 12 Oct): runMatch passes lastAttack.
- assert.deepEqual(run.result,simulatePractice(fixture,30,undefined,true,{policy:'coordinated',substitutions:'none',coaching,lastAttack:true}));
+ assert.deepEqual(run.result,simulatePractice(fixture,30,undefined,true,{policy:'coordinated',substitutions:'none',coaching}));
 });
 
 test('training and ordinary-match entry points use the same core without importing drill positions',()=>{
@@ -27,7 +26,7 @@ test('training and ordinary-match entry points use the same core without importi
  assert.deepEqual(training.result,simulatePractice(fixture,20,undefined,true,{policy:'coordinated',substitutions:'none',coaching,trainingSetup:setup}));
  const match=runMatch({fixture,durationSeconds:20,coaching});
  assert(!('setup' in match.input));assert.equal(match.result.events[0].kind,'start');
- assert.deepEqual(match.result,simulatePractice(fixture,20,undefined,true,{policy:'coordinated',substitutions:'none',coaching,lastAttack:true}));
+ assert.deepEqual(match.result,simulatePractice(fixture,20,undefined,true,{policy:'coordinated',substitutions:'none',coaching}));
  assert.throws(()=>runMatch({fixture,setup,durationSeconds:20}),/normal match/);
 });
 
