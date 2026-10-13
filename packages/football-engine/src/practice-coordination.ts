@@ -188,6 +188,8 @@ export interface CoordinationContext extends SupportContext {
  keeperCall?:Vec;
  /** (marking and shape round) the man on the ball preparing a pass: to whom, where, since when (practice-defending's cue). */
  passCue?:{target:string;passer:string;aim:Vec;since:number};
+ /** (keeper fix) the man on the ball is a keeper holding it in his hands (practice-defending KEEP_OFF). */
+ carrierInHands?:boolean;
 }
 
 /** A set piece's zonal anchor takes over a runner within this many metres of his spot. */
@@ -607,7 +609,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   const loose=!owner&&!(ball.mode==='pass'&&meet)?(flight.defenders?.[0]?.point??{x:ball.x,y:ball.y}):undefined;
   const plan=defendOutOfPossession({players,defending,attacking,tactics:tactics[defending],time,ball,carrier:owner,receiver:receiverId&&meet?{id:receiverId,meet}:undefined,loose,
    available:deciding,busy:unavailable,fixed:fixedOwn,locked,view:seen,memory:previous?.defending,intent:engaging?undefined:delaying?'delay':undefined,regroup:!!counterPress?.drop,
-   restart:context.restart,since:possession?.since,reach:owner?undefined:flight.defenders,theirs:flight.theirs,keeperCall:owner?undefined:context.keeperCall,cue:owner?context.passCue:undefined});
+   restart:context.restart,since:possession?.since,reach:owner?undefined:flight.defenders,theirs:flight.theirs,keeperCall:owner?undefined:context.keeperCall,cue:owner?context.passCue:undefined,inHands:!!owner&&owner.role==='GK'&&!!context.carrierInHands});
   defendingMemory=plan.memory;
   for(const j of plan.jobs){const p=players.find(q=>q.id===j.player)!;put(p,j.purpose,j.kind,j.aim,j.speed,j.reason,j.target,j.velocity);if(j.threat!==undefined&&jobs[p.id]&&!instructed.has(p.id))jobs[p.id].threat=j.threat;}
   for(const [id,t] of plan.marks)marks.set(id,t);
