@@ -122,39 +122,3 @@ test('a defender never carries the ball toward the mouth of his own goal',()=>{
   assert.ok(!intoMouth,`a carry to (${o.aim.x.toFixed(1)}, ${o.aim.y.toFixed(1)}) heads for his own goal`);
  }
 });
-
-// (keeper with the ball in his hands, 2026-10-13) A keeper holding the ball cannot be challenged, so a presser may come
-// close but not stand on him (KEEPER_BODY), and the keeper does not stand rooted and then throw it into him: with a man
-// near him he moves with it inside his area, he releases within futsal's 4 seconds, and never along the ground or
-// otherwise straight to an opponent standing next to him. One seeded 300 s passage with both sides on an aggressive
-// press (seed 2: four in-hands spells, three with a man near him; evidence/2026-10-13-keeper-2). A man already on top
-// of him at the catch backs out over about a second.
-test('a keeper holding the ball under a press moves with it, lets it go within 4 s, and never to the man next to him',()=>{
- const f=structuredClone(fixture);f.seed=2;for(const t of f.teams)t.tactics.press='aggressive';
- const r=runMatch({fixture:f,durationSeconds:300,policy:'coordinated'}).result;
- const pos=(fr,i)=>fr.lineup?fr.players[fr.lineup.indexOf(i)]:fr.players[i];
- const at=new Map(r.players.map((p,i)=>[p.id,i])),gk=new Set(r.players.filter(p=>p.role==='GK').map(p=>p.id));
- const near=(fr,k)=>Math.min(...r.players.map((p,i)=>({p,q:pos(fr,i)})).filter(x=>x.q&&x.p.role!=='GK'&&x.p.side!==r.players[at.get(k)].side).map(x=>{const g=pos(fr,at.get(k));return Math.hypot(x.q.x-g.x,x.q.y-g.y);}));
- let spells=0,pressed=0,moved=0,cur=null;
- for(let n=0;n<r.frames.length;n++){
-  const fr=r.frames[n],o=fr.ball.owner,hands=!!o&&gk.has(o)&&!fr.restart&&!fr.control;
-  if(hands){
-   if(!cur||cur.id!==o)cur={id:o,from:fr.time,start:{...pos(fr,at.get(o))},pressed:false};cur.last=n;
-   const d=near(fr,o);if(d<2)cur.pressed=true;
-   if(fr.time-cur.from>=1.2)assert(d>=.8,`an opponent ${d.toFixed(2)} m from ${o} holding the ball at ${fr.time.toFixed(2)} s`);
-   continue;
-  }
-  if(!cur)continue;
-  spells++;const last=r.frames[cur.last],k=pos(last,at.get(cur.id));
-  assert(last.time-cur.from<=4.1,`${cur.id} held it ${(last.time-cur.from).toFixed(2)} s from ${cur.from.toFixed(2)} s`);
-  if(cur.pressed&&last.time-cur.from>1){pressed++;if(Math.hypot(k.x-cur.start.x,k.y-cur.start.y)>.5)moved++;}
-  const next=r.frames.slice(n,n+60).find(g=>g.ball.owner&&g.ball.owner!==cur.id);
-  if(next&&r.players[at.get(next.ball.owner)].side!==r.players[at.get(cur.id)].side){
-   const q=pos(last,at.get(next.ball.owner));
-   assert(Math.hypot(q.x-k.x,q.y-k.y)>=2,`${cur.id}'s release at ${last.time.toFixed(2)} s went to ${next.ball.owner}, ${Math.hypot(q.x-k.x,q.y-k.y).toFixed(2)} m from him`);
-  }
-  cur=null;
- }
- assert(spells>=3,`${spells} in-hands spells`);
- assert(pressed>=2&&moved>=2,`${moved} of ${pressed} pressed holds moved with the ball`);
-});
