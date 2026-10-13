@@ -144,7 +144,7 @@ export const HOLD:Record<Tactics['press'],number>={selective:5.5,balanced:4,aggr
 export const SHOW=.6;
 /** (keeper fix) A keeper with the ball in his hands cannot be challenged, and standing on him to stop his release is an
  * offence (Laws of the Game: preventing the goalkeeper from releasing the ball): the man pressing him holds KEEP_OFF m
- * off, on the line of his nearest short throw (a team-mate within SHORT_THROW m of him, as the presser sees him), and
+ * off, towards his nearest short throw (a team-mate within SHORT_THROW m of him, as the presser sees him; keepOff), and
  * otherwise goal-side on his own line to him. Before, he was aimed straight at the keeper and stood 0.3-0.6 m from the
  * ball in his hands until the hold ran out (evidence/2026-10-13-keeper-giveaway). */
 export const KEEP_OFF=2.5,SHORT_THROW=12;

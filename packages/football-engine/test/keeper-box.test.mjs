@@ -127,9 +127,9 @@ test('a defender never carries the ball toward the mouth of his own goal',()=>{
 // release an offence), and he does not wait out the clock and throw into the man on him: under a press, the man
 // pressing him holds KEEP_OFF m off (a man arriving at a sprint may pass closer for a moment), the keeper releases
 // within futsal's 4 seconds, and never straight to an opponent standing next to him. One seeded 300 s passage with
-// both sides on an aggressive press (seed 10: six in-hands spells).
+// both sides on an aggressive press (seed 4: seven in-hands spells).
 test('under an aggressive press nobody stands on a keeper holding the ball, and he never throws it to the man next to him',()=>{
- const f=structuredClone(fixture);f.seed=10;for(const t of f.teams)t.tactics.press='aggressive';
+ const f=structuredClone(fixture);f.seed=4;for(const t of f.teams)t.tactics.press='aggressive';
  const r=runMatch({fixture:f,durationSeconds:300,policy:'coordinated'}).result;
  const pos=(fr,i)=>fr.lineup?fr.players[fr.lineup.indexOf(i)]:fr.players[i];
  const keeperAt=new Map(r.players.map((p,i)=>[p.id,i])),gk=new Set(r.players.filter(p=>p.role==='GK').map(p=>p.id));

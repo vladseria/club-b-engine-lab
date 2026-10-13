@@ -56,9 +56,9 @@ export const RELEASE_RECHECK=.1;
  * (KEEPER_STEP m a look, KEEPER_EDGE m inside its lines, from every opponent within KEEPER_PRESSED m, never back
  * towards his goal), still facing the play. (Releasing early under a man to any throw with a clear lane, KEEPER_FREE
  * lane risk at most 0.25 and score above 0, was measured and dropped: the man covering the short throw intercepted or
- * won those balls next to goal, 30 goals in 192 cloud matches against 6; evidence/2026-10-13-keeper-fix.) Before, he stood rooted, the wait ran 3.5 s
- * whatever was around him, and then he had to throw, often straight into the man on him
- * (evidence/2026-10-13-keeper-giveaway). */
+ * won those balls next to goal, 30 goals within 8 s of such a loss in 384 keeper-matches against 6;
+ * evidence/2026-10-13-keeper-fix.) Before, he stood rooted, the wait ran 3.5 s whatever was around him, and then he
+ * had to throw, often straight into the man on him (evidence/2026-10-13-keeper-giveaway). */
 export const KEEPER_HOLD=4,KEEPER_TURN=4,KEEPER_PRESSED=4,KEEPER_CROWD=2,KEEPER_WALK=1.5,KEEPER_STEP=1.5,KEEPER_EDGE=.8;
 export type Duty='hold'|'support'|'run'|'show'|'width'|'press'|'jockey'|'challenge'|'block'|'track'|'cover'|'intercept'|'recover'|'carry'|'prepare'|'receive'|'feint'|'wrongfoot'|'keeper'|'dive'|'sweep'|'restart';
 export const dutyNames:Record<Duty,string>={hold:'Protejează spațiul',support:'Oferă o pasă',run:'Atacă spațiul',show:'Vine la picior',width:'Ține lățimea',press:'Închide purtătorul',jockey:'Îl ține în față',challenge:'Încearcă deposedarea',block:'Acoperă șutul',track:'Urmărește o cursă',cover:'Acoperă un coleg',intercept:'Atacă mingea',recover:'Revine în apărare',carry:'Conduce mingea',prepare:'Pregătește lovitura',receive:'Iese la primire',feint:'Încearcă o fentă',wrongfoot:'Își reface echilibrul',keeper:'Închide unghiul',dive:'Plonjează după minge',sweep:'Iese din poartă',restart:'Pregătește reluarea'};

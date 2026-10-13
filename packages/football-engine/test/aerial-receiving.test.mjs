@@ -190,9 +190,9 @@ test('ordinary match aerial releases have matching physical contacts without a c
  // and 14079 for volleys; 14267 has a header, 14080 a volley (evidence/2026-10-12-box-defending/repin.mjs header /
  // volley). (On their own, box defending had moved them to 14229 / 14080 and stamina to 14234 / 14080.) The keeper fix
  // (2026-10-13: nobody stands on a keeper with the ball in his hands; futsal's 4 s hold) kept 14267's header and
- // changed 14080-14083 for volleys; 14084 has one (evidence/2026-10-13-keeper-fix/repin.mjs header / volley).
+ // changed 14080-14082 for volleys; 14083 has one (evidence/2026-10-13-keeper-fix/repin.mjs header / volley).
  const sandbox=JSON.parse(readFileSync(new URL('../../../deliverables/football-practice/engine-audition/sandbox-fixture.json',import.meta.url)));
- for(const [technique,seed] of [['header',14267],['volley',14084]]){
+ for(const [technique,seed] of [['header',14267],['volley',14083]]){
   const f=structuredClone(sandbox);f.seed=seed;
   f.teams[0].lineup[1]='motanescu';Object.assign(f.teams[0].tactics,teamApproaches.combinations.settings);
   Object.assign(f.teams[1].tactics,defensiveApproaches.press.tactics);
