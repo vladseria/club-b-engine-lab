@@ -73,10 +73,8 @@ const fixture=JSON.parse(readFileSync(new URL('./feint-release-scene.json',impor
 // changed it; 13578 is the next (evidence/2026-10-12-prepush-fixes/repin.mjs shotTrace). Box defending (2026-10-12:
 // markers near goal step into the open shot lane, a set blocker's leg) changed it; 13591 is the next
 // (evidence/2026-10-12-box-defending/repin.mjs shotTrace). The combined build with stamina as lasting (b0174c30,
-// 2026-10-13) changed it again; searching from 13578, 13590 is the next (same repin.mjs shotTrace). The keeper fix
-// (2026-10-13: nobody stands on a keeper with the ball in his hands; futsal's 4 s hold) changed it; searching from
-// 13591, 13592 is the next (evidence/2026-10-13-keeper-fix/repin.mjs shotTrace).
-fixture.seed=13592;fixture.teams[0].lineup[1]='motanescu';Object.assign(fixture.teams[0].tactics,teamApproaches.balanced.settings);Object.assign(fixture.teams[1].tactics,defensiveApproaches.press.tactics);
+// 2026-10-13) changed it again; searching from 13578, 13590 is the next (same repin.mjs shotTrace).
+fixture.seed=13590;fixture.teams[0].lineup[1]='motanescu';Object.assign(fixture.teams[0].tactics,teamApproaches.balanced.settings);Object.assign(fixture.teams[1].tactics,defensiveApproaches.press.tactics);
 const result=runMatch({fixture,durationSeconds:100}).result;
 
 test('goal events identify the beneficiary even when an opponent made the last touch',()=>{

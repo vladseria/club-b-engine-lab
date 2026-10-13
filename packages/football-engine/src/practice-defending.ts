@@ -142,12 +142,6 @@ export const ENGAGE_THREAT=.3,THREAT_SPREAD_C=.1;
 export const HOLD:Record<Tactics['press'],number>={selective:5.5,balanced:4,aggressive:2.5};
 /** The presser stands a little inside the man (shows him away from the middle). */
 export const SHOW=.6;
-/** (keeper fix) A keeper with the ball in his hands cannot be challenged, and standing on him to stop his release is an
- * offence (Laws of the Game: preventing the goalkeeper from releasing the ball): the man pressing him holds KEEP_OFF m
- * off, towards his nearest short throw (a team-mate within SHORT_THROW m of him, as the presser sees him; keepOff), and
- * otherwise goal-side on his own line to him. Before, he was aimed straight at the keeper and stood 0.3-0.6 m from the
- * ball in his hands until the hold ran out (evidence/2026-10-13-keeper-giveaway). */
-export const KEEP_OFF=2.5,SHORT_THROW=12;
 /** A clear run at goal: the carrier within CLEAR_R m of our goal (CLEAR_R_RUN m running at it) with nobody of ours in his path (CLEAR_W m either side of it, widening CLEAR_W_GROW per m towards the goal); seen CLEAR_SEE..CLEAR_SEE+CLEAR_SLOW s after it opened, by reading, CLEAR_KEEN s sooner for a keen player. */
 export const CLEAR_R=24,CLEAR_R_RUN=32,CLEAR_W=1.6,CLEAR_W_GROW=.12,CLEAR_SEE=.15,CLEAR_SLOW=.45,CLEAR_KEEN=.2;
 /** Near our goal (the man on the ball within NEAR_BLOCK m) the presser must be the block: goal-side of him within BLOCK_REACH m, or a team-mate who is steps in. */
@@ -302,8 +296,6 @@ export interface DefendInput {
  keeperCall?:Vec;
  /** (marking and shape round) the man on the ball preparing a pass: to whom, where, since when. */
  cue?:{target:string;passer:string;aim:Vec;since:number};
- /** (keeper fix) the man on the ball is a keeper holding it in his hands: nobody may stand on him (KEEP_OFF). */
- inHands?:boolean;
  /** (threat round) the picture each defender reads the attackers' threat from (practice-threat); set by defendOutOfPossession. */
  threat?:ThreatPicture;
 }
@@ -957,25 +949,6 @@ export function shadowAim(presser:PracticePlayer,carrier:PracticePlayer,aim:Vec,
  return {x:aim.x+(lane.x-aim.x)*k,y:aim.y+(lane.y-aim.y)*k};
 }
 
-/** (keeper fix) Where the man pressing a keeper who holds the ball in his hands stands: KEEP_OFF m from him, between
- * the presser's own side of him and the line of his nearest short throw (a team-mate, not a keeper, within SHORT_THROW
- * m of him as the presser sees him: halfway in angle, so he never runs round the keeper to get on it), else on the
- * presser's own aim's line to him (goal-side), else his own line to him. */
-export function keepOff(presser:PracticePlayer,carrier:PracticePlayer,aim:Vec,input:Pick<DefendInput,'players'|'view'>):Vec{
- let short:Vec|undefined,best=SHORT_THROW;
- for(const a of input.players){
-  if(a.side!==carrier.side||a.id===carrier.id||a.role==='GK')continue;
-  const v=input.view(presser,a),d=distance(v,carrier);
-  if(d<best&&d>.1){short=v;best=d;}
- }
- const along=(v:Vec)=>{const r=distance(v,carrier);return r>.1?{x:(v.x-carrier.x)/r,y:(v.y-carrier.y)/r}:undefined;};
- const own=along(presser)??along(aim),line=short?along(short):along(aim);
- let u=line&&own?{x:line.x+own.x,y:line.y+own.y}:line??own;
- if(!u)return aim;
- let r=Math.hypot(u.x,u.y);if(r<.1){u=own!;r=1;}
- return {x:carrier.x+u.x/r*KEEP_OFF,y:carrier.y+u.y/r*KEEP_OFF};
-}
-
 /** (threat round) The picture the defence reads threat from this tick (practice-threat). A man's own marker is the
  * one the last look gave him (or the man committed to him). */
 export function threatPicture(input:DefendInput):ThreatPicture{
@@ -1097,7 +1070,7 @@ export function defendOutOfPossession(given:DefendInput):DefendPlan{
    // show him away from the middle: a little inside him
    const shown=Math.abs(carrier.y)>2&&distance(carrier,g)>10?{x:move.aim.x,y:move.aim.y-Math.sign(carrier.y)*SHOW}:move.aim;
    // (B2) alone on him, he comes at him through the free man's lane (shadowAim)
-   const aim=carrier.role==='GK'?(input.inHands?keepOff(presser,carrier,shown,input):shown):shadowAim(presser,carrier,shown,input);
+   const aim=carrier.role==='GK'?shown:shadowAim(presser,carrier,shown,input);
    push({player:presser.id,purpose:'press',kind:move.kind,aim:inside(aim),speed:move.speed,reason:input.intent==='engage'?'Tocmai am pierdut-o: atacă imediat purtătorul.':input.intent==='delay'?'Tocmai am pierdut-o: îl ține în față și câștigă timp cât colegii se reașază.':move.reason,target:carrier.id,velocity:move.velocity});
   }else{
    const d=distance(carrier,g)||1,off=HOLD[tactics.press];
