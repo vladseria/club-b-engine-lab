@@ -12,12 +12,9 @@
 //  n[z]         carrier samples
 //  noFwd[z]     samples with no open team-mate ahead <=22 m (the umano definition)
 //  noFwdLane[z] samples with no open team-mate ahead <=22 m whose lane is open
-//  noFwd2[z]    (added after the cloud round; laptop sensitivity rows only) no open team-mate >=2 m ahead <=22 m
-//  noFwdAny[z]  (same) no team-mate at all >=5 m ahead <=22 m, open or not
 //  opt[z]       [sum open options ahead, level, behind, ahead with lane open]
 //  jobs[z]      {purpose: [samples, behind the ball, marked <2.5 m, lane closed, any of the three, ahead+open+lane]}
 //               every outfield team-mate of the carrier at every sample; purpose = the job's purpose, else 'duty:<kind>'
-//               (laptop sensitivity rows also carry [6] = marked or lane closed, behind or not)
 //  prog         [own->mid starts, reached mid, sum s to reach, lost before, restart/end before,
 //                mid->final starts, reached final, sum s, lost before, restart/end before]
 //               a start = the first owned frame of a spell in that zone (own third / middle); reached = first owned frame
@@ -54,7 +51,7 @@ export function extra(R:any){
  const live=(f:any,i:number)=>{const q=pos(f,i);return q?{...roster[i],x:q.x,y:q.y,vx:q.vx,vy:q.vy,angle:q.angle,energy:q.energy}:null;};
 
  const z3=()=>[0,0,0];
- const mk=()=>({n:z3(),noFwd:z3(),noFwdLane:z3(),noFwd2:z3(),noFwdAny:z3(),opt:[[0,0,0,0],[0,0,0,0],[0,0,0,0]],jobs:[{},{},{}] as Record<string,number[]>[],
+ const mk=()=>({n:z3(),noFwd:z3(),noFwdLane:z3(),opt:[[0,0,0,0],[0,0,0,0],[0,0,0,0]],jobs:[{},{},{}] as Record<string,number[]>[],
   prog:[0,0,0,0,0,0,0,0,0,0],ent:[[0,0,0,0,0,0],[0,0,0,0,0,0]],dec:[0,1,2].map(()=>[0,0,0,0,0,0,0,0,0,0]),loss:[[0,0],[0,0],[0,0]],ex:[] as number[][]});
  const A=[mk(),mk()];
  const goals=events.filter((e:any)=>e.kind==='goal'&&(e.side===0||e.side===1));
@@ -70,7 +67,7 @@ export function extra(R:any){
   const carrier=live(f,ci);if(!carrier){memo.set(k,null);return null;}
   const oppAll:any[]=[],oppOut:any[]=[];
   roster.forEach((p:any,i:number)=>{if(p.side!==D)return;const q=live(f,i);if(!q)return;oppAll.push(q);if(p.role!=='GK')oppOut.push(q);});
-  const a=A[s];let fwd=false,fwdLane=false,fwd2=false,fwdAny=false;const cnt=[0,0,0,0];
+  const a=A[s];let fwd=false,fwdLane=false;const cnt=[0,0,0,0];
   for(let i=0;i<roster.length;i++){
    const p=roster[i];if(p.side!==s||p.role==='GK'||i===ci)continue;const q=live(f,i);if(!q)continue;
    const qd=depth(s,q.x),rel=qd-bd,dBall=Math.hypot(q.x-bx,q.y-by);
@@ -78,18 +75,17 @@ export function extra(R:any){
    let laneOpen:boolean|null=null;
    const lane=()=>{if(laneOpen===null){try{laneOpen=groundPass(carrier,q,false,undefined,{x:bx,y:by},oppAll).risk<=LANE;}catch{laneOpen=false;}}return laneOpen;};
    const option=!marked&&dBall<=REACH;
-   if(option&&rel>=2)fwd2=true;if(dBall<=REACH&&rel>=AHEAD)fwdAny=true;
    if(option){
     if(rel>=AHEAD){cnt[0]++;fwd=true;if(lane()){cnt[3]++;fwdLane=true;}}
     else if(rel>-2)cnt[1]++;else cnt[2]++;
    }
    if(acc){
-    const pu=purposeAt(i,f.time),jb=(a.jobs[z][pu]??=[0,0,0,0,0,0,0]);
+    const pu=purposeAt(i,f.time),jb=(a.jobs[z][pu]??=[0,0,0,0,0,0]);
     const behind=rel<=-2,closed=!lane();
-    jb[0]++;if(behind)jb[1]++;if(marked)jb[2]++;if(closed)jb[3]++;if(behind||marked||closed)jb[4]++;if(rel>=AHEAD&&!marked&&!closed)jb[5]++;if(marked||closed)jb[6]++;
+    jb[0]++;if(behind)jb[1]++;if(marked)jb[2]++;if(closed)jb[3]++;if(behind||marked||closed)jb[4]++;if(rel>=AHEAD&&!marked&&!closed)jb[5]++;
    }
   }
-  if(acc){a.n[z]++;if(!fwd)a.noFwd[z]++;if(!fwdLane)a.noFwdLane[z]++;if(!fwd2)a.noFwd2[z]++;if(!fwdAny)a.noFwdAny[z]++;for(let j=0;j<4;j++)a.opt[z][j]+=cnt[j];}
+  if(acc){a.n[z]++;if(!fwd)a.noFwd[z]++;if(!fwdLane)a.noFwdLane[z]++;for(let j=0;j<4;j++)a.opt[z][j]+=cnt[j];}
   const r={s,z,fwd,fwdLane};memo.set(k,r);return r;
  };
 
