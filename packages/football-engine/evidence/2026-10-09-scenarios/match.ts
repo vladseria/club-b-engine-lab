@@ -15,8 +15,7 @@
 import {computeMatch,type FrozenInput,type FrozenSide} from '../../../../lib/ballers/compute';
 import {matchChances,shotChance,CHANCE_TABLE} from '../../../../lib/ballers/chances';
 import {PRESETS} from '../../../../lib/ballers/league';
-import {SCENARIOS as SET,ADHOC} from './scenarios.mjs';
-const SCENARIOS={...SET,...ADHOC};
+import {SCENARIOS} from './scenarios.mjs';
 
 type Sides=Record<string,[FrozenSide,FrozenSide]>;
 let SIDES:Sides={};

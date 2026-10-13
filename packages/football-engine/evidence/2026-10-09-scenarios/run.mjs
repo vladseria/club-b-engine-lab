@@ -29,8 +29,7 @@ import {execSync} from 'node:child_process';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import path from 'node:path';
 import {shardTasks,simWorkers,shardNote} from '../_ci/shard.mjs';
-import {SCENARIOS as SET,ADHOC,PLANS} from './scenarios.mjs';
-const SCENARIOS={...SET,...ADHOC};// ADHOC: only when named in --scenarios
+import {SCENARIOS,PLANS} from './scenarios.mjs';
 
 const here=path.dirname(fileURLToPath(import.meta.url));
 const repo=path.resolve(here,'../../../..');
@@ -104,7 +103,7 @@ if(!isMainThread){
 
  // ---- the task list: full enumeration in a stable order, then this shard's part, then resume
  const label=arg('label');if(!label)throw Error('--label is required');
- const ids=arg('scenarios','all')==='all'?Object.keys(SET):arg('scenarios').split(',');
+ const ids=arg('scenarios','all')==='all'?Object.keys(SCENARIOS):arg('scenarios').split(',');
  for(const id of ids)if(!SCENARIOS[id])throw Error('unknown scenario '+id);
  const plan=arg('plan','trim');if(!PLANS[plan])throw Error('unknown plan '+plan);
  const armsArg=arg('arms',null),oppArg=arg('opp',null),seedsArg=arg('seeds',null),duration=Number(arg('duration',900));
