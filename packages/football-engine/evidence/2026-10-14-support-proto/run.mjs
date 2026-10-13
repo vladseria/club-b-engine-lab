@@ -21,12 +21,12 @@ if(!isMainThread){
  const arg=(k,d)=>{const i=argv.indexOf(`--${k}`);return i>=0?argv[i+1]:d;};
  const range=s=>s.split(',').flatMap(p=>{const [a,b]=p.split('-').map(Number);return b===undefined?[a]:Array.from({length:b-a+1},(_,i)=>a+i);});
  const label=arg('label');if(!label)throw Error('--label is required');
- const flagVals=new Set(['label','revs','workers'].map(k=>arg(k)).filter(Boolean));
+ const flagVals=new Set(['label','revs','workers','entry'].map(k=>arg(k)).filter(Boolean));
  const blocks=argv.filter(a=>a.includes(':')&&!a.startsWith('--')&&!flagVals.has(a)).map(b=>{const [arms,seeds]=b.split(':');return {arms:arms.split(','),seeds:range(seeds)};});
  if(!blocks.length)throw Error('give at least one <arm,arm>:<seeds> block');
  const revs=parseRevs(arg('revs','base=working'));
  const outDir=path.join(here,'results');
- const bundles=await bundleRevs({entry:path.join(here,"support.ts"),revs,outDir});
+ const entryName=arg("entry","support.ts"),bundles=await bundleRevs({entry:path.join(here,entryName),revs,outDir,tag:entryName==="support.ts"?"":path.basename(entryName,".ts")});
  const chk=await import(pathToFileURL(Object.values(bundles)[0]).href);
  for(const b of blocks)for(const a of b.arms)chk.armTreatment(a);// throws on an unknown arm
 

@@ -12,9 +12,12 @@
 //  n[z]         carrier samples
 //  noFwd[z]     samples with no open team-mate ahead <=22 m (the umano definition)
 //  noFwdLane[z] samples with no open team-mate ahead <=22 m whose lane is open
+//  noFwd2[z]    (added after the cloud round; laptop sensitivity rows only) no open team-mate >=2 m ahead <=22 m
+//  noFwdAny[z]  (same) no team-mate at all >=5 m ahead <=22 m, open or not
 //  opt[z]       [sum open options ahead, level, behind, ahead with lane open]
 //  jobs[z]      {purpose: [samples, behind the ball, marked <2.5 m, lane closed, any of the three, ahead+open+lane]}
 //               every outfield team-mate of the carrier at every sample; purpose = the job's purpose, else 'duty:<kind>'
+//               (laptop sensitivity rows also carry [6] = marked or lane closed, behind or not)
 //  prog         [own->mid starts, reached mid, sum s to reach, lost before, restart/end before,
 //                mid->final starts, reached final, sum s, lost before, restart/end before]
 //               a start = the first owned frame of a spell in that zone (own third / middle); reached = first owned frame
@@ -51,8 +54,9 @@ export function extra(R:any){
  const live=(f:any,i:number)=>{const q=pos(f,i);return q?{...roster[i],x:q.x,y:q.y,vx:q.vx,vy:q.vy,angle:q.angle,energy:q.energy}:null;};
 
  const z3=()=>[0,0,0];
- const mk=()=>({n:z3(),noFwd:z3(),noFwdLane:z3(),opt:[[0,0,0,0],[0,0,0,0],[0,0,0,0]],jobs:[{},{},{}] as Record<string,number[]>[],
-  prog:[0,0,0,0,0,0,0,0,0,0],ent:[[0,0,0,0,0,0],[0,0,0,0,0,0]],dec:[0,1,2].map(()=>[0,0,0,0,0,0,0,0,0,0]),loss:[[0,0],[0,0],[0,0]],ex:[] as number[][]});
+ const mk=()=>({n:z3(),noFwd:z3(),noFwdLane:z3(),noFwd2:z3(),noFwdAny:z3(),opt:[[0,0,0,0],[0,0,0,0],[0,0,0,0]],jobs:[{},{},{}] as Record<string,number[]>[],
+  prog:[0,0,0,0,0,0,0,0,0,0],ent:[[0,0,0,0,0,0],[0,0,0,0,0,0]],dec:[0,1,2].map(()=>[0,0,0,0,0,0,0,0,0,0]),loss:[[0,0],[0,0],[0,0]],ex:[] as number[][],
+  circ:[[0,0,0,0,0,0],[0,0,0,0,0,0]],gk:[0,0],evk:{} as Record<string,number>,fs:[0,0,0,0,0,0,0,0]});
  const A=[mk(),mk()];
  const goals=events.filter((e:any)=>e.kind==='goal'&&(e.side===0||e.side===1));
  const goalWithin=(side:number,t:number,w:number)=>goals.some((g:any)=>g.side===side&&g.time>=t-1e-6&&g.time<=t+w)?1:0;
@@ -67,7 +71,7 @@ export function extra(R:any){
   const carrier=live(f,ci);if(!carrier){memo.set(k,null);return null;}
   const oppAll:any[]=[],oppOut:any[]=[];
   roster.forEach((p:any,i:number)=>{if(p.side!==D)return;const q=live(f,i);if(!q)return;oppAll.push(q);if(p.role!=='GK')oppOut.push(q);});
-  const a=A[s];let fwd=false,fwdLane=false;const cnt=[0,0,0,0];
+  const a=A[s];let fwd=false,fwdLane=false,fwd2=false,fwdAny=false;const cnt=[0,0,0,0];
   for(let i=0;i<roster.length;i++){
    const p=roster[i];if(p.side!==s||p.role==='GK'||i===ci)continue;const q=live(f,i);if(!q)continue;
    const qd=depth(s,q.x),rel=qd-bd,dBall=Math.hypot(q.x-bx,q.y-by);
@@ -75,17 +79,18 @@ export function extra(R:any){
    let laneOpen:boolean|null=null;
    const lane=()=>{if(laneOpen===null){try{laneOpen=groundPass(carrier,q,false,undefined,{x:bx,y:by},oppAll).risk<=LANE;}catch{laneOpen=false;}}return laneOpen;};
    const option=!marked&&dBall<=REACH;
+   if(option&&rel>=2)fwd2=true;if(dBall<=REACH&&rel>=AHEAD)fwdAny=true;
    if(option){
     if(rel>=AHEAD){cnt[0]++;fwd=true;if(lane()){cnt[3]++;fwdLane=true;}}
     else if(rel>-2)cnt[1]++;else cnt[2]++;
    }
    if(acc){
-    const pu=purposeAt(i,f.time),jb=(a.jobs[z][pu]??=[0,0,0,0,0,0]);
+    const pu=purposeAt(i,f.time),jb=(a.jobs[z][pu]??=[0,0,0,0,0,0,0]);
     const behind=rel<=-2,closed=!lane();
-    jb[0]++;if(behind)jb[1]++;if(marked)jb[2]++;if(closed)jb[3]++;if(behind||marked||closed)jb[4]++;if(rel>=AHEAD&&!marked&&!closed)jb[5]++;
+    jb[0]++;if(behind)jb[1]++;if(marked)jb[2]++;if(closed)jb[3]++;if(behind||marked||closed)jb[4]++;if(rel>=AHEAD&&!marked&&!closed)jb[5]++;if(marked||closed)jb[6]++;
    }
   }
-  if(acc){a.n[z]++;if(!fwd)a.noFwd[z]++;if(!fwdLane)a.noFwdLane[z]++;for(let j=0;j<4;j++)a.opt[z][j]+=cnt[j];}
+  if(acc){a.n[z]++;if(!fwd)a.noFwd[z]++;if(!fwdLane)a.noFwdLane[z]++;if(!fwd2)a.noFwd2[z]++;if(!fwdAny)a.noFwdAny[z]++;for(let j=0;j<4;j++)a.opt[z][j]+=cnt[j];}
   const r={s,z,fwd,fwdLane};memo.set(k,r);return r;
  };
 
@@ -164,6 +169,47 @@ export function extra(R:any){
   if(gain>=5){if(e.kind==='clearance'||e.aerial){d[4]++;if(r.fwd)d[5]++;}else{d[2]++;if(r.fwd)d[3]++;}}
   else d[8]++;
  }
+ // ---- (support-proto) circulation payoff, passes to our keeper, event kinds
+ // circ[z] (passer's zone 0/1): side or back passes (open play, outfield passer, aim gains < 2 m):
+ //   [n, an open forward option in the 3 s before the pass (any 0.25 s owned sample), within 3 s after it (until a loss),
+ //    the same two with an open lane, an open forward option at the release]
+ // gk [open-play passes from an outfield team-mate received by our keeper, all receptions by our keeper]
+ const ownedFwd=(s:number,t0:number,t1:number,stopOnLoss:boolean)=>{let any=0,lane=0;
+  for(let k=frameAt(t0);k<n&&frames[k].time<=t1+1e-6;k++){const f=frames[k];if(f.time<t0-1e-6)continue;
+   if(Math.abs((f.time-t0)/DT-Math.round((f.time-t0)/DT))>.21)continue;
+   const o=ownerOf(f);if(!o)continue;const os=sideOf(o);if(os!==s){if(stopOnLoss)break;continue;}
+   const r=read(k,false);if(!r)continue;if(r.fwd)any=1;if(r.fwdLane)lane=1;if(any&&lane)break;}
+  return [any,lane];};
+ for(const e of events){
+  if(e.kind!=='pass'||(e.side!==0&&e.side!==1)||e.restartKind)continue;
+  const s=e.side,pi=idx.get(e.actor);if(pi===undefined||roster[pi].role==='GK')continue;
+  const f=frames[frameAt(e.time)],p=pos(f,pi),aim=e.pass?.aim??e.aerial?.aim;if(!p||!aim)continue;
+  const from=depth(s,p.x),z=zone(from);if(z>1||depth(s,aim.x)-from>=2)continue;
+  let k0=frameAt(e.time);while(k0>0&&!ownerOf(frames[k0])&&frames[k0].time>e.time-.3)k0--;
+  const at=ownerOf(frames[k0])?read(k0,false):null;
+  const b=ownedFwd(s,e.time-3,e.time-.01,false),a=ownedFwd(s,e.time+.25,e.time+3.25,true),c=A[s].circ[z];
+  c[0]++;c[1]+=b[0];c[2]+=a[0];c[3]+=b[1];c[4]+=a[1];if(at&&at.s===s&&at.fwd)c[5]++;
+ }
+ for(let q=0;q<events.length;q++){const e=events[q];if(e.kind!=='receive')continue;const ri=idx.get(e.actor);if(ri===undefined||roster[ri].role!=='GK')continue;
+  const s=roster[ri].side;A[s].gk[1]++;
+  for(let r=q-1;r>=0&&events[r].time>e.time-4;r--){const x=events[r];if(x.kind==='pass'||x.kind==='clearance'){const xi=idx.get(x.actor);if(x.kind==='pass'&&!x.restartKind&&xi!==undefined&&roster[xi].side===s&&roster[xi].role!=='GK')A[s].gk[0]++;break;}}}
+ // fs (free-support failure signs, own + middle thirds; 0.25 s samples with a carrier):
+ //   [free player-samples, aim >=5 m ahead of the ball, aim level (-2..5), aim behind, pair-samples with two free aims
+ //    within 3 m, such pair runs lasting > 1 s, free target jumps (a new free target > 3 m from the previous one within 1 s),
+ //    free player-seconds]
+ {const live=(i:number,t:number)=>{const a=jobsBy.get(i);if(!a)return null;let c=null;for(const x of a){if(x.time>t+1e-6)break;c=x;}return c&&c.assignment?.purpose==='free'&&c.assignment.until>=t-1e-6?c.assignment.aim:null;};
+  const runs=new Map<string,number>();let nx=0;
+  for(let k=0;k<n;k++){const f=frames[k];if(f.time<nx-1e-9)continue;nx=f.time+DT;const o=ownerOf(f);if(!o)continue;const s=sideOf(o);if(s<0)continue;
+   const bd=depth(s,f.ball.x);if(zone(bd)>1)continue;const fs=A[s].fs,aims:[number,any][]=[];
+   roster.forEach((p:any,i:number)=>{if(p.side!==s||p.id===o||p.role==='GK')return;const a=live(i,f.time);if(!a)return;aims.push([i,a]);fs[0]++;fs[7]+=DT;const rel=depth(s,a.x)-bd;if(rel>=5)fs[1]++;else if(rel>-2)fs[2]++;else fs[3]++;});
+   const seen=new Set<string>();
+   for(let x=0;x<aims.length;x++)for(let y=x+1;y<aims.length;y++){const key=s+':'+aims[x][0]+':'+aims[y][0];if(Math.hypot(aims[x][1].x-aims[y][1].x,aims[x][1].y-aims[y][1].y)<3){fs[4]++;seen.add(key);const r=(runs.get(key)??0)+DT;runs.set(key,r);if(r>1+1e-6&&r-DT<=1+1e-6)fs[5]++;}}
+   for(const key of [...runs.keys()])if(!seen.has(key)&&key.startsWith(s+':'))runs.delete(key);
+  }
+  for(const [i,a] of jobsBy){let prev:any=null;const s=roster[i].side;for(const c of a){if(c.assignment?.purpose!=='free'){prev=null;continue;}
+   if(prev&&c.time-prev.time<1&&Math.hypot(c.assignment.aim.x-prev.assignment.aim.x,c.assignment.aim.y-prev.assignment.aim.y)>3)A[s].fs[6]++;prev=c;}}
+ }
+ for(const e of events){if(e.side!==0&&e.side!==1)continue;const k=A[e.side].evk;k[e.kind]=(k[e.kind]??0)+1;}
  const r2=(v:number)=>Math.round(v*100)/100;
  for(const a of A)a.prog[2]=r2(a.prog[2]),a.prog[7]=r2(a.prog[7]);
  return A;

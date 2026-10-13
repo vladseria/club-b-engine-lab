@@ -217,8 +217,7 @@ export function approachOptions(p:PracticePlayer,options:Option[],t:SituationTac
  const pull=(o:Option)=>into.includes(o)?PIVOT_PULL+PIVOT_PRESSED*felt:0;
  if(t.progression==='mixed'&&!into.length)return options;
  const style=(o:Option)=>{
-  // PROBE (ballers-direct-probe): Direct gets Mixed's progression term (none).
-  if(t.progression!=='patient')return 0;
+  if(t.progression==='mixed')return 0;
   const gap=Math.hypot(o.aim.x-p.x,o.aim.y-p.y),gain=(o.aim.x-p.x)*s;
   const risk=o.pass?.risk??o.loft?.risk??0;
   const feasible=1-clamp(risk,0,1)*.65;
