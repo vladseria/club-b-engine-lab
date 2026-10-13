@@ -50,14 +50,16 @@ export const PRACTICE_VERSION='five-shared-1';
 export const RELEASE_RECHECK=.1;
 /** (keeper fix) A keeper may control the ball in his own half for KEEPER_HOLD s (futsal, Law 12). With it in his hands
  * he waits for a throw to open only while he can still set and release one inside that (his preparation, or turning
- * to the best throw at KEEPER_TURN rad/s, whichever is longer), and looks again when that runs out. Under a man (an
- * opponent within KEEPER_PRESSED m) waiting buys nothing: he releases early to the best free throw (lane risk at most
- * KEEPER_FREE, to a team-mate he reads he keeps it with: a throw worth more than nothing, score above 0); while none
- * is free and a man is on top of him (within KEEPER_CROWD m) he steps away from him inside his area at KEEPER_WALK m/s
- * (KEEPER_STEP m a look, KEEPER_EDGE m inside its lines, never back towards his goal), still facing the play. Before, he stood rooted, the wait ran 3.5 s
+ * to the best throw at KEEPER_TURN rad/s, whichever is longer), and looks again when that runs out, so he chooses his
+ * release (any throw or roll, or the long ball over the man) before the four seconds are up. While a man is on top of
+ * him (an opponent within KEEPER_CROWD m) he waits by stepping away from him inside his area at KEEPER_WALK m/s
+ * (KEEPER_STEP m a look, KEEPER_EDGE m inside its lines, from every opponent within KEEPER_PRESSED m, never back
+ * towards his goal), still facing the play. (Releasing early under a man to any throw with a clear lane, KEEPER_FREE
+ * lane risk at most 0.25 and score above 0, was measured and dropped: the man covering the short throw intercepted or
+ * won those balls next to goal, 30 goals in 192 cloud matches against 6; evidence/2026-10-13-keeper-fix.) Before, he stood rooted, the wait ran 3.5 s
  * whatever was around him, and then he had to throw, often straight into the man on him
  * (evidence/2026-10-13-keeper-giveaway). */
-export const KEEPER_HOLD=4,KEEPER_TURN=4,KEEPER_PRESSED=4,KEEPER_CROWD=2,KEEPER_FREE=.25,KEEPER_WALK=1.5,KEEPER_STEP=1.5,KEEPER_EDGE=.8;
+export const KEEPER_HOLD=4,KEEPER_TURN=4,KEEPER_PRESSED=4,KEEPER_CROWD=2,KEEPER_WALK=1.5,KEEPER_STEP=1.5,KEEPER_EDGE=.8;
 export type Duty='hold'|'support'|'run'|'show'|'width'|'press'|'jockey'|'challenge'|'block'|'track'|'cover'|'intercept'|'recover'|'carry'|'prepare'|'receive'|'feint'|'wrongfoot'|'keeper'|'dive'|'sweep'|'restart';
 export const dutyNames:Record<Duty,string>={hold:'Protejează spațiul',support:'Oferă o pasă',run:'Atacă spațiul',show:'Vine la picior',width:'Ține lățimea',press:'Închide purtătorul',jockey:'Îl ține în față',challenge:'Încearcă deposedarea',block:'Acoperă șutul',track:'Urmărește o cursă',cover:'Acoperă un coleg',intercept:'Atacă mingea',recover:'Revine în apărare',carry:'Conduce mingea',prepare:'Pregătește lovitura',receive:'Iese la primire',feint:'Încearcă o fentă',wrongfoot:'Își reface echilibrul',keeper:'Închide unghiul',dive:'Plonjează după minge',sweep:'Iese din poartă',restart:'Pregătește reluarea'};
 export interface PracticePlayer extends MovingPlayer {role:Role;skills:Skills;traits:Traits;energy:number;archetype:string;temperament:string;lane:number;basePace:number;duty:Duty}
@@ -1142,12 +1144,10 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
       if(!available.length){const q=sidePlayers(p.side).filter(q=>q.id!==p.id).sort((a,b)=>dist(a,p)-dist(b,p))[0];available.push({kind:'loft',target:q.id,aim:q,score:.1,reason:'Colegul e departe; caută o repunere lungă.'});}
       // (keeper fix) futsal's four seconds, and a man on him (KEEPER_HOLD)
       const best=available.reduce((a,b)=>b.score>a.score?b:a),lead=Math.max(preparationTime(p,best.kind),Math.max(0,Math.abs(angleDiff(Math.atan2(best.aim.y-p.y,best.aim.x-p.x),p.angle))-.32)/KEEPER_TURN);
-      const man=sidePlayers(other(p.side)).filter(q=>q.role!=='GK').sort((a,b)=>dist(a,p)-dist(b,p))[0],pressed=!!man&&dist(man,p)<KEEPER_PRESSED;
-      const free=pressed?available.filter(o=>o.score>0&&(o.pass?.risk??o.loft?.risk??1)<=KEEPER_FREE):[];
-      if(free.length)available=free;
-      else if(time-receivedAt+lead<KEEPER_HOLD){
+      const man=sidePlayers(other(p.side)).filter(q=>q.role!=='GK').sort((a,b)=>dist(a,p)-dist(b,p))[0],crowded=!!man&&dist(man,p)<KEEPER_CROWD;
+      if(time-receivedAt+lead<KEEPER_HOLD){
        keeperLook=receivedAt+KEEPER_HOLD-lead;
-       available.push({kind:'carry',aim:pressed&&dist(man,p)<KEEPER_CROWD?keeperStepAway(p,sidePlayers(other(p.side)).filter(q=>q.role!=='GK'&&dist(q,p)<KEEPER_PRESSED)):{x:p.x,y:p.y},score:.38,reason:pressed&&dist(man,p)<KEEPER_CROWD?'Are un adversar aproape: se îndepărtează de el cu mingea în mâini, în careu, și caută o repunere liberă.':'Ține mingea în mâini și așteaptă să se deschidă o soluție de repunere.'});
+       available.push({kind:'carry',aim:crowded?keeperStepAway(p,sidePlayers(other(p.side)).filter(q=>q.role!=='GK'&&dist(q,p)<KEEPER_PRESSED)):{x:p.x,y:p.y},score:.38,reason:crowded?'Are un adversar aproape: se îndepărtează de el cu mingea în mâini, în careu, și caută o repunere liberă.':'Ține mingea în mâini și așteaptă să se deschidă o soluție de repunere.'});
       }
      }
      // A set taker may wait a moment for team-mates' movement to open a safer option.
