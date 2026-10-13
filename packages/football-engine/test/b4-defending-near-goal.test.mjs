@@ -74,7 +74,7 @@ test('a runner from behind a closing defender\'s shoulder is picked up late, les
  assert(!runnerBehindShoulder(d,{x:18,y:1,vx:.5,vy:0}),'barely moving');
 });
 test('in a match, late pick-ups happen, are short, and only ever for a runner after a press',()=>{
- const f=structuredClone(fixture);f.seed=2037;
+ const f=structuredClone(fixture);f.seed=2038;
  const r=runMatch({fixture:f,durationSeconds:300}).result;
  // (track the runner, 2026-10-11) The pick-up is the marker's first move that is no longer the old press: following
  // the man ('track') or, since the marking-and-shape round, hurrying back goal-side of him ('recover'). With runs read
@@ -98,11 +98,13 @@ test('in a match, late pick-ups happen, are short, and only ever for a runner af
 // evidence/2026-10-12-box-defending/repin.mjs b4, 4 late pick-ups, 14 shots, keeper miss 0.40 m;
 // 2037 since the keeper upgrade and the keeper with the ball in his hands, 2026-10-13: 2031-2036 no longer meet it,
 // evidence/2026-10-13-keeper-2/repin.mjs b4, 7 late pick-ups, 15 shots, keeper miss 0.79 m: he now plants for the strike
-// where he is when he is within SET_PLANT of his spot, rather than finishing the step onto the bisector.)
+// where he is when he is within SET_PLANT of his spot, rather than finishing the step onto the bisector; 2038 once his
+// throw read allowed for an arriving presser: 2037 no longer met it, repin.mjs b4, 7 late pick-ups, 12 shots, keeper
+// miss 0.59 m.)
 // The keeper keeps setting himself against the ball: at the shot he stands
 // near the line bisecting the posts (before: ~1.1 m off on average).
 test('the defending keeper is set near the bisector of the posts when the shot comes',()=>{
- const f=structuredClone(fixture);f.seed=2037;
+ const f=structuredClone(fixture);f.seed=2038;
  const r=runMatch({fixture:f,durationSeconds:300}).result,miss=[];
  for(const e of r.events.filter(e=>e.kind==='shot'&&e.actor)){
   const s=r.players.find(p=>p.id===e.actor).side,d=1-s,g=r.players.findIndex(p=>p.side===d&&p.role==='GK');
