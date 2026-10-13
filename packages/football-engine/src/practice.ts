@@ -71,11 +71,13 @@ export const KEEPER_HOLD=4,KEEPER_TURN=4,KEEPER_WALK=1.5,KEEPER_STEP=1.5,KEEPER_
  * KEEPER_LOFT of a ground one, and a spot within KEEPER_ROOM m of an opponent costs up to KEEPER_CROWDED; he moves
  * only for a gain of KEEPER_GAIN. */
 export const KEEPER_LANE=.6,KEEPER_LANE_FULL=1.6,KEEPER_OVER=3.5,KEEPER_LOFT=.75,KEEPER_ROOM=3,KEEPER_CROWDED=.5,KEEPER_GAIN=.05;
-/** He does not roll or throw the ball along the ground into a man next to him (throwIntoMan): a throw whose first
- * KEEPER_INTO_LEN m pass within KEEPER_INTO_W m of an opponent costs up to KEEPER_INTO (fully within KEEPER_INTO_W -
- * KEEPER_INTO_FULL m); he goes round him or over him instead. (Every "release into the man on him" in the giveaway
- * study was a ball along the ground, and its lane read was low because the man stood beside the line, not across it.) */
-export const KEEPER_INTO=1.5,KEEPER_INTO_W=1.3,KEEPER_INTO_FULL=.8,KEEPER_INTO_LEN=3;
+/** He does not throw the ball into a man next to him (throwIntoMan): a ball along the ground whose first KEEPER_INTO_LEN
+ * m pass within KEEPER_INTO_W m of an opponent costs up to KEEPER_INTO (fully within KEEPER_INTO_W - KEEPER_INTO_FULL m);
+ * a lofted one is still low over its first KEEPER_LOFT_LEN m, so a man within KEEPER_LOFT_W m of that stretch blocks it
+ * (fully within KEEPER_LOFT_W - KEEPER_LOFT_FULL m). He goes round him or over him from further away instead. (In the
+ * giveaway study every release into the man on him was a ball along the ground, read as a low lane risk because the man
+ * stood beside the line rather than across it; with that priced, lofts into a man 1 m away were the next.) */
+export const KEEPER_INTO=1.5,KEEPER_INTO_W=1.5,KEEPER_INTO_FULL=.9,KEEPER_INTO_LEN=3,KEEPER_LOFT_W=1.1,KEEPER_LOFT_FULL=.6,KEEPER_LOFT_LEN=2;
 export type Duty='hold'|'support'|'run'|'show'|'width'|'press'|'jockey'|'challenge'|'block'|'track'|'cover'|'intercept'|'recover'|'carry'|'prepare'|'receive'|'feint'|'wrongfoot'|'keeper'|'dive'|'sweep'|'restart';
 export const dutyNames:Record<Duty,string>={hold:'Protejează spațiul',support:'Oferă o pasă',run:'Atacă spațiul',show:'Vine la picior',width:'Ține lățimea',press:'Închide purtătorul',jockey:'Îl ține în față',challenge:'Încearcă deposedarea',block:'Acoperă șutul',track:'Urmărește o cursă',cover:'Acoperă un coleg',intercept:'Atacă mingea',recover:'Revine în apărare',carry:'Conduce mingea',prepare:'Pregătește lovitura',receive:'Iese la primire',feint:'Încearcă o fentă',wrongfoot:'Își reface echilibrul',keeper:'Închide unghiul',dive:'Plonjează după minge',sweep:'Iese din poartă',restart:'Pregătește reluarea'};
 export interface PracticePlayer extends MovingPlayer {role:Role;skills:Skills;traits:Traits;energy:number;archetype:string;temperament:string;lane:number;basePace:number;duty:Duty}
@@ -217,7 +219,8 @@ export {duelChance} from './practice-challenge.js';
  * spots up to KEEPER_STEP m round it (inside his area, never more than KEEPER_BACK m deeper than `from`, where he had
  * the ball first), the one
  * with the best throw on (an open lane along the ground from in front of him, or over a man near him, to a team-mate
- * with room, shorter throws a little better) less what standing near an opponent costs. He moves only for a gain of
+ * with room, shorter throws a little better, none into a man next to him: throwIntoMan) less what standing near an
+ * opponent costs. He moves only for a gain of
  * KEEPER_GAIN; `look` is the team-mate of the best throw from there. */
 export function keeperMove(p:PracticePlayer,from:Vec,mates:readonly Vec[],opponents:readonly Vec[]):{spot:Vec;look:Vec|null}{
  const now=depth(p.side,p.x),lo=Math.min(now,Math.max(KEEPER_EDGE,depth(p.side,from.x)-KEEPER_BACK)),hi=BOX_DEPTH-KEEPER_EDGE,wide=BOX_HALF-KEEPER_EDGE;
@@ -233,7 +236,7 @@ export function keeperMove(p:PracticePlayer,from:Vec,mates:readonly Vec[],oppone
    const len=dist(c,t);if(len<3)continue;
    const u={x:(t.x-c.x)/len,y:(t.y-c.y)/len},from={x:c.x+u.x*.65,y:c.y+u.y*.65};
    let room=99;for(const q of opponents)room=Math.min(room,dist(t,q));
-   const v=Math.max(lane(from,t,false),lane(from,t,true)*KEEPER_LOFT)*(.4+.6*clamp((room-1)/3,0,1))*clamp(1-(len-22)/20,.3,1);
+   const v=Math.max(lane(from,t,false)*(1-throwIntoMan(c,t,opponents)),lane(from,t,true)*KEEPER_LOFT*(1-throwIntoMan(c,t,opponents,true)))*(.4+.6*clamp((room-1)/3,0,1))*clamp(1-(len-22)/20,.3,1);
    if(v>best){best=v;look=t;}
   }
   return {value:best-KEEPER_CROWDED*clamp((KEEPER_ROOM-near)/(KEEPER_ROOM-KEEPER_BODY),0,1),look};
@@ -248,12 +251,14 @@ export function keeperMove(p:PracticePlayer,from:Vec,mates:readonly Vec[],oppone
  }
  return {spot,look:top.look};
 }
-/** (keeper with the ball in his hands) How far a ball along the ground from his hands towards `aim` goes into a man
- * next to him, 0..1: the nearest pass, over its first KEEPER_INTO_LEN m from where it leaves him, by an opponent. */
-export function throwIntoMan(p:Vec,aim:Vec,men:readonly Vec[]):number{
+/** (keeper with the ball in his hands) How far a throw from his hands towards `aim` goes into a man next to him, 0..1:
+ * the nearest pass by an opponent over the stretch where he can still get to it (KEEPER_INTO_LEN m along the ground,
+ * KEEPER_LOFT_LEN m for a lofted ball still low) from where it leaves him. */
+export function throwIntoMan(p:Vec,aim:Vec,men:readonly Vec[],lofted=false):number{
  const u=unit(aim.x-p.x,aim.y-p.y),from={x:p.x+u.x*.65,y:p.y+u.y*.65};let worst=0;
- for(const q of men){const a=(q.x-from.x)*u.x+(q.y-from.y)*u.y;if(a<-.3||a>KEEPER_INTO_LEN)continue;
-  const across=Math.abs((q.x-from.x)*u.y-(q.y-from.y)*u.x);worst=Math.max(worst,clamp((KEEPER_INTO_W-across)/KEEPER_INTO_FULL,0,1));}
+ const len=lofted?KEEPER_LOFT_LEN:KEEPER_INTO_LEN,w=lofted?KEEPER_LOFT_W:KEEPER_INTO_W,full=lofted?KEEPER_LOFT_FULL:KEEPER_INTO_FULL;
+ for(const q of men){const a=(q.x-from.x)*u.x+(q.y-from.y)*u.y;if(a<-.3||a>len)continue;
+  const across=Math.abs((q.x-from.x)*u.y-(q.y-from.y)*u.x);worst=Math.max(worst,clamp((w-across)/full,0,1));}
  return worst;
 }
 export function foulRestartFor(attacking:Side,spot:Vec):'penalty'|'freeKick'{const x=depth(attacking,spot.x);return x>=(L-BOX_DEPTH)&&x<=L&&Math.abs(spot.y)<=BOX_HALF?'penalty':'freeKick';}
@@ -1209,9 +1214,9 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
      if(inHands){
       available=available.filter(o=>o.kind==='pass'||o.kind==='through'||o.kind==='loft');
       if(!available.length){const q=sidePlayers(p.side).filter(q=>q.id!==p.id).sort((a,b)=>dist(a,p)-dist(b,p))[0];available.push({kind:'loft',target:q.id,aim:q,score:.1,reason:'Colegul e departe; caută o repunere lungă.'});}
-      // not along the ground into a man next to him: round him or over him (throwIntoMan)
+      // not into a man next to him: round him, or over him from further away (throwIntoMan)
       const men=sidePlayers(other(p.side)).filter(q=>q.role!=='GK'&&dist(q,p)<KEEPER_INTO_LEN+1);
-      if(men.length)available=available.map(o=>{if(o.kind==='loft')return o;const into=throwIntoMan(p,o.aim,men);return into>0?{...o,score:o.score-KEEPER_INTO*into}:o;});
+      if(men.length)available=available.map(o=>{const into=throwIntoMan(p,o.aim,men,o.kind==='loft');return into>0?{...o,score:o.score-KEEPER_INTO*into}:o;});
       // (keeper with the ball in his hands) futsal's four seconds: he waits only while a throw can still get away in
       // time, walking to where one opens (keeperMove), and looks again when that runs out (KEEPER_HOLD)
       const best=available.reduce((a,b)=>b.score>a.score?b:a),lead=Math.max(preparationTime(p,best.kind),Math.max(0,Math.abs(angleDiff(Math.atan2(best.aim.y-p.y,best.aim.x-p.x),p.angle))-.32)/KEEPER_TURN);
