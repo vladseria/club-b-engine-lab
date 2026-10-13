@@ -10,19 +10,20 @@ import {fileURLToPath,pathToFileURL} from 'node:url';
 import path from 'node:path';
 import {shardTasks,simWorkers,shardNote} from '../_ci/shard.mjs';
 import {bundleRevs,parseRevs} from '../_ci/revs.mjs';
+import {variantPlugin} from './variants.mjs';
 
 const here=path.dirname(fileURLToPath(import.meta.url));
 
 if(!isMainThread){
  const mods={};
  for(const [rev,bundle] of Object.entries(workerData.bundles)){mods[rev]=await import(pathToFileURL(bundle).href);mods[rev].scenarioInit(workerData.sides);}
- parentPort.on('message',task=>{try{parentPort.postMessage({ok:true,line:mods[task.rev].play(task)});}catch(e){parentPort.postMessage({ok:false,task,error:String(e?.stack??e)});}});
+ parentPort.on('message',task=>{try{parentPort.postMessage({ok:true,line:{...mods[task.key].play(task),var:task.var}});}catch(e){parentPort.postMessage({ok:false,task,error:String(e?.stack??e)});}});
 }else{
  const argv=process.argv.slice(2);
  const arg=(k,d)=>{const i=argv.indexOf(`--${k}`);return i>=0?argv[i+1]:d;};
  const range=s=>s.split(',').flatMap(p=>{const [a,b]=p.split('-').map(Number);return b===undefined?[a]:Array.from({length:b-a+1},(_,i)=>a+i);});
  const label=arg('label');if(!label)throw Error('--label is required');
- const flagVals=new Set(['label','revs','workers'].map(k=>arg(k)).filter(Boolean));
+ const flagVals=new Set(['label','revs','workers','vars'].map(k=>arg(k)).filter(Boolean));
  const blocks=argv.filter(a=>a.includes(':')&&!a.startsWith('--')&&!flagVals.has(a)).map(b=>{const [arms,seeds]=b.split(':');return {arms:arms.split(','),seeds:range(seeds)};});
  if(!blocks.length)throw Error('give at least one <arm,arm>:<seeds> block');
  const revs=parseRevs(arg('revs','live=working'));
@@ -34,13 +35,14 @@ if(!isMainThread){
  const readSide=f=>{const p=path.join(S,f),txt=readFileSync(p,'utf8'),md5=createHash('md5').update(txt).digest('hex');if(md5!==sums[path.basename(f)]?.md5)throw Error(`${f}: md5 mismatch`);return JSON.parse(txt);};
  const sides={};
  for(const [id,sc] of Object.entries(SCENARIOS)){if(sc.source.kind==='sides')sides[id]=[readSide(sc.source.home),readSide(sc.source.away)];}
- const bundles=await bundleRevs({entry:path.join(here,'keeper.ts'),revs,outDir});
+ const vars=arg('vars','base').split(','),bundles={};
+ for(const v of vars){const b=await bundleRevs({entry:path.join(here,'keeper.ts'),revs,outDir,extraPlugins:[variantPlugin(v)],tag:v.replace(/\+/g,'-')});for(const [rev,file] of Object.entries(b))bundles[`${rev}~${v}`]=file;}
  const every=[];
- for(const b of blocks)for(const seed of b.seeds)for(const arm of b.arms)for(const rev of Object.keys(bundles)){
-  if(arm.startsWith('sc/')){const [,scenario,a,opp]=arm.split('/');if(!sides[scenario])throw Error('unknown scenario '+scenario);every.push({label,arm:a,scenario,opp,seed,rev});}
-  else every.push({label,arm,seed,rev});
+ for(const b of blocks)for(const seed of b.seeds)for(const arm of b.arms)for(const rev of Object.keys(revs))for(const v of vars){const key=`${rev}~${v}`,var_=v;
+  if(arm.startsWith('sc/')){const [,scenario,a,opp]=arm.split('/');if(!sides[scenario])throw Error('unknown scenario '+scenario);every.push({label,arm:a,scenario,opp,seed,rev,var:var_,key});}
+  else every.push({label,arm,seed,rev,var:var_,key});
  }
- const key=j=>`${j.scenario?`sc/${j.scenario}/${j.arm}/${j.opp}`:j.arm}:${j.seed}:${j.rev}`;
+ const key=j=>`${j.scenario?`sc/${j.scenario}/${j.arm}/${j.opp}`:j.arm}:${j.seed}:${j.rev}:${j.var??'base'}`;
  const out=path.join(outDir,`${label}.jsonl`);
  const done=new Set(existsSync(out)?readFileSync(out,'utf8').trim().split('\n').filter(Boolean).map(l=>key(JSON.parse(l))):[]);
  const tasks=shardTasks(every).filter(t=>!done.has(key(t)));

@@ -32,7 +32,7 @@ function run(inp:any){
   ...(playbooks.length?{playbooks}:{}),...(subs.orders.length?{substitutionOrders:subs.orders}:{})} as any);
 }
 
-export function analyse(R:any,detail=false){
+export function analyse(R:any,detail=false,decides:any[]=[]){
  const roster:{id:string;side:number;role:string;name?:string}[]=R.players,frames:any[]=R.frames,events:any[]=R.events,choices:any[]=R.choices??[];
  const idx=new Map(roster.map((p,i)=>[p.id,i]));
  const sideOf=(id:any)=>id!=null&&idx.has(id)?roster[idx.get(id)!].side:-1;
@@ -114,6 +114,11 @@ export function analyse(R:any,detail=false){
    const row:any={s:S,t:r1(t0),rel:r1(tRel),start,hands,held:r1(tRel-t0),own:r1(ownHalf),live:live?1:0,release,len:rel?.pass?.aim&&kp?r1(dist(kp,rel.pass.aim)):rel?.aerial?.aim&&kp?r1(dist(kp,rel.aerial.aim)):-1,
     near:r1(near),nearJob,outcome,loss:tLoss>=0?r1(tLoss):-1,lossToK,lossJob,recvNear,shots8,goal8,kx:kp?r1(S===0?kp.x:48-kp.x):-1};
    if(detail)row.goalT=goalT;
+   // (hook bundles) the aim he chose v the aim he played: his last choice before the release
+   if(decides.length&&rel&&rel.kind!=='shot'){const ea=rel.pass?.aim??rel.aerial?.aim;let d:any=null;for(const x of decides){if(x.id!==K.id||x.time>rel.time+1e-6)continue;if(x.time<t0-1e-6)continue;d=x;}
+    if(d&&ea){row.div=r1(dist(d.aim,ea));row.dk=d.kind;row.dh=d.hands?1:0;row.dt=r1(rel.time-d.time);}}
+   // a restart's whole wait: from the first frame of the restart to his release
+   if(f0.restart){let z=k;while(z>0&&frames[z-1].restart)z--;row.rw=r1(tRel-frames[z].time);}
    out.push(row);
    k=j;
   }
@@ -124,9 +129,11 @@ export function analyse(R:any,detail=false){
 export function play(t:any){
  const inp=t.scenario?scenarioInput(t):mirrorInput(t.arm,t.seed);
  const t0=performance.now();
- const r:any=run(inp),R=r.result;
+ const decides:any[]=[];(globalThis as any).__kgDecide=(time:number,id:string,o:any,hands:boolean,restart:string|null)=>{decides.push({time,id,kind:o.kind,aim:{x:o.aim.x,y:o.aim.y},hands,restart});};
+ let r:any;try{r=run(inp);}finally{(globalThis as any).__kgDecide=undefined;}
+ const R=r.result;
  const ms=Math.round(performance.now()-t0);
  const goals=R.events.filter((e:any)=>e.kind==='goal').map((e:any)=>[e.side,r1(e.time)]);
  return {label:t.label,arm:t.arm,scenario:t.scenario??null,opp:t.opp??null,seed:t.seed,rev:t.rev,build:r.engineBuild.slice(0,8),plat:`${process.platform}-${process.arch}-node${process.versions.node}`,
-  score:R.score,goals,kp:analyse(R),ms};
+  score:R.score,goals,kp:analyse(R,false,decides),ms};
 }
