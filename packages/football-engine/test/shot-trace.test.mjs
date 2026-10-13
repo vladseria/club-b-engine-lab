@@ -52,8 +52,29 @@ const fixture=JSON.parse(readFileSync(new URL('./feint-release-scene.json',impor
 // The step-across round (2026-10-04) changed it; 13385 is the next
 // (evidence/2026-10-04-stepacross-giveaways/repin.mjs shotTrace). The
 // settings-truth round (2026-10-04) changed it; 13425 is the next
-// (evidence/2026-10-04-settings-truth/repin.mjs shotTrace).
-fixture.seed=13425;fixture.teams[0].lineup[1]='motanescu';Object.assign(fixture.teams[0].tactics,teamApproaches.balanced.settings);Object.assign(fixture.teams[1].tactics,defensiveApproaches.press.tactics);
+// (evidence/2026-10-04-settings-truth/repin.mjs shotTrace). The passing-and-control
+// round (2026-10-10) changed it; 13458 is the next
+// (evidence/2026-10-10-passing-control/repin.mjs shotTrace). The tiredness
+// round (2026-10-10: the sprint reserve) changed it; 13466 is the next
+// (evidence/2026-10-10-tiredness/repin.mjs shotTrace). The matchups-combined
+// build (2026-10-10) changed it; 13472 is the next
+// (evidence/2026-10-10-matchups-combined/repin.mjs shotTrace); with movement
+// intensity merged in, 13491 is the next (same repin.mjs shotTrace). The threat-defending round
+// (2026-10-10) changed it; 13494 is the next (evidence/2026-10-10-threat-defending/repin.mjs shotTrace).
+// The final matchups-combined build (2026-10-11: threat defending + honest run timing) changed it; 13517 is
+// the next (same repin.mjs shotTrace). The tiredness bite (2026-10-11) changed it; 13551 is the next
+// (evidence/2026-10-11-tiredness-bite-build/repin.mjs shotTrace). (The regain fixes, built before the tiredness
+// bite, moved it from 13517 to 13549: evidence/2026-10-11-regain-fixes/repin.mjs shotTrace.) The combined build
+// with the collect read and the regain fixes (70c5f925) changed it; 13555 is the next
+// (evidence/2026-10-11-collect-read/repin.mjs shotTrace). Track the runner (2026-10-11: runs read from their
+// start) changed it; 13559 is the next (evidence/2026-10-11-track-runner/repin.mjs shotTrace). Its wider skill
+// range (a run read 0.1-0.8 s ahead by reading) changed it; 13574 is the next (same repin.mjs shotTrace). The
+// pre-push fixes (2026-10-12: a carrier meets a man in his path; an outlet steps off a marker who beats the ball)
+// changed it; 13578 is the next (evidence/2026-10-12-prepush-fixes/repin.mjs shotTrace). Box defending (2026-10-12:
+// markers near goal step into the open shot lane, a set blocker's leg) changed it; 13591 is the next
+// (evidence/2026-10-12-box-defending/repin.mjs shotTrace). The combined build with stamina as lasting (b0174c30,
+// 2026-10-13) changed it again; searching from 13578, 13590 is the next (same repin.mjs shotTrace).
+fixture.seed=13590;fixture.teams[0].lineup[1]='motanescu';Object.assign(fixture.teams[0].tactics,teamApproaches.balanced.settings);Object.assign(fixture.teams[1].tactics,defensiveApproaches.press.tactics);
 const result=runMatch({fixture,durationSeconds:100}).result;
 
 test('goal events identify the beneficiary even when an opponent made the last touch',()=>{

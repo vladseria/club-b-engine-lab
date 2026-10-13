@@ -20,4 +20,9 @@ test('shared motion preserves separation, but an independently closing defender 
  assert(launchRisk({...p,vx:0},aim,[follower],.3)>.4);
  const closing={...follower,x:15,y:2,vx:0,vy:-6};assert(launchRisk(p,aim,[closing],.3)>.9);
  assert.equal(launchRisk(p,aim,[closing]),launchRisk({...p,vx:0},aim,[closing]),'Immediate release evaluates current geometry');
+ // Pre-push fixes (2026-10-12): he cannot run through a man. Over a 0.5 s horizon his momentum alone would carry
+ // him 1 m past a man standing in his path; he meets him first (carrierMeets), so that man still blocks the kick.
+ // A man 1.5 m beside his path is never met: the open-field forecast is unchanged.
+ assert(launchRisk(p,aim,[{...follower,x:12,y:.5,vx:0,vy:0}],.5)>.9,'a man standing in his path is met, not run through');
+ assert(launchRisk(p,aim,[{...follower,x:12,y:1.5,vx:0,vy:0}],.5)<.1,'a man beside his path is passed');
 });

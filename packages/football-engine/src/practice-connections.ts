@@ -7,6 +7,7 @@ import {arrivalTime,releaseClosing} from './practice-defense.js';
 import {returnRunPoints} from './practice-support.js';
 import type {SupportPlan,SupportMove} from './practice-support.js';
 import {strikeTurnTime} from './practice-striking.js';
+import {expectedPassSpeed} from './practice-flight.js';
 
 export type ConnectionMovement=Pick<SupportMove,'aim'|'speed'> & Partial<Pick<SupportMove,'player'|'purpose'|'kind'>>;
 export interface ConnectionRead {gain:number;target?:string;continuation?:ConnectionMovement}
@@ -56,12 +57,12 @@ export function readNextConnection(p:PracticePlayer,q:PracticePlayer,aim:Vec,pla
   const closing=releaseClosing(defenders,aim,p,target,prepare);
   const room=clamp((closing-flight-prepare)/.8,0,1);
   if(room===0)continue;
-  const pace=14+q.skills.passing*.5,secondRisk=risk(aim,target,future,pace);
+  const pace=expectedPassSpeed(length),secondRisk=risk(aim,target,future,pace);
   const technique=clamp(1-(1-q.skills.passing/10)*length/35,.2,1);
   // Compare a give-and-go to carrying to the same point: the wall pass only
   // adds access when the direct route is contested. Other connections compare
   // against the original carrier delivering directly, as before.
-  const direct=1-risk(p,target,defenders,returning?p.pace*.72:14+p.skills.passing*.5);
+  const direct=1-risk(p,target,defenders,returning?p.pace*.72:expectedPassSpeed(distance(p,target)));
   // Reward access this teammate adds, not a needless detour to an already
   // open receiver. Longer chains lose value as the forecast becomes uncertain.
   const access=(1-secondRisk)*technique*room-direct;

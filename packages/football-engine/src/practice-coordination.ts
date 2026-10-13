@@ -20,7 +20,7 @@ import type {SituationTactics} from './team-approach.js';
 import {runReleaseAllowance} from './practice-awareness.js';
 import {LOSS_SCALE,REST_MARGIN,isRest,lossDanger,lossRead,restDefence} from './practice-rest-defence.js';
 import {eagerness,followsTeam,perceive} from './practice-perception.js';
-import {flightSamples,flightMeeting} from './practice-flight.js';
+import {flightSamples,flightMeeting,expectedPassFlight} from './practice-flight.js';
 import {defendOutOfPossession,offGoalLine,REGROUP_BEHIND} from './practice-defending.js';
 import type {DefendMemory} from './practice-defending.js';
 export {REGROUP_BEHIND};
@@ -29,6 +29,8 @@ export type JobPurpose='break'|'playbook'|'shape'|'balance'|'zone'|'press'|'scre
 export interface FootballJob {
  player:string;purpose:JobPurpose;kind:Duty;aim:Vec;speed:number;reason:string;
  since:number;until:number;target?:string;velocity?:Vec;
+ /** (threat round) a defender's read of his man's threat (practice-threat), for how hard he moves (practice-intensity). */
+ threat?:number;
 }
 export interface CoordinationPlan {
  time:number;situation:'control'|'flight'|'contest';attacking:Side;
@@ -182,6 +184,10 @@ export interface CoordinationContext extends SupportContext {
  restart?:{spot:Vec;radius:number;posts?:readonly string[]};
  /** How each defender sees attackers off the ball (M3). Absent: exact. */
  sight?:Sight;
+ /** B3: the defending keeper has come for the ball in flight (his aim): heard as his call. */
+ keeperCall?:Vec;
+ /** (marking and shape round) the man on the ball preparing a pass: to whom, where, since when (practice-defending's cue). */
+ passCue?:{target:string;passer:string;aim:Vec;since:number};
 }
 
 /** A set piece's zonal anchor takes over a runner within this many metres of his spot. */
@@ -442,7 +448,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
  const sight=context.sight;
  // A defender's picture of an attacker off the ball is his own, a moment old
  // (M3). The carrier is the ball: always exact.
- const seen=(p:PracticePlayer,q:PracticePlayer)=>sight&&q.id!==owner?.id&&p.side!==q.side?sight(p,q):q;
+ const seen=(p:PracticePlayer,q:PracticePlayer,before?:number)=>sight&&q.id!==owner?.id&&p.side!==q.side?sight(p,q,before):q;
  // Defending rebuild (2026-10-03): the side without the ball has no
  // ball-anchored block any more (practice-defending replaces it); its shape
  // record only carries the time, for the possession-change bookkeeping.
@@ -601,9 +607,9 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   const loose=!owner&&!(ball.mode==='pass'&&meet)?(flight.defenders?.[0]?.point??{x:ball.x,y:ball.y}):undefined;
   const plan=defendOutOfPossession({players,defending,attacking,tactics:tactics[defending],time,ball,carrier:owner,receiver:receiverId&&meet?{id:receiverId,meet}:undefined,loose,
    available:deciding,busy:unavailable,fixed:fixedOwn,locked,view:seen,memory:previous?.defending,intent:engaging?undefined:delaying?'delay':undefined,regroup:!!counterPress?.drop,
-   restart:context.restart,since:possession?.since,reach:owner?undefined:flight.defenders,theirs:flight.theirs});
+   restart:context.restart,since:possession?.since,reach:owner?undefined:flight.defenders,theirs:flight.theirs,keeperCall:owner?undefined:context.keeperCall,cue:owner?context.passCue:undefined});
   defendingMemory=plan.memory;
-  for(const j of plan.jobs){const p=players.find(q=>q.id===j.player)!;put(p,j.purpose,j.kind,j.aim,j.speed,j.reason,j.target,j.velocity);}
+  for(const j of plan.jobs){const p=players.find(q=>q.id===j.player)!;put(p,j.purpose,j.kind,j.aim,j.speed,j.reason,j.target,j.velocity);if(j.threat!==undefined&&jobs[p.id]&&!instructed.has(p.id))jobs[p.id].threat=j.threat;}
   for(const [id,t] of plan.marks)marks.set(id,t);
   for(const [id,t] of fixedOwn)if(!marks.has(id))marks.set(id,t);
   if(owner)defense={owner:owner.id,presser:fixedPresser?.id??plan.presser??'',coverer:plan.coverer??''};
@@ -823,7 +829,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
    const at=onPivot?focus:shown?.kind==='show'?shown.aim:undefined;
    if(at){
     // When a lay-off could come: the ball still to reach him, and his touch.
-    const soon=(onPivot?(owner?0:distance(ball,focus)/Math.max(3,Math.hypot(ball.vx,ball.vy))):.2+distance(focus,at)/(14+focus.skills.passing*.5))+.35;
+    const soon=(onPivot?(owner?0:distance(ball,focus)/Math.max(3,Math.hypot(ball.vx,ball.vy))):.2+expectedPassFlight(distance(focus,at)))+.35;
     const ref=onPivot?receiver.id:pivotId!;
     offerJob({purpose:'third-man',kind:'support',point:at,range:26,
      eligible:p=>p.id!==ref,
@@ -994,7 +1000,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   }
   const closePressure=opponents.some(q=>q.role!=='GK'&&(distance(q,focus)<4.5||arrivalTime(q,focus)<.75));
   const connectedExit=mates.some(p=>{
-   const gap=distance(p,focus),flight=gap/(14+focus.skills.passing*.5);
+   const gap=distance(p,focus),flight=expectedPassFlight(gap);
    return gap>=4.5&&gap<=13&&laneRisk(focus,p,opponents)<.3&&teammatePassObstruction(focus,p,p,players,flight)<.3&&
     opponents.every(q=>arrivalTime(q,p)>flight+.7);
   });

@@ -94,7 +94,12 @@ test('release review preserves an ordinary shot when its opportunity remains use
  // The defending rebuild (2026-10-03) removed it again; 13007 has one
  // (evidence/2026-10-03-defending-build/repin.mjs ordinary). The step-across round
  // (2026-10-04) removed it again; 13008 has one (evidence/2026-10-04-stepacross-giveaways/repin.mjs ordinary).
- const r=match(13008,'press',75),shots=r.events.filter(e=>e.kind==='shot');
+ // The tiredness bite (2026-10-11) removed it again; 13009 has one (evidence/2026-10-11-tiredness-bite-build/repin.mjs ordinary).
+ // The collect read (2026-10-11) removed it again; 13010 has one (evidence/2026-10-11-collect-read/repin.mjs ordinary).
+ // Track the runner (2026-10-11) removed it again; 13011 has one (evidence/2026-10-11-track-runner/repin.mjs ordinary).
+ // The combined build with stamina as lasting and box defending (b0174c30, 2026-10-13) removed it again; 13012 has
+ // one (evidence/2026-10-12-box-defending/repin.mjs ordinary).
+ const r=match(13012,'press',75),shots=r.events.filter(e=>e.kind==='shot');
  assert(shots.length,'The review must not suppress shooting as a class');
  assert(shots.some(e=>{const index=r.players.findIndex(p=>p.id===e.actor),preparation=r.choices.findLast(c=>c.player===index&&c.action&&c.time<e.time);return !e.firstTime&&!e.technique&&!e.freeKick&&preparation?.action==='shoot'&&e.time-preparation.time<2&&!r.events.some(n=>n.actor===e.actor&&n.kind==='receive'&&n.time>preparation.time&&n.time<e.time);}), 'An ordinary prepared foot shot must still release');
  for(const shot of shots){

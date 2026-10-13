@@ -62,7 +62,14 @@ test('live training chest control remains free until a real foot reception',asyn
  // (2026-10-01, B2) changed seed 4401's (the opening loft now meets a foot);
  // 4479 is the next seed whose 10 s contain a chest control followed by a
  // foot reception (evidence/2026-10-01-b2-width-and-block/repin-chest.mjs).
- const f=structuredClone(fixture);f.seed=4479;
+ // The passing-and-control round (2026-10-10: control above 5 sets the touch
+ // gap, body opening and re-setting touches; this receiver has control 9)
+ // changed 4479-4548; 4549 has both (evidence/2026-10-10-passing-control/repin.mjs chest).
+ // The matchups-combined build (2026-10-10) changed 4549-4595; 4596 has both
+ // (evidence/2026-10-10-matchups-combined/repin.mjs chest); with movement intensity merged in, 4596-4599
+ // changed; 4600 has both (same repin.mjs chest). The threat-defending round (2026-10-10, with its goal-line and
+ // role additions) changed 4600-4731; 4732 has both (evidence/2026-10-10-threat-defending/repin.mjs chest).
+ const f=structuredClone(fixture);f.seed=4732;
  const receiver=f.teams[0].squad.find(p=>p.id===f.teams[0].lineup[4]);Object.assign(receiver.skills,{passing:2,finishing:2,control:9});
  const setup=createTrainingSetup('middle');
  for(const p of setup.poses){
@@ -152,9 +159,38 @@ test('ordinary match aerial releases have matching physical contacts without a c
  // 14051-14055 d7bc2fb5 had 1 header and 1 volley, this build 1 header), so
  // the two techniques are pinned on separate seeds: 14059 has a header, 14065 a
  // volley on the final build (evidence/2026-10-04-settings-truth/repin.mjs header /
- // volley; 14053 and 14060 on its first build).
+ // volley; 14053 and 14060 on its first build). The passing-and-control round
+ // (2026-10-10) changed 14059-14065 for headers; 14066 has one, and 14065 still
+ // has its volley (evidence/2026-10-10-passing-control/repin.mjs header / volley). The honest-reads round
+ // (2026-10-10) changed 14066-14119 for headers; 14120 has one, and 14065 still has its volley
+ // (evidence/2026-10-10-honest-reads/repin.mjs header / volley). The matchups-combined build (2026-10-10:
+ // honest reads, tiredness, cover defender, B2, B3, marking items 1-2/4/5) changed 14120-14124 for headers
+ // and 14065-14066 for volleys; 14125 has a header, 14067 a volley
+ // (evidence/2026-10-10-matchups-combined/repin.mjs header / volley); with movement intensity merged in,
+ // 14125-14129 lost theirs for headers and 14067-14068 for volleys; 14130 has a header, 14069 a volley (same repin.mjs).
+ // The threat-defending round (2026-10-10) changed 14130-14150 for headers and 14069-14074 for volleys; 14151 has a
+ // header, 14075 a volley (evidence/2026-10-10-threat-defending/repin.mjs header / volley). The final
+ // matchups-combined build (2026-10-11: threat defending + honest run timing) changed 14151-14171 for headers;
+ // 14172 has one, and 14075 still has its volley (same repin.mjs header / volley). The tiredness bite
+ // (2026-10-11) changed 14172-14208 for headers and 14075-14076 for volleys; 14209 has a header, 14077 a volley
+ // (evidence/2026-10-11-tiredness-bite-build/repin.mjs header / volley). The collect read (2026-10-11: the
+ // receiver's marker goes for a ball in the air on his own read of the race, within a skill window) changed
+ // 14209-14214 for headers; 14215 has one (evidence/2026-10-11-collect-read/repin.mjs header). (The regain fixes,
+ // built on the matchups-combined build before the tiredness bite, moved its header from 14172 to 14177:
+ // evidence/2026-10-11-regain-fixes/repin.mjs header / volley.) The combined build with both (70c5f925) changed
+ // 14215-14221 for headers; 14222 has one, and 14077 still has its volley (collect-read repin.mjs header / volley).
+ // Track the runner (2026-10-11: runs read from their start) changed 14222-14225 for headers and 14077 for volleys;
+ // 14226 has a header, 14078 a volley (evidence/2026-10-11-track-runner/repin.mjs header / volley). Its wider skill
+ // range (a run read 0.1 s ahead by a man who cannot read the game, 0.8 s by a sharp one) changed 14226-14227 for
+ // headers; 14228 has one, and 14078 still has its volley (same repin.mjs header / volley). The pre-push fixes
+ // (2026-10-12: a carrier meets a man in his path; an outlet steps off a marker who beats the ball) kept 14228's
+ // header and changed 14078 for volleys; 14079 has one (evidence/2026-10-12-prepush-fixes/repin.mjs header / volley).
+ // The combined build with stamina as lasting (the sprint reserve the same at any stamina) and box defending (markers
+ // near goal step into the open shot lane, a set blocker's leg), b0174c30, 2026-10-13, changed 14228-14266 for headers
+ // and 14079 for volleys; 14267 has a header, 14080 a volley (evidence/2026-10-12-box-defending/repin.mjs header /
+ // volley). (On their own, box defending had moved them to 14229 / 14080 and stamina to 14234 / 14080.)
  const sandbox=JSON.parse(readFileSync(new URL('../../../deliverables/football-practice/engine-audition/sandbox-fixture.json',import.meta.url)));
- for(const [technique,seed] of [['header',14059],['volley',14065]]){
+ for(const [technique,seed] of [['header',14267],['volley',14080]]){
   const f=structuredClone(sandbox);f.seed=seed;
   f.teams[0].lineup[1]='motanescu';Object.assign(f.teams[0].tactics,teamApproaches.combinations.settings);
   Object.assign(f.teams[1].tactics,defensiveApproaches.press.tactics);

@@ -63,9 +63,17 @@ test('a keeper dives only at the opponents\' ball: a team-mate\'s back-pass or t
  // On 07ffe814 a third of keeper dives (58 of 151 in six 900 s matches) were at
  // a ball his own side had just played (evidence/2026-09-30-keeper-box).
  const r=runMatch({fixture,durationSeconds:300,policy:'coordinated'}).result;
- const releases=r.events.filter(e=>['pass','clearance','shot'].includes(e.kind)&&e.actor);
+ // (threat-defending round, 2026-10-10: the passage moved and now has a dive at a ball an opponent won with a
+ // turnover and ran at goal along the byline; the ball he last touched is the opponents' even with no release
+ // event, so a turnover counts as the last owner too)
+ const releases=r.events.filter(e=>['pass','clearance','shot','turnover'].includes(e.kind)&&e.actor);
  const side=id=>r.players.find(p=>p.id===id).side;
- const dives=r.choices.filter(c=>r.players[c.player].role==='GK'&&c.kind==='dive'&&c.reason.startsWith('Împinge'));
+ // (combined build 70c5f925, collect read + regain fixes, 2026-10-11: the passage moved and now has a dive at an
+ // opponent's through ball at 109.08 s that a team-mate intercepts at 109.12 s; the dive he is already in is logged
+ // again at 109.13 s. A dive is judged where it starts, so a dive choice within its 0.6 s of an earlier one by the
+ // same keeper is that same dive.)
+ const all=r.choices.filter(c=>r.players[c.player].role==='GK'&&c.kind==='dive'&&c.reason.startsWith('Împinge'));
+ const dives=all.filter((c,i)=>!all.slice(0,i).some(b=>b.player===c.player&&c.time-b.time<.6+1e-6));
  assert.ok(dives.length>0,'the passage includes keeper dives');
  for(const c of dives){
   const last=releases.findLast(e=>e.time<=c.time+1e-6);

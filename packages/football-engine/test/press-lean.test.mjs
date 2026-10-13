@@ -159,7 +159,11 @@ test('the memory returns what he saw a moment ago, interpolated',()=>{
  assert.equal(s.at({...now,id:'0:new'},2,.3).x,8,'nobody seen yet: read as he is');
 });
 test('pressing the ball is never delayed; a marker marks the man where he last saw him',()=>{
- const f=structuredClone(fixture),players=practicePlayers(f),owner=players[3];
+ // (box defending, 2026-10-12: with the ball within PROTECT_R of their goal team 1's markers now leave their men for
+ // the shooting lane, by the Line; this check is about where a marker reads his man from, so team 1 plays a High
+ // line, whose box protection starts nearer goal than this ball, 16 m out)
+ const f=structuredClone(fixture);f.teams[1].tactics={...f.teams[1].tactics,line:'high'};
+ const players=practicePlayers(f),owner=players[3];
  // Team 0 attacks x = 48; the ball near team 1's box so everyone is engaged.
  place(players,[[4,0],[20,-2],[30,-6],[33,6],[36,-1],[46,0],[40,0],[36,-5],[38,5],[34,4]]);
  const tactics=f.teams.map(t=>t.tactics);
@@ -170,7 +174,14 @@ test('pressing the ball is never delayed; a marker marks the man where he last s
  const late=coordinateFootball(players,ballAt(owner),0,tactics,laneRisk,{...context,sight:stale},null);
  const presser=exact.defense.presser;
  assert(presser&&late.defense.presser===presser,'the same man goes at the ball');
- assert.deepEqual(late.jobs[presser].aim,exact.jobs[presser].aim,'the press is never delayed');
+ // B2 (2026-10-09): a presser alone on the ball bends his run through the lane
+ // to a free man (shadowAim), and that man is read from the presser's own
+ // picture of him, a moment old like every off-ball man (M3). His run at the
+ // ball is never delayed: same man, same kind of run, same pace, and only the
+ // bend may differ, by a fraction of the lane point's pull.
+ const a=late.jobs[presser],b=exact.jobs[presser];
+ assert.equal(a.kind,b.kind);assert.equal(a.speed,b.speed);
+ assert(Math.hypot(a.aim.x-b.aim.x,a.aim.y-b.aim.y)<.25,`the press is never delayed (${a.aim.x.toFixed(2)},${a.aim.y.toFixed(2)} v ${b.aim.x.toFixed(2)},${b.aim.y.toFixed(2)})`);
  // Defending round (2026-10-03): a marker's spot also sags towards the ball
  // line and the last man keeps his cushion, so the exact spot is no longer
  // markPosition alone; what holds is that it is read from where he last saw

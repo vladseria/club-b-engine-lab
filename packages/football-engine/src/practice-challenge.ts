@@ -49,6 +49,33 @@ export function resolveChallengeContact(d:PracticePlayer,a:PracticePlayer,ball:V
  return {ball:ballAt!==null,body,ballFirst,leg,collision,foot,spot,closingSpeed,foulChance};
 }
 
+/** The tackle's odds once a defender commits to it and reaches the ball: his
+ * defending against the carrier's control, strength, energy, and the cover he
+ * has (his team-mates, keeper included, within 6 m of the carrier). Moved here from practice.ts
+ * unchanged (B2), so the carrier's read of a duel can use the same odds. */
+export function duelChance(attacker:PracticePlayer,defender:PracticePlayer,cover:number):number{
+ return clamp(.46+(defender.skills.defending-attacker.skills.control)*.035+(defender.skills.strength-attacker.skills.strength)*.014+(defender.energy-attacker.energy)*.001+cover*.06,.15,.85);
+}
+
+/** Regain fixes (2026-10-11): a player who has just lost the ball at close
+ * quarters is off balance: tackled (his weight was on the ball and the tackle
+ * took his foot away), the ball knocked or squirting off him, or his kick
+ * blocked by the man in front of him (he is still in the follow-through). He
+ * needs a moment to plant and turn before he can go in again: until then he
+ * chases, but cannot commit a challenge of his own, so the man who won it has
+ * a moment to move it away from him. A strong player rides it a little
+ * better. Close quarters: an opponent within BEATEN_NEAR m of him takes it
+ * within BEATEN_WINDOW s of it leaving his feet (a tackle always counts).
+ * Before, he could challenge again at once (only a man who had just tackled
+ * waited, 1.4 s), and two players stood glued together while the ball changed
+ * owner three or four times in two seconds. Team-mates who were not in the
+ * duel can still counter-press at once. For the first BEATEN_TOUCH of that
+ * moment he cannot take a controlled touch either (his body still stops the
+ * ball): the ball that bounced off him as the winner set off used to be his
+ * again at once. */
+export const BEATEN_BALANCE=.6,BEATEN_STRENGTH=.03,BEATEN_WINDOW=1,BEATEN_NEAR=2,BEATEN_TOUCH=.5;
+export const beatenRecovery=(p:{skills:{strength:number}})=>BEATEN_BALANCE+BEATEN_STRENGTH*(10-clamp(p.skills.strength,0,10));
+
 /** Access to the ball is not the same as proximity to the carrier. */
 export function bodyScreensBall(defender:Vec,attacker:Vec,ball:Vec):boolean{
  const dx=ball.x-defender.x,dy=ball.y-defender.y,d2=dx*dx+dy*dy;

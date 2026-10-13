@@ -18,18 +18,40 @@ export const MAX_SUBS=3;
  * (lib/ballers/compute.ts sideOrders). Saved orders keep their meaning when
  * the fatigue model changes; only this table is recalibrated.
  *
- * Calibrated on build 07ffe814 (acceleration fatigue, cfc3f98c and later):
- * 10 full matches between real Global squads, 80 outfield players, median
- * energy 94.6 at 5:00, 89.0 at 10:00, 83.6 at full time. First drop below
- * 95 at a median 5:00 (every player), below 90 at 9:30 (every player), below
- * 86 at 12:00 (74% ever get there). Before that build energy ended near 94,
- * so a stored 95 ("tired") fired late in the match; it keeps meaning Tired
- * (energy 90), not energy 95, which now arrives around 5:00. `around` is the
- * median; the change itself waits for the next stoppage. */
+ * Calibrated on build 45a18f07 (the tiredness bite: players tire much more and
+ * stamina shows): 32 full matches between real clubs (the four fixtures of
+ * packages/football-engine/evidence/2026-10-09-scenarios, stored prep v the
+ * stored opponent, 8 seeds each), 256 outfielders who played the whole match,
+ * median energy 87.6 at 5:00, 78.1 at 10:00, 70.0 at full time. Median first
+ * drop below 88 at 4:50 (every player), below 79 at 9:30 (every player), below
+ * 75 at 11:53 (88% ever get there). Stamina moves the clock: below 79 at 6:25
+ * for stamina 4, 8:19 for 6, 12:44 for 9, and a stamina-9 player never runs on
+ * empty. Evidence: packages/football-engine/evidence/2026-10-11-tiredness-bite-build.
+ *
+ * Re-checked on build 1fbc1cf8 (same harness and fixtures, 5 seeds each: 20
+ * matches, 160 whole-match outfielders): median first drop below 88 at 5:07,
+ * below 79 at 9:53, below 75 at 12:00 (89% get there). All within half a
+ * minute of `around`, so the times stand. Below 79 by stamina: 6:43 for 4,
+ * 8:33 for 6, 9:50 for 7, 10:56 for 8, 12:49 for 9.
+ *
+ * Re-checked for stamina as lasting (2026-10-12, branch ballers-stamina: the
+ * sprint reserve the same at any stamina; same harness and fixtures, 5 seeds
+ * each, 160 whole-match outfielders): median first drop below 88 at 4:33,
+ * below 79 at 9:23, below 75 at 11:56 (80% get there), against 4:57 / 9:32 /
+ * 11:47 (88%) on main in the same run. All within half a minute of `around`,
+ * so the times stand. Stamina spreads them wider: below 79 at 4:39 for 4, 7:04
+ * for 6, 9:30 for 7, 11:35 for 8, never for 9. Evidence:
+ * packages/football-engine/evidence/2026-10-12-stamina (scen-base/scen-fix).
+ *
+ * History: on build 07ffe814 (acceleration fatigue, cfc3f98c and later) the
+ * levels were energy 95 / 90 / 86 at the same times; before that build energy
+ * ended near 94, so a stored 95 ("tired") fired late in the match. A code
+ * always keeps meaning its level (95 = Tired), never that energy. `around` is
+ * the median; the change itself waits for the next stoppage. */
 export const TIRED_LEVELS=[
- {id:'bit',label:'a bit tired',name:'A bit tired',threshold:97,energy:95,around:'5:00',never:'never got a bit tired'},
- {id:'tired',label:'tired',name:'Tired',threshold:95,energy:90,around:'9:30',never:'never got tired'},
- {id:'empty',label:'running on empty',name:'Running on empty',threshold:92,energy:86,around:'12:00',never:'never ran on empty'},
+ {id:'bit',label:'a bit tired',name:'A bit tired',threshold:97,energy:88,around:'5:00',never:'never got a bit tired'},
+ {id:'tired',label:'tired',name:'Tired',threshold:95,energy:79,around:'9:30',never:'never got tired'},
+ {id:'empty',label:'running on empty',name:'Running on empty',threshold:92,energy:75,around:'12:00',never:'never ran on empty'},
 ] as const;
 export type TiredLevel=typeof TIRED_LEVELS[number];
 /** The level a stored threshold belongs to (the nearest code). */
@@ -77,7 +99,7 @@ export function triggerOf(when:When,player:string,threshold:number):Substitution
 
 const clock=(s:number)=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
 type Name=(id:string)=>string;
-export function triggerPhrase(t:SubstitutionTrigger,name:Name):string{
+function triggerPhrase(t:SubstitutionTrigger,name:Name):string{
  switch(t.kind){
   case 'tired':return `if ${name(t.player)} is ${tiredLevel(t.threshold).label}`;
   case 'score':return t.state==='losing'?'if we’re losing':t.state==='winning'?'if we’re winning':'if we’re drawing';
@@ -99,7 +121,7 @@ export function subsProblem(orders:PrepOrder[],squad:SquadPlayer[],lineup:string
  catch(e){return e instanceof Error?e.message:'Invalid substitution.';}
 }
 /** Only what validateSubstitutionOrders reads: squad ids and roles, the lineup. */
-export function oneTeam(squad:SquadPlayer[],lineup:string[]):Fixture{
+function oneTeam(squad:SquadPlayer[],lineup:string[]):Fixture{
  const team={squad:squad.map(p=>({id:p.id,roles:[...p.roles]})),lineup:[...lineup]};
  return {seed:0,kickoff:0,teams:[team,{squad:[],lineup:[]}]} as unknown as Fixture;
 }

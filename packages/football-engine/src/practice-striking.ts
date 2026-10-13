@@ -1,6 +1,7 @@
 import {clamp} from './model.js';
 import type {PracticePlayer} from './practice.js';
 import type {Vec} from './movement.js';
+import {bodyTurnRate} from './practice-reception.js';
 
 export type StrikeKind='pass'|'shot'|'clearance';
 const difference=(a:number,b:number)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
@@ -46,6 +47,6 @@ export function strikePowerLimit(p:PracticePlayer,ball:Vec,aim:Vec,kind:StrikeKi
 
 export function strikeTurnTime(p:PracticePlayer,aim:Vec,kind:StrikeKind='pass'){
  const stance=strikeStance(p,p,aim,kind);
- const rate=(3.4+p.skills.control*.12)/(1+Math.hypot(p.vx,p.vy)*.22);
+ const rate=bodyTurnRate(p);
  return Math.max(0,stance.angle-stance.limit)/rate;
 }

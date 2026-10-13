@@ -4,7 +4,7 @@
 // (lib/ballers/engine.worker.ts) run exactly the same code path.
 import {runMatch,ENGINE_BUILD,validatePlans,playbookProgress,type PlaybookConfig,type PlaybookPlan} from '../../packages/football-engine/src/index';
 import type {Player as EnginePlayer,Team,Tactics} from '../../packages/football-engine/src/model';
-import {engineApproach,type StoredApproach} from './approach';
+import {engineApproach,playedApproach,type StoredApproach} from './approach';
 import {validateSubstitutionOrders,type SubstitutionNote,type SubstitutionOrder,type SubstitutionTrigger} from '../../packages/football-engine/src/practice-substitutions';
 import {CHUNK_SECONDS,FRAME_STEP,REPLAY_VERSION,cm,mrad,ms,type CompactMatch,type ReplayChunk,type ReplayEvent,type ReplayFrame,type ReplayHeader,type ReplayIdea,type ReplayPlayer,type TeamStats} from './replay';
 import {resolveIdea} from './ideas';
@@ -35,7 +35,8 @@ export function engineTeam(side:FrozenSide):Team{
  // (lib/ballers/approach.ts), the one place every Tactics build goes through
  // (here, and the Lab's tacticsOf/demoSide and trial side). A frozen input
  // without `onLoss` plays as 'balanced', exactly as an explicit 'balanced'.
- const tactics:Tactics=settingsTactics({...engineApproach(side.approach),formation:side.formation,setPiece:'mixed',fullbacks:'balanced',marking:'balanced'} as unknown as Tactics,settings);
+ // In 2-1-1 Width plays Standard whatever is stored (approach.ts playedApproach).
+ const tactics:Tactics=settingsTactics({...engineApproach(playedApproach(side.formation,side.approach)),formation:side.formation,setPiece:'mixed',fullbacks:'balanced',marking:'balanced'} as unknown as Tactics,settings);
  const squad=settingsSquad(side.players.map(p=>({id:p.id,name:p.name,roles:[...p.roles],skills:{...p.skills},traits:{...p.traits},energy:p.energy,note:p.note,archetype:p.archetype,temperament:p.temperament}) as EnginePlayer),settings);
  return {id:side.club.id,name:side.club.name,short:side.club.code,color:side.club.color,description:'Ballers',squad,lineup:[...side.lineup],tactics,orders:[]};
 }
@@ -99,7 +100,7 @@ interface EngineFrame {time:number;cut?:boolean;lineup?:number[];players:{x:numb
 interface EngineEvent {time:number;kind:string;text:string;actor?:string;target?:string;side?:0|1;lastTouch?:string;restartKind?:string;shot?:{aim:{x:number;y:number};origin:{x:number;y:number};assessment?:{quality:number}};technique?:string;freeKick?:unknown;
  substitution?:{order:string;trigger:SubstitutionTrigger;energy:number;score:[number,number]}}
 interface EngineSelection {time:number;planId:string|null;name:string;status:string;endedAt?:number;endReason?:string;endDetail?:string;side?:0|1;trace?:{time:number;stepId:string;phase:string;intent?:string;actor?:string;target?:string;responsibility?:string;evidence?:{spaceId?:string}}[]}
-export interface EngineResult {duration:number;players:{id:string;side:0|1;role:string}[];frames:EngineFrame[];events:EngineEvent[];stats:[TeamStats,TeamStats];score:[number,number];playbookSelections?:EngineSelection[];substitutionNotes?:SubstitutionNote[]}
+export interface EngineResult {duration:number;played?:number;players:{id:string;side:0|1;role:string}[];frames:EngineFrame[];events:EngineEvent[];stats:[TeamStats,TeamStats];score:[number,number];playbookSelections?:EngineSelection[];substitutionNotes?:SubstitutionNote[]}
 
 export function compact(input:FrozenInput,r:EngineResult):CompactMatch{
  // Engine roster ids are `${side}:${playerId}`. Replay indices: 0-9 the
@@ -119,7 +120,12 @@ export function compact(input:FrozenInput,r:EngineResult):CompactMatch{
   players.push({i:index.get(`${side}:${id}`)!,side:side as 0|1,slot:-1,id,name:p.name,short:p.short,number:p.number,role:p.roles[0],portrait:p.portrait,captain:false,bench:true});
  }));
  players.sort((a,b)=>a.i-b.i);
- const header:ReplayHeader={v:REPLAY_VERSION,engineBuild:'',duration:r.duration,chunkSeconds:CHUNK_SECONDS,chunks:Math.ceil(r.duration/CHUNK_SECONDS),
+ // Full time can come a few seconds past the match length, when the last attack
+ // plays out (engine practice-match.ts attackAtFullTime): the header's duration
+ // is when the whistle went (the watch screens' timeline); the chunk count stays
+ // the match length's (what ballers_submit checks), and the last chunk holds the rest.
+ const played=r.played===undefined?r.duration:Math.round(r.played*1000)/1000;
+ const header:ReplayHeader={v:REPLAY_VERSION,engineBuild:'',duration:played,...(played>r.duration?{fullTime:r.duration}:{}),chunkSeconds:CHUNK_SECONDS,chunks:Math.ceil(r.duration/CHUNK_SECONDS),
   teams:input.sides.map(s=>{const voice=normalizeVoice(s.voice);
    // No voice = the key is omitted: the header is byte-identical to before.
    return {club:s.club.id,name:s.club.name,code:s.club.code,color:s.club.color,formation:s.formation,style:s.style,...(voice?{voice}:{})};}) as ReplayHeader['teams'],players};
@@ -156,7 +162,7 @@ export function compact(input:FrozenInput,r:EngineResult):CompactMatch{
  });
  const chunks:ReplayChunk[]=[];
  for(let i=0;i<header.chunks;i++){
-  const t0=i*CHUNK_SECONDS*1000,t1=Math.min((i+1)*CHUNK_SECONDS,r.duration)*1000,final=i===header.chunks-1;
+  const final=i===header.chunks-1,t0=i*CHUNK_SECONDS*1000,t1=(final?played:Math.min((i+1)*CHUNK_SECONDS,r.duration))*1000;
   const inside=(t:number)=>t>=t0&&(t<t1||final);
   chunks.push({v:REPLAY_VERSION,i,t0,t1,f:frames.filter(f=>inside(f.t)),e:events.filter(e=>inside(e.t))});
  }

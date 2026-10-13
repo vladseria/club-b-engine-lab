@@ -11,7 +11,7 @@ import {PASS_DRAG,flightSamples,flightMeeting,reachableFlightMeeting,flightConta
 
 export type {ReceivingSpace} from './practice-meetings.js';
 import {runMeetings} from './practice-meetings.js';
-import {turnoverPrice} from './practice-rest-defence.js';
+import {turnoverPrice,deliveryLossWeight} from './practice-rest-defence.js';
 import {feltPressure} from './practice-possession.js';
 import type {ReceivingSpace} from './practice-meetings.js';
 export interface LoftPass {kind:'chip'|'loft';aim:Vec;speed:number;vz:number;flight:number;arrivalSpeed:number;apex:number;risk:number;controlRisk:number;reachMargin:number;meetingTime?:number}
@@ -101,7 +101,7 @@ export function loftOption(p:PracticePlayer,q:PracticePlayer,players:PracticePla
   const threat=clamp((depth(p.side,aim.x)-X(65))/X(32),0,1)*(1-Math.abs(aim.y)/Y(40)),lossCost=turnoverPrice(p,players,from);
   const delivery=readDelivery(p,q,aim,players,risk,laneRisk,loft.flight,context);
   const next=passProspects(p,from,q,aim,players,loft.flight)*(1-risk);
-  const score=-caught+next+.25+advance*(.24+p.traits.risk*.15)*(1-risk)+space*.14+threat*.21-(risk+(1-skill(p.skills.passing))*d/75)*(.68-p.traits.risk*.3+lossCost)-(1-space)*.12-d*.002+pressure*.2*space
+  const score=-caught+next+.25+advance*(.24+p.traits.risk*.15)*(1-risk)+space*.14+threat*.21-(risk+(1-skill(p.skills.passing))*d/75)*deliveryLossWeight(p,lossCost)-(1-space)*.12-d*.002+pressure*.2*space
    +delivery.shotGain*(.55+skill(p.skills.reading)*.2)*(delivery.shotGain>0?(1-risk)*space:1)
    +delivery.connectionGain*(.22+skill(p.skills.reading)*.16+p.traits.comesShort*.08)*(1-risk)*(1-loft.controlRisk)*clamp(1+loft.reachMargin,0,1)-loft.controlRisk*.45-Math.max(0,-loft.reachMargin)*.3-loft.flight*.025-.04;
   return {kind:'loft',target:q.id,aim,score,run,loft,delivery,next,relief:pressure*.2*space,reason:run?'Ridică mingea peste linie, spre locul în care poate ajunge colegul în cursă.':'Compară zborul cu presiunea și caută un coleg dincolo de ea.'};

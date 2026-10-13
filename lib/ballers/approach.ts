@@ -11,8 +11,7 @@
 // - engineApproach() is the ONE place the value reaches engine tactics: every
 //   Tactics the app builds goes through it — lib/ballers/compute.ts
 //   `engineTeam` (official matches and browser practice),
-//   lib/ballers/lab/team.ts `tacticsOf` and `demoSide`, and the Lab's trial
-//   side (components/ballers/lab/Lab.tsx).
+//   lib/ballers/lab/team.ts `tacticsOf` and `demoSide`.
 import type {ApproachSettings} from '../../packages/football-engine/src/team-approach';
 
 export type OnLoss='regroup'|'balanced'|'counterpress';
@@ -31,6 +30,20 @@ export const onLossOf=(a:{onLoss?:unknown}|null|undefined):OnLoss=>isOnLoss(a?.o
 
 /** A stored approach with "On losing it" filled in (absent = 'balanced'). */
 export function withOnLoss(a:StoredApproach):Approach{return {...a,onLoss:onLossOf(a)};}
+
+/** Whether Width is a choice in this formation. 2-1-1 has no wingers, and
+ * there the three options played the same football (width check, 234 matches,
+ * packages/football-engine/evidence/2026-10-11-width-check on branch
+ * width-check): the screens don't offer it and the side plays Standard. */
+export const widthChosen=(formation:string)=>formation!=='2-1-1';
+/** The approach a formation plays: in 2-1-1 Width is Standard whatever is
+ * stored. The stored value is kept (switch back to a shape with wingers and
+ * the plan's Width returns); this is what reaches the engine (compute.ts
+ * engineTeam, lab/team.ts tacticsOf, the Lab's trial side), the board and
+ * every "adjusted" check, so the screens say what is played. */
+export function playedApproach<A extends {width:ApproachSettings['width']}>(formation:string,a:A):A{
+ return widthChosen(formation)||a.width==='standard'?a:{...a,width:'standard'};
+}
 
 /** The approach as the engine takes it: every key kept exactly as stored
  * (same keys, same order). A stored `onLoss` reaches the engine (an unknown
