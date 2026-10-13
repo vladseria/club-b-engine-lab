@@ -18,7 +18,7 @@ import {receptionTarget} from './decisions.js';
 import {practiceFixture} from './practice-data.js';
 import {carryOptions,chooseFootballOption,commitCarry,CarryPlan,CarryAssessment,CarryOption} from './practice-carry.js';
 import type {ShotAssessment} from './practice-football.js';
-import {assessShot,strikeShot,keeperReach,goalBoundFlight,markPosition,goalAngle,pitchExit} from './practice-football.js';
+import {assessShot,strikeShot,keeperReach,goalBoundFlight,markPosition,goalAngle,pitchExit,setKeeperEdge,clearKeeperEdge,keeperEdgeFor,shotHurry,placeHurried,PROBE_ON,PROBE_READ} from './practice-football.js';
 import {arrivalTime,assignDefense,containMovement,coverPosition,shootingThreat,BLOCK_NEAR,BLOCK_GAP,DefenseAssignment,assignFlight,assignMarking,FlightAssignment,runnerBehindShoulder,runnerPickupDelay} from './practice-defense.js';
 import {offGoalLine,mayLeaveForBall,BOX_BLOCK_NEAR,BOX_BLOCK_DANGER,blockLeg,BLOCK_LEG_HEIGHT} from './practice-defending.js';
 import {readShotDanger} from './practice-shot-defense.js';
@@ -169,7 +169,7 @@ export function practiceOptions(p:PracticePlayer,players:PracticePlayer[],runnin
   // belief in it. A daring or composed player shoots under pressure more; a
   // nervous one releases.
   const feltShot=feltPressure(p,assessment.pressure),felt=feltPressure(p,pressure);
-  const quality=assessment.quality*(1-feltShot*.24)/(1-assessment.pressure*.24)*clamp(perceive(p,'shot',1+SHOT_BELIEF*audacity,SHOT_SPREAD,p,{time,salt:'chance'}),.5,1.6);
+  const quality=assessment.quality*(1-feltShot*.24)/(1-assessment.pressure*.24)*clamp(perceive(p,'shot',1+SHOT_BELIEF*audacity,SHOT_SPREAD,p,{time,salt:'chance'}),.5,1.6)*(PROBE_ON?1-PROBE_READ*shotHurry(p,players,assessment.aim):1);// ACCURACY PROBE: a hurried shot reads as worth less
   // What a shot gives away (R2, beside the pass's loss price): unless it
   // goes in, the ball is the opponents' against the rest defence we have now
   // (priced as a loss where he shoots from), though their keeper's restart
@@ -344,7 +344,10 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
      else if(o.kind==='loft'){o.run=o.teachingStep&&!o.teachingSpace?undefined:activePassRun(support,p,target!,time);loftStrike=strikeLoftPass(passer,ball,target!,o.run,pressure,execution,sidePlayers(other(p.side)),o.receivingSpace,o.loft?.meetingTime,o.loft?.kind);aim=loftStrike.aim;stats[p.side].passes++;}
      else {o.run=o.kind==='through'?activePassRun(support,p,target!,time):undefined;groundStrike=strikeGroundPass(passer,ball,target!,o.kind==='through',o.run,pressure,execution,sidePlayers(other(p.side)),o.receivingSpace,o.pass?.meetingTime,o.pass?.weight);aim=groundStrike.aim;stats[p.side].passes++;}
      flags=exempt?[]:offsidePlayers(players,p.side,ball).filter(id=>id!==p.id);exempt=false;
-     const strike=aerial?strikeAerial(p,ball,aerial.technique,aerial.plan,pressure,execution):throwStrike?{vx:throwStrike.vx,vy:throwStrike.vy,vz:throwStrike.vz}:o.freeKick?strikeFreeKick(p,ball,o.freeKick,execution):shot?strikeShot(p,ball,shotRead!,execution):clear?strikeClearance(p,ball,aim,pressure,execution,o.clearance??'long'):groundStrike?{vx:groundStrike.vx,vy:groundStrike.vy,vz:0}:{vx:loftStrike!.vx,vy:loftStrike!.vy,vz:loftStrike!.vz};
+     // ACCURACY PROBE: how hurried the shot is, and a hurried foot shot's placement pulled towards the keeper
+     const probeKeeper=shot?sidePlayers(other(p.side)).find(q=>q.role==='GK'):undefined,probeHurry=shot&&!o.freeKick?shotHurry(p,players,aerial?aerial.plan.aim:shotRead!.aim,firstTime):0;
+     if(shotRead&&!aerial&&probeHurry>0){shotRead.aim=placeHurried(shotRead.aim,probeKeeper,probeHurry);aim=shotRead.aim;}
+     const strike=aerial?strikeAerial(p,ball,aerial.technique,aerial.plan,pressure,execution):throwStrike?{vx:throwStrike.vx,vy:throwStrike.vy,vz:throwStrike.vz}:o.freeKick?strikeFreeKick(p,ball,o.freeKick,execution):shot?strikeShot(p,ball,shotRead!,execution,probeHurry):clear?strikeClearance(p,ball,aim,pressure,execution,o.clearance??'long'):groundStrike?{vx:groundStrike.vx,vy:groundStrike.vy,vz:0}:{vx:loftStrike!.vx,vy:loftStrike!.vy,vz:loftStrike!.vz};
      // The receiver may have moved since selection. Only deviation from the
      // freshly planned, unperturbed aim is error; a new lead is not a mishit.
      const intendedAim=groundStrike?.plan.aim??loftStrike?.plan.aim??aim;
@@ -362,6 +365,11 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
      const connection=!shot&&!clear&&target&&!takingRestart?readDelivery(p,target,intendedAim,players,groundStrike?.plan.risk??loftStrike?.plan.risk??0,laneRisk,groundStrike?.plan.flight??loftStrike?.plan.flight??0,{support,time}):undefined;
      passContinuation=connection?.continuation?{from:p.id,to:target!.id,...connection.continuation,until:time+Math.min(3.5,(groundStrike?.plan.flight??loftStrike?.plan.flight??0)+1.2)}:undefined;
      if(shot)resetClock(p.side);releaseFrom={x:strikeFrom.x,y:strikeFrom.y};
+     if(shot&&probeKeeper){// ACCURACY PROBE: the keeper's edge for this shot: set at the strike, and the shot hurried
+      const k=probeKeeper,ready=keeperReadyPosition(k,ball,false),face=(Math.cos(k.angle)*(ball.x-k.x)+Math.sin(k.angle)*(ball.y-k.y))/Math.max(.01,dist(k,ball));
+      const set=clamp(1-Math.hypot(k.vx,k.vy)/3,0,1)*clamp(face+.2,0,1)*clamp(1-dist(k,ready)/1.5,0,1);
+      setKeeperEdge(k.id,set,probeHurry,k.skills.keeping);
+     }
      releaseBy=p.id;releaseAt=time;dispossessed={id:p.id,at:time};intended=target?.id??'';lastTouch=p.id;prepared=null;reception=null;flight={hunters:[],meetings:{},coverer:''};assignmentAt=0;if(mustRelease)restartKicker=p.id;mustRelease=false;intercepts.clear();
      bookFor(p.side)?.released(time,p,o);coaching?.release(time,p,o);
      say(shot?'shot':clear?'clearance':'pass',shot?o.freeKick?`${p.name} execută direct lovitura liberă!`:`${p.name} încearcă poarta!`:clear?`${p.name} îndepărtează mingea din zona periculoasă!`:loftStrike?`${p.name} ${loftStrike.plan.kind==='chip'?'strecoară o pasă săltată':'ridică mingea peste linie'} pentru ${target!.name}${o.run?', care atacă spațiul':''}.`:o.delivery?.kind==='cutback'?`${p.name} întoarce mingea din lateral pentru ${target!.name}.`:o.delivery?.kind==='square'?`${p.name} trimite în fața porții pentru ${target!.name}.`:o.kind==='through'?`${p.name} trimite în spațiu pentru ${target!.name}.`:`${p.name} pasează către ${target!.name}.`,p,target??undefined);
@@ -475,13 +483,17 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    const read=keeperRead(p,ball,time),lead=tracking?read.lead:0;
    const seen=tracking&&!owner&&ball.mode==='pass'?{...ball,x:ball.x+ball.vx*lead,y:ball.y+ball.vy*lead}:ball;
    if(tracking)refresh=read.reread;
-   const set=keeperReadyPosition(p,seen,!ownTeam&&!!owner),position=tracking?{x:set.x,y:clamp(set.y+read.offset,-GH+.18,GH-.18)}:set;kind='keeper';x=Math.max(.3,(ownTeam?X(7)+bd*.035:depth(p.side,position.x))+keeperSweepDepth(sweep,bd,ownTeam));y=ownTeam?clamp(ball.y*.15,-G(3.2),G(3.2)):position.y;speed=p.pace*(!ownTeam&&bd<X(23)?.9:.55);reason='Își potrivește poziția cu mingea și păstrează poarta acoperită.';
+   const oneOnOne=PROBE_ON&&!ownTeam&&!!owner&&!sidePlayers(p.side).some(q=>q.role!=='GK'&&depth(p.side,q.x)<depth(p.side,owner.x)-.5&&Math.abs(q.y-owner.y*(depth(p.side,q.x)/Math.max(.5,depth(p.side,owner.x))))<GH+1);// ACCURACY PROBE: nobody goal-side of the carrier
+   const set=keeperReadyPosition(p,seen,!ownTeam&&!!owner,oneOnOne),position=tracking?{x:set.x,y:clamp(set.y+read.offset,-GH+.18,GH-.18)}:set;kind='keeper';x=Math.max(.3,(ownTeam?X(7)+bd*.035:depth(p.side,position.x))+keeperSweepDepth(sweep,bd,ownTeam));y=ownTeam?clamp(ball.y*.15,-G(3.2),G(3.2)):position.y;speed=p.pace*(!ownTeam&&bd<X(23)?.9:.55);reason='Își potrivește poziția cu mingea și păstrează poarta acoperită.';
    // Behaviour round A: defending, he plays off his back line (keeperLineDepth),
    // and comes for a ball as far beyond where he usually stands as he now stands.
    let higher=0,lastLine=Infinity;
    if(tracking){const usual=x;lastLine=Math.min(...sidePlayers(p.side).filter(q=>q.role!=='GK').map(q=>depth(p.side,q.x)));x=Math.max(x,keeperLineDepth(sweep,lastLine,bd));higher=x-usual;
     // Caught off his line as the ball comes into range: he sprints back to set himself.
-    if(depth(p.side,p.x)>x+1.5)speed=p.pace*.9;}
+    if(depth(p.side,p.x)>x+1.5)speed=p.pace*.9;
+    // ACCURACY PROBE: he sees the shooter shape to shoot and sets himself for the strike (plants where he is when he
+    // is near his spot), earlier the better he reads it.
+    if(PROBE_ON&&!ownTeam&&owner&&owner.side!==p.side&&prepared&&prepared.option.kind==='shoot'&&time>=prepared.at-(.15+p.skills.reading*.03)&&Math.hypot(depth(p.side,p.x)-x,p.y-y)<1.3){x=depth(p.side,p.x);y=p.y;speed=p.pace*.3;}}
    // B3 (answering the long ball): a pass the defence reads being met behind
    // his last outfielder. The defence's own forecast of the flight (who meets
    // it first, when, where) is this tick's; the keeper reads it from there.
@@ -612,6 +624,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
  // unless a side is in an attack, which plays out for at most LAST_ATTACK_MAX.
  const regular=Math.round(duration/STEP),lastView=()=>({restart,side,ball});
  for(let tick=1;;tick++){
+  if(ball.mode!=='shot')clearKeeperEdge();// ACCURACY PROBE
   if(tick>regular){
    if(!lastAttack){if(!options.lastAttack||!attackAtFullTime(lastView()))break;lastAttack={side,shot:false};}
    if(ball.mode==='shot')lastAttack.shot=true;
@@ -883,7 +896,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
     const mates=!!read&&p.side===side&&ball.mode!=='shot';
     if(mates&&kind!=='receive'&&kind!=='intercept'){aim=read!.aim;limit=p.pace;kind='receive';reason='Mingea vine de la un coleg; se așază în calea ei ca s-o preia.';trackingVelocity=undefined;}
     const incoming=mates?null:read;
-    if(incoming&&!(kind==='sweep'&&ball.mode!=='shot')&&time-releaseAt>.2+(10-p.skills.reading)*.015){
+    if(incoming&&!(kind==='sweep'&&ball.mode!=='shot')&&time-releaseAt>.2+(10-p.skills.reading)*.015-keeperEdgeFor(p).reactionCut){
      aim=incoming.aim;limit=p.pace;kind='keeper';reason='Mingea vine spre poartă; citește traiectoria și încearcă s-o oprească.';trackingVelocity=undefined;
      const previous=dives.get(p.id);
      if(previous&&time<previous.until)previous.aim=aim;
