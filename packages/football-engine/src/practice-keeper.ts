@@ -3,8 +3,7 @@ import {clamp} from './model.js';
 import {STEP} from './movement.js';
 import type {MovingBall,Vec} from './movement.js';
 import {advanceFlight,PASS_DRAG} from './practice-flight.js';
-import {keeperReach,NO_EDGE} from './practice-football.js';
-import type {KeeperEdge} from './practice-football.js';
+import {keeperReach} from './practice-football.js';
 import {acuity,perceive} from './practice-perception.js';
 import type {Reader} from './practice-perception.js';
 
@@ -15,23 +14,19 @@ export interface KeeperState extends Vec {
 }
 const ownDepth=(side:0|1,x:number)=>side===0?x:L-x;
 const worldX=(side:0|1,x:number)=>side===0?x:L-x;
-const reactionTime=(p:KeeperState,edge:KeeperEdge=NO_EDGE)=>.2+(10-clamp(p.skills.reading,0,10))*.015-edge.reactionCut;
+const reactionTime=(p:KeeperState)=>.2+(10-clamp(p.skills.reading,0,10))*.015;
 const unit=(x:number,y:number)=>{const d=Math.hypot(x,y)||1;return {x:x/d,y:y/d};};
 
-/** (keeper upgrade) How far out (m from his line) a carrier through on goal is met (keeperReadyPosition `oneOnOne`). */
-export const ONE_ON_ONE=14;
 /**
  * A movement target only. Anticipate a carrier's next short touch, bisect the two
  * post directions, and stay shallow for a wide ball. `closing` means an opponent
  * currently carries the ball; it allows a bounded advance against a close threat.
- * `oneOnOne` (keeper upgrade, 2026-10-13): that carrier is through, nobody goal-side of him, inside ONE_ON_ONE m; the
- * keeper comes off his line to close the angle, further the better his keeping (about 3.6-4.6 m from 6-12 m out).
  */
-export function keeperReadyPosition(p:Pick<KeeperState,'side'|'skills'>,ball:Vec&Partial<Pick<MovingBall,'vx'|'vy'|'owner'>>,closing=false,oneOnOne=false):Vec {
+export function keeperReadyPosition(p:Pick<KeeperState,'side'|'skills'>,ball:Vec&Partial<Pick<MovingBall,'vx'|'vy'|'owner'>>,closing=false):Vec {
  const lead=ball.owner ? .1+clamp(p.skills.reading/10,0,1)*.12 : 0;
  const bx=clamp(ownDepth(p.side,ball.x+(ball.vx??0)*lead),.1,L);
  const by=ball.y+(ball.vy??0)*lead;
- const advance=closing&&oneOnOne&&bx<ONE_ON_ONE?clamp(5.2-bx*.13+(clamp(p.skills.keeping,0,10)-6)*.12,1.6,4.6):closing&&bx<12?clamp(3.8-bx*.11,1.2,3.2):clamp(bx*.12,.65,2.8);
+ const advance=closing&&bx<12?clamp(3.8-bx*.11,1.2,3.2):clamp(bx*.12,.65,2.8);
  const depth=Math.max(.3,Math.min(advance,Math.max(.3,bx-1.25),2.1*bx/Math.max(1,Math.abs(by))));
  const upper=unit(-bx,GH-by),lower=unit(-bx,-GH-by);
  const direction=unit(upper.x+lower.x,upper.y+lower.y);
@@ -147,13 +142,13 @@ function travel(p:KeeperState,point:Vec,time:number):number {
  * instead of fixing the intercept to the keeper's current x. Callers still enforce
  * their reaction gate and move normally; `reachable` is a planning estimate only.
  */
-export function readKeeperFlight(p:KeeperState,ball:MovingBall,shotAge:number,edge:KeeperEdge=NO_EDGE):KeeperFlightRead|null {
+export function readKeeperFlight(p:KeeperState,ball:MovingBall,shotAge:number):KeeperFlightRead|null {
  if(ball.owner)return null;
  const goalX=worldX(p.side,0),dx=goalX-ball.x,speed=Math.hypot(ball.vx,ball.vy);
  if(dx*ball.vx<=0||Math.abs(ball.vx)<.1||speed<1)return null;
  const goalY=ball.y+dx*ball.vy/ball.vx;
  if(Math.abs(goalY)>GH+.4)return null;
- const remaining=Math.max(0,reactionTime(p,edge)-shotAge),state={...ball};
+ const remaining=Math.max(0,reactionTime(p)-shotAge),state={...ball};
  const candidates:{point:Vec;time:number;gap:number;reachable:boolean}[]=[];
  let goalTime=0,goalHeight=Infinity;
  // Five seconds covers slow threatening deliveries too. A stopped ball is not a shot.
@@ -168,7 +163,7 @@ export function readKeeperFlight(p:KeeperState,ball:MovingBall,shotAge:number,ed
   if(tick%4!==0||time<remaining||depth>BOX_DEPTH-.15||Math.abs(state.y)>BOX_HALF||state.z>2.3)continue;
   const point={x:state.x,y:state.y},available=Math.max(0,time-remaining);
   const afterReaction={...p,x:p.x+p.vx*remaining,y:p.y+p.vy*remaining};
-  const gap=Math.hypot(point.x-afterReaction.x,point.y-afterReaction.y)-travel(afterReaction,point,available)-keeperReach(p,shotAge+time,edge);
+  const gap=Math.hypot(point.x-afterReaction.x,point.y-afterReaction.y)-travel(afterReaction,point,available)-keeperReach(p,shotAge+time);
   candidates.push({point,time,gap,reachable:gap<=0});
  }
  if(!goalTime||goalHeight>HEIGHT+.2)return null;
@@ -183,8 +178,6 @@ export function readKeeperFlight(p:KeeperState,ball:MovingBall,shotAge:number,ed
 export interface KeeperContact {
  /** Actual separation at the already-confirmed swept hand collision. */
  gap:number;reach:number;shotAge:number;diving?:boolean;recovering?:boolean;
- /** The keeper's edge against this shot (practice-football keeperEdge): his shorter reaction. */
- edge?:KeeperEdge;
 }
 export interface KeeperHandling {
  catchChance:number;readiness:number;stretch:number;
@@ -206,7 +199,7 @@ export function keeperHandling(p:KeeperState,ball:MovingBall,contact:KeeperConta
  const stretch=clamp((Math.min(contact.gap,lateral)-.35)/Math.max(.3,contact.reach-.35),0,1);
  const facing=clamp((Math.cos(p.angle)*-incoming.x+Math.sin(p.angle)*-incoming.y+1)/2,0,1);
  const moving=clamp(Math.hypot(p.vx,p.vy)/Math.max(1,p.pace),0,1);
- const reacted=clamp(contact.shotAge/reactionTime(p,contact.edge),0,1);
+ const reacted=clamp(contact.shotAge/reactionTime(p),0,1);
  const readiness=clamp(1-moving*.3-(1-facing)*.25-(1-reacted)*.45-(contact.recovering?.4:0),0,1);
  const paceLoad=clamp((speed-9)/17,0,1),heightLoad=clamp((ball.z-1.25)/1.05,0,1);
  // Pace beats a keeper's hands at full stretch or off balance. A set keeper

@@ -36,7 +36,7 @@ import {play as deepPlay,armTreatment} from '../2026-10-12-deep-study/deep';
 export {armTreatment};
 
 const L=48;
-export function extra(R:any){
+function extra(R:any){
  const roster:{id:string;side:number;role:string}[]=R.players,frames:any[]=R.frames,events:any[]=R.events,choices:any[]=R.choices;
  const idx=new Map(roster.map((p,i)=>[p.id,i]));
  const sideOf=(id:any)=>id!=null&&idx.has(id)?roster[idx.get(id)!].side:-1;
