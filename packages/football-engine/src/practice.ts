@@ -86,6 +86,11 @@ export const KEEPER_INTO=1.5,KEEPER_INTO_W=1.5,KEEPER_INTO_FULL=.9,KEEPER_INTO_L
  * seconds would leave no time for a throw, so that look still fits inside them. (Every pressed release into the man
  * left in the first measurement came right at the end of the four seconds, chosen before the man stepped across.) */
 export const KEEPER_LAST=.6,KEEPER_SPARE=.4;
+/** Both reads (choosing his throw and the last look) take each man where the keeper sees him (his own picture,
+ * practice-perception) and where that man will be KEEPER_AHEAD s on at the speed he sees him moving, the worse of the
+ * two: a presser arriving at a sprint is in the throw's way by the time it leaves. (Round 2's one release into the man
+ * left was a loft chosen with the presser 1.9 m away and coming, 1.2 m at the release.) */
+export const KEEPER_AHEAD=.3;
 export type Duty='hold'|'support'|'run'|'show'|'width'|'press'|'jockey'|'challenge'|'block'|'track'|'cover'|'intercept'|'recover'|'carry'|'prepare'|'receive'|'feint'|'wrongfoot'|'keeper'|'dive'|'sweep'|'restart';
 export const dutyNames:Record<Duty,string>={hold:'Protejează spațiul',support:'Oferă o pasă',run:'Atacă spațiul',show:'Vine la picior',width:'Ține lățimea',press:'Închide purtătorul',jockey:'Îl ține în față',challenge:'Încearcă deposedarea',block:'Acoperă șutul',track:'Urmărește o cursă',cover:'Acoperă un coleg',intercept:'Atacă mingea',recover:'Revine în apărare',carry:'Conduce mingea',prepare:'Pregătește lovitura',receive:'Iese la primire',feint:'Încearcă o fentă',wrongfoot:'Își reface echilibrul',keeper:'Închide unghiul',dive:'Plonjează după minge',sweep:'Iese din poartă',restart:'Pregătește reluarea'};
 export interface PracticePlayer extends MovingPlayer {role:Role;skills:Skills;traits:Traits;energy:number;archetype:string;temperament:string;lane:number;basePace:number;duty:Duty}
@@ -229,7 +234,7 @@ export {duelChance} from './practice-challenge.js';
  * near him, to a team-mate with room, shorter throws a little better, none into a man next to him: throwIntoMan) less
  * what standing near an opponent costs. He moves only for a gain of KEEPER_GAIN; `look` is the team-mate of the best
  * throw from there. */
-export function keeperMove(p:PracticePlayer,mates:readonly Vec[],opponents:readonly Vec[]):{spot:Vec;look:Vec|null}{
+export function keeperMove(p:PracticePlayer,mates:readonly Vec[],opponents:readonly (Vec&{vx?:number;vy?:number})[]):{spot:Vec;look:Vec|null}{
  const now=depth(p.side,p.x),lo=Math.max(KEEPER_EDGE,Math.min(now,KEEPER_DEEP)),hi=BOX_DEPTH-KEEPER_EDGE,wide=BOX_HALF-KEEPER_EDGE;
  const lane=(from:Vec,to:Vec,over:boolean)=>{
   const dx=to.x-from.x,dy=to.y-from.y,len2=dx*dx+dy*dy||1;let clear=99;
@@ -260,12 +265,13 @@ export function keeperMove(p:PracticePlayer,mates:readonly Vec[],opponents:reado
 }
 /** (keeper with the ball in his hands) How far a throw from his hands towards `aim` goes into a man next to him, 0..1:
  * the nearest pass by an opponent over the stretch where he can still get to it (KEEPER_INTO_LEN m along the ground,
- * KEEPER_LOFT_LEN m for a lofted ball still low) from where it leaves him. */
-export function throwIntoMan(p:Vec,aim:Vec,men:readonly Vec[],lofted=false):number{
+ * KEEPER_LOFT_LEN m for a lofted ball still low) from where it leaves him, the man taken where he is and where he
+ * will be KEEPER_AHEAD s on (his velocity, when given), whichever is worse. */
+export function throwIntoMan(p:Vec,aim:Vec,men:readonly (Vec&{vx?:number;vy?:number})[],lofted=false):number{
  const u=unit(aim.x-p.x,aim.y-p.y),from={x:p.x+u.x*.65,y:p.y+u.y*.65};let worst=0;
  const len=lofted?KEEPER_LOFT_LEN:KEEPER_INTO_LEN,w=lofted?KEEPER_LOFT_W:KEEPER_INTO_W,full=lofted?KEEPER_LOFT_FULL:KEEPER_INTO_FULL;
- for(const q of men){const a=(q.x-from.x)*u.x+(q.y-from.y)*u.y;if(a<-.3||a>len)continue;
-  const across=Math.abs((q.x-from.x)*u.y-(q.y-from.y)*u.x);worst=Math.max(worst,clamp((w-across)/full,0,1));}
+ const into=(x:number,y:number)=>{const a=(x-from.x)*u.x+(y-from.y)*u.y;if(a<-.3||a>len)return 0;return clamp((w-Math.abs((x-from.x)*u.y-(y-from.y)*u.x))/full,0,1);};
+ for(const q of men)worst=Math.max(worst,into(q.x,q.y),into(q.x+(q.vx??0)*KEEPER_AHEAD,q.y+(q.vy??0)*KEEPER_AHEAD));
  return worst;
 }
 export function foulRestartFor(attacking:Side,spot:Vec):'penalty'|'freeKick'{const x=depth(attacking,spot.x);return x>=(L-BOX_DEPTH)&&x<=L&&Math.abs(spot.y)<=BOX_HALF?'penalty':'freeKick';}
@@ -708,6 +714,8 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
  // What each defender saw a moment ago (M3, coordinated policy): the picture
  // of attackers off the ball is read from here, a personal lag behind.
  const sightings=new Sightings();let sightingsLive=false;
+ // (keeper with the ball in his hands) an opponent as the keeper sees him: his own picture, a moment old for a poor reader
+ const keeperSees=(k:PracticePlayer,q:PracticePlayer)=>sightingsLive?sightings.at(q,time,sightLag(k,{energy:k.energy,inView:inView(k,lookingAt(k,ball),q),watching:0,at:q,time,salt:q.id})):q;
  // How hard each off-ball positional move is made (practice-intensity): his last read and his spot's motion.
  const intensities=new Map<string,{kind:Duty;defending:boolean;at:number;urgency:number;why:string}>(),spotDrift=new SpotDrift();
  const marks=new Map<string,string>();
@@ -1222,7 +1230,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
       available=available.filter(o=>o.kind==='pass'||o.kind==='through'||o.kind==='loft');
       if(!available.length){const q=sidePlayers(p.side).filter(q=>q.id!==p.id).sort((a,b)=>dist(a,p)-dist(b,p))[0];available.push({kind:'loft',target:q.id,aim:q,score:.1,reason:'Colegul e departe; caută o repunere lungă.'});}
       // not into a man next to him: round him, or over him from further away (throwIntoMan)
-      const men=sidePlayers(other(p.side)).filter(q=>q.role!=='GK'&&dist(q,p)<KEEPER_INTO_LEN+1);
+      const men=sidePlayers(other(p.side)).filter(q=>q.role!=='GK').map(q=>keeperSees(p,q)).filter(q=>dist(q,p)<KEEPER_INTO_LEN+1+Math.hypot(q.vx,q.vy)*KEEPER_AHEAD);
       if(men.length){
        const into=new Map(available.map(o=>[o,throwIntoMan(p,o.aim,men,o.kind==='loft')]));
        // while any throw clear of them is on he takes none into them (KEEPER_LAST); otherwise they cost (KEEPER_INTO)
@@ -1234,7 +1242,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
       const best=available.reduce((a,b)=>b.score>a.score?b:a),lead=Math.max(preparationTime(p,best.kind),Math.max(0,Math.abs(angleDiff(Math.atan2(best.aim.y-p.y,best.aim.x-p.x),p.angle))-.32)/KEEPER_TURN);
       if(time-receivedAt+lead+KEEPER_SPARE<KEEPER_HOLD){
        holdUntil=receivedAt+KEEPER_HOLD-lead-KEEPER_SPARE;
-       const move=keeperMove(p,sidePlayers(p.side).filter(q=>q.id!==p.id&&q.role!=='GK'),sidePlayers(other(p.side)).filter(q=>q.role!=='GK'));
+       const move=keeperMove(p,sidePlayers(p.side).filter(q=>q.id!==p.id&&q.role!=='GK'),sidePlayers(other(p.side)).filter(q=>q.role!=='GK').map(q=>keeperSees(p,q)));
        const moving=dist(move.spot,p)>.2;
        available.push({kind:'carry',aim:move.spot,score:.38,reason:moving?'Se mută cu mingea în mâini, în careu, unde se deschide o repunere.':'Ține mingea în mâini și așteaptă să se deschidă o soluție de repunere.'});
        keeperLook=move.look;
@@ -1269,7 +1277,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
     }
     // (keeper with the ball in his hands) a last look: the man on him has stepped into the throw he set, so he holds it
     // and chooses again (once a spell, inside the four seconds)
-    if(inHands&&prepared&&!keeperRelook&&time>=prepared.at&&time-receivedAt<KEEPER_HOLD-STEP&&throwIntoMan(p,prepared.option.aim,sidePlayers(other(p.side)).filter(q=>q.role!=='GK'),prepared.option.kind==='loft')>=KEEPER_LAST){keeperRelook=true;prepared=null;nextThink=time;}
+    if(inHands&&prepared&&!keeperRelook&&time>=prepared.at&&time-receivedAt<KEEPER_HOLD-STEP&&throwIntoMan(p,prepared.option.aim,sidePlayers(other(p.side)).filter(q=>q.role!=='GK').map(q=>keeperSees(p,q)),prepared.option.kind==='loft')>=KEEPER_LAST){keeperRelook=true;prepared=null;nextThink=time;}
     if(prepared&&time>=prepared.at&&(restart||inHands?Math.abs(angleDiff(Math.atan2(prepared.option.aim.y-p.y,prepared.option.aim.x-p.x),p.angle))<.32:controlStrikeReady(p,ball,controlFor(p),prepared.option.aim,prepared.option.kind==='shoot'?'shot':prepared.option.kind==='clear'?'clearance':'pass'))&&(!restart||restartPlayersReady(restart,players,routineRelaxed(restart,time))&&(restart.kind==='throw'||controlReleaseAvailable(p,ball,prepared.option.aim)))){
      releaseOption(p,prepared.option);
     }

@@ -127,10 +127,10 @@ test('a defender never carries the ball toward the mouth of his own goal',()=>{
 // close but not stand on him (KEEPER_BODY), and the keeper does not stand rooted and then throw it into him: with a man
 // near him he moves with it inside his area, he releases within futsal's 4 seconds, and never along the ground or
 // otherwise straight to an opponent standing next to him. One seeded 300 s passage with both sides on an aggressive
-// press (seed 1: three in-hands spells, all with a man near him; evidence/2026-10-13-keeper-2). A man already on top
+// press (seed 2: four in-hands spells, three with a man near him; evidence/2026-10-13-keeper-2). A man already on top
 // of him at the catch backs out over about a second.
 test('a keeper holding the ball under a press moves with it, lets it go within 4 s, and never to the man next to him',()=>{
- const f=structuredClone(fixture);f.seed=1;for(const t of f.teams)t.tactics.press='aggressive';
+ const f=structuredClone(fixture);f.seed=2;for(const t of f.teams)t.tactics.press='aggressive';
  const r=runMatch({fixture:f,durationSeconds:300,policy:'coordinated'}).result;
  const pos=(fr,i)=>fr.lineup?fr.players[fr.lineup.indexOf(i)]:fr.players[i];
  const at=new Map(r.players.map((p,i)=>[p.id,i])),gk=new Set(r.players.filter(p=>p.role==='GK').map(p=>p.id));
