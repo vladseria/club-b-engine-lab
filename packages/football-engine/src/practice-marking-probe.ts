@@ -17,8 +17,10 @@ import type {Vec} from './movement.js';
 import type {FootballJob} from './practice-coordination.js';
 import {inView,lookingAt} from './practice-perception.js';
 
-export const MARKING_PROBE:{on:boolean;scale:number;react:boolean;cross:boolean;trace?:(o:any)=>void}={on:false,scale:1,react:true,cross:true};
-export function setMarkingProbe(on:boolean,scale=1,o:{react?:boolean;cross?:boolean}={}){MARKING_PROBE.on=on;MARKING_PROBE.scale=scale;MARKING_PROBE.react=o.react??true;MARKING_PROBE.cross=o.cross??true;}
+// 3. (arm D only) A late picture: `lag` s added to every defender's sight lag of attackers off the ball (the M3 read), on top of
+//    the 0.06-0.27 s he already has; going for the ball is not read through it.
+export const MARKING_PROBE:{on:boolean;scale:number;react:boolean;cross:boolean;lag:number;trace?:(o:any)=>void}={on:false,scale:1,react:true,cross:true,lag:0};
+export function setMarkingProbe(on:boolean,scale=1,o:{react?:boolean;cross?:boolean;lag?:number}={}){MARKING_PROBE.on=on;MARKING_PROBE.scale=scale;MARKING_PROBE.react=o.react??true;MARKING_PROBE.cross=o.cross??true;MARKING_PROBE.lag=o.lag??0;}
 export const CUT_TURN=40*Math.PI/180,CUT_TAU=.25,CUT_MIN=1.5,CUT_BURST=1.2,CUT_BURST_MIN=2.5,CUT_GAP=.4;
 export const REACT_BASE=.6,REACT_SKILL=.05,REACT_TIRED=.15,REACT_WATCH=.1,REACT_REST=.3;
 export const CROSS_R=2,CROSS_REL=1.5,CROSS_ERR=.04,CROSS_HOLD=.4,CROSS_HOLD_SKILL=.04,CROSS_COOL=1.5;

@@ -778,7 +778,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
     const seenBy=new Map<string,PracticePlayer>();
     const sight:Sight=(reader,target,before=0)=>{
      const key=reader.id+'>'+target.id+(before>0?'@'+before:'');let v=seenBy.get(key);
-     if(!v){v=sightings.at(target,time,sightLag(reader,{energy:reader.energy,inView:inView(reader,lookingAt(reader,ball),target),watching,at:target,time,salt:target.id})+Math.max(0,before));seenBy.set(key,v);}
+     if(!v){v=sightings.at(target,time,sightLag(reader,{energy:reader.energy,inView:inView(reader,lookingAt(reader,ball),target),watching,at:target,time,salt:target.id})+Math.max(0,before)+(markingProbe?MARKING_PROBE.lag:0));seenBy.set(key,v);}
      return v;
     };
     coordination=coordinateFootball(players,ball,side,[tacticsFor(0),tacticsFor(1)],laneRisk,
