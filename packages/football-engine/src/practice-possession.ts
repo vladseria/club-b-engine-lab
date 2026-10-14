@@ -15,13 +15,18 @@ const difference=(a:number,b:number)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
 type LaneRisk=(from:Vec,to:Vec,opponents:PracticePlayer[],speed?:number)=>number;
 export interface PossessionSafety {danger:number;pressure:number;urgency:number;contactTime:number;adventure:number}
 
+/** How near our own goal the ball is, as the carrier reads danger (0 from
+ * 22 m out, 1 inside 7 m and central). */
+export function ownGoalDanger(p:Vec&{side:number}):number{
+ return clamp((X(48)-(p.side===0?p.x:L-p.x))/X(32),0,1)*(.6+.4*clamp((Y(28)-Math.abs(p.y))/Y(22),0,1));
+}
 /** Cost of losing possession here, separate from the player's appetite for risk. */
 export function possessionSafety(p:PracticePlayer,players:PracticePlayer[]):PossessionSafety{
  const opponents=players.filter(q=>q.side!==p.side&&q.role!=='GK');
  const contactTime=Math.min(...opponents.map(q=>arrivalTime(q,p)));
  const near=Math.min(...opponents.map(q=>distance(q,p)));
  const pressure=Math.max(clamp((4-near)/4,0,1),clamp((1.2-contactTime)/1.2,0,1));
- const danger=clamp((X(48)-depth(p))/X(32),0,1)*(.6+.4*clamp((Y(28)-Math.abs(p.y))/Y(22),0,1));
+ const danger=ownGoalDanger(p);
  return {danger,pressure,urgency:danger*pressure,contactTime,adventure:p.traits.risk*.65+p.traits.dribble*.35};
 }
 
@@ -290,12 +295,24 @@ export function securePossessionOptions(p:PracticePlayer,players:PracticePlayer[
  // (step-across round) a keeper pressed at his feet may clear too (never for a corner): he had only passes, and played them into the press
  if(urgency<.16)return adjusted;
  const mates=players.filter(q=>q.side===p.side&&q.id!==p.id&&q.role!=='GK'),foes=players.filter(q=>q.side!==p.side);
+ // An in-play clearance is worth what it keeps: who reaches its landing first (s of margin, ours positive).
+ const margin=(aim:Vec)=>Math.min(...foes.map(q=>arrivalTime(q,aim)))-Math.min(...mates.map(q=>arrivalTime(q,aim)));
+ // (r1 mechanics) Up a channel he lands it where a team-mate gets there first,
+ // not on one fixed spot up the touchline whoever is near: of the landings up
+ // that flank he reads the one his side wins by the most (the touchline spot
+ // 20 m up stays the read when no landing is better).
+ const channel=(y:number)=>{
+  const spots=[20,12,16,24,28].flatMap(x=>[W/2-2.5,W/2-7].map(w=>({x:clamp(p.x+s*x,1,(L-1)),y:y*w})));
+  let best=spots[0],edge=margin(best);
+  for(const spot of spots.slice(1)){const m=margin(spot);if(m>edge+1e-9){best=spot;edge=m;}}
+  return best;
+ };
  const candidates:{aim:Vec;exit:ClearanceIntent}[]=[
   ...[-1,1].map(y=>({aim:{x:p.x+s*35,y:clamp(p.y+y*Y(15),-Y(30),Y(30))},exit:'long' as const})),
   ...[-1,1].flatMap(y=>[0,8].map(x=>({aim:{x:clamp(p.x+s*x,1,(L-1)),y:y*(W/2+4)},exit:'touchline' as const}))),
   ...(depth(p)<12&&p.role!=='GK'?[-1,1].map(y=>({aim:{x:p.side===0?-3:L+3,y:y*Math.max(Y(18),Math.abs(p.y))},exit:'corner' as const})):[]),
   // In play: up either touchline, or into the path of a team-mate further up.
-  ...[-1,1].map(y=>({aim:{x:clamp(p.x+s*20,1,(L-1)),y:y*(W/2-2.5)},exit:'channel' as const})),
+  ...[-1,1].map(y=>({aim:channel(y),exit:'channel' as const})),
   ...mates.filter(q=>depth(q)>depth(p)+6).map(q=>({aim:{x:clamp(q.x+q.vx*.8,1,(L-1)),y:clamp(q.y+q.vy*.8,-(W/2-1),(W/2-1))},exit:'mate' as const})),
  ];
  // Never clear across the face of his own goal: the ball may not pass nearer
@@ -310,7 +327,7 @@ export function securePossessionOptions(p:PracticePlayer,players:PracticePlayer[
   const cost=exit==='corner'?.22:exit==='touchline'?.1:0;
   // An in-play clearance is worth what it keeps: who reaches its landing first.
   const inPlay=exit==='channel'||exit==='mate';
-  const retention=inPlay?clamp((Math.min(...foes.map(q=>arrivalTime(q,aim)))-Math.min(...mates.map(q=>arrivalTime(q,aim))))/1.2,-1,1):0;
+  const retention=inPlay?clamp(margin(aim)/1.2,-1,1):0;
   const score=-.12+urgency*(1.15-adventure*.3)-blocked*.95-delay*.22-cost+retention*.14;
   adjusted.push({kind:'clear',aim,clearance:exit,score,reason:exit==='corner'?'Nu poate întoarce în siguranță; acceptă cornerul ca să îndepărteze pericolul.':exit==='touchline'?'Presiunea e prea aproape de poartă; caută tușa ca să oprească pericolul.':exit==='mate'?'Degajează din prima zonă, spre un coleg liber mai sus.':exit==='channel'?'Degajează pe lângă tușă, în teren, unde pot ajunge colegii.':'Nu riscă încă un duel lângă poartă; degajează departe de presiune.'});
  }

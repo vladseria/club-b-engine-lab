@@ -41,12 +41,19 @@ const buildUp=(width,carrier=0)=>{
  const players=practicePlayers(f);
  place(players,[[4,0],[12,-4],[12,4],[20,1],[30,0],[46,0],[38,-2],[32,-6],[33,4],[27,-3]]);
  const v=plan(players,players[carrier],f.teams.map(t=>t.tactics)),[a,b]=[players[1],players[2]];
- return {slots:v.shapes[0].slots[b.id].aim.y-v.shapes[0].slots[a.id].aim.y,jobs:Math.abs(v.jobs[a.id].aim.y)+Math.abs(v.jobs[b.id].aim.y)};
+ return {slots:v.shapes[0].slots[b.id].aim.y-v.shapes[0].slots[a.id].aim.y,jobs:Math.abs(v.jobs[a.id].aim.y)+Math.abs(v.jobs[b.id].aim.y),depths:[v.jobs[a.id].aim.x,v.jobs[b.id].aim.x]};
 };
 test('2-1-1: Width splits the centre-backs wider or keeps them closer in possession',()=>{
  const narrow=buildUp('narrow'),standard=buildUp('standard'),wide=buildUp('wide');
  assert(wide.slots>standard.slots+2&&standard.slots>narrow.slots+1.5,'the backs\' resting spread orders narrow < standard < wide');
- assert(wide.jobs>standard.jobs+2&&standard.jobs>narrow.jobs+2,'and so do their build-up offers to the keeper');
+ // (r1-shape v5, 2026-10-14) Re-expressed: the offers to the keeper are wider
+ // the wider the setting (wide > narrow by a clear margin), and neither back
+ // gets that width by standing beside the keeper on the goal line. The old
+ // narrow < standard < wide by 2 m each leaned on wide's second back at
+ // (4, 7), level with the keeper; standard now sits between in its resting
+ // spread (above) but its offers can tie with either end in this one scene.
+ assert(wide.jobs>narrow.jobs+4,`and so do their offers to the keeper (narrow ${narrow.jobs.toFixed(1)}, wide ${wide.jobs.toFixed(1)})`);
+ for(const r of [narrow,standard,wide])for(const x of r.depths)assert(x>4+3,`a back offers ahead of the keeper, not beside him on the line (${x.toFixed(1)})`);
  // With wingers, the wingers carry the setting: the back line is unchanged.
  const winged=width=>{const f=structuredClone(fixture);f.teams[0].tactics={...f.teams[0].tactics,formation:'2-2',width};
   const players=practicePlayers(f);place(players,[[4,0],[12,-4],[12,4],[26,-6],[26,6],[46,0],[38,-2],[32,-6],[33,4],[27,-3]]);

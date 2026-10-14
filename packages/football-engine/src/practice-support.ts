@@ -7,11 +7,14 @@ import {arrivalTime} from './practice-defense.js';
 import {runReleaseAllowance} from './practice-awareness.js';
 import type {ReleaseCue} from './practice-awareness.js';
 import type {ConnectionMovement} from './practice-connections.js';
-import {launchRisk} from './practice-possession.js';
+import {launchRisk,ownGoalDanger} from './practice-possession.js';
 import {assignBuildUp} from './practice-build-up.js';
 import type {TeamShape} from './practice-shape.js';
 import {strikeTurnTime} from './practice-striking.js';
 import {expectedPassFlight} from './practice-flight.js';
+import {passAdvance} from './practice-passing.js';
+import {LOSS_SCALE,LOSS_OWN,lossDanger} from './practice-rest-defence.js';
+import {goalShot} from './practice-threat.js';
 
 export type SupportPurpose='playbook'|'join'|'recovery-outlet'|'recycle'|'overlap'|'give-and-go'|'near-post'|'far-post'|'cutback'|'link'|'channel'|'build-up'|'counter-cover';
 export interface SupportMove {
@@ -85,10 +88,65 @@ export function readSupportLocation(p:PracticePlayer,aim:Vec,players:PracticePla
  // Space now is not necessarily time after the pass. The supporter must
  // reach it and the ball must travel there before he can use the opening.
  // This is a conservative read of reachable pressure, not future intentions.
- const delivery=Math.max(travel,.2+expectedPassFlight(gap));
- const closing=Math.min(...outfield.map(q=>arrivalTime(q,aim)));
- const releaseRoom=clamp((closing-delivery)/.8,0,1);
+ const releaseRoom=releaseRoomAt(p,aim,players,reference);
  return {gap,travel,room,risk,crowding,releaseRoom};
+}
+/** The time the man at `aim` has on the ball once he can use it (0-1): the
+ * first opponent's arrival there against his own arrival or the ball's. */
+export function releaseRoomAt(p:PracticePlayer,aim:Vec,players:readonly PracticePlayer[],reference:Vec):number{
+ const delivery=Math.max(arrivalTime(p,aim),.2+expectedPassFlight(distance(reference,aim)));
+ const closing=Math.min(...players.filter(q=>q.side!==p.side&&q.role!=='GK').map(q=>arrivalTime(q,aim)));
+ return clamp((closing-delivery)/.8,0,1);
+}
+
+/** r1-shape v5 (2026-10-14): what a ball lost at `at` gives the opponents,
+ * in goals. Further up it is lossDanger's authored price for that depth.
+ * Near our own goal it is the shot the man who wins it gets: from where he
+ * wins it or after one touch towards the middle of our goal (SHOT_STEP m
+ * towards the penalty spot), at goalShot's quality, as a share of the goals
+ * a loss on our own goal line is worth (LOSS_OWN), and the more of it the
+ * longer our nearest outfielder (other than `except`, the man who lost it)
+ * needs to get there (arrival time; half of it with one of ours on him at
+ * once, all of it from 1.6 s). So it rises as the loss point gets closer to
+ * our goal and more central in front of it; a ball won beside our post is
+ * one touch from a shot from the middle of the goal, one won in the corner
+ * is not. */
+export const SHOT_STEP=1.5,SHOT_COVER:readonly [number,number]=[.4,1.2];
+export function lossThreat(side:Side,at:Vec,players:readonly PracticePlayer[],except?:string):number{
+ const spot={x:world(side,SPOT),y:0},gap=distance(at,spot),f=gap>SHOT_STEP?SHOT_STEP/gap:1;
+ const step={x:at.x+(spot.x-at.x)*f,y:at.y+(spot.y-at.y)*f};
+ const shot=Math.max(goalShot(at,side),goalShot(step,side));
+ let close=Infinity;for(const q of players)if(q.side===side&&q.role!=='GK'&&q.id!==except)close=Math.min(close,arrivalTime(q,at));
+ const time=.5+.5*clamp((close-SHOT_COVER[0])/SHOT_COVER[1],0,1);
+ return Math.max(lossDanger(depth(side,at.x)/L,0),LOSS_OWN*shot*time);
+}
+/** r1-shape (2026-10-14; v5 the danger read): what a support spot is worth
+ * to the carrier, priced as he will price the pass there (practice-passing's
+ * ground pass):
+ *  - the ground it gains or gives up: passAdvance x his own weight for it
+ *    (.24 + risk x .15), as far as the lane is open, and as far as the ball
+ *    is near our own goal (ownGoalDanger, the carrier's own danger read:
+ *    there, getting it away from our goal is what the ground is worth;
+ *    further up, who stays behind the ball is Bodies forward's price);
+ *  - where a loss would leave us, against keeping the ball where it is
+ *    (lossThreat, LOSS_SCALE the passer's own loss scale): the lane lost at
+ *    its worst point, or the man there (`supporter`) losing it once he has
+ *    it (no time on it, or the ordinary RECEIVE_LOSS: about one ball in seven
+ *    received deep in our half under a press).
+ * A spot level with the ball is worth nothing either way. Before, support
+ * spots were read only for safety (lane, room, time), so near our own goal
+ * the safest spot won: on the goal line beside the keeper, nobody near it,
+ * from where the only next pass goes back across our own goal mouth. It is a
+ * price that competes with the spot's other reads, not a rule. */
+export const RECEIVE_LOSS=.15;
+export function supportWorth(carrier:PracticePlayer,aim:Vec,risk:number,releaseRoom:number,players:readonly PracticePlayer[],supporter?:string):number{
+ const side=carrier.side,r=clamp(risk,0,1),danger=ownGoalDanger(carrier);
+ const advance=passAdvance(carrier,carrier,aim)*(.24+carrier.traits.risk*.15)*(1-r)*danger;
+ const here=lossThreat(side,carrier,players,carrier.id),there=lossThreat(side,aim,players,supporter);
+ let lane=there;
+ if(r>0)for(const f of [.25,.5,.75])lane=Math.max(lane,lossThreat(side,{x:carrier.x+(aim.x-carrier.x)*f,y:carrier.y+(aim.y-carrier.y)*f},players,supporter));
+ const held=RECEIVE_LOSS+(1-RECEIVE_LOSS)*(1-clamp(releaseRoom,0,1));
+ return advance-LOSS_SCALE*(r*Math.max(0,lane-here)+(1-r)*held*(there-here));
 }
 
 /** Small escape angles around the pressure, not a second player at the ball.
@@ -96,12 +154,34 @@ export function readSupportLocation(p:PracticePlayer,aim:Vec,players:PracticePla
  * running continuously. The coach's explicit destinations remain separate.
  * `forward` adds close support on a forward diagonal (5 and 7 m ahead of the
  * ball, off its line): an angle between the lines for a side that combines,
- * still a support position, not a run. */
+ * still a support position, not a run.
+ *
+ * r1-shape v5: near our own goal the angles behind the ball run off the
+ * pitch; they used to be clamped onto our goal line, beside the
+ * keeper. Now an angle that would be off the pitch is not offered, and the
+ * angles the situation has instead are: level with the ball and wide of it,
+ * ahead of it, and the edge of the box and beyond (ownGoalSupportPoints).
+ * Which one he takes is the ordinary reads' and the carrier's worth. */
 export function shortSupportPoints(p:PracticePlayer,owner:PracticePlayer,forward=false):Vec[]{
- const s=owner.side===0?1:-1;
- const points=[{x:p.x,y:p.y},...[-9,-6,-3,0,3].flatMap(dx=>[-7,-5,0,5,7].map(dy=>inside({x:owner.x+s*dx,y:owner.y+dy})))];
+ const s=owner.side===0?1:-1,bd=depth(owner.side,owner.x),rows=[-9,-6,-3,0,3].filter(dx=>bd+dx>=.8);
+ const points=[{x:p.x,y:p.y},...rows.flatMap(dx=>[-7,-5,0,5,7].map(dy=>inside({x:owner.x+s*dx,y:owner.y+dy})))];
  if(forward)points.push(...[5,7].flatMap(dx=>[-7,-5,5,7].map(dy=>inside({x:owner.x+s*dx,y:owner.y+dy}))));
+ // only where angles behind the ball are lost: elsewhere a forward diagonal
+ // stays what Patient adds (b1-short-truthfulness)
+ if(rows.length<5)points.push(...ownGoalSupportPoints(p,owner));
  return points;
+}
+/** r1-shape v5: support spots near our own goal, from the situation: a step
+ * either way from where he is, level with the ball and wide of it, ahead of
+ * it, and the edge of our box and beyond across the width. */
+export function ownGoalSupportPoints(p:Vec,owner:Vec&{side:Side}):Vec[]{
+ const side=owner.side,bd=depth(side,owner.x),at=(d:number,y:number)=>inside({x:world(side,clamp(d,.8,L-.8)),y});
+ return [
+  at(depth(side,p.x)+3,p.y),at(depth(side,p.x)-3,p.y),
+  ...[-11,-8,-5,5,8,11].map(dy=>at(bd,owner.y+dy)),
+  ...[3,6,9].flatMap(dd=>[-8,-4,0,4,8].map(dy=>at(bd+dd,owner.y+dy))),
+  ...[BOX_DEPTH,BOX_DEPTH+4].flatMap(d=>[-10,-5,5,10].map(y=>at(d,y))),
+ ];
 }
 /** The same short return routes are considered before and after a pass. */
 export function returnRunPoints(p:PracticePlayer):Vec[]{

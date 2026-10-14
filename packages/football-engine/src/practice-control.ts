@@ -73,6 +73,15 @@ export function footCanReach(p:PracticePlayer,ball:Vec,side:ControlFoot):boolean
 function clearKick(p:PracticePlayer,ball:Vec,direction:Vec,length=.9):boolean{
  return contact(ball,{x:ball.x+direction.x*length,y:ball.y+direction.y*length},p,p,.31)===null;
 }
+/** (r1 mechanics) The struck ball against the passer's own moving torso, over
+ * the same 1.3 m of its path the static release check reads: his momentum
+ * carries on through the strike, so a ball released just beside a body that
+ * is stepping into its line meets that body (the flight's torso contact). */
+export function kickClearsMovingBody(p:PracticePlayer,ball:Vec,velocity:{vx:number;vy:number}):boolean{
+ const speed=Math.hypot(velocity.vx,velocity.vy);if(speed<.1)return true;
+ const window=1.3/speed;
+ return contact(ball,{x:ball.x+velocity.vx*window,y:ball.y+velocity.vy*window},p,{x:p.x+p.vx*window,y:p.y+p.vy*window},.31)===null;
+}
 
 /** Open the body to both the incoming ball and the intended exit. This can
  * begin while running to meet a pass, before it is within foot reach. */
@@ -365,6 +374,10 @@ export function strikeControl(p:PracticePlayer,ball:MovingBall,state:TouchContro
  const fitted=fitStrikeToStance(p,ball,aim,velocity,kind);
  // Error may redirect the ball, but may not kick through the player's torso.
  if(!controlReleaseAvailable(p,ball,{x:ball.x+fitted.vx,y:ball.y+fitted.vy}))return false;
+ // (r1 mechanics) nor into the body he is still carrying across its line: he
+ // sets himself (steerControl brakes while he is ready to strike) or opens up
+ // first, instead of striking a ball that meets his own torso a step later.
+ if(!kickClearsMovingBody(p,ball,fitted))return false;
  const foot=state.feet.find(f=>footCanReach(p,ball,f.side)&&distance(f,ball)<=.16)!;
  Object.assign(velocity,fitted);
  registerTouch(p,ball,state,foot,{x:velocity.vx,y:velocity.vy},kind,state.time,true);ball.vz=velocity.vz;

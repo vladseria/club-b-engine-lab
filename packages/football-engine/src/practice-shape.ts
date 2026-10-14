@@ -4,6 +4,7 @@ import type {Side,Tactics} from './model.js';
 import type {Vec,MovingBall} from './movement.js';
 import type {PracticePlayer,Duty} from './practice.js';
 import {acuity,perceive} from './practice-perception.js';
+import {arrivalTime} from './practice-defense.js';
 /** A defender's view of an attacker who is not on the ball (M3): the man as
  * this defender last saw him. Absent, reads are exact (scenes and tests). */
 /** What `reader` sees of `target` (his own picture, a moment late); `before` s earlier still, when asked (the track-runner read of a run setting off compares the two). */
@@ -199,12 +200,13 @@ export function teamShape(players:PracticePlayer[],ball:MovingBall,attacking:Sid
  }
  // M1: each back-line player keeps the Line's cushion to the deepest
  // threatening attacker, as he reads him: defending, the other side's deepest
- // man bar the carrier; in possession, their deepest forward (a counter
- // outlet), which is what holds our rest defence back.
+ // man bar the carrier; in possession, their deepest counter outlet (goal-
+ // side of our ball and not pressing it), which is what holds our rest
+ // defence back.
  const drops:Record<string,number>={},cushion=LINE_CUSHION[tactics.line];
  if(cushion!==null)for(const {p,x,kind} of base){
   if(p.role!=='CB'&&p.role!=='FB'||own&&kind!=='cover')continue;
-  const seen=lineThreat(p,players,side,owner?.id,time);
+  const seen=lineThreat(p,players,side,owner?.id,time,own?focus:undefined);
   const next=seen?Math.min(0,depth(side,seen.x)-cushion-x):0;
   const old=previous&&!changed?previous.drops?.[p.id]??0:next;
   drops[p.id]=toward(old,next,lineReaction(p,seen,next<old)*dt);
@@ -249,22 +251,36 @@ export const LINE_SPREAD=3,LINE_LEAD=.5,LINE_VIEW=100*Math.PI/180;
 export const LINE_SHAPE_CAP:Record<Tactics['line'],number>={deep:X(57),standard:Infinity,high:Infinity};
 export const LINE_BUILD_CAP:Record<Tactics['line'],number>={deep:X(56),standard:Infinity,high:Infinity};
 /** The highest this back will stand for the Line's cushion to the deepest
- * attacker he reads (m from his own goal; Infinity for high or nobody). */
-export function lineHeight(p:PracticePlayer,players:readonly PracticePlayer[],line:Tactics['line'],carrier?:string,time?:number):number{
+ * attacker he reads (m from his own goal; Infinity for high or nobody).
+ * `ball`: our ball, when we have it (see lineThreat). */
+export function lineHeight(p:PracticePlayer,players:readonly PracticePlayer[],line:Tactics['line'],carrier?:string,time?:number,ball?:Vec):number{
  const cushion=LINE_CUSHION[line];if(cushion===null)return Infinity;
- const seen=lineThreat(p,players,p.side,carrier,time);
+ const seen=lineThreat(p,players,p.side,carrier,time,ball);
  return seen?depth(p.side,seen.x)-cushion:Infinity;
 }
+/** How much an opponent is on our ball: the carrier's own pressure read
+ * (practice-possession possessionSafety: within 4 m, or there within 1.2 s),
+ * 0 when he is not. */
+export const onOurBall=(a:PracticePlayer,ball:Vec)=>Math.max(clamp((4-distance(a,ball))/4,0,1),clamp((1.2-arrivalTime(a,ball))/1.2,0,1));
 /** The deepest threatening attacker as this defender reads him: his read
- * position (depth along his own goal axis), or null when there is none. */
-export function lineThreat(p:PracticePlayer,players:readonly PracticePlayer[],side:Side,carrier:string|undefined,time?:number):(Vec&{id:string;behind:boolean})|null{
+ * position (depth along his own goal axis), or null when there is none.
+ * In possession (`ball`, r1-shape 2026-10-14) the threat the Line keeps
+ * cover for is a counter outlet: a man who would be free behind the ball if
+ * we lost it. A man goal-side of the ball who is pressing it is not one (he
+ * is the carrier's to play around; if he wins it, he is the ball, not a
+ * runner behind it), and nobody upfield of the ball is either. Before, one
+ * presser walking into our box held both backs on the goal line behind him
+ * while their own keeper had the ball. */
+export function lineThreat(p:PracticePlayer,players:readonly PracticePlayer[],side:Side,carrier:string|undefined,time?:number,ball?:Vec):(Vec&{id:string;behind:boolean})|null{
  let best:(Vec&{id:string;behind:boolean})|null=null,bestDepth=Infinity;
+ const bd=ball?depth(side,ball.x):Infinity;
  for(const a of players){
   if(a.side===side||a.role==='GK'||a.id===carrier)continue;
+  if(ball&&onOurBall(a,ball)>0)continue;
   const towards=side===0?-a.vx:a.vx;
   const lead=depth(side,a.x)-Math.max(0,towards)*LINE_LEAD;
   const seen=perceive(p,'threat',lead,LINE_SPREAD,a,{time,salt:`line${a.id}`});
-  if(seen>=bestDepth)continue;
+  if(seen>=bestDepth||seen>=bd)continue;
   const bearing=Math.atan2(a.y-p.y,a.x-p.x),off=Math.abs(Math.atan2(Math.sin(bearing-p.angle),Math.cos(bearing-p.angle)));
   bestDepth=seen;best={x:side===0?seen:L-seen,y:a.y,id:a.id,behind:off>LINE_VIEW&&Math.hypot(a.vx,a.vy)>=2.5};
  }

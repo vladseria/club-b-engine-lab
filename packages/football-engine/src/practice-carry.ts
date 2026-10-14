@@ -6,7 +6,8 @@ import type {Vec} from './movement.js';
 import type {PracticePlayer} from './practice.js';
 import {goalAngle} from './practice-football.js';
 import {chooseAction} from './practice-selection.js';
-import {turnoverPrice,deliveryLossWeight} from './practice-rest-defence.js';
+import {turnoverPrice,deliveryLossWeight,LOSS_SCALE} from './practice-rest-defence.js';
+import {arrivalTime} from './practice-defense.js';
 import {duelChance} from './practice-challenge.js';
 import {perceive,daring} from './practice-perception.js';
 import {KEEPER_HOME} from './practice-keeper.js';
@@ -59,6 +60,45 @@ export function carryLossRead(p:PracticePlayer,players:PracticePlayer[],contactR
  const read=perceive(p,'carry',odds*nature,BEAT_SPREAD*odds,p,{salt:'beat'+d.id});
  return contactRisk*clamp(read,.03,.97);
 }
+/** R1, the keeper with the ball at his feet (2026-10-14). If he loses it, he
+ * has lost it in front of the goal he has walked away from: the danger, in
+ * goals, beyond what any loss there costs (turnoverPrice prices a loss with a
+ * keeper behind it). The man who wins it at `at` needs about NET_SET to set
+ * himself and the ball NET_SPEED m/s to the goal; the keeper needs NET_REACT
+ * to turn and his own pace to get back to where he covers it from, a metre
+ * off his line. How much of the goal is open is how far he is still short
+ * when the ball would arrive (fully open a second short), an empty net is
+ * finished most of the time and less from far away, and a team-mate who gets
+ * back to the mouth first covers about half of it. Nothing here is a
+ * distance limit: a step to the side of his goal leaves nothing open, the
+ * touchline 15 m out leaves all of it. Where the men are, not where the rules
+ * say he may go. */
+export const NET_SET=.45,NET_SPEED=16,NET_REACT=.25,NET_COVERED=.45;
+export function emptyNetDanger(p:PracticePlayer,players:readonly PracticePlayer[],at:Vec):number{
+ const goal={x:p.side===0?0:L,y:0},guard={x:p.side===0?1:L-1,y:0};
+ const shot=NET_SET+distance(at,goal)/NET_SPEED,back=NET_REACT+Math.max(0,distance(at,guard)-.5)/(p.pace*.94);
+ const open=clamp(back-shot,0,1);if(open<=0)return 0;
+ const finish=clamp(1-distance(at,goal)/60,.4,.95);
+ const covered=players.some(q=>q.side===p.side&&q.role!=='GK'&&arrivalTime(q,guard)<shot);
+ return open*finish*(covered?NET_COVERED:1);
+}
+/** How much of that danger he feels, by his habit (keeperSweep): a keeper who
+ * stays at home feels the empty net behind him (NET_HOME at trait 0), a
+ * sweeper keeper is at ease out of his goal and accepts the risk (NET_SWEEPER
+ * at 1). It weighs what is at stake; it never forbids a carry. */
+export const NET_HOME=1.5,NET_SWEEPER=.3;
+export const keeperNetWeight=(p:{traits:{keeperSweep?:number}})=>NET_HOME+(NET_SWEEPER-NET_HOME)*clamp(p.traits.keeperSweep??.2,0,1);
+/** Keeping the ball away from his goal (what a route's tackle read does not
+ * see): the chance the ball is lost while he is out there with it. The
+ * ball he plays on from there is lost about one time in eight whoever is
+ * near (NET_NEXT: an interception, a heavy touch; a real side completes
+ * 80-90% of its passes); a man who can close him there within NET_HOLD
+ * seconds adds up to a contested carry's share (CARRY_LOSS). */
+export const NET_HOLD=3,NET_NEXT=.12;
+export function keeperCaught(p:PracticePlayer,players:readonly PracticePlayer[],aim:Vec):number{
+ const reach=Math.min(Infinity,...players.filter(q=>q.side!==p.side&&q.role!=='GK').map(q=>arrivalTime(q,aim)));
+ return NET_NEXT+CARRY_LOSS*clamp((NET_HOLD-reach)/NET_HOLD,0,1);
+}
 /** Confidence is a willingness to attempt the duel, never its eventual result. */
 export const dribbleConfidence=(p:PracticePlayer)=>clamp(p.traits.dribble*.45+p.traits.risk*.35+clamp(p.skills.control/10,0,1)*.2,0,1);
 
@@ -100,6 +140,20 @@ const reasons:Record<CarryPurpose,string>={
  protect:'Protejează mingea și caută sprijin pentru continuare.',
 };
 
+/** (R1) The words say where he is actually going: an advance that goes more
+ * sideways than forward is a carry across, not an attack on the goal, and a
+ * keeper's carry is told as a keeper's. The choice itself is unchanged. */
+function carryReason(p:PracticePlayer,aim:Vec,purpose:CarryPurpose):string{
+ const forward=(p.side===0?1:-1)*(aim.x-p.x),across=Math.abs(aim.y-p.y),wide=Math.abs(aim.y)>Math.abs(p.y)+.5;
+ const way=wide?'spre margine':'spre centru';
+ if(p.role==='GK'){
+  if(forward>across)return purpose==='escape'?'Iese din presiune cu mingea, în fața porții lui.':'Iese cu mingea din poartă; are loc în față.';
+  if(forward< -across*.5)return 'Se întoarce cu mingea spre poarta lui.';
+  return `Se mută cu mingea ${way}${purpose==='escape'?', departe de adversarul care vine':''}, căutând o pasă.`;
+ }
+ if(purpose==='advance'&&forward<across)return `Duce mingea ${way}, câștigând puțin teren.`;
+ return reasons[purpose];
+}
 export function carryOptions(p:PracticePlayer,players:PracticePlayer[],held:number,risk:Risk,plan:CarryPlan|null=null,time=0,extraAims:Vec[]=[]):CarryOption[]{
  const opponents=players.filter(q=>q.side!==p.side&&q.role!=='GK'),s=p.side===0?1:-1;
  const near=nearest(p,opponents),pressure=clamp((5-near)/5,0,1),beforeShot=shotPotential(p,p),beforePass=passingOutlet(p,p,players,risk);
@@ -108,7 +162,10 @@ export function carryOptions(p:PracticePlayer,players:PracticePlayer[],held:numb
  // the pass's): the same authored price, as this carrier reads it, where he
  // carries it from. The flat obstruction and contact terms below remain the
  // carry's everyday cost, as the pass's base loss term is.
- const lossCost=p.role==='GK'?0:turnoverPrice(p,players,p);
+ // (R1 keeper) a keeper's carry pays the same price; beyond it, the goal he leaves behind him (emptyNetDanger),
+ // as much as his habit makes him feel it (keeperNetWeight), per route: where he carries it to
+ const keeper=p.role==='GK',baseLoss=turnoverPrice(p,players,p),netWeight=keeper?keeperNetWeight(p)*LOSS_SCALE:0;
+ const netHere=keeper?emptyNetDanger(p,players,p):0;
  const candidates=[...[[7,0],[5,-5],[5,5],[0,-6],[0,6],[-4,-4],[-4,4]].map(([dx,dy])=>({aim:bound({x:p.x+s*dx,y:p.y+dy}),continuing:false})),
   {aim:bound({x:p.x+(goalX-p.x)/Math.max(1,beforeGoal)*7,y:p.y-p.y/Math.max(1,beforeGoal)*7}),continuing:false},
   ...extraAims.map(aim=>({aim:bound(aim),continuing:false}))];
@@ -128,8 +185,12 @@ export function carryOptions(p:PracticePlayer,players:PracticePlayer[],held:numb
   const clearance=nearest(aim,opponents),escapeGain=pressure*clamp((clearance-near)/5,0,1);
   const obstruction=risk(p,aim,opponents,p.pace*.68),{opponent,...local}=readDribbleRoute(p,aim,players),confidence=dribbleConfidence(p);
   // (B2) his read of being tackled by the man he meets, priced as a lost pass is (deliveryLossWeight);
-  // a keeper's carry keeps its old flat contact cost (his loss price is not read: lossCost 0)
-  const beaten=p.role==='GK'?0:carryLossRead(p,players,local.contactRisk,opponent);
+  // (R1 keeper) a keeper's too: losing it on the way costs him what it costs anyone, plus the open goal there
+  const beaten=carryLossRead(p,players,local.contactRisk,opponent);
+  const netThere=keeper?emptyNetDanger(p,players,aim):0,lossCost=baseLoss+netWeight*netThere;
+  // (R1 keeper) and while he keeps it out there (on the way and at its end), the goal he has left: what is open
+  // along the route, by the chance it is lost before he has moved it on. A pass ends it; a carry never earns it back.
+  const leaving=keeper?netWeight*(netHere+netThere)/2*keeperCaught(p,players,aim):0;
   const alignment=speed>.2?clamp(((aim.x-p.x)*p.vx+(aim.y-p.y)*p.vy)/(length*speed),-1,1):1;
   // Changing a running vector costs time; pace does not grant instant direction changes.
   const turnCost=clamp(speed*Math.sqrt(Math.max(0,2-2*alignment))/Math.max(1,p.acceleration)/2,0,1);
@@ -142,12 +203,12 @@ export function carryOptions(p:PracticePlayer,players:PracticePlayer[],held:numb
   // the same approaching defender until they were already in the next duel.
   // (B2) an escape is worth what it is if he gets out: a route on which he reads he is tackled escapes nothing
   const score=.19+clamp(clearance/6,0,1)*.06+progress*(.14+p.traits.runs*.035)+Math.max(0,shotGain)*.22+passGain*.32+escapeGain*.16*(1-beaten)
-   -obstruction*(.18-confidence*.07)-(p.role==='GK'?local.contactRisk*(.2-confidence*.08):beaten*deliveryLossWeight(p,lossCost))-Math.max(0,local.nearbyChallenges-1)*(.1-confidence*.025)
+   -obstruction*(.18-confidence*.07)-beaten*deliveryLossWeight(p,lossCost)-Math.max(0,local.nearbyChallenges-1)*(.1-confidence*.025)
    +opening.gain*(.08+confidence*.1)*clamp(1-local.contactRisk,0,1)+Math.max(0,progress)*confidence*.045-turnCost*.07-pressure*.06-held*.003
-   -local.endPressure*(.16-confidence*.08)-CARRY_LOSS*obstruction*(1-confidence*.4)*lossCost;
+   -local.endPressure*(.16-confidence*.08)-CARRY_LOSS*obstruction*(1-confidence*.4)*lossCost-leaving;
   const passTarget=opening.gain*.65>outlet.value-beforePass.value?opening.target:outlet.target;
   const recipient=purpose==='passing-lane'?players.find(q=>q.id===passTarget):undefined;
-  const reason=opening.gain>.15&&recipient?`Adversarul vine spre el; schimbă unghiul pentru a deschide pasa către ${recipient.name}.`:recipient?`${Math.abs(aim.y)>Math.abs(p.y)+1?'Se deschide spre margine':'Schimbă unghiul cu mingea'} ca să deschidă pasa către ${recipient.name}.`:reasons[purpose];
+  const reason=opening.gain>.15&&recipient?`Adversarul vine spre el; schimbă unghiul pentru a deschide pasa către ${recipient.name}.`:recipient?`${Math.abs(aim.y)>Math.abs(p.y)+1?'Se deschide spre margine':'Schimbă unghiul cu mingea'} ca să deschidă pasa către ${recipient.name}.`:carryReason(p,aim,purpose);
   options.push({kind:'carry',aim,score,reason,continuing,
    carry:{purpose,goalGain,shotGain,passGain,escapeGain,obstruction,clearance,turnCost,...local,openingGain:opening.gain,passTarget:passGain>.08?passTarget:undefined,beaten}});
  }
@@ -174,11 +235,20 @@ export function viableOptions<T extends FootballOption>(options:T[],plan:CarryPl
   });
   return !dominated&&o.score>=bestCarry-.035;
  });
- const best=Math.max(...routed.map(o=>o.score));
- return routed.filter(o=>o.score>=best-.085);
+ // (r1 mechanics) Holding a route keeps him on it rather than switching to a
+ // marginally better one; it does not make carrying worth less. The held
+ // route stands for carrying at the best route's value, so the cut-off for a
+ // pass, a clearance or a shot is still set by the carry he actually has.
+ const best=Math.max(...routed.map(o=>o.score),holding?bestCarry:-Infinity);
+ return routed.filter(o=>(holding&&o===continuation)||o.score>=best-.085);
 }
 export function chooseFootballOption<T extends FootballOption>(options:T[],random:()=>number,plan:CarryPlan|null=null,time=0):T{
- return chooseAction(viableOptions(options,plan,time),random);
+ const viable=viableOptions(options,plan,time);
+ // The held route enters the draw at the value of carrying (see viableOptions).
+ const held=viable.find(o=>o.carry&&o.continuing),bestCarry=Math.max(-Infinity,...options.filter(o=>o.carry).map(o=>o.score));
+ if(!held||viable.some(o=>o.carry&&o!==held)||bestCarry<=held.score)return chooseAction(viable,random);
+ const standIn={...held,score:bestCarry},pick=chooseAction(viable.map(o=>o===held?standIn:o),random);
+ return pick===standIn?held:pick;
 }
 export function commitCarry(p:PracticePlayer,option:CarryOption,time:number,previous:CarryPlan|null):CarryPlan{
  if(option.continuing&&previous)return previous;

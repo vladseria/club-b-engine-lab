@@ -6,7 +6,12 @@ import type {PracticePlayer} from './practice.js';
 import type {SupportContext,SupportMove,SupportPlan} from './practice-support.js';
 import {arrivalTime} from './practice-defense.js';
 import {launchRisk} from './practice-possession.js';
-import {buildUpSpread,lineHeight,LINE_BUILD_CAP} from './practice-shape.js';
+import {buildUpSpread,lineHeight,LINE_BUILD_CAP,onOurBall} from './practice-shape.js';
+import {ownGoalDanger} from './practice-possession.js';
+import {LOSS_SCALE} from './practice-rest-defence.js';
+import {supportWorth,releaseRoomAt,lossThreat,ownGoalSupportPoints,RECEIVE_LOSS} from './practice-support.js';
+/** r1-shape v5: how much of the cover price each Line keeps in possession near our goal. */
+export const LINE_CAUTION:Record<Tactics['line'],number>={deep:1.3,standard:1,high:.75};
 
 type LaneRisk=(from:Vec,to:Vec,defenders:PracticePlayer[],speed?:number)=>number;
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
@@ -27,9 +32,11 @@ export function assignBuildUp(players:PracticePlayer[],receiver:PracticePlayer,t
  // licence to send a centre-back beyond the ball.
  // M1: Line in possession. A deep line keeps its old cap (or 11 m behind the
  // ball); standard and high support from behind the ball. Each back also
- // keeps the Line's cushion to the opponents' deepest forward as he reads him
- // (deep 2 m goal-side, standard level; high leaves him to the counter-cover).
- const ceilingFor=(p:PracticePlayer)=>Math.min(Math.max(LINE_BUILD_CAP[tactics.line],bd-11),lineHeight(p,players,tactics.line,undefined,context.time));
+ // keeps the Line's cushion to the opponents' deepest counter outlet as he
+ // reads him (deep 2 m goal-side, standard level; high leaves him to the
+ // counter-cover). A man pressing our ball is not one (lineThreat, r1-shape):
+ // the backs play around him instead of standing behind him.
+ const ceilingFor=(p:PracticePlayer)=>Math.min(Math.max(LINE_BUILD_CAP[tactics.line],bd-11),lineHeight(p,players,tactics.line,owner.id,context.time,owner));
  const goalkeeper=owner.role==='GK',centreBack=owner.role==='CB';
  const connectedFor=(ceiling:number)=>goalkeeper?clamp(bd+X(12),X(12),X(27)):centreBack?clamp(bd-3,5,ceiling):clamp(bd-X(16)+(tactics.commit-3),X(6),ceiling);
  // A player chasing the carrier from behind is not automatically an unmarked
@@ -56,6 +63,27 @@ export function assignBuildUp(players:PracticePlayer[],receiver:PracticePlayer,t
  // used, already carries it.
  const spread=buildUpSpread(players,side,tactics.width).backs;
  // Resolve the deeper cover first, then create a different angle for the others.
+ // (r1-shape v5) Near our own goal (ownGoalDanger, the carrier's own read)
+ // the fixed connection depths fade out (`anchor`): a back's height there
+ // comes from what the pass to him is worth and from the cover the team
+ // needs if the ball is lost. Cover: the balance back keeps himself between
+ // a ball lost where it is and our goal (goal-side of the ball, near its
+ // line to our goal), priced at what that loss would give them (lossThreat)
+ // x the chance the carrier loses it (RECEIVE_LOSS, more as he is pressed)
+ // x how cautious the Line is (deep keeps more of it, high less). With the
+ // keeper on the ball nobody can be goal-side of it, so it prices nothing:
+ // both backs split and offer.
+ const near=ownGoalDanger(owner),anchor=1-near;
+ const pressed=Math.max(0,...outfield.map(q=>onOurBall(q,owner)));
+ const lossHere=near>0?lossThreat(side,owner,players,owner.id):0,coverPrice=LOSS_SCALE*lossHere*(RECEIVE_LOSS+(1-RECEIVE_LOSS)*pressed)*LINE_CAUTION[tactics.line]*near;
+ const goal={x:world(side,0),y:0};
+ const coverCost=(aim:Vec)=>{
+  if(!coverPrice)return 0;
+  const behind=clamp((bd-depth(side,aim.x))/2,0,1);
+  const vx=goal.x-owner.x,vy=goal.y-owner.y,len=Math.hypot(vx,vy)||1,t=clamp(((aim.x-owner.x)*vx+(aim.y-owner.y)*vy)/(len*len),0,1);
+  const off=Math.hypot(owner.x+vx*t-aim.x,owner.y+vy*t-aim.y);
+  return coverPrice*(1-behind*clamp(1-off/5,0,1));
+ };
  const ordered=backs.slice().sort((a,b)=>Number(b.id===balance.id||assigned.has(b.id))-Number(a.id===balance.id||assigned.has(a.id))||a.id.localeCompare(b.id));
  for(const p of ordered){
   const threat=assigned.get(p.id),cover=p.id===balance.id||!!threat;
@@ -70,9 +98,19 @@ export function assignBuildUp(players:PracticePlayer[],receiver:PracticePlayer,t
   const nominalY=clamp(slot?.aim.y??p.lane*(goalkeeper?Y(15):Y(11))*spread+owner.y*.22,-Y(22),Y(22));
   const depthLimit=Math.min(maximum,threat?Math.max(3,Math.min(ceiling,depth(side,threat.x)-.8)):ceiling);
   const candidates:Vec[]=[];
-  for(const dx of [0,-3,3])for(const dy of [0,-5,5]){
-   const x=clamp(desiredDepth+dx,3,depthLimit);
+  // (r1-shape) ... and the angle level with the play (as high as this back
+  // may go), so what the spot is worth to the carrier can choose it.
+  for(const x0 of [desiredDepth,desiredDepth-3,desiredDepth+3,depthLimit])for(const dy of [0,-5,5]){
+   const x=clamp(x0,3,depthLimit);
    candidates.push(inside({x:world(side,x),y:nominalY+dy}));
+  }
+  // (r1-shape v5) Near our own goal the spots also come from the situation
+  // (around him, level with and wide of the ball, ahead of it, the edge of
+  // the box and beyond), within how high this back may go; the fixed
+  // connection depth above fades out there (`anchor`), and what each spot is
+  // worth to the carrier, and the cover it keeps, choose.
+  if(near>0)for(const v of ownGoalSupportPoints(p,owner)){
+   const d=depth(side,v.x);if(d<=depthLimit+.01)candidates.push(v);
   }
   const prior=old.find(m=>m.player===p.id&&m.until>context.time&&depth(side,m.aim.x)<=depthLimit&&distance(m.aim,{x:world(side,desiredDepth),y:nominalY})<8);
   if(prior)candidates.unshift(prior.aim);
@@ -82,8 +120,11 @@ export function assignBuildUp(players:PracticePlayer[],receiver:PracticePlayer,t
    const occupied=Math.max(0,...[...nearby,...selected].filter(m=>m.player!==p.id).map(m=>clamp((6-distance(aim,m.aim))/6,0,1)));
    const separation=Math.max(0,...mates.filter(q=>q.id!==p.id&&q.role!=='CB').map(q=>clamp((3.5-distance(q,aim))/3.5,0,1)));
    return risk(aim)*(.8+(1-p.traits.risk)*.25)+arrivalTime(p,aim)*.075+
-    distance(aim,{x:world(side,desiredDepth),y:nominalY})*.025+occupied*1.5+separation+
-    clamp((4-space)/4,0,1)*1.2+(distance(owner,aim)<5?2:0)+Math.max(0,distance(owner,aim)-12)*.09-(prior&&distance(prior.aim,aim)<.1?.13:0);
+    distance(aim,{x:world(side,desiredDepth),y:nominalY})*.025*anchor+Math.abs(aim.y-nominalY)*.025*(1-anchor)+occupied*1.5+separation+
+    (cover&&!threat?coverCost(aim):0)+
+    clamp((4-space)/4,0,1)*1.2+(distance(owner,aim)<5?2:0)+Math.max(0,distance(owner,aim)-12)*.09-(prior&&distance(prior.aim,aim)<.1?.13:0)+
+    // (r1-shape) less what the pass there is worth to the carrier
+    -supportWorth(owner,aim,risk(aim),releaseRoomAt(p,aim,players,owner),players,p.id);
   };
   const ranked=candidates.map(aim=>({aim,score:score(aim)}));
   const aim=ranked.reduce((a,b)=>b.score<a.score-.001?b:a).aim,available=risk(aim)<.72&&distance(owner,aim)<=33;

@@ -67,7 +67,7 @@ export const SET_STILL=3,SET_FACING=.2,SET_SPOT=1.5,SET_PLANT=1.3,SET_READ=.15,S
  * straight into that man: evidence/2026-10-13-keeper-giveaway. Holding the presser 2.5 m off raised goals after keeper
  * losses, and releasing early to any clear lane fed interceptions next to goal: evidence/2026-10-13-keeper-fix;
  * evidence/2026-10-13-keeper-2.) */
-export const KEEPER_HOLD=4,KEEPER_TURN=4,KEEPER_JOG=.55,KEEPER_STEP=1.5,KEEPER_RING=1.6,KEEPER_EDGE=.8,KEEPER_DEEP=2,KEEPER_BODY=1;
+export const KEEPER_HOLD=4,KEEPER_TURN=4,KEEPER_JOG=.55,KEEPER_STEP=1.5,KEEPER_RING=1.6,KEEPER_EDGE=.8,KEEPER_DEEP=2,KEEPER_BODY=1,KEEPER_BRAKE=.7;
 /** keeperMove's read of a spot: a throw's lane is open from KEEPER_LANE m clear of every opponent (fully at
  * KEEPER_LANE + KEEPER_LANE_FULL m), one over the man ignores opponents within KEEPER_OVER m of him and is worth
  * KEEPER_LOFT of a ground one, and a spot within KEEPER_ROOM m of an opponent costs up to KEEPER_CROWDED; he moves
@@ -1031,11 +1031,22 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    // (keeper with the ball in his hands) nobody stands on him: whatever his job, an opponent's spot within KEEPER_BODY m
    // of him moves out to KEEPER_BODY m on the same line (one already inside it heading for him backs out first), and
    // one closing on him brakes so as to stop there (a man arriving at a sprint would run on into him)
+   let pullUp=false;
    if(!restart&&inHands&&owner&&p.side!==owner.side&&p.role!=='GK'){
-    const d=dist(p,owner)||1,gap=d-KEEPER_BODY,closing=(p.vx-owner.vx)*(owner.x-p.x)+(p.vy-owner.vy)*(owner.y-p.y)>0;
+    const d=dist(p,owner)||1,gap=d-KEEPER_BODY,closingSpeed=((p.vx-owner.vx)*(owner.x-p.x)+(p.vy-owner.vy)*(owner.y-p.y))/d,closing=closingSpeed>0;
     const coming=Math.max(0,(owner.vx*(p.x-owner.x)+owner.vy*(p.y-owner.y))/d);
     if(closing&&gap>0)limit=Math.min(limit,Math.max(0,Math.sqrt(2*p.acceleration*gap)-coming)+.3);
     else if(closing){limit=Math.min(limit,.3);trackingVelocity=undefined;}
+    // (r1, 2026-10-14) Once he is coming in faster than he can still stop over the gap (KEEPER_BRAKE of his
+    // acceleration, a margin for the keeper's own steps), he pulls up: straight at the spot a metre short of the
+    // keeper, at full effort, below the speed he could still stop from. Braking only by a speed cap at his full
+    // deceleration let him spend his effort curving on to his jockey or
+    // marking spot (and an easy positional move brakes at under half effort), so a man arriving at a sprint ran on
+    // to 0.3-0.7 m of the keeper (r1 combine: 2 of 24 pressed seeds, as on e2dadee5).
+    if(closing&&gap>0&&closingSpeed*closingSpeed>=2*p.acceleration*KEEPER_BRAKE*gap){
+     pullUp=true;aim={x:owner.x+(p.x-owner.x)/d*KEEPER_BODY,y:owner.y+(p.y-owner.y)/d*KEEPER_BODY};trackingVelocity=undefined;
+     limit=Math.min(limit,Math.max(0,Math.sqrt(2*p.acceleration*KEEPER_BRAKE*gap)-coming));
+    }
     const inside=dist(p,owner)<KEEPER_BODY&&dist(p,owner)>.1&&(aim.x-p.x)*(owner.x-p.x)+(aim.y-p.y)*(owner.y-p.y)>0;
     const ref=inside?p:dist(aim,owner)<KEEPER_BODY?(dist(aim,owner)>.1?aim:p):null,r=ref?dist(ref,owner):0;
     if(ref&&r>.1){aim={x:owner.x+(ref.x-owner.x)/r*KEEPER_BODY,y:owner.y+(ref.y-owner.y)/r*KEEPER_BODY};trackingVelocity=undefined;}
@@ -1045,7 +1056,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    if(kind==='dive'&&dive&&time<dive.until)p.acceleration*=2.2;
    // Movement intensity (2026-10-10, practice-intensity): an off-ball positional move is made as hard as the
    // situation he reads needs, braking gently into his spot and moving with it; everything else stays at full effort.
-   if(!restart&&p.role!=='GK'&&p.id!==owner?.id&&POSITIONAL_KINDS.has(kind)){
+   if(!restart&&p.role!=='GK'&&p.id!==owner?.id&&POSITIONAL_KINDS.has(kind)&&!pullUp){
     const drift=spotDrift.update(p.id,kind,aim,time),defending=p.side!==side;
     let read=intensities.get(p.id);
     if(!read||read.kind!==kind||read.defending!==defending||time>=read.at){

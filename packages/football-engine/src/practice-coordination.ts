@@ -9,12 +9,13 @@ import type {MovingBall,Vec} from './movement.js';
 import type {Duty,PracticePlayer} from './practice.js';
 import {arrivalTime,assignFlight,containMovement} from './practice-defense.js';
 import type {DefenseAssignment,FlightAssignment} from './practice-defense.js';
-import {teamShape,WIDTH,laneY,buildUpSpread,lineHeight} from './practice-shape.js';
+import {teamShape,WIDTH,laneY,buildUpSpread,lineHeight,onOurBall} from './practice-shape.js';
 import type {TeamShape,Sight} from './practice-shape.js';
 import {assignBuildUp} from './practice-build-up.js';
 import {pressureArrangement,refineReceptionSupport} from './practice-arrangements.js';
 import {teammatePassObstruction} from './practice-lanes.js';
-import {complementarySupportAim,timeSupportRun,readSupportLocation,shortSupportPoints,returnRunPoints} from './practice-support.js';
+import {complementarySupportAim,timeSupportRun,readSupportLocation,shortSupportPoints,returnRunPoints,supportWorth} from './practice-support.js';
+import {ownGoalDanger} from './practice-possession.js';
 import type {SupportContext,SupportMove,SupportPlan} from './practice-support.js';
 import type {SituationTactics} from './team-approach.js';
 import {runReleaseAllowance} from './practice-awareness.js';
@@ -405,13 +406,16 @@ export function coordinateFlight(players:PracticePlayer[],ball:MovingBall,side:S
  * best placed player whose job is support or shape (never a run: Direct's runs
  * and passes stay as they are, never the man on the ball or the receiver)
  * drops to a spot REST_CUSHION m (by the Line) goal-side of that forward,
- * tucked towards the middle. Each guard reads the forward as he sees him. */
+ * tucked towards the middle. Each guard reads the forward as he sees him.
+ * A man pressing our ball is not such a forward (onOurBall, r1-shape). */
 export const REST_GUARDS=(commit:number)=>commit<=2?2:1;
 export const REST_CUSHION:Record<Tactics['line'],number>={deep:2.5,standard:1.5,high:1};
 const REST_FREE:ReadonlySet<JobPurpose>=new Set(['shape','build-up','counter-cover','outlet','width','link','second-ball','join','third-man']);
 export function restGuards(players:readonly PracticePlayer[],side:Side,focus:Vec,t:Tactics,jobs:Readonly<Record<string,FootballJob>>,mates:readonly PracticePlayer[],time:number):{player:string;aim:Vec;speed:number;reason:string;target:string}[]{
  const bd=depth(side,focus.x);
- const forwards=players.filter(q=>q.side!==side&&q.role!=='GK').sort((a,b)=>depth(side,a.x)-depth(side,b.x)||a.id.localeCompare(b.id));
+ // (r1-shape) A man pressing our ball is not a forward left ahead of it: if
+ // he wins it he is the ball, and the backs play around him (lineThreat).
+ const forwards=players.filter(q=>q.side!==side&&q.role!=='GK'&&!onOurBall(q,focus)).sort((a,b)=>depth(side,a.x)-depth(side,b.x)||a.id.localeCompare(b.id));
  const need=REST_GUARDS(t.commit),cushion=REST_CUSHION[t.line];
  const out:{player:string;aim:Vec;speed:number;reason:string;target:string}[]=[];
  const used=new Set<string>();
@@ -702,7 +706,8 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   for(const move of build){
    const p=mates.find(p=>p.id===move.player);if(!p||fixed.has(p.id)||p.id===pivotId||p.id===runnerId||p.id===nineId)continue;
    const read=readSupportLocation(p,move.aim,players,focus,laneRisk);
-   propose({...move,purpose:move.purpose as JobPurpose},1.05+(t.commit<3?.15:0)-read.risk*.45-read.travel*.06);
+   // (r1-shape) priced like every other support spot: what it is worth to the carrier too
+   propose({...move,purpose:move.purpose as JobPurpose},1.05+(t.commit<3?.15:0)-read.risk*.45-read.travel*.06+supportWorth({...receiver,...focus},move.aim,read.risk,read.releaseRoom,players,p.id));
   }
   type JobSpec={purpose:JobPurpose;kind:Duty;point:Vec;eligible:(p:PracticePlayer)=>boolean;fit:(p:PracticePlayer)=>number;reason:string;range?:number;target?:string;points?:(p:PracticePlayer)=>Vec[];lane?:boolean;shoulder?:boolean};
   // Width with the ball: a winger's support job pays for every metre it takes
@@ -726,11 +731,12 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
    return 0;
   };
   // M1: a centre-back's support jobs (not runs, which Bodies forward prices)
-  // keep the Line's cushion to the opponents' deepest forward as he reads him.
+  // keep the Line's cushion to the opponents' deepest counter outlet as he
+  // reads him; a man pressing our ball is not one (lineThreat, r1-shape).
   const heights=new Map<string,number>();
   const backHeight=(p:PracticePlayer)=>{
    if(p.role!=='CB')return Infinity;
-   let h=heights.get(p.id);if(h===undefined){h=lineHeight(p,players,t.line,undefined,time);heights.set(p.id,h);}
+   let h=heights.get(p.id);if(h===undefined){h=lineHeight(p,players,t.line,receiver.id,time,focus);heights.set(p.id,h);}
    return h;
   };
   const offerJob=(spec:JobSpec)=>{
@@ -768,7 +774,11 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
      // Runs that go past the build-up (depth, break) pay half: a winger may
      // still cut inside; box arrivals and the return after a pass are exempt.
      const lane=spec.lane===false||spec.purpose==='width'||spec.purpose==='link'?0:run?(spec.purpose==='depth'||spec.purpose==='break'?laneCost(p,aim)*.5:0):laneCost(p,aim);
-     const score=spec.fit(p)+style+roleFit-lane+(same&&distance(old!.aim,aim)<2?.25:0)+clamp(room/7,0,1)*.3-(develop?.07:.15)*travel-(spec.purpose==='outlet'?distance(aim,shapes[side].slots[p.id]?.aim??p)*.035:0)-laneRiskHere*(develop?.18:.8)-spacing*1.8-read.crowding*.35-sharedAngle*.6-(1-read.releaseRoom)*(develop?.15+(1-p.traits.risk)*.4:.55)-destinationCost;
+     // (r1-shape) A support spot is also worth what the pass there is worth
+     // to the carrier (ground gained, where a loss would leave us): near our
+     // own goal a spot on the goal line beside the keeper is worth little.
+     const worth=develop?0:supportWorth(receiver.id===focus.id?receiver:{...receiver,...focus},aim,laneRiskHere,read.releaseRoom,players,p.id);
+     const score=spec.fit(p)+style+roleFit-lane+(same&&distance(old!.aim,aim)<2?.25:0)+clamp(room/7,0,1)*.3-(develop?.07:.15)*travel-(spec.purpose==='outlet'?distance(aim,shapes[side].slots[p.id]?.aim??p)*.035:0)-laneRiskHere*(develop?.18:.8)-spacing*1.8-read.crowding*.35-sharedAngle*.6-(1-read.releaseRoom)*(develop?.15+(1-p.traits.risk)*.4:.55)-destinationCost+worth;
      const valid=gap>=(spec.purpose==='outlet'?4.5:3.2)&&gap<=(spec.range??24)&&travel<=(run||spec.purpose==='width'?5:3.5)&&room>1.3&&spacing<.5&&(develop||laneRiskHere<.78)&&
       (spec.purpose!=='give-and-go'||laneRiskHere<.65&&travel<2.5)&&
       (!run||depth(side,aim.x)>=depth(side,p.x)-2||spec.purpose==='cutback');
@@ -973,7 +983,10 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   }
   // Two different passing angles, using the same lane assessment as the
   // carrier. Pressure makes these more useful, not a blanket veto on movement.
-  for(const flank of [-1,1])offerJob({purpose:'outlet',kind:'support',point:{x:focus.x-s*X(5),y:focus.y+flank*Y(9)},points:p=>closeSupport(p).filter(v=>(v.y-focus.y)*flank>2),eligible:p=>distance(p,focus)<25&&!(p.role==='FB'&&t.fullbacks==='hold'&&depth(side,p.x)>bd-3),fit:p=>.8+p.traits.comesShort*.3+p.skills.reading*.02,reason:'Oferă un unghi diferit pentru următoarea pasă.'});
+  // (r1-shape v5) near our own goal the reference angle is level with the
+  // ball, not behind it (its candidates come from shortSupportPoints).
+  const behindRef=X(5)*(1-ownGoalDanger({...focus,side}));
+  for(const flank of [-1,1])offerJob({purpose:'outlet',kind:'support',point:{x:focus.x-s*behindRef,y:focus.y+flank*Y(9)},points:p=>closeSupport(p).filter(v=>(v.y-focus.y)*flank>2),eligible:p=>distance(p,focus)<25&&!(p.role==='FB'&&t.fullbacks==='hold'&&depth(side,p.x)>bd-3),fit:p=>.8+p.traits.comesShort*.3+p.skills.reading*.02,reason:'Oferă un unghi diferit pentru următoarea pasă.'});
   // Hold width on the far side: pin a defender away from the ball, or be the
   // free man for a switch. Its base value is what the Width setting asks of
   // the wingers; it competes with every other job on the same reads.

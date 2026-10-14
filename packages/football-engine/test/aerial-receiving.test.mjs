@@ -193,7 +193,10 @@ test('ordinary match aerial releases have matching physical contacts without a c
  // 14094 a volley (evidence/2026-10-13-keeper-2/repin.mjs header / volley; 14277 / 14085 in its first version, 14285 /
  // 14092 once he could jog anywhere in his area with it, before his throw read allowed for an arriving presser).
  const sandbox=JSON.parse(readFileSync(new URL('../../../deliverables/football-practice/engine-audition/sandbox-fixture.json',import.meta.url)));
- for(const [technique,seed] of [['header',14306],['volley',14094]]){
+ // R1 keeper (2026-10-14: the keeper's carry at his feet pays the loss price and the open goal behind him) changed
+ // 14306-14358 for headers; 14359 has one, and 14094 still has its volley (evidence/2026-10-14-r1-keeper/repin.mjs
+ // header / volley). A seeded passage, not a header-frequency target.
+ for(const [technique,seed] of [['header',14359],['volley',14094]]){
   const f=structuredClone(sandbox);f.seed=seed;
   f.teams[0].lineup[1]='motanescu';Object.assign(f.teams[0].tactics,teamApproaches.combinations.settings);
   Object.assign(f.teams[1].tactics,defensiveApproaches.press.tactics);
