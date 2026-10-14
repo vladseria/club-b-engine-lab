@@ -1,5 +1,5 @@
-// Contest round (2026-10-15): duel.ts matches (deep-study row + r1 keys + duel keys), laptop only, <= 2 workers here. Copy of ../2026-10-14-support-study/run.mjs.
-//   node run.mjs --label rr --revs eng=working di121vsh121,sh121vdi121:0-39   (resumable; output results/<label>.jsonl)
+// Direct split (2026-10-15): copied from ../2026-10-14-support-study/run.mjs; entry split.ts. Laptop (<= 3 workers) or cloud (SIM_WORKERS, <= 4 a runner).
+//   node run.mjs --label ds --revs eng=working sp-di.c3-ba,sp-di-ba:0-119   (resumable; output results/<label>.jsonl)
 // results/<label>.jsonl, appended; finished (arm, seed, rev) rows are skipped, so a stopped run resumes.
 // Parity: the same seeds through the official path, then parity.mjs:
 //   node ../2026-10-10-cloud-measure/run.mjs --label <x> --revs eng=working <same arms:seeds>
@@ -26,7 +26,7 @@ if(!isMainThread){
  if(!blocks.length)throw Error('give at least one <arm,arm>:<seeds> block');
  const revs=parseRevs(arg('revs','base=working'));
  const outDir=path.join(here,'results');
- const bundles=await bundleRevs({entry:path.join(here,arg("entry","duel.ts")),revs,outDir});
+ const bundles=await bundleRevs({entry:path.join(here,arg("entry","split.ts")),revs,outDir});
  const chk=await import(pathToFileURL(Object.values(bundles)[0]).href);
  for(const b of blocks)for(const a of b.arms)chk.armTreatment(a);// throws on an unknown arm
 

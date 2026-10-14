@@ -1,4 +1,3 @@
 results/.bundle.*
 results/.rev-*
 results/smoke*.jsonl
-results/explore*.jsonl
