@@ -14,6 +14,9 @@ export interface Tactics {
   transition?: 'balanced' | 'secure' | 'counter';
   /** "On losing it": the first seconds after a loss. Missing = 'balanced'. */
   onLoss?: 'regroup' | 'balanced' | 'counterpress';
+  /** (beat-direct probes, 2026-10-14, scratch, never a Ballers setting) P1 Hold them in front; P3 Leave a man up. Missing = off. */
+  holdFront?: boolean;
+  leaveUp?: boolean;
 }
 export interface Order { id: string; minute: number; when: 'always' | 'losing' | 'winning' | 'booked'; player?: string; substitute?: string; tactics?: Partial<Tactics> }
 export interface Team { id: string; name: string; short: string; color: string; description: string; squad: Player[]; lineup: string[]; tactics: Tactics; orders: Order[] }

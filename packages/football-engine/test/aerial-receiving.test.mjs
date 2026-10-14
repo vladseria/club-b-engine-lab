@@ -195,8 +195,10 @@ test('ordinary match aerial releases have matching physical contacts without a c
  const sandbox=JSON.parse(readFileSync(new URL('../../../deliverables/football-practice/engine-audition/sandbox-fixture.json',import.meta.url)));
  // R1 keeper (2026-10-14: the keeper's carry at his feet pays the loss price and the open goal behind him) changed
  // 14306-14358 for headers; 14359 has one, and 14094 still has its volley (evidence/2026-10-14-r1-keeper/repin.mjs
- // header / volley). A seeded passage, not a header-frequency target.
- for(const [technique,seed] of [['header',14359],['volley',14094]]){
+ // header / volley). The R1 combined build (2026-10-14: mech + keeper + shape, and the pull-up a metre from a holding
+ // keeper) changed 14359-14392 for headers; 14393 has one, and 14094 still has its volley (searching on from 14306;
+ // evidence/2026-10-14-r1/repin.mjs header / volley). A seeded passage, not a header-frequency target.
+ for(const [technique,seed] of [['header',14393],['volley',14094]]){
   const f=structuredClone(sandbox);f.seed=seed;
   f.teams[0].lineup[1]='motanescu';Object.assign(f.teams[0].tactics,teamApproaches.combinations.settings);
   Object.assign(f.teams[1].tactics,defensiveApproaches.press.tactics);
