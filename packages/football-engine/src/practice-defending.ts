@@ -259,11 +259,7 @@ export interface DefendMemory {side:Side;attacking:Side;
  /** (marking and shape round) when the next marker's read of the passer's preparation falls due. */
  cueNext?:number;
  /** (threat round) the free man who had the balance in the last plan, and who pressed whom. */
- balanceBy?:string;presserBy?:string;presserOf?:string;
- /** (beat-direct probe P1) each marker's read of the ball-behind threat: what he acts on, what he has just seen change, since when. */
- hf?:Record<string,{h:[number,number][];val:number}>;
- /** (beat-direct probe P3) the man we left up last plan. */
- upBy?:string}
+ balanceBy?:string;presserBy?:string;presserOf?:string}
 export interface DefendJob {player:string;purpose:'press'|'cover'|'mark'|'balance'|'screen'|'drop'|'zone';kind:Duty;aim:Vec;speed:number;reason:string;target?:string;velocity?:Vec;
  /** (threat round) the threat of his man as he reads it (practice-threat): how hard he goes to his spot (practice-intensity). */
  threat?:number}
@@ -821,87 +817,6 @@ export function markSpot(q:PracticePlayer,r:ManRead,ref:Vec,tactics:Tactics,defe
  return along<need?{x:p.x+u.x*(need-along),y:p.y+u.y*(need-along)}:p;
 }
 
-/** (beat-direct probe P1, 2026-10-14, scratch: Tactics.holdFront) Hold them in front. A marker whose man is ahead of the
- * ball weighs "can a ball be played behind me now?" against "my man turns in front of me".
- *  - The ball-behind threat, as he reads it: their passer free (none of us within HF_FREE m), facing our goal, within
- *    reach of a ball over or through to the space behind his man (HF_RANGE), and room behind his man before the keeper's
- *    area (HF_FLOOR). His read of it is late by his own sight lag on the passer (cueDelay: his reading, his legs, whether
- *    the passer is in view), and off by up to HF_SPREAD for a player who cannot read the game: a sharp reader drops as the
- *    passer looks up and steps up as the passer is closed down or turns away; a poor one does both late.
- *  - What he needs to win a ball played behind him: his turn (HF_REACT, from .max for a player who cannot read the game to
- *    .min for a sharp one) at the man's speed, plus the man's pace edge over him (as he reads it) for the ball's flight.
- *  - What dropping costs: the room his man gets to turn in front of him, priced by the shot his man would have from where
- *    he receives (the goal he sees from there), HF_FRONT of it, growing with each metre given (HF_TURN m lets him turn freely).
- *  - What a ball behind costs: the shot from the space behind (HF_BEHIND m nearer our goal), as a one-on-one.
- * He drops the cushion that minimises the sum (the first metre buys most of the race; every metre gives the turn more
- * room): c* = need x (1 - front x need / (2 x HF_TURN x threat x behind)), between 0 and need, never deeper than HF_FLOOR m
- * from our goal line. Nothing changes when the threat reads 0: the plain marking spot. */
-export const HF_FREE=[1.5,4.5] as const,HF_RANGE=[24,40] as const,HF_FLOOR=4.5,HF_SPREAD=.25,HF_REACT={min:.3,max:.6},HF_FLIGHT=1.2,HF_FRONT=.5,HF_TURN=2.5,HF_BEHIND=3,HF_KEEP=1.5;
-export function holdFrontRead(q:PracticePlayer,man:Vec,carrier:PracticePlayer,players:readonly PracticePlayer[],defending:Side):number{
- if(depth(defending,man.x)>depth(defending,carrier.x)-2)return 0;
- const near=Math.min(...players.filter(p=>p.side===defending&&p.role!=='GK').map(p=>distance(p,carrier)));
- const free=clamp((near-HF_FREE[0])/(HF_FREE[1]-HF_FREE[0]),0,1);
- const facing=clamp((Math.cos(carrier.angle)*(defending===0?-1:1)+.1)/.7,0,1);
- const range=clamp((HF_RANGE[1]-distance(carrier,man))/(HF_RANGE[1]-HF_RANGE[0]),0,1);
- const room=clamp((depth(defending,man.x)-HF_FLOOR-1)/4,0,1);
- return free*facing*range*room;
-}
-export function holdFrontCushion(q:PracticePlayer,man:PracticePlayer,threat:number,defending:Side):number{
- if(threat<=.02)return 0;
- const g={x:world(defending,0),y:0};
- const react=HF_REACT.max-(HF_REACT.max-HF_REACT.min)*acuity(q,'threat');
- const edge=Math.max(0,perceive(q,'threat',man.pace-q.pace,1,man,{salt:`hfpace${man.id}`}));
- const need=react*man.pace+edge*HF_FLIGHT;
- const dg=distance(man,g)||1,u={x:(g.x-man.x)/dg,y:(g.y-man.y)/dg};
- const behindAt={x:man.x+u.x*Math.min(HF_BEHIND,Math.max(0,dg-2)),y:man.y+u.y*Math.min(HF_BEHIND,Math.max(0,dg-2))};
- const front=HF_FRONT*openShot(man,g),behind=threat*openShot(behindAt,g);
- const c=need*clamp(1-front*need/(2*HF_TURN*Math.max(1e-6,behind)),0,1);
- return Math.max(0,Math.min(c,depth(defending,man.x)-HF_FLOOR));
-}
-
-/** (beat-direct probe P3, 2026-10-14, scratch: Tactics.leaveUp) Leave a man up. While their rest defence leaves their
- * last man (the outfielder furthest from our goal, as each of our free men sees him) harmless and deep (their spare man:
- * well behind the ball, far from our goal, not running), a free man of ours weighs standing on him as an outlet for the
- * regain against our need for cover:
- *  - what the outlet is worth: UP_GAIN x how harmless their last man is x how thin their rest defence is (their outfielders
- *    REST_MARGIN m behind the ball, from visible positions: one = thin, two = UP_TWO of it, more = nothing);
- *  - what cover is worth: a man of theirs ahead of the ball near our goal that he would cover (UP_COVER), the man on the
- *    ball's own threat (UP_THREAT x carrierThreat), the ball near our goal (UP_NEAR, from UP_NEAR_R m in), each dangerous
- *    man of theirs nobody has (UP_LOOSE), and a run from deep setting off (UP_RUN).
- * He goes up when the outlet is worth more (UP_KEEP more for the man already up, so he does not flicker), and drops the
- * moment it is not: the run from deep, the cover short, the ball near our goal. Of several free men the one who gets there
- * first goes, a forward a little sooner (UP_ROLE s per unit of role depth). He stands UP_FRONT m in front of their last
- * man (towards our goal), UP_BALL of the way across towards the ball's side. */
-export const UP_GAIN=1,UP_TWO=.4,UP_COVER=1.2,UP_THREAT=2,UP_NEAR=.8,UP_NEAR_R=22,UP_LOOSE=.6,UP_RUN=1,UP_KEEP=.25,UP_ROLE=1.5,UP_FRONT=1.5,UP_BALL=.3;
-export function leaveUpChoice(freeMen:readonly PracticePlayer[],input:DefendInput,ref:Vec,refDepth:number,readOf:(q:PracticePlayer,a:PracticePlayer)=>ManRead,coverFor:(q:PracticePlayer)=>ManRead|undefined,loose:readonly PracticePlayer[],was:string|undefined):{q:PracticePlayer;aim:Vec;last:string}|undefined{
- const {players,defending,attacking,carrier,view}=input;
- const theirs=players.filter(a=>a.side===attacking&&a.role!=='GK');
- let best:{q:PracticePlayer;aim:Vec;last:string;score:number}|undefined;
- for(const q of freeMen){
-  const seen=theirs.map(a=>({a,v:a.id===carrier?.id?a:view(q,a)}));
-  const last=seen.slice().sort((x,y)=>depth(defending,y.v.x)-depth(defending,x.v.x)||x.a.id.localeCompare(y.a.id))[0];
-  if(!last||last.a.id===carrier?.id)continue;
-  const r=readOf(q,last.a);
-  const harmless=r.matter==='spare'?1:r.matter==='watch'&&!r.running?clamp(.5-r.danger,0,.5):0;
-  const rest=seen.filter(x=>x.a.id!==carrier?.id&&depth(defending,x.v.x)>refDepth+REST_MARGIN_UP).length;
-  const thin=rest<=1?1:rest===2?UP_TWO:0;
-  const value=UP_GAIN*harmless*thin;
-  if(value<=0)continue;
-  const ct=carrier&&carrier.role!=='GK'&&input.threat?carrierThreat(carrier,input.threat.defenders,defending):0;
-  const near=clamp((UP_NEAR_R-refDepth)/10,0,1);
-  const unowned=loose.filter(a=>a.id!==last.a.id&&readOf(q,a).matter==='danger').length;
-  const run=seen.some(x=>x.a.id!==carrier?.id&&readOf(q,x.a).running&&depth(defending,x.v.x)>refDepth-AHEAD);
-  const need=(coverFor(q)?UP_COVER:0)+UP_THREAT*ct+UP_NEAR*near+UP_LOOSE*unowned+(run?UP_RUN:0);
-  if(value+(was===q.id?UP_KEEP:0)<=need)continue;
-  const g={x:world(defending,0),y:0},d=distance(last.v,g)||1;
-  const aim={x:last.v.x+(g.x-last.v.x)/d*UP_FRONT,y:last.v.y+(ref.y-last.v.y)*UP_BALL};
-  const score=arrivalTime(q,aim)+UP_ROLE*roleDepth(q)-(was===q.id?UP_KEEP:0);
-  if(!best||score<best.score)best={q,aim,last:last.a.id,score};
- }
- return best;
-}
-const REST_MARGIN_UP=4;
-
 /** Box defending (2026-10-12, evidence/2026-10-12-box-defending). With the ball near our goal the defence protects
  * the box, not only its men. Measured before (engine 3af89fa9): with their man on the ball within 10 m of our goal,
  * only 1.5 of our 4 outfielders were nearer our goal than the ball; at the strike 0.2 stood in the triangle from the
@@ -1270,15 +1185,7 @@ export function defendOutOfPossession(given:DefendInput):DefendPlan{
    else cueDue.push(due);
   }
   const closing=input.receiver?.id===m.id||!!cued;
-  // (beat-direct probe P1) his read of the ball-behind threat: the passer's state as it was his sight lag ago
-  const hfThreat=()=>{
-   const exact=holdFrontRead(q,r.v,carrier!,players,defending),hf={...(memory.hf??{})};
-   const hist=[...(hf[q.id]?.h??[]),[time,exact] as [number,number]].filter(([t])=>t>=time-HF_KEEP);
-   const lag=cueDelay(q,carrier!,ball,time);let val=hf[q.id]?.val??0;for(const [t,v] of hist)if(t<=time-lag+1e-9)val=v;
-   hf[q.id]={h:hist,val};memory.hf=hf;
-   return clamp(perceive(q,'threat',val,HF_SPREAD,carrier!,{time,salt:'hf'+m.id}),0,1);
-  };
-  let aim:Vec,reason:string,hurry=false,hfDrop=0;
+  let aim:Vec,reason:string,hurry=false;
   if(closing&&behindLine&&input.keeperCall){
    // (B3) his keeper is coming for it: he leaves the ball to him and gets in his man's path
    const m=input.receiver!.meet,d=distance(m,r.v)||1,step=Math.min(SCREEN_STEP,d);
@@ -1290,12 +1197,7 @@ export function defendOutOfPossession(given:DefendInput):DefendPlan{
    reason='Mingea cade în spatele lui: aleargă cu omul lui spre ea, pe partea porții, ca preluarea să fie un duel.';
   }else if(closing){
    const mt=cued??input.receiver!.meet,meet={...r.v,x:mt.x,y:mt.y},d=distance(meet,g)||1;
-   // (P1 retry, Tactics.holdFrontCue) a pass being prepared for his man (not yet struck): closing his feet is weighed
-   // against the ball behind, as the hold is (holdFrontCushion, from where the pass is going): with the passer free,
-   // facing our goal and room behind, he closes only as far as the ball behind lets him; pressed or turned, he closes as before
-   let off=1;
-   if(cued&&tactics.holdFront&&tactics.holdFrontCue&&carrier&&!restart){const c=holdFrontCushion(q,meet as PracticePlayer,hfThreat(),defending);if(c>.05){off=1+Math.min(c,Math.max(0,depth(defending,meet.x)-1-HF_FLOOR));hfDrop=c;}}
-   aim={x:meet.x+(g.x-meet.x)/d*off,y:meet.y+(g.y-meet.y)/d*off};
+   aim={x:meet.x+(g.x-meet.x)/d*1,y:meet.y+(g.y-meet.y)/d*1};
    reason=cued?'Vede că purtătorul pregătește pasa spre omul lui: pleacă odată cu ea, între el și poartă.':'Pasa merge la omul lui: îl închide cât mingea e pe drum, între el și poartă.';
   }else{
    // (marking and shape round) the man who matters most to him (the nearest our goal of their men ahead of the
@@ -1306,12 +1208,6 @@ export function defendOutOfPossession(given:DefendInput):DefendPlan{
    // a sag that would put him beside a team-mate's man (two on one, his own free) is taken back
    const others=Object.entries(memory.men).filter(([id,x])=>id!==q.id&&x.target!==m.id&&!isRole(x.target)).map(([,x])=>byId.get(x.target)).filter((a):a is PracticePlayer=>!!a&&a.side===attacking&&a.id!==carrier?.id&&distance(a,r.v)>SAG_CLEAR+1);
    for(const k of [.6,.3,0]){if(!others.some(a=>distance(view(q,a),aim)<SAG_CLEAR))break;aim=markSpot(q,r,ref,tactics,defending,squeeze,k*sagScale,time);}
-   // (beat-direct probe P1) hold them in front: drop off his man while a ball can be played behind him (holdFrontCushion)
-   if(tactics.holdFront&&!restart&&carrier&&m.id!==carrier.id){
-    const threat=hfThreat();
-    const c=holdFrontCushion(q,r.v as PracticePlayer,threat,defending);
-    if(c>.05){const dg=distance(aim,g)||1;const k=Math.min(c,Math.max(0,depth(defending,aim.x)-HF_FLOOR));aim={x:aim.x+(g.x-aim.x)/dg*k,y:aim.y+(g.y-aim.y)/dg*k};hfDrop=c;}
-   }
    // (box defending) the ball near our goal: he steps from his man towards the open shooting lane (protectBox)
    if(!restart&&!(carrier&&carrier.role==='GK')&&m.id!==carrier?.id){const was=aim;aim=protectBox(q,r.v,aim,ref,tactics,defending,time,laneSpots);if(aim!==was){aim=protectSpacing(aim,laneSpots,ref,defending);laneSpots.push(aim);}}
    // (marking and shape round) level with or upfield of his man near our goal: he hurries back goal-side, at full pace
@@ -1339,7 +1235,6 @@ export function defendOutOfPossession(given:DefendInput):DefendPlan{
   let speed=q.pace*(far||moving||closing||hurry||purpose==='drop'?1:.9);
   if(hb>=.5&&!hurry&&purpose==='mark'&&distance(q,aim)<ARRIVE)speed=Math.min(speed,Math.hypot(r.v.vx,r.v.vy)+CLOSE+CLOSE_THREAT*tt);
   if(tt>=.5&&!closing&&!hurry&&purpose==='mark')reason=r.reach>=.5?'Omul lui e o amenințare: mingea poate ajunge la el și ar avea șut. Îl marchează strâns, între el și poartă, cu corpul pe linia pasei.':'Omul lui e o amenințare la poartă dacă primește: îl marchează strâns, între el și poartă.';
-  if(hfDrop>0&&purpose==='mark')reason='[P1] '+reason;
   push({player:q.id,purpose,kind:purpose==='drop'||hurry?'recover':'track',aim:inside(aim),speed,reason,target:m.id,velocity:purpose==='drop'?undefined:velocity,threat:r.threat});
  }
 
@@ -1429,13 +1324,6 @@ export function defendOutOfPossession(given:DefendInput):DefendPlan{
    if(deepest!==undefined)dd=Math.min(dd,deepest-BALANCE_CUSHION);
    return {aim:{x:world(defending,Math.max(BALANCE_FLOOR,dd)),y:-sgn*BALANCE_Y[tactics.width]}};
   };
-  // (beat-direct probe P3) leave a man up: a free man weighs an outlet on their last man against our need for cover
-  const up=tactics.leaveUp&&!restart?leaveUpChoice(freeMen,input,ref,refDepth,readOf,coverFor,loose,memory.upBy):undefined;
-  memory.upBy=up?.q.id;
-  if(up){
-   freeMen.splice(freeMen.indexOf(up.q),1);
-   push({player:up.q.id,purpose:'balance',kind:'hold',aim:inside(up.aim),speed:up.q.pace*(distance(up.q,up.aim)>4?.95:.8),reason:'[P3] Rămâne sus pe ultimul lor om: el nu e un pericol și în spate au puțini; la recuperare e varianta de pasă.',target:up.last});
-  }
   // (threat round) the one who had the balance in the last plan keeps it unless another free man is BALANCE_KEEP s nearer (screen and balance swapped every look)
   const ranked=freeMen.map(q=>({q,score:(roleOf(q)===BALANCE?-10:0)+(memory.balanceBy===q.id?-BALANCE_KEEP:0)+ROLE_BALANCE*(1-roleDepth(q))+arrivalTime(q,balanceAim(q).aim)})).sort((a,b)=>a.score-b.score||a.q.id.localeCompare(b.q.id));
   memory.balanceBy=ranked[0]?.q.id;
