@@ -21,6 +21,7 @@ import {arrivalTime} from './practice-defense.js';
 import {groundOptions,passAdvance} from './practice-passing.js';
 import {LOSS_SCALE,lossDanger,lossRead,restDefence} from './practice-rest-defence.js';
 import {perceive} from './practice-perception.js';
+import {HORIZON,receptionValue} from './practice-horizon.js';
 
 export const FREE_SUPPORT:{on:boolean;trace?:(o:any)=>void}={on:false};
 export function setFreeSupport(on:boolean){FREE_SUPPORT.on=on;}
@@ -46,6 +47,13 @@ const inside=(p:Vec):Vec=>({x:clamp(p.x,1,(L-1)),y:clamp(p.y,-(W/2-1.5),(W/2-1.5
 type Risk=(from:Vec,to:Vec,defenders:PracticePlayer[],speed?:number)=>number;
 
 export interface FreeRow {job:FootballJob;score:number}
+// (horizon-probe) the carrier's own best option now, once per carrier per tick
+let carrierMemo:{time:number;id:string;players:PracticePlayer[];v:number}|null=null;
+function carrierValue(carrier:PracticePlayer,players:PracticePlayer[],time:number):number{
+ if(carrierMemo&&carrierMemo.time===time&&carrierMemo.id===carrier.id&&carrierMemo.players===players)return carrierMemo.v;
+ const o=HORIZON.evaluate!(carrier,players),v=o.length?Math.max(...o.map(x=>x.score)):0;
+ carrierMemo={time,id:carrier.id,players,v};return v;
+}
 /** (iteration 2) How the opponents will stand when he gets there, as he reads it: everyone carries on along his
  * current motion (up to FREE_AHEAD s); a man marking him comes with him, goal-side of the new spot, when he reads that
  * man as able to get there by the time he does (the race read: reading sets the error, FREE_RACE_SPREAD s). */
@@ -106,7 +114,15 @@ export function freeSupportRows(players:PracticePlayer[],carrier:PracticePlayer,
   const best=groundOptions(carrier,q,world,false,undefined,carrier,laneRisk)[0];
   if(!best)continue;
   const risk=best.pass?.risk??1,advance=passAdvance(carrier,carrier,best.aim??c.v);
-  const value=best.score+(plan.advance-1)*advance*.3*(1-risk)-(plan.safety-1)*risk*.5;
+  // (horizon-probe H2, HORIZON.on && HORIZON.support only) plus what he could do with the ball there, read as the
+  // carrier's two-pass view reads a delivery (practice-horizon): gamma x (1-risk) x (his V there - the carrier's V now).
+  let ahead=0;
+  if(HORIZON.on&&HORIZON.support&&HORIZON.evaluate){
+   const now=carrierValue(carrier,players,time);
+   const v=receptionValue({...q,angle:Math.atan2(carrier.y-q.y,carrier.x-q.x)},world.map(o=>o.id===q.id?{...q,angle:Math.atan2(carrier.y-q.y,carrier.x-q.x)}:o),HORIZON.evaluate,1);
+   HORIZON.stats.supportEvals++;ahead=HORIZON.gamma*(1-risk)*(v-now);
+  }
+  const value=best.score+(plan.advance-1)*advance*.3*(1-risk)-(plan.safety-1)*risk*.5+ahead;
   const seen=perceive(p,'lane',value,FREE_SPREAD,c.v,{time,salt:'free'});
   const behind=dep(c.v.x)<bd,restCost=behind?0:Math.max(0,leaving);
   const crowd=Math.max(0,...taken.map(v=>clamp((2.5-distance(v,c.v))/2.5,0,1)));

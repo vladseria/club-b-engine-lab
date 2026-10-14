@@ -4,3 +4,5 @@ results/smoke*.jsonl
 results/.tapes/
 results/diag.jsonl
 results/*.log
+results/lap-*.jsonl
+results/pid*

@@ -1,4 +1,4 @@
-// Marking probe (2026-10-14): the support-proto runner (support.ts rows), entries here set the probe flags.
+// Horizon probe (2026-10-14): the support-proto runner (hz.ts rows), entries here set the probe flags.
 //   node run.mjs --label rr --revs eng=working di121vsh121,sh121vdi121:0-39   (resumable; output results/<label>.jsonl)
 // results/<label>.jsonl, appended; finished (arm, seed, rev) rows are skipped, so a stopped run resumes.
 // Parity: the same seeds through the official path, then parity.mjs:
