@@ -6,6 +6,7 @@ import type {PracticePlayer,Duty} from './practice.js';
 import {acuity,perceive,inView,lookingAt,followsTeam,eagerness,sightLag,misread} from './practice-perception.js';
 import {arrivalTime,containMovement,coverPosition,laneSkill,LANE_READ} from './practice-defense.js';
 import {readThreat,carrierThreat,threatSource} from './practice-threat.js';
+import {stepInWillingness,dangerAt} from './practice-duel.js';
 import type {ThreatPicture} from './practice-threat.js';
 
 /** Defending rebuild (2026-10-03, evidence/2026-10-03-defending-rebuild).
@@ -224,6 +225,14 @@ export const duelWindow=(p:{skills:{defending:number;aerial:number;strength:numb
  * it near him: the receiver's defender screens instead, in the runner's path
  * SCREEN_STEP m in front of him. */
 export const CONTEST_WITHIN=.5,CONTEST_SPREAD=.6,CONTEST_GOALSIDE=.4,SCREEN_STEP=1.2,KEEPER_ZONE=4;
+/** (contest round, 2026-10-15) Where the contesting defender meets it. Always CONTEST_GOALSIDE m goal-side of the
+ * meeting point before, so he arrived second to every ball played towards goal and the touch was never his. Now he
+ * weighs stepping in front: when his own read says he gets there with the receiver (STEP_WINDOW s late or better) he
+ * goes towards the ball, up to STEP_IN m ball-side of the meeting point, as far as his willingness to risk being
+ * turned there allows (stepInWillingness: his daring and appetite against the cost of being beaten this near goal
+ * with nobody behind him). A late read, or a cautious man, keeps him goal-side as before. The reception duel
+ * (practice-duel.ts) then decides the touch. */
+export const STEP_WINDOW=.3,STEP_IN=.35;
 /** Spacing between free defenders' spots (m). */
 export const SPACING=2.2,FREE_GAP=3.2,SCREEN_OFF=7;
 /** A sagging marker keeps SAG_CLEAR m off a man a team-mate has. */
@@ -1084,6 +1093,12 @@ export function defendOutOfPossession(given:DefendInput):DefendPlan{
  const contestSpot=behindLine?(()=>{const m=input.receiver!.meet,d=distance(m,g)||1;return {x:m.x+(g.x-m.x)/d*CONTEST_GOALSIDE,y:m.y+(g.y-m.y)/d*CONTEST_GOALSIDE};})():undefined;
  // how late he reads he gets there after the receiver (s), his own read of the race
  const contestRead=(q:PracticePlayer,spot:Vec)=>perceive(q,'race',arrivalTime(q,spot)-(input.theirs??Infinity),CONTEST_SPREAD,spot,{time,salt:'contest'});
+ // (contest round) where he actually goes: from goal-side of the meeting towards the ball, as his read and nerve allow
+ const contestAim=(q:PracticePlayer,late:number):Vec=>{
+  const m=input.receiver!.meet,gd=distance(m,g)||1,bd=distance(ball,m)||1;
+  const k=clamp((STEP_WINDOW-late)/STEP_WINDOW,0,1)*stepInWillingness(q,dangerAt(m,g),0);
+  return {x:m.x+(g.x-m.x)/gd*CONTEST_GOALSIDE*(1-k)+(ball.x-m.x)/bd*STEP_IN*k,y:m.y+(g.y-m.y)/gd*CONTEST_GOALSIDE*(1-k)+(ball.y-m.y)/bd*STEP_IN*k};
+ };
  // ---- the ball: a pass or a loose ball ----
  if(!carrier&&!restart&&input.reach){
   const receiverOwner=input.receiver?own.find(q=>manOf(q)?.id===input.receiver!.id):undefined;
@@ -1116,7 +1131,7 @@ export function defendOutOfPossession(given:DefendInput):DefendPlan{
    const spot=contestSpot!;
    const free=(q:PracticePlayer)=>{if(busy.has(q.id))return false;if(q===receiverOwner)return true;const m=manOf(q);if(!m)return true;const r=readOf(q,m);return r.matter==='watch'||r.matter==='spare'||distance(r.v,input.receiver!.meet)<COLLECT_MAN;};
    const goer=own.filter(free).map(q=>({q,late:contestRead(q,spot)})).filter(c=>c.late<=CONTEST_WITHIN).sort((a,b)=>a.late-b.late||a.q.id.localeCompare(b.q.id))[0];
-   if(goer){plan.collector={id:goer.q.id,meet:spot};done.add(goer.q.id);}
+   if(goer){plan.collector={id:goer.q.id,meet:contestAim(goer.q,goer.late)};done.add(goer.q.id);}
   }
  }
 
@@ -1192,8 +1207,8 @@ export function defendOutOfPossession(given:DefendInput):DefendPlan{
    aim={x:r.v.x+(m.x-r.v.x)/d*step,y:r.v.y+(m.y-r.v.y)/d*step};
    reason='Portarul iese la minge: o lasă lui și se pune în calea atacantului.';
   }else if(closing&&behindLine&&input.theirs!==undefined&&contestRead(q,contestSpot!)<=CONTEST_WITHIN){
-   // (B3) he can get there with his man: he races him to the ball, goal-side, to make the touch a fight
-   aim=contestSpot!;
+   // (B3) he can get there with his man: he races him to the ball, goal-side (or in front, contest round), to make the touch a fight
+   aim=contestAim(q,contestRead(q,contestSpot!));
    reason='Mingea cade în spatele lui: aleargă cu omul lui spre ea, pe partea porții, ca preluarea să fie un duel.';
   }else if(closing){
    const mt=cued??input.receiver!.meet,meet={...r.v,x:mt.x,y:mt.y},d=distance(meet,g)||1;
