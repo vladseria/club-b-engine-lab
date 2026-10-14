@@ -1270,6 +1270,14 @@ export function defendOutOfPossession(given:DefendInput):DefendPlan{
    else cueDue.push(due);
   }
   const closing=input.receiver?.id===m.id||!!cued;
+  // (beat-direct probe P1) his read of the ball-behind threat: the passer's state as it was his sight lag ago
+  const hfThreat=()=>{
+   const exact=holdFrontRead(q,r.v,carrier!,players,defending),hf={...(memory.hf??{})};
+   const hist=[...(hf[q.id]?.h??[]),[time,exact] as [number,number]].filter(([t])=>t>=time-HF_KEEP);
+   const lag=cueDelay(q,carrier!,ball,time);let val=hf[q.id]?.val??0;for(const [t,v] of hist)if(t<=time-lag+1e-9)val=v;
+   hf[q.id]={h:hist,val};memory.hf=hf;
+   return clamp(perceive(q,'threat',val,HF_SPREAD,carrier!,{time,salt:'hf'+m.id}),0,1);
+  };
   let aim:Vec,reason:string,hurry=false,hfDrop=0;
   if(closing&&behindLine&&input.keeperCall){
    // (B3) his keeper is coming for it: he leaves the ball to him and gets in his man's path
@@ -1282,7 +1290,12 @@ export function defendOutOfPossession(given:DefendInput):DefendPlan{
    reason='Mingea cade în spatele lui: aleargă cu omul lui spre ea, pe partea porții, ca preluarea să fie un duel.';
   }else if(closing){
    const mt=cued??input.receiver!.meet,meet={...r.v,x:mt.x,y:mt.y},d=distance(meet,g)||1;
-   aim={x:meet.x+(g.x-meet.x)/d*1,y:meet.y+(g.y-meet.y)/d*1};
+   // (P1 retry, Tactics.holdFrontCue) a pass being prepared for his man (not yet struck): closing his feet is weighed
+   // against the ball behind, as the hold is (holdFrontCushion, from where the pass is going): with the passer free,
+   // facing our goal and room behind, he closes only as far as the ball behind lets him; pressed or turned, he closes as before
+   let off=1;
+   if(cued&&tactics.holdFront&&tactics.holdFrontCue&&carrier&&!restart){const c=holdFrontCushion(q,meet as PracticePlayer,hfThreat(),defending);if(c>.05){off=1+Math.min(c,Math.max(0,depth(defending,meet.x)-1-HF_FLOOR));hfDrop=c;}}
+   aim={x:meet.x+(g.x-meet.x)/d*off,y:meet.y+(g.y-meet.y)/d*off};
    reason=cued?'Vede că purtătorul pregătește pasa spre omul lui: pleacă odată cu ea, între el și poartă.':'Pasa merge la omul lui: îl închide cât mingea e pe drum, între el și poartă.';
   }else{
    // (marking and shape round) the man who matters most to him (the nearest our goal of their men ahead of the
@@ -1295,12 +1308,7 @@ export function defendOutOfPossession(given:DefendInput):DefendPlan{
    for(const k of [.6,.3,0]){if(!others.some(a=>distance(view(q,a),aim)<SAG_CLEAR))break;aim=markSpot(q,r,ref,tactics,defending,squeeze,k*sagScale,time);}
    // (beat-direct probe P1) hold them in front: drop off his man while a ball can be played behind him (holdFrontCushion)
    if(tactics.holdFront&&!restart&&carrier&&m.id!==carrier.id){
-    // (he reads the passer's state as it was his sight lag ago: a short history of what he has seen)
-    const exact=holdFrontRead(q,r.v,carrier,players,defending),hf={...(memory.hf??{})};
-    const hist=[...(hf[q.id]?.h??[]),[time,exact] as [number,number]].filter(([t])=>t>=time-HF_KEEP);
-    const lag=cueDelay(q,carrier,ball,time);let val=hf[q.id]?.val??0;for(const [t,v] of hist)if(t<=time-lag+1e-9)val=v;
-    hf[q.id]={h:hist,val};memory.hf=hf;
-    const threat=clamp(perceive(q,'threat',val,HF_SPREAD,carrier,{time,salt:'hf'+m.id}),0,1);
+    const threat=hfThreat();
     const c=holdFrontCushion(q,r.v as PracticePlayer,threat,defending);
     if(c>.05){const dg=distance(aim,g)||1;const k=Math.min(c,Math.max(0,depth(defending,aim.x)-HF_FLOOR));aim={x:aim.x+(g.x-aim.x)/dg*k,y:aim.y+(g.y-aim.y)/dg*k};hfDrop=c;}
    }

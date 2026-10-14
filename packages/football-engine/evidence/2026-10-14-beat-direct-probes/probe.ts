@@ -15,6 +15,10 @@
 //  up    this side's open-play regains (a spell not begun by a restart) with a man up at the moment of the regain:
 //        [regains, the man up received the ball within 8 s in the spell, shots, clear chances, goals within 12 s in the spell]
 //  noUp  the same for regains without a man up: [regains, -, shots, clear, goals]
+//  lb    (P1 retry) one entry per open-play long ball by this side aimed into the final third (lofted or 15 m+, gaining 5 m+,
+//        named target): [aim beyond their deepest outfielder (m from their goal; negative = behind him), the target's nearest
+//        goal-side defender at the pass (m; -1 = nobody goal-side), the target's marker (job target) was on a P1 job (1/0),
+//        first touch theirs (1/0), the target received it behind their deepest outfielder (1/0)]
 //  conc  goals conceded: [all, with a man of ours up at any moment in the 10 s before the goal]
 // Clear chance = a shot whose table rate is >= 0.30 (the official row's per-shot chance, matched to the engine's shot
 // events in order).
@@ -42,7 +46,7 @@ function probeKeys(R:any,shotRows:any[]){
  // the end of this side's possession after t: the first frame the other side has it (or a restart for it)
  const lostAfter=(s:number,t:number)=>{for(let k=frameAt(t)+1;k<n;k++){if(poss[k]===1-s)return frames[k].time;}return end;};
  const window=(s:number,t0:number,t1:number)=>{let sh=0,cl=0,gl=0;for(const x of shots)if(x.s===s&&x.t>t0+1e-6&&x.t<=t1+1e-6){sh++;if(x.ch>=CLEAR)cl++;if(x.goal)gl++;}return [sh,cl,gl];};
- const mk=()=>({rb:[[0,0,0,0],[0,0,0,0],[0,0,0,0]],rbL:[[0,0,0,0],[0,0,0,0],[0,0,0,0]],u1:[0,0,0,0],u1L:[0,0,0,0],line:[0,0,0],job:[0,0,0],up:[0,0,0,0,0],noUp:[0,0,0,0,0],conc:[0,0]});
+ const mk=()=>({rb:[[0,0,0,0],[0,0,0,0],[0,0,0,0]],rbL:[[0,0,0,0],[0,0,0,0],[0,0,0,0]],u1:[0,0,0,0],u1L:[0,0,0,0],line:[0,0,0],job:[0,0,0],up:[0,0,0,0,0],noUp:[0,0,0,0,0],conc:[0,0],lb:[] as number[][]});
  const P=[mk(),mk()];
  const add=(a:number[],b:number[])=>{a[0]++;for(let j=0;j<3;j++)a[j+1]+=b[j];};
  // receptions
@@ -81,6 +85,24 @@ function probeKeys(R:any,shotRows:any[]){
    if(why.startsWith('[P1]'))P[s].job[0]+=dt;
    if(why.startsWith('[P3]')){P[s].job[1]+=dt;upIv.push([s,c.time,t1]);}
    if(c.assignment?.purpose==='mark')P[s].job[2]+=dt;}
+ }
+ // (P1 retry) long balls into the final third: the gap at the pass, the marker's job, the first touch, the reception
+ const latestOf=(i:number,t:number)=>{let c:any=null;for(const x of by.get(i)??[]){if(x.time<=t+1e-6)c=x;else break;}return c;};
+ for(let q=0;q<events.length;q++){
+  const e=events[q];if(e.kind!=='pass'||(e.side!==0&&e.side!==1)||e.restartKind)continue;
+  const s=e.side,D=1-s,f=frames[frameAt(e.time)],pi=idx.get(e.actor),ti=idx.get(e.target);if(pi===undefined||ti===undefined)continue;
+  const p=pos(f,pi),tq=pos(f,ti),aim=e.pass?.aim??e.aerial?.aim;if(!p||!tq||!aim)continue;
+  const len=dist(p,aim);if(!(e.aerial||e.pass?.lofted||len>=15)||depthOf(s,aim.x)<32||depthOf(s,aim.x)-depthOf(s,p.x)<5)continue;
+  const di=outfield(D),defs=di.map((i:number)=>pos(f,i)).filter(Boolean);if(!defs.length)continue;
+  const lastDef=Math.min(...defs.map((d:any)=>depthOf(D,d.x)));
+  const gs=defs.filter((d:any)=>depthOf(D,d.x)<depthOf(D,tq.x)).map((d:any)=>dist(d,tq));
+  const mk=di.find((i:number)=>latestOf(i,e.time)?.assignment?.target===e.target);
+  const onP1=mk!==undefined&&String(latestOf(mk,e.time)?.reason??'').startsWith('[P1]')?1:0;
+  let theirs=0,recvBehind=0;
+  for(let k=frameAt(e.time)+1;k<n&&frames[k].time<=e.time+4;k++){const g=frames[k];if(g.restart)break;const o=g.ball?.owner;if(!o||(o===e.actor&&g.time<e.time+.3))continue;
+   if(sideOf(o)===D)theirs=1;else if(o===e.target){const z=pos(g,ti),dd=outfield(D).map((i:number)=>pos(g,i)).filter(Boolean);if(z&&dd.length&&depthOf(D,z.x)<Math.min(...dd.map((d:any)=>depthOf(D,d.x))))recvBehind=1;}
+   break;}
+  P[s].lb.push([Math.round((depthOf(D,aim.x)-lastDef)*10)/10,gs.length?Math.round(Math.min(...gs)*100)/100:-1,onP1,theirs,recvBehind]);
  }
  // regains
  for(let k=1;k<n;k++){
