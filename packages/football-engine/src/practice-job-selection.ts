@@ -38,7 +38,7 @@ export function selectPossessionJobs(players:PracticePlayer[],focus:PracticePlay
     const gap=distance(point,carrierPath[i]);
     return gap>initial+.2?0:clamp((2.5-gap)/2.5,0,1);
    }));
-   return {...row,score:row.job.purpose==='free'?row.score+opportunity.development-carrierConflict*1.2:row.score+opportunity.gain+opportunity.development-carrierConflict*1.2,opportunity,access,path,start:p,gap:read.gap,coverage:exposure.coverage(p,job)};
+   return {...row,score:row.score+opportunity.gain+opportunity.development-carrierConflict*1.2,opportunity,access,path,start:p,gap:read.gap,coverage:exposure.coverage(p,job)};
   });
   const ranked=evaluated.sort((a,b)=>b.score-a.score);
   const kept:typeof ranked=[],alternatives:typeof ranked=[],buckets=new Map<string,typeof ranked>();

@@ -2,8 +2,6 @@ import type {StandingNote} from './practice-standing.js';
 import {aerialMeetings,reachesAerialMeeting,openAerialMeeting,aerialContact,readAerialKick,strikeAerial,cushionChest} from './practice-aerial.js';
 import type {AerialTechnique,AerialMeeting,AerialKick} from './practice-aerial.js';
 import {approachForSituation,approachOptions} from './team-approach.js';
-import {HORIZON,applyHorizon} from './practice-horizon.js';
-import type {Evaluate} from './practice-horizon.js';
 import {L,W,GH,HEIGHT,BOX_DEPTH,BOX_HALF,SPOT,X,Y,G} from './pitch.js';
 import {FootballCoaching} from './practice-coaching.js';
 import type {CoachingIntent,CoachingNote} from './practice-coaching.js';
@@ -303,17 +301,6 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
  // Striker: Pivot: the lead forward while he shows for a ball into his feet (team-approach PIVOT_PULL).
  const showingPivot=(team:Side)=>{const id=coordination?.attacking===team?coordination.strikers?.[team]?.id:undefined,job=id?coordination!.jobs[id]:undefined;return job?.purpose==='pivot'&&job.kind==='show'?id:undefined;};
  const footballOptions=(...args:Parameters<typeof practiceOptions>):Option[]=>{let available=approachOptions(args[0],practiceOptions(...args),tacticsFor(args[0].side),args[1],showingPivot(args[0].side));if(coaching)available=coaching.options(args[6]??0,args[0],args[1],ball,available,laneRisk,args[4]??0,args[5]??null);return bookFor(args[0].side)?.options(args[6]??0,args[0],args[1],ball,args[7]??null,available)??available;};
- // (horizon-probe, HORIZON.on only) the carrier's decision with a two-pass view (practice-horizon); off, exactly footballOptions.
- const horizonEval:Evaluate=(q,world)=>approachOptions(q,practiceOptions(q,world,new Set(world.filter(x=>x.duty==='run').map(x=>x.id)),'',0,null,time,null),tacticsFor(q.side),world,showingPivot(q.side));
- if(HORIZON.on)HORIZON.evaluate=horizonEval;
- const decideOptions=(...args:Parameters<typeof practiceOptions>):Option[]=>{
-  const available=footballOptions(...args);if(!HORIZON.on)return available;
-  const t0=performance.now(),out=applyHorizon(args[0],args[1],available,horizonEval);HORIZON.stats.ms+=performance.now()-t0;HORIZON.stats.decisions++;
-  const top=(a:Option[])=>a.reduce((x,y)=>y.score>x.score?y:x);const was=top(available),now=top(out);
-  if(was.kind!==now.kind||was.target!==now.target)HORIZON.stats.flips++;
-  const h=(now as any).horizon??0;if(h>0)HORIZON.stats.posChosen++;HORIZON.stats.sumChosen+=h;
-  return out;
- };
  const rosterIndex=new Map(roster.map((p,i)=>[p.id,i])),used=new Set(players.map(p=>p.id)),subCounts=[0,0];
  let half:1|2=1,lineup:number[]|undefined,needsFrame=false,cut=false;
  // Set when full time finds a side in an attack (the loop below, practice-match.ts attackAtFullTime).
@@ -862,7 +849,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    if(receiver.side===side&&dist(receiver,ball)<14&&(!continuation||continuation.receiver!==receiver.id||continuation.release!==releaseAt||time-continuation.checked>=.18)){
     const meeting=flight.meetings[receiver.id]??receptionTarget(receiver,ball),future={...receiver,...meeting};
     const runs=new Set(players.filter(q=>q.duty==='run').map(q=>q.id));
-    const available=decideOptions(future,players,runs,releaseBy,0,null,time,support);
+    const available=footballOptions(future,players,runs,releaseBy,0,null,time,support);
     const best=Math.max(...available.map(o=>o.score));
     const option=available.filter(o=>(o.kind==='carry'||o.kind==='pass'||o.kind==='through'||o.kind==='shoot')&&o.score>=best-.06&&(o.carry?.obstruction??o.pass?.risk??laneRisk(future,o.aim,sidePlayers(other(side)),22))<.28).sort((a,b)=>b.score-a.score)[0];
     if(option){const same:boolean=continuation?.receiver===receiver.id&&continuation.release===releaseAt&&continuation.option.target===option.target&&continuation.option.kind===option.kind;
@@ -1230,14 +1217,14 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
     const closedRelease=prepared&&['pass','through','loft'].includes(prepared.option.kind)&&time>=recheckAt&&launchRisk(p,prepared.option.aim,players,Math.max(0,prepared.at+footToBall(p)-time))>.55;
     if(closedRelease)recheckAt=time+RELEASE_RECHECK;
     if(prepared&&!mustRelease&&!inHands&&(closedRelease||time>=nextThink)){
-     const alternatives=decideOptions(p,players,new Set(players.filter(q=>q.duty==='run').map(q=>q.id)),lastFrom,time-receivedAt,carryPlan,time,support,observedLine(p),feintMemory.get(p.id));
+     const alternatives=footballOptions(p,players,new Set(players.filter(q=>q.duty==='run').map(q=>q.id)),lastFrom,time-receivedAt,carryPlan,time,support,observedLine(p),feintMemory.get(p.id));
      const current=alternatives.filter(o=>o.kind===prepared!.option.kind&&o.target===prepared!.option.target&&!!o.receivingSpace===!!prepared!.option.receivingSpace).sort((a,b)=>dist(a.aim,prepared!.option.aim)-dist(b.aim,prepared!.option.aim))[0];
      if(!current||Math.max(...alternatives.map(o=>o.score))>current.score+.18)prepared=null;
      else prepared.option=current;
      nextThink=prepared?time+.2:time;
     }
     if(time>=nextThink&&!prepared){
-     const runs=new Set(players.filter(q=>q.duty==='run').map(q=>q.id)),free=restart&&(restart.kind==='freeKick'||restart.kind==='indirect');let holdUntil=Infinity,available=decideOptions(free?setPiecePlayer({...p,...restart!.spot}):p,players,runs,lastFrom,time-receivedAt,carryPlan,time,support,observedLine(p),feintMemory.get(p.id));
+     const runs=new Set(players.filter(q=>q.duty==='run').map(q=>q.id)),free=restart&&(restart.kind==='freeKick'||restart.kind==='indirect');let holdUntil=Infinity,available=footballOptions(free?setPiecePlayer({...p,...restart!.spot}):p,players,runs,lastFrom,time-receivedAt,carryPlan,time,support,observedLine(p),feintMemory.get(p.id));
      if(mustRelease){available=restart?.kind==='throw'?throwOptions(p,ball,players,available):free?freeKickOptions(p,players,restart!,available,f.teams[p.side].tactics):available.filter(o=>o.kind==='pass'||o.kind==='through'||o.kind==='loft');if(!available.length){const q=sidePlayers(p.side).filter(q=>q.id!==p.id).sort((a,b)=>dist(a,p)-dist(b,p))[0];available=[{kind:'pass',target:q.id,aim:q,score:1,reason:'Reia jocul cu o pasă către colegul apropiat.'}];}}
      if(inHands){
       available=available.filter(o=>o.kind==='pass'||o.kind==='through'||o.kind==='loft');

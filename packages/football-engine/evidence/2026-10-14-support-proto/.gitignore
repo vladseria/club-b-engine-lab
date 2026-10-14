@@ -1,6 +1,0 @@
-results/.bundle.*
-results/.rev-*
-results/smoke*.jsonl
-results/.tapes/
-results/diag.jsonl
-results/*.log
