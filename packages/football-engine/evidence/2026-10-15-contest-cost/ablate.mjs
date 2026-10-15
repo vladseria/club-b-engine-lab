@@ -54,12 +54,20 @@ const T={
   [PR,`hurry=contest?.hurry??0;`,`hurry=shot&&!o.freeKick?__r1ShotHurry(p,players,aerial?aerial.plan.aim:shotRead!.aim,firstTime):0;`],
  ],
 };
+// (duelAt confirm, 2026-10-15) the leading explanation of the cost: `p.duelAt=time` adds a property to player objects
+// mid-match, so players (and their {...p} copies) come in two shapes.
+//   du     (as nodu) remove the one duelAt write that survives alloff (a tackle he rode and kept the ball): with the
+//          shot piece off nothing reads duelAt, so alloff+nodu is still R1's football
+//   dupre  not an ablation: every player is created with duelAt (undefined), so the write never changes his shape;
+//          reads are unchanged, so the full build's football must be unchanged too
+T.du=[[PR,`recovering.set(d.id,{until:time+.45,opponent:p.id});p.duelAt=time;say('tackle',`,`recovering.set(d.id,{until:time+.45,opponent:p.id});say('tackle',`]];
+T.dupre=[[PR,`archetype:p.archetype??'',temperament:p.temperament??''};`,`archetype:p.archetype??'',temperament:p.temperament??'',duelAt:undefined};`]];
 // SHOT_SPREAD is re-exported (not imported) by practice.ts on the contest build; R1 used it locally: import it for ~noshot
 T.shot.push([PR,`export {SHOT_SPREAD} from './practice-shot-contest.js';`,`export {SHOT_SPREAD} from './practice-shot-contest.js';\nimport {SHOT_SPREAD} from './practice-shot-contest.js';`]);
 
 export const ABLATIONS=['rx','air','shot'];
 /** 'norx+noshot' -> ['rx','shot']; 'full' / '' -> []; 'alloff' -> all three. */
-export const pieces=name=>!name||name==='full'?[]:name==='alloff'?[...ABLATIONS]:name.split('+').map(k=>{const p=k.replace(/^no/,'');if(!T[p])throw Error(`unknown ablation '${k}'`);return p;});
+export const pieces=name=>!name||name==='full'?[]:name.split('+').flatMap(k=>{if(k==='alloff')return [...ABLATIONS];if(T[k]&&!k.startsWith('no'))return [k];const p=k.replace(/^no/,'');if(!T[p])throw Error(`unknown ablation '${k}'`);return [p];});
 
 /** esbuild plugin applying the named ablation to this tree's engine source. */
 export function ablatePlugin(name){
