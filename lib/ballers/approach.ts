@@ -15,6 +15,9 @@
 import type {ApproachSettings} from '../../packages/football-engine/src/team-approach';
 
 export type OnLoss='regroup'|'balanced'|'counterpress';
+/** Every value a stored row or frozen input may hold, and the engine plays. The board
+ * offers only Balanced and Counter-press (Regroup retired, boardApproach below), but
+ * a stored 'regroup' must still reach the engine as 'regroup' (onLossOf). */
 export const ON_LOSS:readonly OnLoss[]=['regroup','balanced','counterpress'];
 /** What a row without the field means: the behaviour every match has had so far. */
 export const ON_LOSS_DEFAULT:OnLoss='balanced';
@@ -34,7 +37,9 @@ export function withOnLoss(a:StoredApproach):Approach{return {...a,onLoss:onLoss
 /** Whether Width is a choice in this formation. 2-1-1 has no wingers, and
  * there the three options played the same football (width check, 234 matches,
  * packages/football-engine/evidence/2026-10-11-width-check on branch
- * width-check): the screens don't offer it and the side plays Standard. */
+ * width-check): the screens don't offer it and the side plays Standard.
+ * 2-1-1 itself is retired from the board (boardFormation below); this still
+ * decides how a frozen 2-1-1 input plays, so it must not change. */
 export const widthChosen=(formation:string)=>formation!=='2-1-1';
 /** The approach a formation plays: in 2-1-1 Width is Standard whatever is
  * stored. The stored value is kept (switch back to a shape with wingers and
@@ -43,6 +48,30 @@ export const widthChosen=(formation:string)=>formation!=='2-1-1';
  * every "adjusted" check, so the screens say what is played. */
 export function playedApproach<A extends {width:ApproachSettings['width']}>(formation:string,a:A):A{
  return widthChosen(formation)||a.width==='standard'?a:{...a,width:'standard'};
+}
+
+/** Retired from the board (owner, 15 Oct 2026; board audit
+ * packages/football-engine/evidence/2026-10-15-board-audit on branch
+ * ballers-board-audit): formation 2-1-1, Bodies forward 1 and 2, and On
+ * losing it Regroup. Each cost goals with no football case left, and "better
+ * not to offer a choice than a false one". The screens no longer offer them.
+ *
+ * Rows that already store one keep it (no migration, no write), and the engine
+ * keeps accepting all three, so every frozen input replays exactly as before:
+ * engineApproach, playedApproach and compute.ts never call these. They are
+ * applied only where a club's CURRENT setup is read for the screens and for a
+ * new browser match: lib/ballers/plans.ts `plan()` (every plan row) and
+ * lib/ballers/data.ts `myClub` (the club defaults). Past preps, plan
+ * snapshots, replays and other clubs' last games stay as they were played.
+ * 2-1-1 plays 1-2-1, 1 and 2 forward play 3, Regroup plays Balanced.
+ * The server does the same for official matches: migration
+ * 20261015200000_ballers_board_trim (applied together with this UI) maps at
+ * freeze (private.ballers_input_side, the same three rules) and refuses a
+ * retired value sent as a new pick ('retired_formation' / 'retired_option'). */
+export const boardFormation=<F extends string>(f:F):F=>(f==='2-1-1'?'1-2-1':f) as F;
+export function boardApproach<A extends StoredApproach>(a:A):A{
+ const commit=a.commit<3?3:a.commit,onLoss=a.onLoss==='regroup'?'balanced':a.onLoss;
+ return commit===a.commit&&onLoss===a.onLoss?a:{...a,commit,onLoss};
 }
 
 /** The approach as the engine takes it: every key kept exactly as stored
