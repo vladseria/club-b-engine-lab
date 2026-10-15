@@ -15,6 +15,9 @@ export interface ChallengeAttempt {defender:string;opponent:string;aim:Vec;veloc
 export interface ChallengeContact {
  ball:boolean;body:boolean;ballFirst:boolean;leg:boolean;collision:boolean;
  foot:Vec;spot:Vec;closingSpeed:number;foulChance:number;
+ /** (duel recovery) how far his boot went from his body (m, at most 1.3) and how much of that was follow-through:
+  * the lunge he has to recover from (practice-balance lunged). */
+ reach:number;followThrough:number;
 }
 
 /** Resolve the committed reach, not a circle around the defender. Radii approximate
@@ -31,9 +34,7 @@ export function resolveChallengeContact(d:PracticePlayer,a:PracticePlayer,ball:V
  const error=distance(attempt.aim,ball),correction=Math.min(1,adjustment/Math.max(error,.00001));
  const aim={x:attempt.aim.x+(ball.x-attempt.aim.x)*correction,y:attempt.aim.y+(ball.y-attempt.aim.y)*correction};
  const direction=unit(aim.x-d.x,aim.y-d.y);
- // Skilled, composed players stop their foot sooner. Momentum and frustration
- // extend the follow-through, but never beyond a physically bounded reach.
- const followThrough=.08+(1-technique)*.14+(1-d.traits.discipline)*.12+tired*.06+rushed*.15+frustration*.1;
+ const followThrough=followThroughOf(d,closingSpeed,deficit);
  const reach=Math.min(1.3,distance(d,aim)+followThrough);
  const foot={x:d.x+direction.x*reach,y:d.y+direction.y*reach};
  const ballAt=contact(d,foot,ball,ball,.24),legAt=contact(d,foot,a,a,.38);
@@ -46,7 +47,16 @@ export function resolveChallengeContact(d:PracticePlayer,a:PracticePlayer,ball:V
  // The offence belongs where contact occurred, not where the ball happens to be.
  const at=legAt??0,impact=leg?{x:d.x+(foot.x-d.x)*at,y:d.y+(foot.y-d.y)*at}:d;
  const toward=unit(impact.x-a.x,impact.y-a.y),spot={x:a.x+toward.x*.3,y:a.y+toward.y*.3};
- return {ball:ballAt!==null,body,ballFirst,leg,collision,foot,spot,closingSpeed,foulChance};
+ return {ball:ballAt!==null,body,ballFirst,leg,collision,foot,spot,closingSpeed,foulChance,reach,followThrough};
+}
+
+/** Skilled, composed players stop their foot sooner. Momentum and frustration extend the follow-through (m), but never
+ * beyond a physically bounded reach (resolveChallengeContact caps it). Moved out of resolveChallengeContact unchanged
+ * (duel recovery, 2026-10-16) so a reception duel's lunge reads the same follow-through. */
+export function followThroughOf(d:PracticePlayer,closingSpeed:number,deficit=0):number{
+ const rushed=clamp((closingSpeed-3)/6,0,1),technique=clamp(d.skills.defending/10,0,1);
+ const tired=1-clamp(d.energy/100,0,1),frustration=(d.traits.frustration??0)*Math.min(3,Math.max(0,deficit))/3;
+ return .08+(1-technique)*.14+(1-d.traits.discipline)*.12+tired*.06+rushed*.15+frustration*.1;
 }
 
 /** The tackle's odds once a defender commits to it and reaches the ball: his
@@ -57,24 +67,12 @@ export function duelChance(attacker:PracticePlayer,defender:PracticePlayer,cover
  return clamp(.46+(defender.skills.defending-attacker.skills.control)*.035+(defender.skills.strength-attacker.skills.strength)*.014+(defender.energy-attacker.energy)*.001+cover*.06,.15,.85);
 }
 
-/** Regain fixes (2026-10-11): a player who has just lost the ball at close
- * quarters is off balance: tackled (his weight was on the ball and the tackle
- * took his foot away), the ball knocked or squirting off him, or his kick
- * blocked by the man in front of him (he is still in the follow-through). He
- * needs a moment to plant and turn before he can go in again: until then he
- * chases, but cannot commit a challenge of his own, so the man who won it has
- * a moment to move it away from him. A strong player rides it a little
- * better. Close quarters: an opponent within BEATEN_NEAR m of him takes it
- * within BEATEN_WINDOW s of it leaving his feet (a tackle always counts).
- * Before, he could challenge again at once (only a man who had just tackled
- * waited, 1.4 s), and two players stood glued together while the ball changed
- * owner three or four times in two seconds. Team-mates who were not in the
- * duel can still counter-press at once. For the first BEATEN_TOUCH of that
- * moment he cannot take a controlled touch either (his body still stops the
- * ball): the ball that bounced off him as the winner set off used to be his
- * again at once. */
-export const BEATEN_BALANCE=.6,BEATEN_STRENGTH=.03,BEATEN_WINDOW=1,BEATEN_NEAR=2,BEATEN_TOUCH=.5;
-export const beatenRecovery=(p:{skills:{strength:number}})=>BEATEN_BALANCE+BEATEN_STRENGTH*(10-clamp(p.skills.strength,0,10));
+/** Regain fixes (2026-10-11): close quarters. A player who loses the ball with an opponent within BEATEN_NEAR m of him
+ * taking it within BEATEN_WINDOW s of it leaving his feet (a tackle always counts) is off balance before he can go in
+ * again or take a controlled touch, so the man who won it has a moment to move it away from him. How long now follows
+ * what happened to him in the duel (practice-balance, duel recovery 2026-10-16); before, it was a fixed 0.6 s plus
+ * 0.03 s a strength point under 10. Team-mates who were not in the duel can still counter-press at once. */
+export const BEATEN_WINDOW=1,BEATEN_NEAR=2;
 
 /** Access to the ball is not the same as proximity to the carrier. */
 export function bodyScreensBall(defender:Vec,attacker:Vec,ball:Vec):boolean{

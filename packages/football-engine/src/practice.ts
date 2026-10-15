@@ -26,7 +26,8 @@ import type {KeeperEdge} from './practice-football.js';
 import {arrivalTime,assignDefense,containMovement,coverPosition,shootingThreat,BLOCK_NEAR,BLOCK_GAP,DefenseAssignment,assignFlight,assignMarking,FlightAssignment,runnerBehindShoulder,runnerPickupDelay} from './practice-defense.js';
 import {offGoalLine,mayLeaveForBall,BOX_BLOCK_NEAR,BOX_BLOCK_DANGER,blockLeg,BLOCK_LEG_HEIGHT} from './practice-defending.js';
 import {readShotDanger} from './practice-shot-defense.js';
-import {duelChance,readChallenge,startChallenge,bodyScreensBall,recoveryPosition,resolveChallengeContact,beatenRecovery,BEATEN_WINDOW,BEATEN_NEAR,BEATEN_TOUCH,ChallengeContact,ChallengeRead,ChallengeAttempt} from './practice-challenge.js';
+import {duelChance,readChallenge,startChallenge,bodyScreensBall,recoveryPosition,resolveChallengeContact,followThroughOf,BEATEN_WINDOW,BEATEN_NEAR,ChallengeContact,ChallengeRead,ChallengeAttempt} from './practice-challenge.js';
+import {contactLoad,felt,struck,lunged,KICK_FOLLOW,FALL_KEEP,LEG_AFTER_BALL,TACKLER_STAGGER,Balance} from './practice-balance.js';
 import {possessionSafety,lookAgain,securePossessionOptions,recoveryTouch,preparationTime,strikeClearance,launchRisk,ClearanceIntent,footToBall,priceCaught,HURRY_SHARE,HURRY_POINTS} from './practice-possession.js';
 import {perceive,Sightings,sightLag,inView,lookingAt} from './practice-perception.js';
 import {POSITIONAL_KINDS,CUE_LOOSE,INTENSITY_EVERY,SpotDrift,offBallIntensity,intensityLimit,intensityPush,readCue,restartKickIn,restartWalk} from './practice-intensity.js';
@@ -96,8 +97,8 @@ export const KEEPER_LAST=.6,KEEPER_SPARE=.4;
  * two: a presser arriving at a sprint is in the throw's way by the time it leaves. (Round 2's one release into the man
  * left was a loft chosen with the presser 1.9 m away and coming, 1.2 m at the release.) */
 export const KEEPER_AHEAD=.3;
-export type Duty='hold'|'support'|'run'|'show'|'width'|'press'|'jockey'|'challenge'|'block'|'track'|'cover'|'intercept'|'recover'|'carry'|'prepare'|'receive'|'feint'|'wrongfoot'|'keeper'|'dive'|'sweep'|'restart';
-export const dutyNames:Record<Duty,string>={hold:'Protejează spațiul',support:'Oferă o pasă',run:'Atacă spațiul',show:'Vine la picior',width:'Ține lățimea',press:'Închide purtătorul',jockey:'Îl ține în față',challenge:'Încearcă deposedarea',block:'Acoperă șutul',track:'Urmărește o cursă',cover:'Acoperă un coleg',intercept:'Atacă mingea',recover:'Revine în apărare',carry:'Conduce mingea',prepare:'Pregătește lovitura',receive:'Iese la primire',feint:'Încearcă o fentă',wrongfoot:'Își reface echilibrul',keeper:'Închide unghiul',dive:'Plonjează după minge',sweep:'Iese din poartă',restart:'Pregătește reluarea'};
+export type Duty='hold'|'support'|'run'|'show'|'width'|'press'|'jockey'|'challenge'|'block'|'track'|'cover'|'intercept'|'recover'|'carry'|'prepare'|'receive'|'feint'|'wrongfoot'|'keeper'|'dive'|'sweep'|'restart'|'down';
+export const dutyNames:Record<Duty,string>={hold:'Protejează spațiul',support:'Oferă o pasă',run:'Atacă spațiul',show:'Vine la picior',width:'Ține lățimea',press:'Închide purtătorul',jockey:'Îl ține în față',challenge:'Încearcă deposedarea',block:'Acoperă șutul',track:'Urmărește o cursă',cover:'Acoperă un coleg',intercept:'Atacă mingea',recover:'Revine în apărare',carry:'Conduce mingea',prepare:'Pregătește lovitura',receive:'Iese la primire',feint:'Încearcă o fentă',wrongfoot:'Își reface echilibrul',keeper:'Închide unghiul',dive:'Plonjează după minge',sweep:'Iese din poartă',restart:'Pregătește reluarea',down:'E la pământ'};
 export interface PracticePlayer extends MovingPlayer {role:Role;skills:Skills;traits:Traits;energy:number;archetype:string;temperament:string;lane:number;basePace:number;duty:Duty;/** (contest: pressure on the shooter) when he last rode a tackle and kept the ball (s): a moment off balance (practice-shot-contest DUEL_FADE). */duelAt?:number}
 export interface Pose {x:number;y:number;vx:number;vy:number;angle:number;energy:number;duty:Duty}
 export type Incident='start'|'pass'|'clearance'|'receive'|'turnover'|'tackle'|'feint'|'beat'|'shot'|'save'|'block'|'goal'|'out'|'offside'|'foul'|'restart'|'half'|'substitution'|'end';
@@ -350,14 +351,16 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
  if(coaching&&playbooks.length)throw Error('Choose a coaching intention or an explicit action graph.');
  // Striker: Pivot: the lead forward while he shows for a ball into his feet (team-approach PIVOT_PULL).
  const showingPivot=(team:Side)=>{const id=coordination?.attacking===team?coordination.strikers?.[team]?.id:undefined,job=id?coordination!.jobs[id]:undefined;return job?.purpose==='pivot'&&job.kind==='show'?id:undefined;};
- const footballOptions=(...args:Parameters<typeof practiceOptions>):Option[]=>{let available=approachOptions(args[0],practiceOptions(...args),tacticsFor(args[0].side),args[1],showingPivot(args[0].side));if(coaching)available=coaching.options(args[6]??0,args[0],args[1],ball,available,laneRisk,args[4]??0,args[5]??null);return bookFor(args[0].side)?.options(args[6]??0,args[0],args[1],ball,args[7]??null,available)??available;};
+ const footballOptions=(...args:Parameters<typeof practiceOptions>):Option[]=>{let available=approachOptions(args[0],practiceOptions(...args),tacticsFor(args[0].side),args[1],showingPivot(args[0].side));if(coaching)available=coaching.options(args[6]??0,args[0],args[1],ball,available,laneRisk,args[4]??0,args[5]??null);const offered=bookFor(args[0].side)?.options(args[6]??0,args[0],args[1],ball,args[7]??null,available)??available;
+  // (duel recovery) nobody plays the ball to a team-mate lying on the floor
+  return downs.size&&offered.some(o=>o.target&&isDown(o.target))?offered.filter(o=>!o.target||!isDown(o.target)):offered;};
  const rosterIndex=new Map(roster.map((p,i)=>[p.id,i])),used=new Set(players.map(p=>p.id)),subCounts=[0,0];
  let half:1|2=1,lineup:number[]|undefined,needsFrame=false,cut=false;
  // Set when full time finds a side in an attack (the loop below, practice-match.ts attackAtFullTime).
  let lastAttack:{side:Side;shot:boolean}|null=null;
  const frameStride=duration>900?30:6;
  const get=(id:string)=>byId.get(id)!,sidePlayers=(side:Side)=>players.filter(p=>p.side===side);
- const random=rng(f.seed^0x884411),execution=rng(f.seed^0x547293),duelDraw=rng(f.seed^0x2d1e75),airRandom=rng(f.seed^0x3a1f07),aerialDuels:AerialDuelRecord[]=[],stats:[PracticeStats,PracticeStats]=[blank(),blank()],score:[number,number]=[0,0];
+ const random=rng(f.seed^0x884411),execution=rng(f.seed^0x547293),duelDraw=rng(f.seed^0x2d1e75),airRandom=rng(f.seed^0x3a1f07),balanceDraw=rng(f.seed^0x6b1a4d),aerialDuels:AerialDuelRecord[]=[],stats:[PracticeStats,PracticeStats]=[blank(),blank()],score:[number,number]=[0,0];
  const frames:PracticeFrame[]=[],events:PracticeEvent[]=[],choices:Choice[]=[],intents=new Map<string,Intent>(),duelAfter=new Map<string,number>(),wrongfoot=new Map<string,{until:number;aim:Vec;reason?:string}>(),lastChoice=new Map<string,{kind:Duty;reason:string;assignment?:string}>(),intercepts=new Map<string,{at:number;aim:Vec}>(),actionReasons=new Map<string,string>();
  let watchedFlight=0;
  let time=0,side=f.kickoff,receivedAt=0,nextThink=0,recheckAt=0,lastFrom='',releaseBy='',releaseAt=-5,intended='',flags:string[]=[],lastTouch='',assignmentAt=0,presser='',coverer='';
@@ -398,8 +401,12 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
  let flight:FlightAssignment={hunters:[],meetings:{},coverer:''},flightAt=0;
  let challenge:ChallengeAttempt|null=null;
  // (regain fixes) who last had the ball at his feet before it left him (a kick, or it came off him), and when
- let dispossessed:{id:string;at:number}|null=null;
+ // `settled`: the duel that took it already set his recovery (a tackle, a nick at the touch); `kick`: he lost it as he
+ // struck it (a kick blocked at his feet: his leg is still swinging through)
+ let dispossessed:{id:string;at:number;settled?:boolean;kick?:boolean}|null=null;
  const recovering=new Map<string,{until:number;opponent:string}>();
+ // (duel recovery, 2026-10-16) knocked to the floor in a duel, until when (practice-balance struck)
+ const downs=new Map<string,number>();
  const blocks=new Map<string,{opponent:string;aim:Vec;until:number}>();
  let inHands=false,groundDelivery=false,aerialDelivery=false,keeperStep:Vec|null=null,keeperLook:Vec|null=null,keeperRelook=false;
  // (keeper upgrade) the defending keeper's edge against the shot in flight (practice-football keeperEdge); set at the
@@ -482,6 +489,20 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    if(closing<0){a.vx+=nx*closing*share;a.vy+=ny*closing*share;b.vx-=nx*closing*(1-share);b.vy-=ny*closing*(1-share);}
   }
  };
+ // (duel recovery, 2026-10-16) what a duel did to a player's balance (practice-balance): no challenge of his own and
+ // no controlled touch until he has his feet again; knocked down, he lies where he fell (his speed mostly gone) and
+ // nobody counts on him for the ball until he is up. `against`: the other man in the duel (where he recovers to).
+ // `loose`: the duel left the ball loose at his feet. Until he can touch it nobody, on either side, reads him as the
+ // man who gets there first (recovering keeps him out of the race for it): before, the defence saw the tackled man
+ // nearest, left the ball to him, and he collected it the moment he could (a tackle that won nothing).
+ const unbalance=(p:PracticePlayer,b:Balance,against:string,loose=false)=>{
+  duelAfter.set(p.id,Math.max(duelAfter.get(p.id)??0,time+b.challenge));
+  if(b.touch>0)duelAfter.set('touch:'+p.id,Math.max(duelAfter.get('touch:'+p.id)??0,time+b.touch));
+  const out=b.down>0?b.down:loose?b.touch:0;
+  if(out>0)recovering.set(p.id,{until:Math.max(recovering.get(p.id)?.until??0,time+out),opponent:against});
+  if(b.down>0){downs.set(p.id,time+b.down);p.vx*=FALL_KEEP;p.vy*=FALL_KEEP;}
+ };
+ const isDown=(id:string)=>time<(downs.get(id)??0);
  const own=(p:PracticePlayer,kind:'receive'|'turnover'|'save'|'silent'='receive',hands=false)=>{
   feintMemory.delete(p.id);
   playbook=bookFor(p.side);const arrivingPass=ball.mode==='pass';coaching?.receive(time,p,releaseBy,arrivingPass);playbook?.received(time,p,releaseBy,arrivingPass,players,ball);if(arrivingPass&&kind==='receive'&&releaseBy&&get(releaseBy).side===p.side){completedPass={from:releaseBy,to:p.id,at:time};
@@ -489,7 +510,13 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    if(reached>=clock.max+PROGRESS_METRES){clock.count=0;clock.max=reached;}else{clock.count++;clock.max=Math.max(clock.max,reached);}}
   const lost=side!==p.side;if(lost)resetClock();
   // (regain fixes) an opponent who lost it to this man at close quarters a moment ago is off balance too
-  if(lost&&kind==='turnover'&&dispossessed&&time-dispossessed.at<=BEATEN_WINDOW){const q=byId.get(dispossessed.id);if(q&&q.side!==p.side&&dist(q,p)<BEATEN_NEAR){const r=beatenRecovery(q);duelAfter.set(q.id,Math.max(duelAfter.get(q.id)??0,time+r));duelAfter.set('touch:'+q.id,Math.max(duelAfter.get('touch:'+q.id)??0,time+r*BEATEN_TOUCH));}}
+  // (duel recovery) unless the duel that took it already set his recovery, what it cost him follows the contact: a ball
+  // knocked off him or a kick blocked at his feet costs him his step (and a kick's follow-through); a man arriving into
+  // his body at speed, more
+  if(lost&&kind==='turnover'&&dispossessed&&!dispossessed.settled&&time-dispossessed.at<=BEATEN_WINDOW){const q=byId.get(dispossessed.id);if(q&&q.side!==p.side&&dist(q,p)<BEATEN_NEAR){
+   const toQ=unit(q.x-p.x,q.y-p.y),closingSpeed=Math.max(0,(p.vx-q.vx)*toQ.x+(p.vy-q.vy)*toQ.y);
+   const hit=felt(contactLoad({closingSpeed,ballFirst:true,leg:false,collision:dist(q,p)<.6}),p,q);
+   unbalance(q,struck(q,hit,hit>0?balanceDraw():1,dispossessed.kick?KICK_FOLLOW:0),p.id);}}
   dispossessed=null;side=p.side;if(lost){support=null;completedPass=undefined;passContinuation=undefined;transitionAt=time;stats[p.side].turnovers++;intents.clear();assignmentAt=0;lapses.clear();}
   // A new receiver changes the threat even when possession stays with the same team.
   assignmentAt=0;for(const q of players)if(q.side!==p.side)intents.delete(q.id);
@@ -580,7 +607,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
       const set=clamp(1-Math.hypot(k.vx,k.vy)/SET_STILL,0,1)*clamp(face+SET_FACING,0,1)*clamp(1-dist(k,ready)/SET_SPOT,0,1);
       shotEdge={id:k.id,...keeperEdge(set,hurry,k.skills.keeping)};
      }
-     releaseBy=p.id;releaseAt=time;dispossessed={id:p.id,at:time};intended=target?.id??'';lastTouch=p.id;prepared=null;reception=null;flight={hunters:[],meetings:{},coverer:''};assignmentAt=0;if(mustRelease)restartKicker=p.id;mustRelease=false;intercepts.clear();
+     releaseBy=p.id;releaseAt=time;dispossessed={id:p.id,at:time,kick:true};intended=target?.id??'';lastTouch=p.id;prepared=null;reception=null;flight={hunters:[],meetings:{},coverer:''};assignmentAt=0;if(mustRelease)restartKicker=p.id;mustRelease=false;intercepts.clear();
      bookFor(p.side)?.released(time,p,o);coaching?.release(time,p,o);
      say(shot?'shot':clear?'clearance':'pass',shot?o.freeKick?`${p.name} execută direct lovitura liberă!`:`${p.name} încearcă poarta!`:clear?`${p.name} îndepărtează mingea din zona periculoasă!`:loftStrike?`${p.name} ${loftStrike.plan.kind==='chip'?'strecoară o pasă săltată':'ridică mingea peste linie'} pentru ${target!.name}${o.run?', care atacă spațiul':''}.`:o.delivery?.kind==='cutback'?`${p.name} întoarce mingea din lateral pentru ${target!.name}.`:o.delivery?.kind==='square'?`${p.name} trimite în fața porții pentru ${target!.name}.`:o.kind==='through'?`${p.name} trimite în spațiu pentru ${target!.name}.`:`${p.name} pasează către ${target!.name}.`,p,target??undefined);
      if(shot)events.at(-1)!.shot={aim:{...aim},origin:{x:ball.x,y:ball.y,z:ball.z},velocity:{vx:ball.vx,vy:ball.vy,vz:ball.vz},...(!aerial&&shotRead?{assessment:{...shotRead,aim:{...shotRead.aim}}}:{}),...(contest?{contest:{rush:contest.rush,shadow:contest.shadow,balance:contest.balance,poise:contest.poise,hurry:contest.hurry,...(contest.closer?{closer:contest.closer}:{})}}:{})};
@@ -872,7 +899,11 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    }
   }
   for(const p of players)controlFor(p).time=time-STEP;
-  if(challenge&&time>=challenge.resolveAt&&owner?.id!==challenge.opponent){recovering.set(challenge.defender,{until:time+.4,opponent:challenge.opponent});challenge=null;}
+  // the ball was gone before his foot got there: the lunge met nothing (duel recovery: practice-balance lunged)
+  if(challenge&&time>=challenge.resolveAt&&owner?.id!==challenge.opponent){
+   const d=get(challenge.defender),a=get(challenge.opponent),toA=unit(a.x-d.x,a.y-d.y),closing=Math.max(0,(d.vx-a.vx)*toA.x+(d.vy-a.vy)*toA.y);
+   const followThrough=followThroughOf(d,closing,Math.max(0,score[a.side]-score[d.side])),own=lunged(d,{reach:Math.min(1.3,dist(d,challenge.aim)+followThrough),closing,followThrough,met:false,hit:0},1);
+   recovering.set(d.id,{until:time+own.challenge*TACKLER_STAGGER,opponent:a.id});unbalance(d,own,a.id);challenge=null;}
   if(tick%12===1){for(const p of players)lastObserved.set(p.id,{x:p.x+p.vx*.1,y:p.y+p.vy*.1});}
   // (marking and shape round) since when the man on the ball has been preparing this pass (the defenders' cue)
   if(prepared!==(cueState as {prepared:unknown}|null)?.prepared)cueState=prepared?{prepared,since:time}:null;
@@ -1188,13 +1219,17 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    }
    if(feint?.attacker===p.id&&ball.owner===p.id){kind='feint';reason='Arată într-o parte și încearcă să plece prin cealaltă.';aim=time<feint.check?{x:p.x+sign(p.side),y:p.y-(feint.aim.y-p.y)*.3}:feint.aim;limit=time<feint.check?p.pace*.25:p.pace*.88;}
    const fooled=wrongfoot.get(p.id);if(fooled&&time<fooled.until){aim=fooled.aim;limit=p.pace*.65;kind='wrongfoot';reason=fooled.reason??'A mușcat fenta; are nevoie de timp să întoarcă.';trackingVelocity=undefined;}
+   // (duel recovery) knocked down in a duel: he lies where he fell until he can get up, whatever his job (a restart
+   // waits for him like anyone else still on his way)
+   const floored=isDown(p.id)&&p.id!==owner?.id;
+   if(floored){aim={x:p.x,y:p.y};limit=0;kind='down';reason='A fost dat jos în duel; se ridică.';trackingVelocity=undefined;}
    const aerialPlan=!owner&&!restart?aerialPreparations.get(p.id):undefined;
    const airAttack=!owner&&!restart&&!aerialPlan?airAttacks.get(p.id):undefined;
-   if(airAttack&&!['dive','wrongfoot','recover','challenge'].includes(kind)){aim=airAttack.aim;kind='intercept';limit=p.pace;trackingVelocity=undefined;reason='Atacă mingea în aer, înaintea omului lui.';}
-   if(aerialPlan&&!['dive','wrongfoot','recover','challenge'].includes(kind)){aim=aerialPlan.meeting.aim;kind=p.side===side?'receive':'intercept';limit=p.pace;reason=aerialPlan.meeting.technique==='chest'?'Se pregătește să amortizeze mingea pe piept.':aerialPlan.meeting.technique==='header'?'Se așază pentru o lovitură cu capul.':'Își pregătește piciorul pentru un voleu.';}
+   if(airAttack&&!['dive','wrongfoot','recover','challenge','down'].includes(kind)){aim=airAttack.aim;kind='intercept';limit=p.pace;trackingVelocity=undefined;reason='Atacă mingea în aer, înaintea omului lui.';}
+   if(aerialPlan&&!['dive','wrongfoot','recover','challenge','down'].includes(kind)){aim=aerialPlan.meeting.aim;kind=p.side===side?'receive':'intercept';limit=p.pace;reason=aerialPlan.meeting.technique==='chest'?'Se pregătește să amortizeze mingea pe piept.':aerialPlan.meeting.technique==='header'?'Se așază pentru o lovitură cu capul.':'Își pregătește piciorul pentru un voleu.';}
    // Defending round (step 1): the keeper owns the goal line; an outfielder
    // not going for the ball never aims on his own (offGoalLine).
-   if(!restart&&p.role!=='GK'&&p.id!==owner?.id&&!['challenge','block','intercept','receive','dive','keeper','wrongfoot','feint'].includes(kind)){
+   if(!restart&&p.role!=='GK'&&p.id!==owner?.id&&!['challenge','block','intercept','receive','dive','keeper','wrongfoot','feint','down'].includes(kind)){
     const kept=offGoalLine(p.side,aim,ball);
     // (threat round, goal-line fixes) a spot clamped off the goal line is braked into: no goalward run carried into it
     if(kept!==aim&&trackingVelocity&&(p.side===0?trackingVelocity.x<0:trackingVelocity.x>0))trackingVelocity={x:0,y:trackingVelocity.y};
@@ -1226,6 +1261,8 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    decision(p,kind,reason);
    const facing=p.angle,acceleration=p.acceleration;limit=Math.min(limit,p.pace);
    if(kind==='dive'&&dive&&time<dive.until)p.acceleration*=2.2;
+   // a body on the floor slides to a stop well inside a stride (FALL_KEEP took most of his speed as he went down)
+   if(kind==='down')p.acceleration*=3;
    // Movement intensity (2026-10-10, practice-intensity): an off-ball positional move is made as hard as the
    // situation he reads needs, braking gently into his spot and moving with it; everything else stays at full effort.
    if(!restart&&p.role!=='GK'&&p.id!==owner?.id&&POSITIONAL_KINDS.has(kind)&&!pullUp){
@@ -1366,7 +1403,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
      .filter(q=>q.read.mode==='challenge'&&!(delaying(q.p)&&q.read.shot.level<=.32)).sort((a,b)=>(b.read.opportunity-b.read.threshold)-(a.read.opportunity-a.read.threshold));
     const candidate=candidates[0];
     if(candidate){
-     challenge=startChallenge(candidate.p,p,ball,candidate.read,time);duelAfter.set(candidate.p.id,time+1.4);stats[candidate.p.side].tackles++;
+     challenge=startChallenge(candidate.p,p,ball,candidate.read,time);duelAfter.set(candidate.p.id,Math.max(duelAfter.get(candidate.p.id)??0,challenge.resolveAt));stats[candidate.p.side].tackles++;
      choices.push({time,player:rosterIndex.get(candidate.p.id)!,kind:'challenge',reason:candidate.read.reason,challenge:{...candidate.read,opponent:p.id,resolvesAt:challenge.resolveAt}});
     }
    }
@@ -1375,19 +1412,37 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
     const deficit=Math.max(0,score[p.side]-score[d.side]);
     const touch=resolveChallengeContact(d,p,ball,attempt,deficit),reachable=touch.ball,screened=bodyScreensBall(d,p,ball);
     const foul=touch.body&&execution()<touch.foulChance;
-    if(foul){stats[d.side].fouls++;const type=foulRestartFor(p.side,touch.spot);say('foul',type==='penalty'?`${d.name} îl agață pe ${p.name}, în careu. Penalty!`:`${d.name} îl agață pe ${p.name}. Fluier — mingea rămâne la ${f.teams[p.side].name}.`,d,p);Object.assign(events.at(-1)!,{challengeContact:touch});startRestart(type,p.side,touch.spot);}
+    // (duel recovery, 2026-10-16) what the duel did to each man's balance (practice-balance): the hit the carrier took
+    // through his leg or body, and the tackler's lunge, absorbed by what his boot met or all his own if it met nothing
+    const hit=felt(contactLoad(touch,Math.hypot(p.vx,p.vy)),d,p);
+    const tackler=(met:boolean)=>lunged(d,{reach:touch.reach,closing:touch.closingSpeed,followThrough:touch.followThrough,met,hit},balanceDraw());
+    const note=(victim:Balance|null,own:Balance)=>Object.assign(events.at(-1)!,{balance:{hit:Math.round(hit*100)/100,victim:victim&&{challenge:Math.round(victim.challenge*100)/100,touch:Math.round(victim.touch*100)/100,down:Math.round(victim.down*100)/100},tackler:{challenge:Math.round(own.challenge*100)/100,down:Math.round(own.down*100)/100}}});
+    if(foul){stats[d.side].fouls++;const type=foulRestartFor(p.side,touch.spot);say('foul',type==='penalty'?`${d.name} îl agață pe ${p.name}, în careu. Penalty!`:`${d.name} îl agață pe ${p.name}. Fluier — mingea rămâne la ${f.teams[p.side].name}.`,d,p);Object.assign(events.at(-1)!,{challengeContact:touch});
+     const victim=struck(p,hit,hit>0?balanceDraw():1),own=tackler(true);note(victim,own);if(victim.down)events.at(-1)!.text+=` ${p.name} rămâne jos.`;
+     startRestart(type,p.side,touch.spot);unbalance(p,victim,d.id);unbalance(d,own,p.id);}
     else if(reachable&&!screened&&time>=(wrongfoot.get(d.id)?.until??0)&&execution()<duelChance(p,d,sidePlayers(d.side).filter(q=>q.id!==d.id&&dist(q,p)<6).length)){
      stats[d.side].tacklesWon++;
-     // (regain fixes) the man who lost it is off balance before he can go in again
-     duelAfter.set(p.id,Math.max(duelAfter.get(p.id)??0,time+beatenRecovery(p)));dispossessed={id:p.id,at:time};
+     // (regain fixes; duel recovery) the man who lost it is off balance before he can go in again, and cannot take a
+     // controlled touch until his foot is down again (before, he had no touch ban here and picked the loose ball
+     // straight back up: a tackle that won nothing); the tackler pays for his lunge, mostly absorbed by the ball
+     const victim=struck(p,hit,hit>0?balanceDraw():1),own=tackler(true);
+     dispossessed={id:p.id,at:time,settled:true};
      const relativeSpeed=Math.hypot(d.vx-p.vx,d.vy-p.vy),clean=execution()<clamp(.25+d.skills.defending*.035+d.skills.control*.025-relativeSpeed*.03,.2,.85);
-     if(clean){say('tackle',`${d.name} pune piciorul pe minge și o scoate din duel.`,d,p);
+     const fell=victim.down?` ${p.name} ajunge la pământ.`:'';
+     if(clean){say('tackle',`${d.name} pune piciorul pe minge și o scoate din duel.${fell}`,d,p);
       ball={...ball,owner:null,mode:'loose',vx:d.vx*.65,vy:d.vy*.65};lastTouch=d.id;noHandsSide=null;noHandsKeeper='';releaseBy=d.id;releaseAt=time;assignmentAt=0;intended='';prepared=null;firstTouch=null;feint=null;flags=[];
      }
-     else {say('tackle',`${d.name} intră la minge și o desprinde din picior.`,d,p);
+     else {say('tackle',`${d.name} intră la minge și o desprinde din picior.${fell}`,d,p);
      const away=unit(d.x-p.x,d.y-p.y),lateral=execution()<.5?-1:1;
      ball={...ball,owner:null,mode:'loose',vx:away.x*2.5-away.y*lateral*3,vy:away.y*2.5+away.x*lateral*3};lastTouch=d.id;noHandsSide=null;noHandsKeeper='';flags=[];releaseBy=d.id;releaseAt=time;assignmentAt=0;intended='';prepared=null;feint=null;}
-    }else {recovering.set(d.id,{until:time+.45,opponent:p.id});p.duelAt=time;say('tackle',`${p.name} păstrează mingea; ${d.name} trebuie să revină.`,p,d);}
+     note(victim,own);unbalance(p,victim,d.id,true);unbalance(d,own,p.id);
+    }else {
+     // he rode it (or it never reached the ball): the lunge that met nothing is all the tackler's own; contact through
+     // the man that did not take the ball still jolts him, but he stays up with the ball (p.duelAt: a moment off
+     // balance for a shot, practice-shot-contest)
+     const own=tackler(touch.body);
+     recovering.set(d.id,{until:time+own.challenge*TACKLER_STAGGER,opponent:p.id});unbalance(d,own,p.id);p.duelAt=time;
+     say('tackle',`${p.name} păstrează mingea; ${d.name} trebuie să revină.`,p,d);note(null,own);}
    }
    if(ball.owner===p.id&&!feint){
     // Reassess prepared kicks on the player's decision cadence. An outlet may
@@ -1681,8 +1736,10 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
         if(ball.z<.25){ball.z=0;ball.vz=0;}
         state.contacts.push({actor:duelist.id,time:contactTime,x:ball.x,y:ball.y,kind:'push',body:{x:at.x,y:at.y,angle:duelist.angle},incoming,outgoing:{x:ball.vx,y:ball.vy}});
         say('tackle',duel.cleanNick?`${duelist.name} iese în fața lui ${p.name} și îi ia mingea la preluare.`:`${duelist.name} se întinde și i-o scoate din picior lui ${p.name} la preluare.`,duelist,p);
-        // the receiver is off balance a moment, as after a lost tackle
-        duelAfter.set(p.id,Math.max(duelAfter.get(p.id)??0,time+beatenRecovery(p)));duelAfter.set('touch:'+p.id,Math.max(duelAfter.get('touch:'+p.id)??0,time+beatenRecovery(p)*BEATEN_TOUCH));dispossessed={id:p.id,at:time};
+        // the receiver is off balance a moment, as after a lost tackle (duel recovery: practice-balance). A foot in
+        // front of him took only the ball; one that came from tight on his back (goalTight) went through him to get it
+        const jolt=duel.cleanNick?0:felt(duel.closing*duel.goalTight*LEG_AFTER_BALL,duelist,p);
+        unbalance(p,struck(p,jolt,jolt>0?balanceDraw():1),duelist.id,true);dispossessed={id:p.id,at:time,settled:true};
         ball.owner=null;ball.mode='loose';intended='';assignmentAt=0;releaseBy=duelist.id;releaseAt=time;noHandsSide=null;noHandsKeeper='';flags=[];
         rollControlRemainder(ball,players,old,state,time-STEP,STEP,hit.t);collectContacts(state);state.time=time;resolveExit(point);
        }
@@ -1698,8 +1755,14 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
         const until=time+TURNED_TIME+duel.closing*.03;
         wrongfoot.set(duelist.id,{until,aim:inside({x:duel.defenderAt.x+duelist.vx*.4,y:duel.defenderAt.y+duelist.vy*.4}),reason:'A intrat la minge și a fost întors; are nevoie de timp să revină.'});duelAfter.set(duelist.id,Math.max(duelAfter.get(duelist.id)??0,until));
        }
-       // a lunge that missed without turning him still costs him his balance a moment
-       if(duel.commit&&duel.outcome!=='turned')recovering.set(duelist.id,{until:time+.45,opponent:p.id});
+       // a lunge that missed costs him his balance (duel recovery: practice-balance lunged; before, a fixed 0.45 s): his
+       // reach to the ball and closing speed, all his own to arrest since his foot met nothing. Turned, he also has
+       // to turn round (wrongfoot, above)
+       if(duel.commit){
+        const followThrough=followThroughOf(duelist,duel.closing,Math.max(0,score[p.side]-score[duelist.side]));
+        const own=lunged(duelist,{reach:Math.min(1.3,duel.gap+followThrough),closing:duel.closing,followThrough,met:false,hit:0},1);
+        if(duel.outcome!=='turned')recovering.set(duelist.id,{until:time+own.challenge*TACKLER_STAGGER,opponent:p.id});unbalance(duelist,own,p.id);
+       }
        // (contest combine) he came out of a duel with the ball (rode a lunge, or held a man off his back): a moment
        // off balance for a shot, as after a tackle he rode (practice-shot-contest DUEL_FADE)
        if(duel.outcome==='turned'||duel.outcome==='forced'||duel.commit&&duel.outcome==='clean')p.duelAt=time;

@@ -136,10 +136,11 @@ test('a standing mark order survives a counter-press window',()=>{
 
 // Regain fixes (2026-10-11): the tackle ping-pong. A player whose ball was just taken in a tackle is off balance:
 // he never commits a challenge of his own for BEATEN_BALANCE s (more for a weaker player). (His team-mates are
-// untouched by the rule; how often they counter-press is measured, evidence/2026-10-11-regain-fixes.)
+// untouched by the rule; how often they counter-press is measured, evidence/2026-10-11-regain-fixes.) (Duel recovery,
+// 2026-10-16: how long now follows the duel, practice-balance; the least it can be is STEP, his foot put down again.)
 test('a player who has just been tackled cannot go straight back in',async()=>{
  const {runMatch}=await import('../dist/index.js');
- const {BEATEN_BALANCE}=await import('../dist/practice-challenge.js');
+ const {STEP:BEATEN_BALANCE}=await import('../dist/practice-balance.js');
  // (track the runner, 2026-10-11: runs read from their start) 2026 now has 3 tackles won in its 240 s; 2027 is the next
  // seed with five or more, every one unanswered inside BEATEN_BALANCE (evidence/2026-10-11-track-runner/repin.mjs tackled)
  const f=structuredClone(fixture);f.seed=2027;
