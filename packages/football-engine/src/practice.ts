@@ -191,6 +191,10 @@ export const SHOT_RESTART=.6;
  * is progress and stops the purpose clock (R3 P4). */
 export const PROGRESS_METRES=3;
 /** The same choices apply to either side; profile names are presentation only. */
+/** (rest-defence sketch, Tactics.leaveUp) A side wins the ball back "with its man up" when one of its players was on the
+ * 'up' job (practice-defending leaveUpChoice) at most UP_SEEN s before: a regain often comes out of a loose ball or a
+ * tackle in which the defence has just reshuffled, and he is still standing up there. */
+export const UP_SEEN=1;
 export function practiceOptions(p:PracticePlayer,players:PracticePlayer[],running:ReadonlySet<string>,lastFrom='',held=0,plan:CarryPlan|null=null,time=0,support:SupportPlan|null=null,planningLine?:number,lastFeint?:FeintMemory):Option[]{
  const defenders=players.filter(q=>q.side!==p.side),outfield=defenders.filter(q=>q.role!=='GK');
  const forward=depth(p.side,p.x),s=sign(p.side);
@@ -381,9 +385,12 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
   const t=f.teams[team].tactics,age=team===side&&transitionAt>=0?time-transitionAt:-1;
   const focus=players.find(p=>p.side===team&&p.id===(ball.owner??(ball.mode==='pass'?flight.receiver:undefined)));
   const continuing=coordination?.attacking===team?Object.values(coordination.jobs).filter(j=>j.purpose==='break'):[];
-  const situation=approachForSituation(t,players,focus,age,continuing,time);
+  // (rest-defence sketch) the man this side had left up when it won the ball back (upAtRegain)
+  const situation=approachForSituation(t,players,focus,age,continuing,time,team===side&&upAtRegain?.side===team?upAtRegain.id:undefined);
   return team===side&&recycle[team].count?{...situation,recycled:recycle[team].count}:situation;
  };
+ // (rest-defence sketch) each side's man last seen on the 'up' job, and the one it had up when it last won the ball
+ const upSeen:[{id:string;at:number}|undefined,{id:string;at:number}|undefined]=[undefined,undefined];let upAtRegain:{side:Side;id:string}|undefined;
  let restartAssignAt=0,transitionAt=-10,exempt=false,mustRelease=false,restrictedGoal=false,restartKicker='';
  // The purpose clock (R3 P4): each side's run of completed passes that have
  // not taken the ball forward (the reception not 3 m beyond the deepest point
@@ -436,6 +443,8 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    const clock=recycle[p.side],reached=depth(p.side,p.x);if(clock.max<0)clock.max=releaseFrom?depth(p.side,releaseFrom.x):reached;
    if(reached>=clock.max+PROGRESS_METRES){clock.count=0;clock.max=reached;}else{clock.count++;clock.max=Math.max(clock.max,reached);}}
   const lost=side!==p.side;if(lost)resetClock();
+  // (rest-defence sketch, Tactics.leaveUp) the man this side had on its 'up' job up to UP_SEEN s before it won the ball
+  if(lost)upAtRegain=upSeen[p.side]&&time-upSeen[p.side]!.at<=UP_SEEN?{side:p.side,id:upSeen[p.side]!.id}:undefined;
   // (regain fixes) an opponent who lost it to this man at close quarters a moment ago is off balance too
   if(lost&&kind==='turnover'&&dispossessed&&time-dispossessed.at<=BEATEN_WINDOW){const q=byId.get(dispossessed.id);if(q&&q.side!==p.side&&dist(q,p)<BEATEN_NEAR){const r=beatenRecovery(q);duelAfter.set(q.id,Math.max(duelAfter.get(q.id)??0,time+r));duelAfter.set('touch:'+q.id,Math.max(duelAfter.get('touch:'+q.id)??0,time+r*BEATEN_TOUCH));}}
   dispossessed=null;side=p.side;if(lost){support=null;completedPass=undefined;passContinuation=undefined;transitionAt=time;stats[p.side].turnovers++;intents.clear();assignmentAt=0;lapses.clear();}
@@ -845,6 +854,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
      const runner=players.find(r=>r.id===job.target);
      if(runner&&runnerBehindShoulder(q,runner))lapses.set(q.id,{until:time+runnerPickupDelay(q.skills.reading),attacking:coordination.attacking,job:{...old,aim:{...old.aim},velocity:old.velocity?{...old.velocity}:undefined}});
     }
+    for(const j of Object.values(coordination.jobs))if(j.purpose==='up'){const q=players.find(x=>x.id===j.player);if(q)upSeen[q.side]={id:q.id,at:time};}
     defense=coordination.defense;presser=defense?.presser??'';coverer=defense?.coverer??'';
     flight=coordination.flight;flightAt=time;teamShapes=coordination.shapes;support=coordination.support;
     marks.clear();for(const [id,target] of coordination.marks)marks.set(id,target);

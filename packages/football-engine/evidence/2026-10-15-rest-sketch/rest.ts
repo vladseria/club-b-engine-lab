@@ -110,7 +110,7 @@ export function restKeys(R:any){
    for(let j=k;j<n&&frames[j].time<=t+8;j++){const g=frames[j];if(g.restart||poss[j]!==S)break;if(owner(g)===id){got=1;touch=r1(g.time-t);break;}}
    for(const e of events){if(e.time<=t-1e-6)continue;if(e.time>t+8)break;
     if(e.kind==='pass'&&sideOf(e.actor)===S){first=e.target===id?1:0;break;}
-    if(e.kind==='turnover'||e.kind==='restart'||e.kind==='out'||e.kind==='goal')break;}
+    if(e.kind==='turnover'&&sideOf(e.actor)!==S||e.kind==='restart'||e.kind==='out'||e.kind==='goal')break;}
   }
   const sh=shots.filter((e:any)=>e.side===S&&e.time>t&&e.time<=t+12).length,gl=goals.filter((e:any)=>e.side===S&&e.time>t&&e.time<=t+12).length;
   const bdO=depth(O,f.ball.x);

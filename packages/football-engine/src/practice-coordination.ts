@@ -274,6 +274,8 @@ export const PIVOT_GAP=1,PIVOT_CONTACT=3,PIVOT_WIDTH=4.5,PIVOT_GOAL=5,PIVOT_SHOW
  * own arrival read (R2, 'arrival', THIRD_SPREAD s for a player who cannot
  * read at all). */
 export const THIRD_BACK=[4,6],THIRD_WIDE=[3.5,5.5],THIRD_SPREAD=.6,THIRD_SLACK=.6;
+/** (rest-defence sketch) In the counter through the man up, how long he holds it up while support sprints to him (s). */
+export const UP_JOIN=2;
 export function thirdManSpots(pivot:Vec,side:Side):Vec[]{
  const s=side===0?1:-1;
  return THIRD_BACK.flatMap(dx=>THIRD_WIDE.flatMap(dy=>[-dy,dy].map(y=>inside({x:pivot.x-s*dx,y:pivot.y+y}))));
@@ -704,7 +706,9 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   const pivotId=anchor&&anchor.depth>bd+3?pivot!.id:undefined;
   if(anchor)pivots[side]=anchor;
   // Striker: In behind (shoulderPost): the lead forward lives on their last line.
-  const runner=t.striker==='run'?players.find(p=>p.id===striker&&p.side===side&&p.id!==receiver.id&&!unavailable.has(p.id)&&!reserved.has(p.id)):undefined;
+  // (rest-defence sketch) in the counter through the man up (upOutlet) he is the one on their last man's shoulder
+  const outlet=(t as SituationTactics).upOutlet,runnerId0=outlet&&outlet!==receiver.id?outlet:striker;
+  const runner=t.striker==='run'?players.find(p=>p.id===runnerId0&&p.side===side&&p.id!==receiver.id&&!unavailable.has(p.id)&&!reserved.has(p.id)):undefined;
   const runAnchor=runner?pivotAnchor(players,runner,previous?.attacking===side?previous.pivots?.[side]:undefined,RUN_GAP)??undefined:undefined;
   const shoulder=runAnchor&&runAnchor.depth>bd+3?shoulderPost(players,runner!,runAnchor,focus):undefined;
   const runnerId=shoulder?runner!.id:undefined;
@@ -887,6 +891,19 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
      fit:p=>.8+p.skills.reading*.02,target:ref,
      reason:'Al treilea om: vine cu fața la poartă, lângă pivot, pentru pasa lui înapoi.'});
    }
+  }
+  // (rest-defence sketch, Tactics.leaveUp) The counter through the man up (upOutlet): once the ball is his or on its
+  // way to him, the others join it at pace. The third man's lay-off spots around him are offered to whoever can get
+  // there while he holds it up: the ball's time to him plus UP_JOIN s (a pivot with his back to goal keeps it about that
+  // long while support arrives), so the men near the ball sprint up beside him rather than only those already there.
+  // (Offered from the regain itself, in the laptop traces the runs into those spots took the first ball off him:
+  // the first pass went to him in 8% of regains with him up instead of 29%.)
+  if(outlet&&receiver.id===outlet){
+   const soon=(owner?0:distance(ball,focus)/Math.max(3,Math.hypot(ball.vx,ball.vy)))+.35;
+   offerJob({purpose:'third-man',kind:'run',point:focus,range:30,eligible:p=>p.id!==outlet,
+    points:p=>thirdManSpots(focus,side).filter(v=>perceive(p,'arrival',arrivalTime(p,v),THIRD_SPREAD,v,{time,salt:'up-join'})<=soon+UP_JOIN),
+    fit:p=>.9+p.traits.runs*.4,target:outlet,
+    reason:'Contraatac prin omul din față: urcă în viteză lângă el, pentru pasa lui înapoi sau continuarea.'});
   }
   // Rejoining the possession is useful even without a counterattack or a
   // pass available right now. Offer reachable steps towards connected role

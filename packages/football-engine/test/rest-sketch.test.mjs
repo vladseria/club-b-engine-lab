@@ -62,3 +62,20 @@ test('Rest defence follows their man up: an even side guards him, and leaves him
  const t=scene({restDefence:'even'},{},behind);
  assert.ok(!t.players.some(p=>p.side===0&&t.jobs[p.id]?.purpose==='counter-cover'),'nobody guards a man behind the ball');
 });
+
+test('The counter through the man up: the window opens only with him up and the counter on, and a ball to him free is worth more than to him marked',async()=>{
+ const {approachForSituation,upOutletGain,COUNTER_VALUE}=await import('../dist/team-approach.js');
+ const f=structuredClone(fixture),t={...f.teams[0].tactics,leaveUp:'always'},players=practicePlayers(f);
+ // team 0 has just won it 16 m from its goal; its man up stands free 30 m out, one of theirs back at 40 m
+ place(players,[[4,0],[16,0],[22,-6],[30,0],[18,6],[46,0],[14,2],[12,-4],[40,3],[17,-3]]);
+ const carrier=players[1],up=players[3];
+ const w=approachForSituation(t,players,carrier,1,[],0,up.id);
+ assert.ok(w.regainWindow&&w.upOutlet===up.id&&w.progression==='direct','with him up and the counter on: the regain window, through him');
+ assert.ok(!approachForSituation(t,players,carrier,1,[],0).regainWindow,'without a man up a Balanced side plays as before');
+ assert.ok(!approachForSituation(t,players,carrier,9,[],0,up.id).regainWindow,'the window closes');
+ const pass=aim=>({kind:'pass',target:up.id,aim,score:0,reason:'',pass:{aim,speed:11,flight:1.3,arrivalSpeed:8,risk:0,controlRisk:.1,reachMargin:0,weight:'firm'}});
+ const free=upOutletGain(carrier,pass({x:30,y:0}),players);
+ assert.ok(free>0&&free<=COUNTER_VALUE,`free, it is a counter (${free.toFixed(3)})`);
+ place(players,[[4,0],[16,0],[22,-6],[30,0],[18,6],[46,0],[14,2],[12,-4],[31,.5],[17,-3]]);
+ assert.ok(upOutletGain(carrier,pass({x:30,y:0}),players)<free,'marked tight with nobody near to lay off to, it is worth less');
+});
