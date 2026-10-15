@@ -84,8 +84,11 @@ export function emptyNetDanger(p:PracticePlayer,players:readonly PracticePlayer[
 /** How much of that danger he feels, by his habit (keeperSweep): a keeper who
  * stays at home feels the empty net behind him (NET_HOME at trait 0), a
  * sweeper keeper is at ease out of his goal and accepts the risk (NET_SWEEPER
- * at 1). It weighs what is at stake; it never forbids a carry. */
-export const NET_HOME=1.5,NET_SWEEPER=.3;
+ * at 1: none of it beyond the price any lost ball pays). It weighs what is at
+ * stake; it never forbids a carry. (R1 keeper tune, 2026-10-15: NET_SWEEPER
+ * 0.3 -> 0, a sweeper at 0.8 weighs it 0.30 instead of 0.54, so he carries
+ * about half as often again; a keeper at home, 1.40 instead of 1.42.) */
+export const NET_HOME=1.5,NET_SWEEPER=0;
 export const keeperNetWeight=(p:{traits:{keeperSweep?:number}})=>NET_HOME+(NET_SWEEPER-NET_HOME)*clamp(p.traits.keeperSweep??.2,0,1);
 /** Keeping the ball away from his goal (what a route's tackle read does not
  * see): the chance the ball is lost while he is out there with it. The

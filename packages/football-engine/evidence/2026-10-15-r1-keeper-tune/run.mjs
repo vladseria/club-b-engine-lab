@@ -17,7 +17,7 @@ const here=path.dirname(fileURLToPath(import.meta.url));
 function variantPlugin(v){
  const edits=v?v.split('+').map(k=>{
   let m;
-  if((m=/^ns(-?[\d.]+)$/.exec(k)))return [/export const NET_HOME=1\.5,NET_SWEEPER=\.3;/,`export const NET_HOME=1.5,NET_SWEEPER=${Number(m[1])};`];
+  if((m=/^ns(-?[\d.]+)$/.exec(k)))return [/export const NET_HOME=1\.5,NET_SWEEPER=-?[\d.]+;/,`export const NET_HOME=1.5,NET_SWEEPER=${Number(m[1])};`];
   if(k==='z')return [/=>NET_HOME\+\(NET_SWEEPER-NET_HOME\)\*clamp\(p\.traits\.keeperSweep\?\?\.2,0,1\);/,'=>Math.max(0,NET_HOME+(NET_SWEEPER-NET_HOME)*clamp(p.traits.keeperSweep??.2,0,1));'];
   throw Error(`unknown variant part '${k}'`);
  }):[];
