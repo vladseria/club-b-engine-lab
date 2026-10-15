@@ -7,9 +7,13 @@ import type {Voice} from './voice';
 import type {Player as EnginePlayer, Role} from '../../packages/football-engine/src/model';
 import {LOCK_MS} from './schedule';
 import {LAST_ATTACK_MAX} from '../../packages/football-engine/src/practice-match';
-export {ON_LOSS,engineApproach,onLossOf,playedApproach,widthChosen,withOnLoss,type Approach,type OnLoss,type StoredApproach} from './approach';
+export {ON_LOSS,boardApproach,boardFormation,engineApproach,onLossOf,playedApproach,widthChosen,withOnLoss,type Approach,type OnLoss,type StoredApproach} from './approach';
 
+/** Every formation a stored row, frozen input or replay may carry (the engine plays all three). */
 export type Formation='1-2-1'|'2-2'|'2-1-1';
+/** The formations a manager can pick: 2-1-1 is retired (owner, 15 Oct 2026; approach.ts boardFormation). */
+export type BoardFormation=Exclude<Formation,'2-1-1'>;
+export const BOARD_FORMATIONS:readonly BoardFormation[]=['1-2-1','2-2'];
 export type Style='balanced'|'combinations'|'direct'|'counter';
 export type Archetype='wall'|'libero'|'anchor'|'ballwinner'|'architect'|'motor'|'artist'|'runner'|'pivot'|'predator'|'maverick';
 export type Temperament='cold'|'fuse'|'diva'|'ambitious'|'heart';
@@ -55,7 +59,8 @@ export interface Idea {id:string;club_id:string;plan_key:string;name:string;plan
  * src/model.ts `shapes`: 1-2-1 = CB, W, W, ST; 2-2 = CB, CB, W, W; 2-1-1 =
  * CB, CB, CM, ST). The slot sets the role, whoever plays it; the positions on
  * a player's card never change it. `line`: what the shape gives you, under the
- * formation picker. */
+ * formation picker. 2-1-1 stays here for old replays and past preps only: no
+ * picker offers it (BOARD_FORMATIONS). */
 export const FORMATIONS:Record<Formation,{slots:[string,string,string,string,string];line:string;points:[number,number][]}>={
  // Engine-metre positions (x 0..48 attacking right, y -15..15) for the lineup pitch.
  '1-2-1':{slots:['Goalkeeper','Centre-back','Left winger','Right winger','Striker'],line:'A centre-back, two wingers side by side and a striker. One man stays back; the wingers hold the flanks and attack the box.',points:[[3.6,0],[12.5,0],[24,-7],[24,7],[35,0]]},
@@ -114,11 +119,13 @@ export const APPROACH_FIELDS:ApproachField[]=[
  // practice-shape.ts WIDTH (lane, pull, hold, follow, reach, allowance, inward), buildUpSpread; practice-coordination.ts hold-width job.
  // Wide no longer says "Hurts a side that presses hard": the width check (2026-10-11, 234 matches, branch
  // width-check) found no support for it (flat against the press in 1-2-1, likely worse in 2-2).
- // Not offered in 2-1-1 (approach.ts widthChosen).
+ // Board audit (2026-10-15, settings audit b0174c30): the three shapes look different but goals for and
+ // against stay flat, so no option claims a gain or a cost any more (Narrow's "a switch hurts you", Wide's
+ // "gaps open in your middle" and the "middle is shut" never landed). They say only how the team spreads.
  {key:'width',label:'Width',about:'How far apart your players spread when you have the ball.',options:[
-  {value:'narrow',label:'Narrow',line:'Players stay close to help each other and the middle is shut, but a switch to the far side hurts you.'},
-  {value:'standard',label:'Standard',line:'A bit of both: some width to switch play, and a middle that stays fairly closed. Fits any squad.'},
-  {value:'wide',label:'Wide',line:'Stretches them so you can switch to a free man, but gaps open in your middle.'}]},
+  {value:'narrow',label:'Narrow',line:'Your players stay close together when you have the ball, near enough to help each other.'},
+  {value:'standard',label:'Standard',line:'In between: some width, without spreading right out. Fits any squad.'},
+  {value:'wide',label:'Wide',line:'Your players spread right out towards the touchlines when you have the ball.'}]},
  // Without the ball (settings-truth round, 2026-10-04): practice-defending.ts DANGER_R (who is marked, by the
  // Line), BLOCK (how high the block sits and how hard it squeezes up when their man is pressed or plays it
  // back: blockDepth), ENGAGE_LINE; their furthest forward is always somebody's man, marked goal-side of him
@@ -137,43 +144,62 @@ export const APPROACH_FIELDS:ApproachField[]=[
  // deeper in their half he is not further off (6.02 against 6.88 m), so the line claims neither "gives them the
  // build-up" nor "stays compact" (its block is not measured deeper or tighter). The cue: their man near the
  // touchline, turned to his own goal, or just receiving a forward pass (trapTrigger).
+ // Aggressive (board audit 2026-10-15): "a quick switch beats it" was never shown. Its goals trade (for +0.27,
+ // against +0.21) was measured only on the older b0174c30 build, so the line says what the players do, no outcome
+ // (owner: honest and thin while the engine changes).
  {key:'press',label:'Press',about:'When and how hard your players go after the ball when the other side has it.',options:[
   {value:'selective',label:'Selective',line:'Springs a two-man trap around halfway on a cue, holding off a little until then. Suits defenders who read the game.'},
   {value:'balanced',label:'Balanced',line:'Presses when it’s on without chasing everything. Fits any squad.'},
-  {value:'aggressive',label:'Aggressive',line:'Hunts the ball and crowds their options, but runs the most and a quick switch beats it. Suits fit players.'}]},
+  {value:'aggressive',label:'Aggressive',line:'Hunts the ball and crowds their options, and runs the most. Suits fit players.'}]},
  // practice-coordination.ts pivotAnchor / pivotPoint / thirdManSpots, the link and depth offers; practice-attacking-space.ts setting; practice.ts runValue / showValue.
  // Settings round (engine d3edd2f3; evidence 2026-10-03-settings-build, verificare/gp-board-truth):
  // In behind waits on their last outfielder's shoulder (shoulderPost) and runs past him, no run when their
  // line is near their goal; he receives fewer balls to feet and lays off less. Drops deep holds a post
  // between their lines (LINK_GAP) and a team-mate is offered the run beyond him; he is in the box less.
- // Pivot: a pass preference into his feet while he shows, which did not raise the share of passes to him,
- // so its line is unchanged. No skill suits any of them more: no "Suits" line.
+ // Pivot: a pass preference into his feet while he shows, which did not raise the share of passes to him
+ // (passes to him fell in the settings audit, b0174c30), so its line says where he stands, never "a target".
+ // In behind (board audit 2026-10-15): it worked even against a deep line (settings audit), so the line no
+ // longer says a deep defence leaves him no room; on 76d73f5c (2026-10-15-default) he still gets beyond their
+ // last man more, with no clear edge in goals. No skill suits any of them more: no "Suits" line.
  {key:'striker',label:'Striker',about:'What your striker does when you have the ball (in 2-2, whichever winger is further forward).',options:[
   {value:'mixed',label:'Mixed',line:'Your striker plays his own game, coming short or going in behind as he sees it. Fits any striker.'},
   {value:'link',label:'Drops deep',line:'He holds a spot between their lines and comes short when a pass is on, and a team-mate can run beyond him. Less in the box.'},
-  {value:'pivot',label:'Pivot',line:'He stays up against their last defender to give your team a target up front.'},
-  {value:'run',label:'In behind',line:'He waits on their last defender’s shoulder and runs in behind. Out of the build-up, and a deep defence leaves him no room.'}]},
+  {value:'pivot',label:'Pivot',line:'He stays up against their last defender, holding his spot instead of coming short or running in behind.'},
+  {value:'run',label:'In behind',line:'He waits on their last defender’s shoulder and runs in behind. He comes back to help the build-up less.'}]},
  // practice-rest-defence.ts commitBounds / commitHold (a strong preference kept by discipline, in their half)
+ // 1 and 2 are retired from the board (owner, 15 Oct 2026; approach.ts boardApproach): 1 cost goals and
+ // bought no safety, 2 played like 3. 4 (board audit): only about 0.06 fewer men back, so it no longer says
+ // "fewer back"; it is a "join in more" setting, and its cost after a loss landed only for Balanced (+0.16
+ // within 12 s, direct split 8ae8dc61; pooled borderline), so it claims none. 5: still two or more back about half
+ // the time (settings audit), so neither "only one is back" nor "everyone piles forward"; its goals trade was
+ // measured only on b0174c30, so 4 and 5 say what the players do (commitBounds), no outcome.
  {key:'commit',label:'Bodies forward',about:'Once you are in their half: how many join the attack and how many stay back.',options:[
-  {value:'1',label:'1',line:'At least two stay back when you attack. Hard to hit on the break, but few reach the box.'},
-  {value:'2',label:'2',line:'At least one stays back when you attack. Safer on the break, a little light in the box.'},
   {value:'3',label:'3',line:'Your players decide how many join each attack. Fits any squad.'},
-  {value:'4',label:'4',line:'At least one team-mate joins each attack. More bodies in the box, fewer back if you lose it.'},
-  {value:'5',label:'5',line:'All but one pile forward. The most bodies in the box, but lose it and only one is back.'}]},
+  {value:'4',label:'4',line:'More of your players join each attack, so the man on the ball has company.'},
+  {value:'5',label:'5',line:'Your players join the attack in numbers, the most of any setting.'}]},
  // team-approach.ts approachInPossession / counterOn / approachForSituation; practice-transition.ts threshold.
  // (pre-push, 4 Oct) Counter no longer promises "your striker ready on their last defender's shoulder": a Pivot or
  // Drops deep striker keeps his own job in the counter window (approachInPossession), so it holds only for two of four.
+ // Keep it (board audit 2026-10-15): it handed the ball back more, not less (settings audit b0174c30), so
+ // the line no longer says "loses it least"; it says only what the players do and what that costs.
  {key:'transition',label:'On winning it',about:'What your team does in the first seconds after winning the ball back.',options:[
   {value:'balanced',label:'Balanced',line:'Breaks when it’s on, otherwise keeps playing your usual game. Fits any squad.'},
-  {value:'secure',label:'Keep it',line:'Keeps the ball after winning it and breaks only with a clear extra man. Loses it least, but makes the fewest breaks.'},
+  {value:'secure',label:'Keep it',line:'Doesn’t rush after winning it: breaks only with a clear extra man, so it makes the fewest breaks.'},
   {value:'counter',label:'Counter',line:'Breaks at once, even a man short. The most breaks, but loses it more.'}]},
  // practice-coordination.ts counterPressFires / counterPressRead (Counter-press goes whatever the numbers, Balanced
- // only a man up), Regroup's drop and the delay with its cover (practice-defending.ts intent / regroup)
+ // only a man up). Regroup (its drop and delay, practice-defending.ts intent / regroup) is retired from the board
+ // (owner, 15 Oct 2026; approach.ts boardApproach): it cost at both ends. The engine still plays it for old inputs.
  {key:'onLoss',label:'On losing it',about:'What your team does in the first seconds after losing the ball.',options:[
-  {value:'regroup',label:'Regroup',line:'Everyone sprints back behind the ball. Hardest to hurt on the break, but wins it back least. Suits fit players.'},
   {value:'balanced',label:'Balanced',line:'Goes after the ball only with numbers around it, otherwise gets back into shape. Fits any squad.'},
   {value:'counterpress',label:'Counter-press',line:'Goes straight after the ball to win it back at once. Beat it and your pressers are out of the game. Suits good tacklers.'}]},
 ];
+
+/** Options no longer offered (owner, 15 Oct 2026; approach.ts boardApproach), kept only so a past
+ * prep that played one still shows its name. Never listed as a choice. */
+export const RETIRED_OPTIONS:Partial<Record<keyof Approach,ApproachOption[]>>={
+ commit:[{value:'1',label:'1',line:'At least two stayed back when you attacked.'},{value:'2',label:'2',line:'At least one stayed back when you attacked.'}],
+ onLoss:[{value:'regroup',label:'Regroup',line:'Everyone sprinted back behind the ball.'}],
+};
 
 /** What stands where Width would in 2-1-1, which has no Width choice (approach.ts widthChosen):
  * how that shape spreads with the ball (width check, 2026-10-11: the centre-backs split wider to
@@ -377,6 +403,9 @@ const REFUSALS:Record<string,string>={
  invalid_lineup:'Pick a goalkeeper and four different outfield players.',
  invalid_tactics:'Pick a formation and a style.',
  invalid_approach:'One of those fine-tune settings doesn’t exist. Reload and pick again.',
+ // board trim (migration 20261015200000_ballers_board_trim): a tab opened before it offering a retired choice
+ retired_formation:'2-1-1 isn’t offered any more. Reload and pick 1-2-1 or 2-2.',
+ retired_option:'That option isn’t offered any more. Reload and pick again.',
  invalid_ideas:'One of those ideas is no longer saved.',
  max_3_ideas:'Take at most three ideas into a match.',
  // Game plan switched off (lib/ballers/compat.ts): never reached by a club that was never switched on.

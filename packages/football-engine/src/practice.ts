@@ -48,7 +48,6 @@ import {feintOptions,feintDuration,finishFeint,feintReleaseOpening,FeintMemory} 
 import {strikeStance} from './practice-striking.js';
 import {duelGeometry,readDuel,resolveDuel,shieldTouch,turnTouch,dangerAt,TURNED_TIME,DuelResult} from './practice-duel.js';
 import {carryPace,captureControl,faceControl,steerControl,advanceControl,receivingContact,cushionControl,controlReleaseAvailable,controlStrikeReady,strikeControl,rollControlRemainder,deflectBodyBall,TouchControl,ControlContact} from './practice-control.js';
-import {READ_EVERY,READ_MARGIN,LATE_MARGIN,readHorizon,ballArrival,meetingSpeed,projectOpponents,receptionRoom,roomLate,touchTime,touchCost,firstTimeCost} from './practice-receive.js';
 
 export const PRACTICE_VERSION='five-shared-1';
 /** The least time between two closing-lane rechecks of a prepared kick (honest-reads round): a minimum hold, so a
@@ -181,34 +180,6 @@ export function laneRisk(from:Vec,to:Vec,defenders:PracticePlayer[],speed=16):nu
  }
  return risk;
 }
-/** (receive round) What a receiver may plan while the ball travels (practice-receive): every action his first touch
- * can serve (a feint needs the man in front of him first). */
-const PLANNED:readonly Action[]=['carry','pass','through','loft','shoot','clear'];
-/** A lofted clearance is over a foot within a stride or so; a driven one is not (as securePossessionOptions reads it). */
-const clearReach=(o:Option)=>o.clearance==='long'||o.clearance==='channel'||o.clearance==='mate'?1.6:4;
-/** The risk a planned option is held to (under 0.28, as before): a carry's obstruction, a pass's or a loft's own lane
- * read, a clearance's launch past the nearest foot, otherwise the ground lane. */
-function plannedRisk(p:PracticePlayer,o:Option,opponents:PracticePlayer[],players:PracticePlayer[]):number{
- if(o.kind==='clear')return launchRisk(p,o.aim,players,0,clearReach(o));
- return o.carry?.obstruction??o.pass?.risk??o.loft?.risk??laneRisk(p,o.aim,opponents,22);
-}
-/** (receive round) A defender reads a ball coming into the area round his own goal, within CLEAR_READ m of its centre
- * (the "losses within 12 m" area of the watch notes), and wants CLEAR_SPARE s to spare there before he controls it. */
-export const CLEAR_READ=12,CLEAR_SPARE=.3;
-/** A man within ON_TOUCH m of the ball when the receiver meets it is on him: the touch protects it from him first,
- * whatever he meant to set it for (the first touch away from a man within 2.5 m, before). */
-export const ON_TOUCH=1.5;
-/** A kick he is setting, or striking, whose first metres a man has stepped into (launch read above BLOCKED_KICK) is
- * re-read (closedRelease; a clearance at the strike too). */
-export const BLOCKED_KICK=.55;
-export function kickBlocked(p:PracticePlayer,o:Option,players:PracticePlayer[],delay:number):boolean{
- return launchRisk(p,o.aim,players,delay,o.kind==='clear'?clearReach(o):4)>BLOCKED_KICK;
-}
-/** (receive round) Team-mates' bodies keep TEAM_GAP m apart, centre to centre (two torsos of 0.31 m, a hand between).
- * Steering only repels them softly inside 1.65 m (movement.ts), and pressers, challengers, interceptors and sweepers
- * steer past team-mates only: two players under 0.6 m apart in 6.6% of frames, team-mates 73 pair-frames a match
- * (evidence/2026-10-15-watch-notes). Opponents are untouched: contact there is a contest. */
-export const TEAM_GAP=.7;
 /** How far a shooter who cannot read his chance misjudges it (a relative
  * error, R2): now with the rest of his read, practice-shot-contest shotRead. */
 export {SHOT_SPREAD} from './practice-shot-contest.js';
@@ -379,11 +350,9 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
  const restedAcceleration=new Map<string,number>();
  let carryPlan:CarryPlan|null=null;
  let firstTouch:FirstTouch|null=null as FirstTouch|null;
- /** `first` (receive round): his read says to play it first time; otherwise his first touch sets it. */
- type Continuation={receiver:string;release:number;option:Option;since:number;checked:number;first:boolean};
+ type Continuation={receiver:string;release:number;option:Option;since:number;checked:number};
  let continuation:Continuation|null=null as Continuation|null;
- /** (receive round) the plan of the defender who will meet the opponents' ball first (readReception) */
- let defenderPlan:Continuation|null=null as Continuation|null;
+ let clearing:Continuation|null=null as Continuation|null;
  type AerialPreparation={meeting:AerialMeeting;option?:Option;since:number;checked:number;release:number;at:number;duel?:boolean};
  const aerialPreparations=new Map<string,AerialPreparation>();
  // (contests in the air) defenders who have decided to attack the ball in the air, and where they go for it
@@ -461,23 +430,6 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
   p.duty=kind;p.job=dutyNames[kind];
  };
  const frame=()=>{if(record)frames.push({time,half,cut:cut||undefined,lineup,players:players.map(p=>({x:p.x,y:p.y,vx:p.vx,vy:p.vy,angle:p.angle,energy:p.energy,duty:p.duty})),ball:{...ball},score:[...score],event:events.length-1,restart:!!restart,restartInfo:restart?{kind:restart.kind,side:restart.side,spot:{...restart.spot},taker:restart.taker,phase:restart.phase}:undefined,side,control:ball.owner&&!restart&&!inHands?{owner:ball.owner,feet:controlFor(get(ball.owner)).feet.map(f=>({...f}))}:undefined});needsFrame=false;cut=false;};
- // (receive round) Team-mates' bodies cannot overlap (TEAM_GAP): after everyone has moved, a pair of team-mates closer
- // than that is pushed apart along the line between them, and the part of their runs that closes them is taken off, so
- // they slide past each other instead of pressing in again. The man on the ball holds his ground; otherwise both give
- // way equally. Nobody is pushed further out than he already was: the touchline brake keeps him .3 m inside the lines.
- const separateTeamMates=()=>{
-  const keepIn=(p:PracticePlayer,x:number,y:number)=>{p.x=clamp(p.x,Math.min(.3,x),Math.max(L-.3,x));p.y=clamp(p.y,Math.min(-W/2+.3,y),Math.max(W/2-.3,y));};
-  for(let i=0;i<players.length;i++)for(let j=i+1;j<players.length;j++){
-   const a=players[i],b=players[j];if(a.side!==b.side)continue;
-   const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);if(d>=TEAM_GAP)continue;
-   // exactly on top of each other: part them across the pitch, the later-listed man to the right of his attack
-   const nx=d>1e-6?dx/d:0,ny=d>1e-6?dy/d:sign(a.side),push=TEAM_GAP-d;
-   const share=a.id===ball.owner?0:b.id===ball.owner?1:.5,ax=a.x,ay=a.y,bx=b.x,by=b.y;
-   a.x-=nx*push*share;a.y-=ny*push*share;b.x+=nx*push*(1-share);b.y+=ny*push*(1-share);keepIn(a,ax,ay);keepIn(b,bx,by);
-   const closing=(b.vx-a.vx)*nx+(b.vy-a.vy)*ny;
-   if(closing<0){a.vx+=nx*closing*share;a.vy+=ny*closing*share;b.vx-=nx*closing*(1-share);b.vy-=ny*closing*(1-share);}
-  }
- };
  const own=(p:PracticePlayer,kind:'receive'|'turnover'|'save'|'silent'='receive',hands=false)=>{
   feintMemory.delete(p.id);
   playbook=bookFor(p.side);const arrivingPass=ball.mode==='pass';coaching?.receive(time,p,releaseBy,arrivingPass);playbook?.received(time,p,releaseBy,arrivingPass,players,ball);if(arrivingPass&&kind==='receive'&&releaseBy&&get(releaseBy).side===p.side){completedPass={from:releaseBy,to:p.id,at:time};
@@ -518,14 +470,6 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
       const current=available.find(q=>q.kind==='shoot');
       if(!current||Math.max(...available.map(q=>q.score))>current.score+.18){prepared=null;nextThink=time;return false;}
       o=current;
-     }
-     // (receive round) A clearance is re-read at the strike as a prepared kick is while he sets it (closedRelease): a man
-     // who has stepped into its first metres would take it, so unless nothing he can do is clearly better (the same 0.18
-     // margin) he chooses again: another clearance, carrying it out, or protecting it.
-     if(o.kind==='clear'&&!firstTime&&!aerial&&!restart&&kickBlocked(p,o,players,0)){
-      const available=footballOptions(p,players,new Set(players.filter(q=>q.duty==='run').map(q=>q.id)),lastFrom,time-receivedAt,carryPlan,time,support,observedLine(p),feintMemory.get(p.id));
-      const current=available.filter(q=>q.kind==='clear').sort((a,b)=>dist(a.aim,o.aim)-dist(b.aim,o.aim))[0];
-      if(!current||Math.max(...available.map(q=>q.score))>current.score+.18){prepared=null;nextThink=time;return false;}
      }
      const takingRestart=restart;
      const shot=o.kind==='shoot',clear=o.kind==='clear',target=o.target?get(o.target):null,passer=restart&&(restart.kind==='freeKick'||restart.kind==='indirect')?setPiecePlayer(p):p;
@@ -951,44 +895,31 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    if(restart.settle)for(const [id,aim] of Object.entries(restart.settle.aims)){const p=get(id);restart.live.jobs[id]={aim,speed:p.pace*.85,reason:p.side===restart.side?'Rămâne pe loc, la distanța regulamentară, până la execuție.':'Arbitrul cere distanța: stă pe loc până la execuție.'};}
    restartAssignAt=time+.25;
   }
-  // (receive round) Whoever will meet the ball reads his reception while it is on its way (practice-receive): from his
-  // read horizon on, every READ_EVERY s, the picture at his reception (the opponents where their momentum takes them by
-  // then), his room there and his options from the meeting point. He arrives with an intention: the option he means to
-  // play, and whether he plays it first time (unless a touch buys more than it costs: the pace he would strike through,
-  // a ball still in the air) or sets it with his first touch; a carry's first touch goes into its space. That is the
-  // team-mate a pass is meant for, or the defender who gets to it first (an interception is a reception too). Before,
-  // only a team-mate within 14 m, for an option within 0.06 of his best and never a loft or a clearance, so most
-  // receivers met the ball with no intention at all; a defender only in his own box, and only to clear it.
-  // Near his own goal (within CLEAR_READ m of its centre) a defender who reads that the first attacker will be on him
-  // before he can control it and play it with a margin to spare (room under his touch time + CLEAR_SPARE s: a loss
-  // there is a chance for them) clears it first time, when a clearance is among his best options there.
-  const readReception=(p:PracticePlayer,meeting:Vec,arrive:number,prev:Continuation|null,mine:boolean):Continuation|null=>{
-   const future={...p,...meeting},seen=projectOpponents(players,p.side,meeting,arrive),opponents=seen.filter(q=>q.side!==p.side);
-   const runs=mine?new Set(players.filter(q=>q.duty==='run').map(q=>q.id)):new Set<string>();
-   const available=footballOptions(future,seen,runs,releaseBy,0,null,time,mine?support:null);
-   const best=Math.max(...available.map(o=>o.score)),room=receptionRoom(p,meeting,arrive,players,time),late=roomLate(p,room);
-   const clearing=!mine&&dist(meeting,{x:world(p.side,0),y:0})<=CLEAR_READ&&room<touchTime(p)+CLEAR_SPARE;
-   const option=(clearing?available.filter(o=>o.kind==='clear'&&o.score>=best-.12)
-    :available.filter(o=>PLANNED.includes(o.kind)&&o.score>=best-READ_MARGIN-(o.kind==='carry'?0:LATE_MARGIN*late)&&plannedRisk(future,o,opponents,seen)<.28)).sort((a,b)=>b.score-a.score)[0];
-   if(!option)return null;
-   const same=prev?.receiver===p.id&&prev.release===releaseAt&&prev.option.target===option.target&&prev.option.kind===option.kind;
-   const first=clearing||option.kind!=='carry'&&touchCost(p,option,meeting,seen,room,laneRisk)>=firstTimeCost(p,option,meetingSpeed(ball,p,arrive),aerialDelivery,meeting,seen);
-   return {receiver:p.id,release:releaseAt,option,since:same?prev!.since:time,checked:time,first};
-  };
+  if(!playbook?.strictTeachingActive&&!owner&&!restart&&ball.mode==='pass'&&flight.receiver&&time-releaseAt>.05){
+   const receiver=get(flight.receiver);
+   if(receiver.side===side&&dist(receiver,ball)<14&&(!continuation||continuation.receiver!==receiver.id||continuation.release!==releaseAt||time-continuation.checked>=.18)){
+    const meeting=flight.meetings[receiver.id]??receptionTarget(receiver,ball),future={...receiver,...meeting};
+    const runs=new Set(players.filter(q=>q.duty==='run').map(q=>q.id));
+    const available=footballOptions(future,players,runs,releaseBy,0,null,time,support);
+    const best=Math.max(...available.map(o=>o.score));
+    const option=available.filter(o=>(o.kind==='carry'||o.kind==='pass'||o.kind==='through'||o.kind==='shoot')&&o.score>=best-.06&&(o.carry?.obstruction??o.pass?.risk??laneRisk(future,o.aim,sidePlayers(other(side)),22))<.28).sort((a,b)=>b.score-a.score)[0];
+    if(option){const same:boolean=continuation?.receiver===receiver.id&&continuation.release===releaseAt&&continuation.option.target===option.target&&continuation.option.kind===option.kind;
+     continuation={receiver:receiver.id,release:releaseAt,option,since:same?continuation!.since:time,checked:time};
+    }else continuation=null;
+   }
+  }else continuation=null;
+  // A defender meeting the opponents' ball (their pass, a loose ball) in his own
+  // box may plan to clear it first time, when a clearance is his best option there.
   if(!owner&&!restart&&ball.mode!=='shot'&&time-releaseAt>.05){
-   const r=ball.mode==='pass'&&flight.receiver&&!playbook?.strictTeachingActive?get(flight.receiver):undefined,receiver=r?.side===side?r:undefined;
-   const rMeet=receiver?flight.meetings[receiver.id]??receptionTarget(receiver,ball):undefined,rArrive=rMeet?ballArrival(ball,rMeet):Infinity;
-   const defender=flight.hunters.map(get).find(q=>q.side!==side&&q.role!=='GK'),dMeet=defender?flight.meetings[defender.id]:undefined,dArrive=dMeet?ballArrival(ball,dMeet):Infinity;
-   // one read a tick, by whichever of them the ball reaches first
-   const cutting=!!defender&&!!dMeet&&dArrive<rArrive;
-   if(receiver&&rMeet&&!cutting){
-    if(rArrive<=readHorizon(receiver)&&(!continuation||continuation.receiver!==receiver.id||continuation.release!==releaseAt||time-continuation.checked>=READ_EVERY))continuation=readReception(receiver,rMeet,rArrive,continuation,true);
-   }else continuation=null;
-   if(cutting){
-    if(dArrive>readHorizon(defender!))defenderPlan=null;
-    else if(!defenderPlan||defenderPlan.receiver!==defender!.id||defenderPlan.release!==releaseAt||time-defenderPlan.checked>=READ_EVERY)defenderPlan=readReception(defender!,dMeet!,dArrive,defenderPlan,false);
-   }else defenderPlan=null;
-  }else{continuation=null;defenderPlan=null;}
+   const defender=flight.hunters.map(get).find(q=>q.side!==side&&q.role!=='GK'),meeting=defender?flight.meetings[defender.id]:undefined;
+   if(!defender||!meeting||depth(defender.side,meeting.x)>BOX_DEPTH+1||Math.abs(meeting.y)>BOX_HALF+1||!sidePlayers(side).some(q=>q.role!=='GK'&&dist(q,meeting)<3.5))clearing=null;
+   else if(!clearing||clearing.receiver!==defender.id||clearing.release!==releaseAt||time-clearing.checked>=.18){
+    const available=footballOptions({...defender,...meeting},players,new Set<string>(),releaseBy,0,null,time,null);
+    const best=Math.max(...available.map(o=>o.score)),option=available.filter(o=>o.kind==='clear'&&o.score>=best-.12).sort((a,b)=>b.score-a.score)[0];
+    const same=clearing?.receiver===defender.id&&clearing.release===releaseAt;
+    clearing=option?{receiver:defender.id,release:releaseAt,option,since:same?clearing!.since:time,checked:time}:null;
+   }
+  }else clearing=null;
   const hunters=!owner&&!restart?flight.hunters.filter(id=>time>=(recovering.get(id)?.until??0)&&time>=(wrongfoot.get(id)?.until??0)):[];
   // (contests in the air, 2026-10-15) a ball in the air on its way to one of theirs: a defender who reads he can get
   // to it as it comes down through his jumping height may go up for it. The receiver's own marker goes when his read of
@@ -1285,7 +1216,6 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    else if(restart&&!liningUp){p.angle=facing;const a=Math.atan2(restart.spot.y-p.y,restart.spot.x-p.x);p.angle+=clamp(angleDiff(a,p.angle),-4*STEP,4*STEP);}
    if((owner||restart)&&!physicalOwner)receivingContact(p,old.get(p.id)!,ball,ball,controlFor(p),time,STEP,false);
   }
-  if(!restart)separateTeamMates();
   if(restart){const legal=restartPlayersReady(restart,players,routineRelaxed(restart,time));restart.legalSince=legal?(restart.legalSince??time):null;}
   if(restart&&restart.phase==='gather'){
    const taker=get(restart.taker);
@@ -1375,10 +1305,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
     // release (his set time plus getting his foot to the ball), at most every
     // RELEASE_RECHECK s. Before, it ran only from his set time, on the picture
     // of that instant: a presser was seen when he was already in the lane.
-    // (receive round) A clearance too: it was the one kick never re-read while he set it, so it was cleared into the man
-    // who had just arrived (the largest group of losses near our own goal). Read past the first foot it must clear: a
-    // stride for a lofted one, further for a driven one (clearReach).
-    const closedRelease=prepared&&['pass','through','loft','clear'].includes(prepared.option.kind)&&time>=recheckAt&&kickBlocked(p,prepared.option,players,Math.max(0,prepared.at+footToBall(p)-time));
+    const closedRelease=prepared&&['pass','through','loft'].includes(prepared.option.kind)&&time>=recheckAt&&launchRisk(p,prepared.option.aim,players,Math.max(0,prepared.at+footToBall(p)-time))>.55;
     if(closedRelease)recheckAt=time+RELEASE_RECHECK;
     if(prepared&&!mustRelease&&!inHands&&(closedRelease||time>=nextThink)){
      const alternatives=footballOptions(p,players,new Set(players.filter(q=>q.duty==='run').map(q=>q.id)),lastFrom,time-receivedAt,carryPlan,time,support,observedLine(p),feintMemory.get(p.id));
@@ -1597,32 +1524,25 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
       if(lost){ball.owner=null;ball.mode='loose';intended='';}resolveExit(point);
      }else if(hit.meeting){
       const opponents=players.filter(q=>q.side!==p.side),pressed=opponents.some(q=>dist(q,ball)<2.5);
-      let plan=continuation?.receiver===p.id&&continuation.release===releaseAt?continuation:defenderPlan?.receiver===p.id&&defenderPlan.release===releaseAt?defenderPlan:null;
+      let plan=continuation?.receiver===p.id&&continuation.release===releaseAt?continuation:clearing?.receiver===p.id&&clearing.release===releaseAt?clearing:null;
       const runs=new Set(players.filter(q=>q.duty==='run').map(q=>q.id));
       // A defender clears for his own side: his plan reads options without the attack's support plan.
-      const clearingPlan=!!plan&&plan===defenderPlan&&plan.option.kind==='clear';
+      const clearingPlan=!!plan&&plan===clearing;
       // Reflex: with an opponent on top of him in his own box, a defender meeting
       // the opponents' ball may hack it clear first time, like a planned clearance.
       const reflex=!plan&&!same&&p.role!=='GK'&&opponents.some(q=>dist(q,ball)<2)&&depth(p.side,ball.x)<=BOX_DEPTH+1&&Math.abs(ball.y)<=BOX_HALF+1;
       const defending=clearingPlan||reflex;
-      const fresh=plan||reflex?footballOptions(hit.meeting.body,players,runs,releaseBy,0,null,time,defending||!same?null:support):[];
+      const fresh=plan||reflex?footballOptions(hit.meeting.body,players,runs,releaseBy,0,null,time,defending?null:support):[];
       // A clearance goes wherever his body can strike it now, among his best options.
       const top=Math.max(...fresh.map(o=>o.score)),body=hit.meeting.body;
       const next=defending?fresh.filter(o=>o.kind==='clear'&&o.score>=top-.14&&strikeStance(body,ball,o.aim,'clearance').available&&controlReleaseAvailable(body,ball,o.aim)).sort((a,b)=>b.score-a.score)[0]
        :plan?fresh.filter(o=>o.kind===plan!.option.kind&&o.target===plan!.option.target&&o.carry?.purpose===plan!.option.carry?.purpose).sort((a,b)=>dist(a.aim,plan!.option.aim)-dist(b.aim,plan!.option.aim))[0]:undefined;
-      if(reflex&&next)plan={receiver:p.id,release:releaseAt,option:next,since:-Infinity,checked:time,first:true};
-      let viable=next&&next.score>=top-(defending?.14:.08)&&(next.kind==='clear'?launchRisk(body,next.aim,players,0,clearReach(next))<.5:(next.carry?.obstruction??next.pass?.risk??next.loft?.risk??laneRisk(p,next.aim,opponents,22))<.32)?next:undefined;
-      // (receive round) His first touch serves the plan he read in flight: a kick he meant to set is set towards it (the
-      // settle still reads the men round him), unless a man is already on him at the touch (within ON_TOUCH m), when it
-      // protects the ball away from him first. A carry's touch, or a reception with no plan, is as before: away from a man
-      // within 2.5 m, else into the carry's space or simply stopped.
-      const onHim=opponents.some(q=>dist(q,ball)<ON_TOUCH),setting=!!viable&&viable.kind!=='carry'&&!onHim;
-      let firstAim=setting?viable!.aim:pressed?recoveryTouch(hit.meeting.body,players):viable?.aim;
+      if(reflex&&next)plan={receiver:p.id,release:releaseAt,option:next,since:-Infinity,checked:time};
+      let viable=next&&next.score>=top-(defending?.14:.08)&&(next.kind==='clear'?launchRisk(body,next.aim,players,0,next.clearance==='touchline'||next.clearance==='corner'?4:1.6)<.5:(next.carry?.obstruction??next.pass?.risk??laneRisk(p,next.aim,opponents,22))<.32)?next:undefined;
+      let firstAim=pressed?recoveryTouch(hit.meeting.body,players):viable?.aim;
       const contactTime=time-STEP+STEP*hit.t,relativeSpeed=Math.hypot(ball.vx-p.vx,ball.vy-p.vy);
       const foot=state.feet.find(f=>f.side===hit.meeting!.foot.side)!,endFoot={...foot};Object.assign(foot,hit.meeting.foot);state.time=contactTime;
-      // First time only when his read said so (plan.first); the physical gates are as before: a plan held long enough to
-      // have shaped his body, a ball he can strike through, and a stance from which the kick is on.
-      let direct=!!viable&&viable.kind!=='carry'&&!!plan&&plan.first&&time-plan.since>=.13+(10-p.skills.reading)*.012&&relativeSpeed<7+p.skills.control*.75&&controlStrikeReady(hit.meeting.body,ball,state,viable.aim,viable.kind==='shoot'?'shot':viable.kind==='clear'?'clearance':'pass');
+      let direct=!!viable&&viable.kind!=='carry'&&!!plan&&time-plan.since>=.13+(10-p.skills.reading)*.012&&relativeSpeed<7+p.skills.control*.75&&controlStrikeReady(hit.meeting.body,ball,state,viable.aim,viable.kind==='shoot'?'shot':viable.kind==='clear'?'clearance':'pass');
       // (contest round) a team-mate's pass met with a defender's foot able to get to it: the touch is a duel
       // (practice-duel.ts). A planned first-time ball is gone before the man can contest the touch.
       const duel=!direct&&same&&p.role!=='GK'&&ball.mode==='pass'&&!!releaseBy&&releaseBy!==p.id&&get(releaseBy).side===p.side?receptionDuel(p,body,old,hit.t,point,relativeSpeed):null;
@@ -1675,7 +1595,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
       }
       Object.assign(foot,endFoot);
       const arriving={x:ball.vx,y:ball.vy};
-      if(!released)cushionControl(ball,state,hit.meeting,contactTime,firstAim?{aim:firstAim,opponents,release:setting&&!duel&&firstAim===viable?.aim}:undefined);
+      if(!released)cushionControl(ball,state,hit.meeting,contactTime,firstAim?{aim:firstAim,opponents,release:!!viable&&viable.kind!=='carry'&&!pressed&&!duel}:undefined);
       // (contest round) the fought-for touch comes off his foot: a heavy touch, running on or off to the side
       const spilled=!released&&duel?.outcome==='loose';
       if(spilled){

@@ -2,7 +2,7 @@
 // with the three snapshots it reads swapped at bundle time for the Ballers-only copies in inputs/ (sanitize.mjs).
 // Same entry (../2026-10-04-practice-chances/chances.ts, unchanged), same 100-match plan, same task order and keys, same
 // row; table.mjs reads the rows as it reads a local run's.
-//   node packages/football-engine/evidence/2026-10-15-chances-cloud/run.mjs [--workers 4] [--label calib-<build8>]
+//   node packages/football-engine/evidence/2026-10-15-chances-cloud/run.mjs [--workers 4] [--label calib-<build8>] [--reps 4]
 //   cloud: --into packages/football-engine/evidence/2026-10-04-practice-chances/results/calib-<build8>.jsonl, then
 //   node packages/football-engine/evidence/2026-10-04-practice-chances/table.mjs
 import {build} from 'esbuild';
@@ -27,14 +27,19 @@ if(!isMainThread){
  const out=path.join(outDir,`${label}.jsonl`),bundle=path.join(outDir,`.${label}.bundle.mjs`);
  await build({entryPoints:[path.join(here,'../2026-10-04-practice-chances/chances.ts')],bundle:true,format:'esm',platform:'node',target:'node22',outfile:bundle,logLevel:'warning',plugins:[swap]});
  const D=900,every=[];
+ // --reps R (default 1 = the 100-match plan as it always was): every group gets R times its seeds, the mix unchanged.
+ // The plan's own seeds come first and stay the same tasks (same keys), so the first 100 compare like for like with
+ // an older build's 100; the extra seeds continue each fixed group's run (1000..), and the styles pairs' extras start
+ // at 2100+k*100 so no pair reuses another pair's seed.
+ const reps=Math.max(1,Math.floor(Number(arg('reps',1))));
  const seeds=(a,n)=>Array.from({length:n},(_,i)=>a+i);
- for(const seed of seeds(1000,20))every.push({group:'mcb',setup:'mcb',seed,duration:D});
- for(const seed of seeds(1000,20))every.push({group:'int',setup:'int',seed,duration:D});
- for(const seed of seeds(1000,15))every.push({group:'short',setup:'mcb',lever:'planShort',seed,duration:D});
- for(const seed of seeds(1000,15))every.push({group:'high',setup:'mcb',lever:'planTactic',seed,duration:D});
- for(const seed of seeds(1000,10))every.push({group:'dvc',setup:'dvc',seed,duration:D});
+ for(const seed of seeds(1000,20*reps))every.push({group:'mcb',setup:'mcb',seed,duration:D});
+ for(const seed of seeds(1000,20*reps))every.push({group:'int',setup:'int',seed,duration:D});
+ for(const seed of seeds(1000,15*reps))every.push({group:'short',setup:'mcb',lever:'planShort',seed,duration:D});
+ for(const seed of seeds(1000,15*reps))every.push({group:'high',setup:'mcb',lever:'planTactic',seed,duration:D});
+ for(const seed of seeds(1000,10*reps))every.push({group:'dvc',setup:'dvc',seed,duration:D});
  const pairs=[['combinations','balanced'],['counter','combinations'],['balanced','direct'],['direct','combinations']];
- pairs.forEach((pair,k)=>{for(const seed of seeds(2000+k*10,5))every.push({group:'styles',setup:'parity',pair,cell:seed%4,seed,duration:D});});
+ pairs.forEach((pair,k)=>{for(const seed of [...seeds(2000+k*10,5),...seeds(2100+k*100,5*(reps-1))])every.push({group:'styles',setup:'parity',pair,cell:seed%4,seed,duration:D});});
  const key=j=>`${j.group}:${j.seed}:${(j.pair??[]).join('-')}`;
  const done=new Set(existsSync(out)?readFileSync(out,'utf8').trim().split('\n').filter(Boolean).map(l=>key(JSON.parse(l))):[]);
  const byGroup=Object.values(Object.groupBy(every,t=>t.group)),order=[];
