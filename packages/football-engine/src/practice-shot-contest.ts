@@ -42,11 +42,27 @@ export const FIRST_TIME=.3;
  *    underestimating it (bias, never more than HURRY_SEEN_MAX of it): the pull to the keeper and his edge are what a
  *    shooter learns last.
  *  - This is the one place pressure enters his read of the chance (shotRead). What he does with the chance he reads
- *    is his temperament, on the choice (shotTemper), never on the read. */
-export const HURRY_COST=.7,HURRY_UNDER=.8,HURRY_SPREAD=.5,HURRY_SEEN_MAX=1.3;
+ *    is his temperament, on the choice (shotTemper), never on the read.
+ * (shot fix, 2026-10-15, after the contest cloud round: shooters with a man under 2 m shot more, 27% to 34% of their
+ * choices, and those shots scored 5%) Two corrections, both towards what was measured:
+ *  - The cost there is grows faster than the hurry (hurryTruth: HURRY_COST x hurry^HURRY_CURVE). Measured on the
+ *    contest build (640 matches, foot shots 6-12 m, read units: the read's goal rate goes about with its square,
+ *    luck study), a free shot keeps all of its chance, hurry 0.35 about 0.87 of it, 0.65 about 0.62, 0.88 about 0.48
+ *    and a full hurry about 0.32: a little hurry costs little (the shot is still placed, the keeper barely gains), a
+ *    lot costs most of it (pulled to the keeper, struck soft, half of them blocked). HURRY_CURVE 1.5 with HURRY_COST
+ *    0.7 follows that (0.86, 0.63, 0.42, 0.30); the straight line read a mildly hurried free chance as worse than it is
+ *    and a man on top of him as better.
+ *  - What a reader misses of it falls faster than his misread (HURRY_UNDER x misread^2): a man on top of you is
+ *    plain to see, and what it does to the shot is missed mostly by men who read the game badly. A good reader (8/7)
+ *    now sees about 0.93 of it ("a good reader sees nearly all", the owner; it was 0.76), a typical one (6/6) about
+ *    0.84 (0.63), a poor one (3/3) still only about 0.6, and less reliably (the spread is unchanged). */
+export const HURRY_COST=.7,HURRY_CURVE=1.5,HURRY_UNDER=.8,HURRY_SPREAD=.5,HURRY_SEEN_MAX=1.3;
+/** What the hurry really costs a shot's chance, as a share of it (before anyone's read of it). */
+export const hurryTruth=(hurry:number)=>HURRY_COST*clamp(hurry,0,1)**HURRY_CURVE;
 export function hurryCost(p:Pick<PracticePlayer,'skills'|'traits'|'id'|'side'>,hurry:number,at:Vec,time?:number):number{
- const seen=clamp(perceive(p,'shot',1,HURRY_SPREAD,at,{time,salt:'hurry',bias:-HURRY_UNDER*misread(p,'shot')}),0,HURRY_SEEN_MAX);
- return HURRY_COST*clamp(hurry,0,1)*seen;
+ const miss=misread(p,'shot');
+ const seen=clamp(perceive(p,'shot',1,HURRY_SPREAD,at,{time,salt:'hurry',bias:-HURRY_UNDER*miss*miss}),0,HURRY_SEEN_MAX);
+ return hurryTruth(hurry)*seen;
 }
 
 /** (shot decision, 2026-10-15, owner: "what's the chance" is a skill, "do I take it" is a personality) The shooter's
@@ -64,15 +80,18 @@ export function shotRead(p:Pick<PracticePlayer,'skills'|'traits'|'id'|'side'>,op
  * close calls and cannot make a decent chance look small:
  *  - appetite: SHOT_DARE x daring (risk and audacity, practice-perception daring, -0.5..1): a daring man backs himself
  *    from a thin chance, "shoots on sight"; a cautious one would rather keep the ball. A typical man is 0.
- *  - nerve under the press: SHOT_NERVE x (nerve - 1) x the contest's pressure (as the defence makes it): a nervous man
- *    with a man on him wants rid of the ball, so he releases; a composed one is not hurried into it. With no press,
- *    or for a typical man (nerve 1), nothing.
+ *  - nerve under the press: SHOT_NERVE x (nerve - 1) x the contest's pressure (as the defence makes it), for a nervous
+ *    man only (nerve above 1): with a man on him he wants rid of the ball, so he releases. With no press, or for a
+ *    man of nerve 1 or less, nothing. (shot fix, 2026-10-15: it used to run both ways, and nerve is below 1 for a
+ *    composed or daring man, so it leaned them TOWARDS the pressed shot, up to +0.08: +0.02 for the contest round's
+ *    composed side, +0.03 for its daring one, +0.01 for its typical men. That is a lean of their own, which a composed
+ *    man must not have, and a daring man's appetite is already SHOT_DARE.)
  * A composed man has no lean of his own: he takes what his read says is best, a good chance himself, a clearly better
  * one a pass away. SHOT_BASE is the shot's own standing (the old 0.1 plus a typical man's old risk lean, 0.45 x
  * 0.09), so a typical man's free shot is worth what it was. */
 export const SHOT_BASE=.14,SHOT_WORTH=1.2,SHOT_DARE=.15,SHOT_NERVE=.2;
 export function shotTemper(p:Pick<PracticePlayer,'skills'|'traits'|'id'>,pressure:number):number{
- return SHOT_DARE*daring(p)-SHOT_NERVE*(nerve(p)-1)*clamp(pressure,0,1);
+ return SHOT_DARE*daring(p)-SHOT_NERVE*Math.max(0,nerve(p)-1)*clamp(pressure,0,1);
 }
 
 export interface ShotContest {

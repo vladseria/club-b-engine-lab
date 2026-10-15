@@ -9,14 +9,14 @@ import {readFileSync} from 'node:fs';
 import {practicePlayers,practiceOptions} from '../dist/practice.js';
 import {viableOptions} from '../dist/practice-carry.js';
 import {actionWeights} from '../dist/practice-selection.js';
-import {shotRead,HURRY_COST} from '../dist/practice-shot-contest.js';
+import {shotRead,hurryTruth} from '../dist/practice-shot-contest.js';
 const fixture=JSON.parse(readFileSync(new URL('./fixture.json',import.meta.url)));
 const temperaments={composed:{risk:.45,audacity:0,discipline:.97},nervous:{risk:.1,audacity:0,discipline:.45},daring:{risk:.9,audacity:.8,discipline:.83}};
 // Team 0 attacks x = 48; the shooter is index 2 (reading 7, finishing 6).
-const decide=(at,traits)=>{
+const decide=(at,traits,skills={reading:7,finishing:6})=>{
  const players=practicePlayers(structuredClone(fixture));
  players.forEach((p,i)=>Object.assign(p,{x:at[i][0],y:at[i][1],vx:0,vy:0,energy:90,angle:p.side?Math.PI:0}));
- const p=players[2];Object.assign(p.skills,{reading:7,finishing:6});Object.assign(p.traits,traits);
+ const p=players[2];Object.assign(p.skills,skills);Object.assign(p.traits,traits);
  const options=practiceOptions(p,players,new Set(),'',0,null,40),weights=actionWeights(viableOptions(options));
  const total=weights.reduce((s,w)=>s+w.weight,0),share=kind=>weights.filter(w=>w.option.kind===kind).reduce((s,w)=>s+w.weight,0)/total;
  return {read:options.find(o=>o.kind==='shoot')?.quality,shoot:share('shoot'),pass:share('pass')+share('through'),top:weights.sort((a,b)=>b.weight-a.weight)[0].option,mate:players[1].id};
@@ -58,8 +58,20 @@ test('a good reader reads his chance closer to the true one than a poor reader',
  const shooter=(reading,finishing)=>({id:'0:s',side:0,skills:{reading,finishing},traits:{risk:.45,discipline:.83}});
  const error=p=>{let s=0,n=0;
   for(let x=34;x<=44;x+=1)for(let y=-6;y<=6;y+=1.5)for(let t=0;t<30;t+=3.7)for(const hurry of [0,.4,.8]){
-   const open=.6,truth=open*(1-HURRY_COST*hurry);s+=Math.abs(shotRead({...p,x,y},open,hurry,{x,y},t)-truth)/truth;n++;}
+   const open=.6,truth=open*(1-hurryTruth(hurry));s+=Math.abs(shotRead({...p,x,y},open,hurry,{x,y},t)-truth)/truth;n++;}
   return s/n;};
  const good=error(shooter(9,8)),poor=error(shooter(3,3));
  assert.ok(good<poor*.5,`good ${good.toFixed(3)} v poor ${poor.toFixed(3)} (mean relative error)`);
+});
+
+test('a man on top of him: a good or typical reader lays it off to a free team-mate, a poor reader still backs himself',()=>{
+ // (shot fix, 2026-10-15) 9 m out, a man 0.9 m goal-side of him (fully hurried); a team-mate free on the left. Before
+ // the fix a typical reader (6/6) saw about 0.63 of what that costs and shot (P 0.84), though a man under 2 m left about
+ // a fifth of a free shot's goals on the contest build. Now he sees most of it; a poor reader still does not.
+ const at=[[4,0],[40,-6],[39,1],[27,9],[20,0],[46.6,0],[39.9,1.4],[37,6],[24,-3],[18,4]];
+ const by=(reading,finishing)=>decide(at,{risk:.45,audacity:0,discipline:.83},{reading,finishing});
+ const good=by(9,8),usual=by(6,6),poor=by(3,3);
+ assert.ok(good.shoot<.05&&usual.shoot<.5,`good P ${good.shoot.toFixed(2)}, typical P ${usual.shoot.toFixed(2)}`);
+ assert.ok(['pass','through'].includes(usual.top.kind)&&usual.top.target===usual.mate,`the typical reader lays it on (${usual.top.kind} to ${usual.top.target})`);
+ assert.ok(poor.shoot>.5,`a poor reader underestimates it and shoots (P ${poor.shoot.toFixed(2)})`);
 });
