@@ -74,7 +74,7 @@ test('a runner from behind a closing defender\'s shoulder is picked up late, les
  assert(!runnerBehindShoulder(d,{x:18,y:1,vx:.5,vy:0}),'barely moving');
 });
 test('in a match, late pick-ups happen, are short, and only ever for a runner after a press',()=>{
- const f=structuredClone(fixture);f.seed=2039;
+ const f=structuredClone(fixture);f.seed=2045;
  const r=runMatch({fixture:f,durationSeconds:300}).result;
  // (track the runner, 2026-10-11) The pick-up is the marker's first move that is no longer the old press: following
  // the man ('track') or, since the marking-and-shape round, hurrying back goal-side of him ('recover'). With runs read
@@ -102,11 +102,18 @@ test('in a match, late pick-ups happen, are short, and only ever for a runner af
 // throw read allowed for an arriving presser: 2037 no longer met it, repin.mjs b4, 7 late pick-ups, 12 shots, keeper
 // miss 0.59 m; 2039 since the r1 mechanics (2026-10-14: no pass into the passer's own moving body, the held carry
 // route no longer lowering the bar for a clearance, channel clearances landed where a team-mate gets there first):
-// 2038 had 9 shots, evidence/2026-10-14-r1-mech/repin.mjs b4, 7 late pick-ups, 10 shots, keeper miss 0.55 m.)
+// 2038 had 9 shots, evidence/2026-10-14-r1-mech/repin.mjs b4, 7 late pick-ups, 10 shots, keeper miss 0.55 m; 2041 on
+// the contest combine (2026-10-15: reception duels, contests in the air, pressure on the shooter): 2039 had 7 shots,
+// evidence/2026-10-14-r1/repin.mjs b4, 4 late pick-ups, 13 shots, keeper miss 0.37 m; 2042 once the shooter's read of
+// the hurry is his own (2026-10-15, hurryCost): 2041 had a keeper miss of 1.00 m, repin.mjs b4, 11 late pick-ups,
+// 12 shots, keeper miss 0.46 m; 2043 once the shot decision reads the chance once and puts temperament on the choice
+// (2026-10-15): 2042 had 8 shots, repin.mjs b4, 7 late pick-ups, 11 shots, keeper miss 0.50 m; 2045 once the shooter
+// sees more of what a man on him costs (2026-10-15, shot fix): 2043 had 8 shots, repin.mjs b4 2043, 8 late pick-ups,
+// 12 shots, keeper miss 0.32 m. The late pick-up test above shares the seed.)
 // The keeper keeps setting himself against the ball: at the shot he stands
 // near the line bisecting the posts (before: ~1.1 m off on average).
 test('the defending keeper is set near the bisector of the posts when the shot comes',()=>{
- const f=structuredClone(fixture);f.seed=2039;
+ const f=structuredClone(fixture);f.seed=2045;
  const r=runMatch({fixture:f,durationSeconds:300}).result,miss=[];
  for(const e of r.events.filter(e=>e.kind==='shot'&&e.actor)){
   const s=r.players.find(p=>p.id===e.actor).side,d=1-s,g=r.players.findIndex(p=>p.side===d&&p.role==='GK');

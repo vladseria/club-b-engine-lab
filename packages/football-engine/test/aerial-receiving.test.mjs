@@ -197,8 +197,18 @@ test('ordinary match aerial releases have matching physical contacts without a c
  // 14306-14358 for headers; 14359 has one, and 14094 still has its volley (evidence/2026-10-14-r1-keeper/repin.mjs
  // header / volley). The R1 combined build (2026-10-14: mech + keeper + shape, and the pull-up a metre from a holding
  // keeper) changed 14359-14392 for headers; 14393 has one, and 14094 still has its volley (searching on from 14306;
- // evidence/2026-10-14-r1/repin.mjs header / volley). A seeded passage, not a header-frequency target.
- for(const [technique,seed] of [['header',14393],['volley',14094]]){
+ // evidence/2026-10-14-r1/repin.mjs header / volley). Pressure on the shooter (2026-10-15, the shot contest) changed
+ // 14393-14493 for headers and 14094-14095 for volleys; 14494 has a header, 14096 a volley
+ // (evidence/2026-10-15-contest-shot/repin.mjs header / volley). The contest combine (2026-10-15: reception duels,
+ // contests in the air and pressure on the shooter together) changed 14393-14402 for headers, searching on from the R1
+ // pin; 14403 has one, and 14094 has its volley again (evidence/2026-10-14-r1/repin.mjs header / volley on the combined
+ // dist). The shooter reading the hurry's cost himself (2026-10-15, hurryCost) changed 14403-14476 for headers and
+ // 14094's volley; 14477 has both (evidence/2026-10-14-r1/repin.mjs aerial 14404). The shot decision (2026-10-15: the
+ // chance read once, temperament on the choice) lost 14477's header; 14499 has both (repin.mjs aerial 14478). The shot
+ // fix (2026-10-15: the shooter sees more of what a man on him costs) lost both of 14499's; 14505 has a header (repin.mjs
+ // header 14500; aerial 14500-14559 has no seed with both) and 14099 a volley (repin.mjs volley 14094). A seeded
+ // passage, not a header-frequency target.
+ for(const [technique,seed] of [['header',14505],['volley',14099]]){
   const f=structuredClone(sandbox);f.seed=seed;
   f.teams[0].lineup[1]='motanescu';Object.assign(f.teams[0].tactics,teamApproaches.combinations.settings);
   Object.assign(f.teams[1].tactics,defensiveApproaches.press.tactics);

@@ -45,6 +45,13 @@
 //                              it) | sec | cou (on winning it) | kln | ksw (keeper call Stay on line | Sweeper, match settings)
 //                              | fks | fkd (free-kick call Short | Into the box, match settings) | f211 | f22 (formation).
 //                              s1-ref-<o> builds exactly the inputs of ba121v<o>.
+//   sp-<A>-<B>                 (2026-10-15, direct split; ported from branch ballers-direct-split) treated side team A, the
+//                              other side team B, both 1-2-1 unless a team says otherwise. A team is a preset (ba|di|sh|co)
+//                              plus optional .<k> changes: c3 | c4 (bodies forward 3 | 4) | srun | smix (striker In behind |
+//                              mixed) | pmix (progression mixed) | wstd (width standard); added 2026-10-15 (default
+//                              measurement, branch ballers-contest-live): ldeep (line deep) | psel (press selective) | pdir
+//                              (progression direct) | f22 | f211 (that team's formation 2-2 | 2-1-1).
+//                              sp-<a>-<b> with no changes builds exactly the inputs of <a>121v<b>121.
 // Treated side = seed % 2; kick-off = (seed >> 1) % 2, so every 4 seeds cover
 // both sides x both kick-offs. Match id `skill-<seed>`, as the audit's, so a
 // base-revision row on the same platform reproduces the audit's tape score.
@@ -86,8 +93,19 @@ function side(code:string,treat:{skill?:Skill;delta?:number;style?:Style;from?:S
  return {club:{id:code,name:code,code,color:code==='AAA'?'#3fd38a':'#d33f6a'},formation:(treat.formation??'2-1-1') as any,style,approach:tuned,captain:`${code}2`,lineup:players.map(p=>p.id),bench:[],players,plans:[],...(treat.keeper||treat.fk?{settings:{...(treat.keeper?{keeper:treat.keeper}:{}),...(treat.fk?{setPiece:treat.fk}:{})}}:{})} as any;
 }
 
-export function armTreatment(arm:string):{skill?:Skill;delta?:number;style?:Style;vs?:Style;from?:Style;key?:string[];formation?:string;vsFormation?:string;sweep?:number;set?:Record<string,string|number>;keeper?:'sweeper'|'line';fk?:'short'|'delivery'}{
+const SPLIT:Record<string,Record<string,string|number>>={c3:{commit:3},c4:{commit:4},srun:{striker:'run'},smix:{striker:'mixed'},pmix:{progression:'mixed'},wstd:{width:'standard'},
+ ldeep:{line:'deep'},psel:{press:'selective'},pdir:{progression:'direct'}};
+const SPLIT_FORM:Record<string,string>={f22:'2-2',f211:'2-1-1'};
+function splitTeam(code:string):{style:Style;set?:Record<string,string|number>;formation:string}{
+ const [k,...mods]=code.split('.'),style=k==='ba'?'balanced' as Style:STYLE[k];if(!style)throw Error('unknown team '+code);
+ const set:Record<string,string|number>={};let formation='1-2-1';
+ for(const m of mods){if(SPLIT_FORM[m]){formation=SPLIT_FORM[m];continue;}const a=SPLIT[m];if(!a)throw Error('unknown change '+m);Object.assign(set,a);}
+ return {style,formation,...(Object.keys(set).length?{set}:{})};
+}
+export function armTreatment(arm:string):{skill?:Skill;delta?:number;style?:Style;vs?:Style;from?:Style;key?:string[];formation?:string;vsFormation?:string;vsSet?:Record<string,string|number>;sweep?:number;set?:Record<string,string|number>;keeper?:'sweeper'|'line';fk?:'short'|'delivery'}{
  if(arm==='base')return {};
+ const sp=/^sp-((?:ba|di|sh|co)(?:\.[a-z0-9]+)*)-((?:ba|di|sh|co)(?:\.[a-z0-9]+)*)$/.exec(arm);
+ if(sp){const a=splitTeam(sp[1]),b=splitTeam(sp[2]);return {style:a.style,formation:a.formation,...(a.set?{set:a.set}:{}),vs:b.style,vsFormation:b.formation,...(b.set?{vsSet:b.set}:{})};}
  const s1=/^s1-([a-z0-9]+)-(ba|di|sh|co)(211|121|22)$/.exec(arm);
  if(s1){const o=ONE[s1[1]];if(!o)throw Error('unknown arm '+arm);const st=(k:string)=>k==='ba'?'balanced' as Style:STYLE[k];
   return {style:'balanced',formation:o.formation??'1-2-1',vs:st(s1[2]),vsFormation:FORM[s1[3]],...(o.set?{set:{...o.set}}:{}),...(o.keeper?{keeper:o.keeper}:{}),...(o.fk?{fk:o.fk}:{})};}
@@ -118,7 +136,7 @@ export function armTreatment(arm:string):{skill?:Skill;delta?:number;style?:Styl
 
 export function inputOf(arm:string,seed:number):FrozenInput{
  const treated=seed%2,t=armTreatment(arm);
- const sides=[0,1].map(s=>side(s===0?'AAA':'BBB',s===treated?t:(t.vs?{style:t.vs,formation:t.vsFormation??t.formation}:{}))) as [FrozenSide,FrozenSide];
+ const sides=[0,1].map(s=>side(s===0?'AAA':'BBB',s===treated?t:(t.vs?{style:t.vs,formation:t.vsFormation??t.formation,...(t.vsSet?{set:t.vsSet}:{})}:{}))) as [FrozenSide,FrozenSide];
  return {v:1,match:`skill-${seed}`,seed,kickoff:((seed>>1)%2) as 0|1,duration:900,sides};
 }
 
