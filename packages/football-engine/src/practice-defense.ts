@@ -33,13 +33,8 @@ export function runnerBehindShoulder(defender:Pick<PracticePlayer,'x'|'y'|'angle
  const bearing=Math.atan2(runner.y-defender.y,runner.x-defender.x);
  return Math.abs(Math.atan2(Math.sin(bearing-defender.angle),Math.cos(bearing-defender.angle)))>RUNNER_VIEW;
 }
-/** Travel with the player's existing momentum, acceleration and tired pace. */
-export function arrivalTime(p:PracticePlayer,point:Vec):number{
- const gap=Math.max(0,distance(p,point)-1),u=unit(point.x-p.x,point.y-p.y);
- const speed=p.pace*.94,v=clamp(p.vx*u.x+p.vy*u.y,-speed,speed),a=p.acceleration;
- const accelerate=(speed-v)/a,covered=v*accelerate+.5*a*accelerate*accelerate;
- return gap<=covered?(-v+Math.sqrt(v*v+2*a*gap))/a:accelerate+(gap-covered)/speed;
-}
+import {arrivalTime} from './practice-arrival.js';
+export {arrivalTime};
 
 /** Who can close a receiver before his next ball leaves (the "defender first
  * at the reception" read). A defender on the receiver's back, beyond the
