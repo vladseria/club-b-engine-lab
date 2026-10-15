@@ -122,7 +122,11 @@ export const READ_KEEP=.1,ROOM_DROP=.2,SWITCH_DEADLINE=.35,SHAPE_MIN=.1,LATE_POI
  * plays it unless its launch is blocked (closedRelease). A kick still overdue COMMIT_GRACE s after it should have gone
  * (the ball ran wrong) is looked at again. Before, every 0.2 s he re-scored it against options that would each need
  * a wind-up of their own, on a fresh full horizon that let the presser close again, and dropped 42% of them. */
-export const PLAN_KEEP=.15,COMMIT_GRACE=.25;
+/** ... and a ground pass is looked at again when a man has got into its lane: the lane read now (laneRisk) at
+ * LANE_CLOSED or more, the level at which the meeting's own check (practice.ts, risk under 0.32 for a plan) has long
+ * given up on it. (Without it, the first cloud run of this round lost twice as many passes within 12 m of our own goal:
+ * 2.0 a match against 1.0, their goals within 5 s of those 0.29 against 0.06.) */
+export const PLAN_KEEP=.15,COMMIT_GRACE=.25,LANE_CLOSED=.6;
 /** How late a first-time strike of a plan held `held` s is, 0..1 (0 = shaped in time). */
 export const lateStrike=(held:number)=>clamp((SWITCH_DEADLINE-held)/(SWITCH_DEADLINE-SHAPE_MIN),0,1);
 /** The same intention: a kick to the same man, the same kind of carry or shot. */

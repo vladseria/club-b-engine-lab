@@ -48,7 +48,7 @@ import {feintOptions,feintDuration,finishFeint,feintReleaseOpening,FeintMemory} 
 import {strikeStance} from './practice-striking.js';
 import {duelGeometry,readDuel,resolveDuel,shieldTouch,turnTouch,dangerAt,TURNED_TIME,DuelResult} from './practice-duel.js';
 import {carryPace,captureControl,faceControl,steerControl,advanceControl,receivingContact,cushionControl,controlReleaseAvailable,controlStrikeReady,strikeControl,rollControlRemainder,deflectBodyBall,TouchControl,ControlContact} from './practice-control.js';
-import {READ_EVERY,READ_MARGIN,LATE_MARGIN,readHorizon,ballArrival,meetingSpeed,projectOpponents,receptionRoom,roomLate,touchTime,touchCost,firstTimeCost,projectMates,sameIntention,lateStrike,strikeLoad,READ_KEEP,ROOM_DROP,SWITCH_DEADLINE,SHAPE_MIN,LATE_POINTS,FT_PASSING,FT_FINISHING,PLAN_KEEP,COMMIT_GRACE,type MateJob} from './practice-receive.js';
+import {READ_EVERY,READ_MARGIN,LATE_MARGIN,readHorizon,ballArrival,meetingSpeed,projectOpponents,receptionRoom,roomLate,touchTime,touchCost,firstTimeCost,projectMates,sameIntention,lateStrike,strikeLoad,READ_KEEP,ROOM_DROP,SWITCH_DEADLINE,SHAPE_MIN,LATE_POINTS,FT_PASSING,FT_FINISHING,PLAN_KEEP,COMMIT_GRACE,LANE_CLOSED,type MateJob} from './practice-receive.js';
 
 export const PRACTICE_VERSION='five-shared-1';
 /** The least time between two closing-lane rechecks of a prepared kick (honest-reads round): a minimum hold, so a
@@ -1403,10 +1403,12 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
     // stride for a lofted one, further for a driven one (clearReach).
     const closedRelease=prepared&&['pass','through','loft','clear'].includes(prepared.option.kind)&&time>=recheckAt&&kickBlocked(p,prepared.option,players,Math.max(0,prepared.at+footToBall(p)-time));
     if(closedRelease)recheckAt=time+RELEASE_RECHECK;
-    // (decide round) a kick within the switch deadline of being struck is committed: played unless its launch is
-    // blocked (closedRelease), looked at again only once it is overdue (practice-receive COMMIT_GRACE)
+    // (decide round) a kick within the switch deadline of being struck is committed: played unless the picture
+    // genuinely changes - its launch is blocked (closedRelease) or a man has got into its lane (LANE_CLOSED on the lane
+    // read now) - and looked at again only once it is overdue (practice-receive COMMIT_GRACE)
     const strikeIn=prepared?prepared.at+footToBall(p)-time:Infinity;
-    if(prepared&&!mustRelease&&!inHands&&!closedRelease&&time>=nextThink&&strikeIn<=SWITCH_DEADLINE&&strikeIn>-COMMIT_GRACE)nextThink=time+STEP;
+    const laneShut=!!prepared?.option.pass&&strikeIn<=SWITCH_DEADLINE&&laneRisk(p,prepared.option.aim,sidePlayers(other(p.side)),prepared.option.pass.speed)>=LANE_CLOSED;
+    if(prepared&&!mustRelease&&!inHands&&!closedRelease&&!laneShut&&time>=nextThink&&strikeIn<=SWITCH_DEADLINE&&strikeIn>-COMMIT_GRACE)nextThink=time+STEP;
     else if(prepared&&!mustRelease&&!inHands&&(closedRelease||time>=nextThink)){
      const alternatives=footballOptions(p,players,new Set(players.filter(q=>q.duty==='run').map(q=>q.id)),lastFrom,time-receivedAt,carryPlan,time,support,observedLine(p),feintMemory.get(p.id));
      const current=alternatives.filter(o=>o.kind===prepared!.option.kind&&o.target===prepared!.option.target&&!!o.receivingSpace===!!prepared!.option.receivingSpace).sort((a,b)=>dist(a.aim,prepared!.option.aim)-dist(b.aim,prepared!.option.aim))[0];
