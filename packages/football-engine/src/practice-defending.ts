@@ -270,8 +270,12 @@ export interface DefendMemory {side:Side;attacking:Side;
  /** (threat round) the free man who had the balance in the last plan, and who pressed whom. */
  balanceBy?:string;presserBy?:string;presserOf?:string;
  /** (beat-direct probe P1) each marker's read of the ball-behind threat: what he acts on, what he has just seen change, since when. */
- hf?:Record<string,{h:[number,number][];val:number}>}
-export interface DefendJob {player:string;purpose:'press'|'cover'|'mark'|'balance'|'screen'|'drop'|'zone';kind:Duty;aim:Vec;speed:number;reason:string;target?:string;velocity?:Vec;
+ hf?:Record<string,{h:[number,number][];val:number}>;
+ /** (rest-defence sketch, Tactics.leaveUp) the man we left up in the last plan, and how far across he stood. */
+ up?:{by:string;y:number;since:number};
+ /** (rest-defence sketch) the man who last came back down from up, and when. */
+ upLeft?:{by:string;at:number}}
+export interface DefendJob {player:string;purpose:'press'|'cover'|'mark'|'balance'|'screen'|'drop'|'zone'|'up';kind:Duty;aim:Vec;speed:number;reason:string;target?:string;velocity?:Vec;
  /** (threat round) the threat of his man as he reads it (practice-threat): how hard he goes to his spot (practice-intensity). */
  threat?:number}
 export interface DefendInput {
@@ -445,6 +449,11 @@ function takeSpot(q:PracticePlayer,r:ManRead,defending:Side):Vec{
  * nearest the ball covers and the far one marks the far man, not the other
  * way round. A man who matters always outranks a role. */
 export const COVER='#cover',BALANCE='#balance';
+/** (rest-defence sketch, Tactics.leaveUp) The man left up holds UP as his job in the team's choice, so the threat
+ * round's commitment rules keep him there as they keep any job (COMMIT_GAIN in his window, SETTLE_GAIN after), and a
+ * real change (a dangerous man nobody has, the ball) brings him back at once. Only he sees it on offer: staying where he
+ * is costs him nothing, and team-mates hear his call and stop counting on him as the cover. */
+export const UP='#up';
 export const ROLE_W={cover:1,balance:.6},ROLE_UNOWNED={cover:2.2,balance:1.5},KEEP_ROLE=.4;
 /** (threat round) The cover's weight grows by COVER_THREAT_ROLE x the carrier's own threat (practice-threat carrierThreat). */
 export const COVER_THREAT_ROLE=1;
@@ -530,6 +539,7 @@ export function solveMen(input:DefendInput,ref:Vec):DefendMemory{
    targets.push({id:COVER,weight:ROLE_W.cover*far*(input.intent==='delay'?2:1)*(1+COVER_THREAT_ROLE*ct),unowned:ROLE_UNOWNED.cover*(input.intent==='delay'?2:1),spot:()=>cover});
   }
   if(!input.restart)targets.push({id:BALANCE,weight:ROLE_W.balance,unowned:ROLE_UNOWNED.balance,spot:()=>balance});
+  if(!input.restart&&memory.men[d.id]?.target===UP)targets.push({id:UP,weight:ROLE_W.balance,unowned:ROLE_UNOWNED.balance,spot:()=>({x:d.x,y:d.y})});
   // Who he believes has whom: himself, and what he has heard (or sees: a
   // team-mate already goal-side of a man within VISIBLE_MARK m).
   const belief=new Map<string,{target:string;at:number}>();
@@ -569,7 +579,7 @@ export function solveMen(input:DefendInput,ref:Vec):DefendMemory{
    }
    const run=busy.has(q.id)&&(t.r?.matter==='ball'||!t.r)?RUN_CAP:Math.min(RUN_CAP,arrivalTime(q,t.spot(q))+extra);
    // (role awareness) the soft tie-break: his role depth against the job's
-   const fit=ROLE_PREF*Math.abs(roleDepth(q)-(t.r?(t.r.matter==='ball'?clamp(1-(t.r.dg-8)/24,0,1):jobDepth(t.r.dg)):t.id===COVER?.8:.75));
+   const fit=ROLE_PREF*Math.abs(roleDepth(q)-(t.r?(t.r.matter==='ball'?clamp(1-(t.r.dg-8)/24,0,1):jobDepth(t.r.dg)):t.id===COVER?.8:t.id===UP?0:.75));
    // (every option shifted by the same SHIFT, so no term is negative and the search's bound holds)
    return run+fit-credit(q,t)+SHIFT;
   }));
@@ -864,6 +874,121 @@ export function holdFrontCushion(q:PracticePlayer,man:PracticePlayer,threat:numb
  const front=HF_FRONT*openShot(man,g),behind=threat*openShot(behindAt,g);
  const c=need*clamp(1-front*need/(2*HF_TURN*Math.max(1e-6,behind)),0,1);
  return Math.max(0,Math.min(c,depth(defending,man.x)-HF_FLOOR));
+}
+
+/** (rest-defence sketch, 2026-10-15, Tactics.leaveUp; a test switch) Leave a man up. A port of the beat-Direct probe
+ * P3 (ballers-beat-direct dfd8428f), rethought: P3 could send only the balance man, it stood him on their last man
+ * (so their rest guard and he would walk each other back towards their goal), and it did not weigh who he was.
+ *
+ * Who may stay up: a spare defender only (the cover, the balance, or a man left without a job this look), never one
+ * who has a man. The team's choice (solveMen) has already given every man who matters an owner, and a man who matters
+ * always outranks a role, so the man up is never someone needed to mark a man who threatens our goal. And he STAYS up:
+ * only a man level with the ball or upfield of it (AHEAD m) goes, nobody runs past the ball to get there; nobody goes
+ * once the ball is within UP_FLOOR + UP_GAP m of their goal line (everyone is up then), and UP_DEEP m further in the man
+ * up is released to the press too (apart, so a ball played about there does not flip him).
+ *
+ * What staying up is worth, each on his own picture:
+ *  - their rest defence thin: their outfielders UP_REST m or more behind the ball; one or none = a counter with
+ *    numbers (all of it), two = UP_TWO of it, three or more = nothing;
+ *  - a regain likely: the man on the ball pressed (one of ours within UP_PRESS[0] m = all of it, nobody within
+ *    UP_PRESS[1] m = UP_REGAIN of it); a ball in flight or loose: UP_LOOSE_REGAIN; their keeper on it: UP_KEEPER
+ *    (they are building from the back, a regain is a long way off);
+ *  - room to counter into: the ball UP_ROOM m or more short of the line UP_FLOOR m off their goal (all of it), less
+ *    as it gets nearer;
+ *  - he is quick: each UP_PACE m/s of pace over their fastest rest defender (the man who would race him) adds half
+ *    again, as much slower takes half off;
+ *  - who he is: a forward is the outlet (he holds it up, turns, finishes); a fixo up is UP_FIXO less of one (by role
+ *    depth), and the block misses its organiser;
+ *  - he pins a man: one of theirs stands goal-side of him within UP_PIN_R m, behind the ball (a guard held back on
+ *    him is a man fewer in their attack even if the ball never reaches him: UP_PIN, added to the outlet's worth).
+ *    So "he stays up, their guard stays with him" is a settled state: their guard thickens their rest defence (the
+ *    outlet is worth less) and pins exactly that much back.
+ * 'on' weighs UP_ON x room x quick x (thin x regain + UP_PIN x pinned); 'always' keeps a man up whatever the moment:
+ * UP_ALWAYS x quick, above the usual needs, so it gives way only to a loose dangerous man or to several needs at once
+ * near our goal ("whenever the defence can spare one").
+ *
+ * What the block loses (P3's terms, on his picture): a man of theirs ahead of the ball near our goal that he would
+ * cover (UP_COVER); being the cover behind the presser (UP_SECOND: the second defender goes with him); the threat of
+ * the man on the ball, or of the man a pass is going to where he meets it (UP_THREAT x carrierThreat); the ball near
+ * our goal (UP_NEAR, from UP_NEAR_R m in, fully UP_NEAR_FULL m nearer); each dangerous man of theirs nobody has
+ * (UP_LOOSE: they already attack with a man over); a run from deep setting off (UP_RUN: their extra man joining).
+ *
+ * Commitment (the threat round's pattern), so the two sides' reactions settle instead of ping-ponging: the man up keeps
+ * it unless the picture clearly changes. For commitFor s after going up (his reading) the need must beat the worth by
+ * UP_COMMIT to bring him down and nobody may replace him, after that by UP_KEEP, and another man replaces him only
+ * when UP_SWAP s better placed; a dangerous man of theirs nobody has is a real change and brings him back at once.
+ * Going up fresh needs the worth to beat the need by UP_KEEP (a band, not a line); right after the team brought its
+ * man down (FLIP_BACK s) nobody else goes, and he goes back only for UP_COMMIT more. In the team's choice he holds UP
+ * as his job (solveMen), with the same commitment rules as any job. Of several who may go, the one who gets there
+ * first, a forward a little sooner (UP_ROLE s per unit of role depth). */
+export const UP_REST=4,UP_TWO=.4,UP_PRESS=[1.5,5] as const,UP_REGAIN=.5,UP_LOOSE_REGAIN=.75,UP_KEEPER=.2,UP_GAP=8,UP_DEEP=4,UP_ROOM=20,UP_FLOOR=12,UP_PACE=2,UP_FIXO=.5;
+export const UP_ON=2.5,UP_ALWAYS=3.5,UP_COVER=1.2,UP_SECOND=.8,UP_THREAT=2,UP_NEAR=.8,UP_NEAR_R=22,UP_NEAR_FULL=10,UP_LOOSE=1.5,UP_RUN=1,UP_KEEP=.4,UP_COMMIT=1,UP_SWAP=1.5,UP_ROLE=1.5,UP_PIN=.5,UP_PIN_R=6;
+/** Where he stands: an outlet for the pass out of a regain, not a spot. UP_DIST m upfield of the ball (never nearer
+ * their goal line than UP_FLOOR m), across the pitch (every UP_STEP m) where the pass from the ball to him is clearest
+ * of their men (each man's distance off that line counts up to UP_LANE m) and he has room to take it (their nearest
+ * man off the spot, up to UP_SPACE m), central (UP_WIDE per half-width off the middle: in the middle he threatens the
+ * goal on the turn, by the touchline he is out of every lane), and near where he stood (UP_STAY per m across: he drifts with the ball, he does
+ * not jump). With their usual rest defence that height puts him between or beyond their rest defenders. */
+export const UP_DIST=15,UP_STEP=2.5,UP_LANE=3,UP_SPACE=5,UP_WIDE=1.5,UP_STAY=.05;
+export function upSpot(q:PracticePlayer,input:Pick<DefendInput,'players'|'attacking'|'defending'|'carrier'|'view'>,ref:Vec,refDepth:number,wasY?:number):Vec{
+ const {players,attacking,defending,carrier,view}=input;
+ const theirs=players.filter(a=>a.side===attacking&&a.role!=='GK'&&a.id!==carrier?.id).map(a=>view(q,a));
+ const x=world(defending,Math.min(L-UP_FLOOR,refDepth+UP_DIST)),from=wasY??q.y;
+ let best:{v:Vec;score:number}|undefined;
+ for(let y=-(W/2-UP_STEP);y<=W/2-UP_STEP+1e-9;y+=UP_STEP){
+  const v={x,y};
+  const lane=Math.min(UP_LANE,...theirs.map(a=>distance(a,onSegment(a,ref,v))))/UP_LANE;
+  const space=Math.min(UP_SPACE,...theirs.map(a=>distance(a,v)))/UP_SPACE;
+  const score=lane+space-UP_WIDE*Math.abs(y)/(W/2)-UP_STAY*Math.abs(y-from);
+  if(!best||score>best.score)best={v,score};
+ }
+ return best!.v;
+}
+export function leaveUpChoice(spare:readonly PracticePlayer[],input:DefendInput,ref:Vec,refDepth:number,readOf:(q:PracticePlayer,a:PracticePlayer)=>ManRead,isCover:(q:PracticePlayer)=>boolean,loose:readonly PracticePlayer[],was:{by:string;y:number;since:number}|undefined,left:{by:string;at:number}|undefined):{q:PracticePlayer;aim:Vec}|undefined{
+ const {players,defending,attacking,carrier,tactics,view}=input;
+ const theirs=players.filter(a=>a.side===attacking&&a.role!=='GK'&&a.id!==carrier?.id);
+ // the ball deep in their half: nobody goes up (everyone is up already); UP_DEEP m further in, the man up is released
+ // to the press too (the threshold and the release are apart, so a ball played about there does not flip him)
+ const deep=refDepth>L-UP_FLOOR-UP_GAP;
+ if(refDepth>L-UP_FLOOR-UP_GAP+UP_DEEP)return undefined;
+ const room=clamp((L-UP_FLOOR-refDepth)/UP_ROOM,0,1);
+ // the team's reads: the man on the ball pressed, his own threat, the ball near our goal
+ const pressedBy=carrier?Math.min(...players.filter(p=>p.side===defending&&p.role!=='GK').map(p=>distance(p,carrier))):Infinity;
+ const regain=carrier?.role==='GK'?UP_KEEPER:carrier?UP_REGAIN+(1-UP_REGAIN)*clamp((UP_PRESS[1]-pressedBy)/(UP_PRESS[1]-UP_PRESS[0]),0,1):UP_LOOSE_REGAIN;
+ // (a pass on its way is read as the receiver where he meets it: the need does not vanish while the ball travels)
+ const receiver=!carrier&&input.receiver?players.find(p=>p.id===input.receiver!.id):undefined;
+ const next=carrier??(receiver&&{...receiver,x:input.receiver!.meet.x,y:input.receiver!.meet.y});
+ const ct=next&&next.role!=='GK'&&input.threat?carrierThreat(next,input.threat.defenders,defending):0;
+ const near=clamp((UP_NEAR_R-refDepth)/UP_NEAR_FULL,0,1);
+ let best:{q:PracticePlayer;aim:Vec;score:number}|undefined,held=false;
+ for(const q of spare){
+  const seen=theirs.map(a=>({a,v:view(q,a)}));
+  const rest=seen.filter(x=>depth(defending,x.v.x)>refDepth+UP_REST);
+  const thin=rest.length<=1?1:rest.length===2?UP_TWO:0;
+  const racer=Math.max(0,...rest.map(x=>x.a.pace));
+  const quick=clamp(1+.5*(q.pace-(rest.length?racer:q.pace))/UP_PACE,.5,1.5);
+  const pinned=rest.some(x=>depth(defending,x.v.x)>depth(defending,q.x)&&distance(x.v,q)<UP_PIN_R)?1:0;
+  const value=(1-UP_FIXO*roleDepth(q))*(tactics.leaveUp==='always'?UP_ALWAYS*quick:UP_ON*room*quick*(thin*regain+UP_PIN*pinned));
+  const cover=seen.some(x=>{const r=readOf(q,x.a);return r.matter!=='spare'&&depth(defending,r.v.x)<refDepth-AHEAD&&r.dg<COVER_DROP_R[tactics.line];});
+  const second=!!carrier&&isCover(q);
+  const unowned=loose.filter(a=>readOf(q,a).matter==='danger').length;
+  const run=seen.some(x=>readOf(q,x.a).running&&depth(defending,x.v.x)>refDepth-AHEAD);
+  const need=(cover?UP_COVER:0)+(second?UP_SECOND:0)+UP_THREAT*ct+UP_NEAR*near+UP_LOOSE*unowned+(run?UP_RUN:0);
+  const keep=was?.by===q.id,back=left?.by===q.id&&input.time-left.at<FLIP_BACK;
+  // going up fresh: not while the ball is deep in their half, not past the ball, and not just after the team brought
+  // its man down (what brought him down holds for everyone; he himself goes back only for UP_COMMIT more)
+  if(!keep&&(deep||depth(defending,q.x)<refDepth-AHEAD||left&&!back&&input.time-left.at<FLIP_BACK))continue;
+  const margin=keep?(unowned?0:input.time-was!.since<commitFor(q)?UP_COMMIT:UP_KEEP):back?-UP_COMMIT:-UP_KEEP;
+  if(value+margin<=need)continue;
+  if(keep)held=true;
+  const aim=upSpot(q,input,ref,refDepth,keep?was!.y:undefined);
+  // the man up is not replaced inside his commitment window, and after it only by a man UP_SWAP s better placed
+  const score=keep&&input.time-was!.since<commitFor(q)?-Infinity:arrivalTime(q,aim)+UP_ROLE*roleDepth(q)-(keep?UP_SWAP:0);
+  if(!best||score<best.score)best={q,aim,score};
+ }
+ // the man up coming down this look (or taken by a man) brings nobody else up in his place this look either
+ if(was&&!held)return undefined;
+ return best&&{q:best.q,aim:best.aim};
 }
 
 
@@ -1173,6 +1298,25 @@ export function defendOutOfPossession(given:DefendInput):DefendPlan{
    const free=(q:PracticePlayer)=>{if(busy.has(q.id))return false;if(q===receiverOwner)return true;const m=manOf(q);if(!m)return true;const r=readOf(q,m);return r.matter==='watch'||r.matter==='spare'||distance(r.v,input.receiver!.meet)<COLLECT_MAN;};
    const goer=own.filter(free).map(q=>({q,late:contestRead(q,spot)})).filter(c=>c.late<=CONTEST_WITHIN).sort((a,b)=>a.late-b.late||a.q.id.localeCompare(b.q.id))[0];
    if(goer){plan.collector={id:goer.q.id,meet:contestAim(goer.q,goer.late)};done.add(goer.q.id);}
+  }
+ }
+
+ // ---- (rest-defence sketch, Tactics.leaveUp) a spare man stays up as the outlet for the regain (leaveUpChoice) ----
+ if((tactics.leaveUp==='on'||tactics.leaveUp==='always')&&!restart){
+  const was=memory.up;memory.up=undefined;
+  const owned=new Set([...Object.values(memory.men).map(m=>m.target),...fixed.values()]);
+  const loose=players.filter(a=>a.side===attacking&&a.role!=='GK'&&!owned.has(a.id)&&a.id!==carrier?.id);
+  const spare=own.filter(q=>!done.has(q.id)&&!busy.has(q.id)&&!manOf(q));
+  // his call: UP while up (team-mates stop counting on him for the cover), "nobody" the moment he comes down
+  const say=(id:string,target:string)=>{if(target)memory.men={...memory.men,[id]:{target,since:time,left:memory.men[id]?.target??''}};else{const m={...memory.men};delete m[id];memory.men=m;}memory.calls={...memory.calls,[id]:[...(memory.calls[id]??[]),{target,at:time}].slice(-3)};};
+  const up=leaveUpChoice(spare,input,ref,refDepth,readOf,q=>memory.men[q.id]?.target===COVER,loose,was,memory.upLeft);
+  if(was&&up?.q.id!==was.by){memory.upLeft={by:was.by,at:time};if(memory.men[was.by]?.target===UP)say(was.by,'');}
+  for(const q of own)if(q.id!==up?.q.id&&q.id!==was?.by&&memory.men[q.id]?.target===UP)say(q.id,'');
+  if(up){
+   if(memory.men[up.q.id]?.target!==UP)say(up.q.id,UP);
+   memory.up={by:up.q.id,y:up.aim.y,since:was?.by===up.q.id?was.since:time};
+   push({player:up.q.id,purpose:'up',kind:'hold',aim:inside(up.aim),speed:up.q.pace*(distance(up.q,up.aim)>4?.95:.75),
+    reason:tactics.leaveUp==='always'?'Rămâne sus, cum cere planul: la recuperare e varianta de pasă și primul care pleacă spre poartă.':'Rămâne sus: în spate au puțini și mingea poate fi recuperată; e varianta de pasă și primul care pleacă spre poartă.'});
   }
  }
 

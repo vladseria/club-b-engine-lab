@@ -19,6 +19,14 @@ export interface Tactics {
   holdFront?: boolean;
   /** (P1 retry) the hold read also weighs inside the job that closes a man as the pass to him is prepared. */
   holdFrontCue?: boolean;
+  /** (rest-defence sketch, 2026-10-15; a test switch, not yet a Ballers setting) Defending: "Leave a man up". A free
+   * defender weighs staying high as the outlet for the regain against what the block loses (practice-defending
+   * leaveUpChoice). Missing = 'no' = nobody stays up, as before. */
+  leaveUp?: 'no' | 'on' | 'always';
+  /** (rest-defence sketch) Attacking: the rest defence follows their men left up, as a risk attitude priced through the
+   * turnover price: safe / even / bold (practice-rest-defence restRisk, practice-coordination followGuards). Missing =
+   * Bodies forward's own bounds and REST_GUARDS, as before. */
+  restDefence?: 'safe' | 'even' | 'bold';
 }
 export interface Order { id: string; minute: number; when: 'always' | 'losing' | 'winning' | 'booked'; player?: string; substitute?: string; tactics?: Partial<Tactics> }
 export interface Team { id: string; name: string; short: string; color: string; description: string; squad: Player[]; lineup: string[]; tactics: Tactics; orders: Order[] }

@@ -8,7 +8,7 @@ import {steerMotion} from './movement.js';
 import {readTeamExposure} from './practice-exposure.js';
 import {readSupportLocation} from './practice-support.js';
 import {laneObstruction} from './practice-lanes.js';
-import {commitBounds,commitmentPrice,constrains,establishedAttack,isRest} from './practice-rest-defence.js';
+import {commitBounds,commitmentPrice,constrains,establishedAttack,isRest,restRisk} from './practice-rest-defence.js';
 
 export interface JobCandidate {job:FootballJob;score:number}
 type Risk=(from:Vec,to:Vec,defenders:PracticePlayer[],speed?:number)=>number;
@@ -23,7 +23,9 @@ export function selectPossessionJobs(players:PracticePlayer[],focus:PracticePlay
  const pressure=clamp((5-Math.min(...opponents.filter(p=>p.role!=='GK').map(p=>distance(p,focus))))/4,0,1);
  const attack=attackingSpaceReader(players,focus,tactics,risk,striker);
  const carrierPath=[.3,.6,.9,1.2].map(t=>({x:focus.x+focus.vx*t,y:focus.y+focus.vy*t}));
- const bounds=commitBounds(tactics.commit),constrained=establishedAttack(focus)&&constrains(bounds);
+ const bounds=commitBounds(tactics.commit);
+ // (rest-defence sketch) Tactics.restDefence: the rest defence is priced by the counter risk it leaves (restRisk), not by Bodies forward's bounds
+ const restPrice=restRisk(tactics,focus,players),constrained=restPrice?true:establishedAttack(focus)&&constrains(bounds);
  const rows=mates.map(p=>{
   // Evaluate football value before pruning. A nearby stationary option must
   // not eliminate a route whose useful reception develops after moving.
@@ -87,7 +89,8 @@ export function selectPossessionJobs(players:PracticePlayer[],focus:PracticePlay
    // particular player, depth, or number of short-support assignments.
    const escape=Math.max(0,...selection.map(r=>r.access))*(.35+pressure*.85);
    let value=score+escape-exposure.cost([carrierCover,...selection.map(r=>r.coverage)]);
-   if(constrained){
+   if(restPrice)value-=restPrice(indices.filter((k,j)=>outfield[j]&&place[j][k]).length);
+   else if(constrained){
     value-=commitmentPrice(bounds,indices.flatMap((k,j)=>outfield[j]?[{rest:place[j][k],discipline:mates[j].traits.discipline}]:[]));
    }
    if(value>best){best=value;chosen=[...selection];}return;
