@@ -5,6 +5,7 @@ import type {MovingBall,Vec} from './movement.js';
 import type {PracticePlayer,Option} from './practice.js';
 import {PASS_DRAG,flightSamples,flightContact,advanceFlight} from './practice-flight.js';
 import type {FlightSample} from './practice-flight.js';
+import {jumpReach,STANDING_HEAD,airReaction} from './practice-air-duel.js';
 
 export type AerialTechnique='chest'|'header'|'volley';
 export const aerialContactShape={
@@ -12,8 +13,16 @@ export const aerialContactShape={
  header:{min:1.5,max:1.95,offset:.2,radius:.22,prepare:.2},
  volley:{min:.28,max:.85,offset:.52,radius:.23,prepare:.24},
 } as const;
+/** The heights this player can meet the ball at with this technique. A header can be met above standing height with
+ * a jump (practice-air-duel jumpReach: contests in the air, 2026-10-15); before, every contact was a standing one. */
+export function aerialBand(p:{skills:{aerial:number}},technique:AerialTechnique):{min:number;max:number}{
+ const shape=aerialContactShape[technique];
+ return technique==='header'?{min:shape.min,max:shape.max+jumpReach(p)}:shape;
+}
 export interface AerialMeeting {technique:AerialTechnique;aim:Vec;ball:FlightSample;angle:number}
 export interface AerialKick {aim:Vec;vx:number;vy:number;vz:number;flight:number;difficulty:number;ability:number}
+/** Added difficulty a metre of header above standing height. */
+export const JUMP_DIFFICULTY=.3;
 const gap=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
 const difference=(a:number,b:number)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
 const pitch=(v:Vec,margin=0)=>v.x>=margin&&v.x<=L-margin&&Math.abs(v.y)<=W/2-margin;
@@ -25,7 +34,7 @@ export function openAerialMeeting(meeting:AerialMeeting,aim:Vec):AerialMeeting{
  return {...meeting,angle,aim:{x:meeting.ball.x-Math.cos(angle)*shape.offset,y:meeting.ball.y-Math.sin(angle)*shape.offset}};
 }
 
-/** Standing contacts only: no inferred jump, teleport, or enlarged possession radius.
+/** No teleport or enlarged possession radius; a header may be met with a jump (aerialBand).
  * The forecast includes acceleration, braking and time to face the delivery. */
 export function reachesAerialMeeting(p:PracticePlayer,meeting:AerialMeeting,reaction=0):boolean{
  const shape=aerialContactShape[meeting.technique],point=meeting.ball,aim=meeting.aim;
@@ -35,15 +44,15 @@ export function reachesAerialMeeting(p:PracticePlayer,meeting:AerialMeeting,reac
  const turn=(3.4+p.skills.control*.12)/(1+Math.hypot(preview.vx,preview.vy)*.22);
  return gap(preview,aim)<=shape.radius&&Math.abs(difference(meeting.angle,p.angle))<=turn*point.time+.5;
 }
-export function aerialMeetings(p:PracticePlayer,ball:MovingBall,reaction=.18,samples:readonly FlightSample[]=flightSamples(ball,2.4,.08),prepared?:{angle:number;age:number}):AerialMeeting[]{
+export function aerialMeetings(p:PracticePlayer,ball:MovingBall,reaction=airReaction(p),samples:readonly FlightSample[]=flightSamples(ball,2.4,.08),prepared?:{angle:number;age:number}):AerialMeeting[]{
  if(ball.z<=.25&&ball.vz<=0)return [];
  const meetings:AerialMeeting[]=[];
  for(const technique of ['chest','header','volley'] as const){
-  const shape=aerialContactShape[technique],delay=Math.max(reaction,shape.prepare-(prepared?.age??0));
+  const shape=aerialContactShape[technique],band=aerialBand(p,technique),delay=Math.max(reaction,shape.prepare-(prepared?.age??0));
   // An opened stance can reach a contact which facing directly into the
   // incoming flight cannot. Rechecks retain time already spent preparing.
   for(const opening of technique==='chest'?[0]:[0,-1.05,1.05])for(const point of samples){
-   if(point.time<delay||point.z<shape.min||point.z>shape.max||point.vz>1||!pitch(point,.15))continue;
+   if(point.time<delay||point.z<band.min||point.z>band.max||point.vz>1||!pitch(point,.15))continue;
    const angle=Math.atan2(-point.vy,-point.vx)+opening,aim={x:point.x-Math.cos(angle)*shape.offset,y:point.y-Math.sin(angle)*shape.offset};
    const meeting={technique,aim,ball:point,angle};
    if(!reachesAerialMeeting(p,meeting,reaction))continue;
@@ -57,7 +66,7 @@ export function aerialMeetings(p:PracticePlayer,ball:MovingBall,reaction=.18,sam
  * physically possible continuation. The receiver still chooses at preparation;
  * this is reachability, not an instruction to head every reachable ball. */
 export function playableAerialMeetings(p:PracticePlayer,ball:MovingBall,players:PracticePlayer[],samples?:readonly FlightSample[]):AerialMeeting[]{
- return aerialMeetings(p,ball,.2,samples).filter(meeting=>{
+ return aerialMeetings(p,ball,airReaction(p,.2),samples).filter(meeting=>{
   const incoming={...ball,...meeting.ball},future={...p,...meeting.aim,angle:meeting.angle};
   if(meeting.technique==='chest'){
    const settled={...incoming,...cushionChest(future,incoming,0,()=>.5)};advanceFlight(settled,.45);
@@ -79,7 +88,7 @@ export function aerialContact(p:PracticePlayer,previous:Vec&{angle?:number},befo
  const startAngle=previous.angle??p.angle;
  const start={x:previous.x+Math.cos(startAngle)*shape.offset,y:previous.y+Math.sin(startAngle)*shape.offset};
  const end={x:p.x+Math.cos(p.angle)*shape.offset,y:p.y+Math.sin(p.angle)*shape.offset};
- const at=flightContact(before,after,start,end,shape.radius,shape.max,undefined,shape.min);
+ const band=aerialBand(p,technique),at=flightContact(before,after,start,end,shape.radius,band.max,undefined,band.min);
  if(at===null)return null;
  const body={x:previous.x+(p.x-previous.x)*at,y:previous.y+(p.y-previous.y)*at};
  const point={x:before.x+(after.x-before.x)*at,y:before.y+(after.y-before.y)*at};
@@ -91,7 +100,7 @@ export function aerialContact(p:PracticePlayer,previous:Vec&{angle?:number},befo
  * incoming momentum may help a redirection but cannot fund an arbitrary reversal. */
 export function readAerialKick(p:PracticePlayer,ball:MovingBall,technique:'header'|'volley',option:Pick<Option,'kind'|'aim'>):AerialKick|null{
  if(!['pass','through','loft','shoot','clear'].includes(option.kind))return null;
- const shape=aerialContactShape[technique];if(ball.z<shape.min||ball.z>shape.max)return null;
+ const band=aerialBand(p,technique);if(ball.z<band.min||ball.z>band.max)return null;
  const dx=option.aim.x-ball.x,dy=option.aim.y-ball.y,distance=Math.hypot(dx,dy);if(distance<1)return null;
  const ux=dx/distance,uy=dy/distance,incoming=Math.hypot(ball.vx-p.vx,ball.vy-p.vy,ball.vz);
  const heading=technique==='header',accuracy=option.kind==='shoot'?p.skills.finishing:p.skills.passing;
@@ -109,7 +118,8 @@ export function readAerialKick(p:PracticePlayer,ball:MovingBall,technique:'heade
  const horizontal=speed+PASS_DRAG*(flight-STEP)/2;
  const impulse=Math.hypot(ux*horizontal-ball.vx,uy*horizontal-ball.vy,vz-ball.vz);
  if(impulse>(heading?13:21)+p.skills.strength*.65+ability*.5)return null;
- const difficulty=clamp((incoming-5)/22+(10-ability)*.035+turn/Math.PI*.12+(shot?.08:0),0,1);
+ // a header met above standing height (a jump) is harder to direct
+ const difficulty=clamp((incoming-5)/22+(10-ability)*.035+turn/Math.PI*.12+(shot?.08:0)+(heading?Math.max(0,ball.z-STANDING_HEAD)*JUMP_DIFFICULTY:0),0,1);
  return {aim:{...option.aim},vx:ux*horizontal,vy:uy*horizontal,vz,flight,difficulty,ability};
 }
 

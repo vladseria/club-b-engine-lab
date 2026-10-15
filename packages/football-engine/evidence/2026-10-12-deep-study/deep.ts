@@ -57,13 +57,16 @@ function official(inp:any,c:any,engineBuild:string){
 }
 
 // ---- the match ------------------------------------------------------------------------------------------------
-export function play(t:{label:string;arm:string;seed:number;rev:string},extra?:(R:any,inp:any)=>any){
- const inp=inputOf(t.arm,t.seed),teams=inp.sides.map(engineTeam) as any,t0=performance.now();
+// `hooks` (2026-10-15 contest combine, optional; absent = unchanged): `base` names the mirror arm the inputs come from
+// (the row keeps t.arm), `input` edits those inputs (traits, skills) and `teams` the engine teams (tactics) before the match.
+export function play(t:{label:string;arm:string;seed:number;rev:string},extra?:(R:any,inp:any)=>any,hooks?:{base?:string;input?:(inp:any,treated:number)=>void;teams?:(teams:any[],treated:number)=>void}){
+ const arm=hooks?.base??t.arm,inp=inputOf(arm,t.seed);hooks?.input?.(inp,t.seed%2);
+ const teams=inp.sides.map(engineTeam) as any;hooks?.teams?.(teams,t.seed%2);const t0=performance.now();
  const run:any=runMatch({fixture:{teams,seed:inp.seed,kickoff:inp.kickoff},durationSeconds:inp.duration,policy:'coordinated',substitutions:'none',record:true} as any);
  const ms=Math.round(performance.now()-t0),R=run.result;
  const c=compact(inp,R);
  const off=official(inp,c,run.engineBuild);
- const tr=armTreatment(t.arm),treated=t.seed%2;
+ const tr=armTreatment(arm),treated=t.seed%2;
  const roster:{id:string;side:number;role:string}[]=R.players,frames:any[]=R.frames,events:any[]=R.events,choices:any[]=R.choices;
  const idx=new Map(roster.map((p,i)=>[p.id,i]));
  const sideOf=(id:any)=>id!=null&&idx.has(id)?roster[idx.get(id)!].side:-1;
