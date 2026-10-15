@@ -59,7 +59,8 @@ const T={
 //   du     (as nodu) remove the one duelAt write that survives alloff (a tackle he rode and kept the ball): with the
 //          shot piece off nothing reads duelAt, so alloff+nodu is still R1's football
 //   dupre  not an ablation: every player is created with duelAt (undefined), so the write never changes his shape;
-//          reads are unchanged, so the full build's football must be unchanged too
+//          reads are unchanged, so the full build's football must be unchanged too. Confirmed (run 38725437287) and now
+//          the engine source itself (practicePlayers), so dupre only applies to the source before that commit.
 T.du=[[PR,`recovering.set(d.id,{until:time+.45,opponent:p.id});p.duelAt=time;say('tackle',`,`recovering.set(d.id,{until:time+.45,opponent:p.id});say('tackle',`]];
 T.dupre=[[PR,`archetype:p.archetype??'',temperament:p.temperament??''};`,`archetype:p.archetype??'',temperament:p.temperament??'',duelAt:undefined};`]];
 // SHOT_SPREAD is re-exported (not imported) by practice.ts on the contest build; R1 used it locally: import it for ~noshot

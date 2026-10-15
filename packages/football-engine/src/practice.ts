@@ -149,7 +149,9 @@ export function practicePlayers(f:Fixture):PracticePlayer[]{
    if(!Object.values(p.skills).every(n=>Number.isFinite(n)&&n>=0&&n<=12)||!Number.isFinite(p.energy)||p.energy<0||p.energy>100)throw Error('Invalid practice attributes');
    const x=role==='GK'?X(6):role==='CB'?X(24):role==='FB'?X(28):role==='DM'?X(37):role==='CM'?X(43):role==='AM'?X(46):X(48);
    const y=lane*(role==='FB'||role==='W'?Y(27):role==='CB'?Y(10):Y(13)),basePace=role==='GK'?4.5+p.skills.pace*.34:4.75+p.skills.pace*.35;
-   return {...p,id:`${side}:${p.id}`,side:side as Side,number:i+1,role,lane,x:world(side as Side,x),y,vx:0,vy:0,angle:side?Math.PI:0,basePace,pace:basePace,acceleration:role==='GK'?3.1+p.skills.pace*.19:3.5+p.skills.pace*.22,job:'',duty:'hold' as Duty,archetype:p.archetype??'',temperament:p.temperament??''};
+   // duelAt is declared (undefined) from the start, not added at the first duel: a property added mid-match gives
+   // players (and every {...p} copy) a second shape and made the whole engine ~8% slower (evidence/2026-10-15-contest-cost)
+   return {...p,id:`${side}:${p.id}`,side:side as Side,number:i+1,role,lane,x:world(side as Side,x),y,vx:0,vy:0,angle:side?Math.PI:0,basePace,pace:basePace,acceleration:role==='GK'?3.1+p.skills.pace*.19:3.5+p.skills.pace*.22,job:'',duty:'hold' as Duty,archetype:p.archetype??'',temperament:p.temperament??'',duelAt:undefined};
   });
  });
 }
