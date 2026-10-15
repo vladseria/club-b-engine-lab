@@ -3,9 +3,6 @@ import {clamp} from './model.js';
 import type {Vec} from './movement.js';
 import {daring,perceive} from './practice-perception.js';
 import type {Reader} from './practice-perception.js';
-import type {Tactics} from './model.js';
-import {onOurBall} from './practice-shape.js';
-import type {PracticePlayer} from './practice.js';
 
 type Body=Vec&{id:string;side:number;role:string};
 const depthOf=(side:number,x:number)=>side===0?x:L-x;
@@ -146,40 +143,4 @@ export function commitmentCost(focus:Vec&{side:number;role:string},commit:number
  if(!establishedAttack(focus))return 0;
  const b=commitBounds(commit);if(!constrains(b))return 0;
  return commitmentPrice(b,rows.map(r=>({rest:isRest(focus.side,focus,r.aim),discipline:r.discipline})));
-}
-
-/** (rest-defence sketch, 2026-10-15, Tactics.restDefence; a test switch) The rest defence follows their men up, as a
- * risk attitude: how much counter risk the side accepts for more men in the attack. The question each player asks is
- * "if we lose it, can their men run at our goal with numbers?", and the turnover price already answers it: lossDanger
- * from where the ball is and the deficit behind it (their men up + the man who wins it - ours goal-side of it). With
- * the switch on, that price replaces Bodies forward's fixed bounds in every arrangement (Bodies forward keeps its
- * other nudges): each arrangement pays REST_RISK[attitude] x REST_RISK_W x lossDanger for the rest defence it leaves,
- * against the football value of the men it sends forward. So the edges settle themselves: with nobody of theirs up,
- * one more man back buys little (the balance man may step into the attack: the 4-0 rotation); with two up, the first
- * men back buy a lot and the last man forward is worth more than the third man back (the attack is never stripped
- * bare). The guards themselves are priced the same way (practice-coordination followGuards).
- *   safe: counters weighed REST_RISK.safe times (more men back, fewer in the attack)
- *   even: weighed as the price says
- *   bold: weighed REST_RISK.bold times (most men forward, punished by counters with numbers)
- * REST_RISK_W turns goals into arrangement value: one man short against one of theirs up, high in their half (about
- * 0.044 goals of difference), costs about what a disciplined player holds Bodies forward's shape at (commitHold, ~1).
- *
- * Their men up: their outfielders nearer our goal than the ball by more than a metre (the turnover price's threats),
- * except a man pressing our ball (onOurBall: if he wins it he is the ball, not a man waiting for it) and a man running
- * back towards his own goal at RECOVERING m/s or more (bypassed and recovering, not left up). A man we already guard
- * (`kept`) stays one of them until he is UP_KEEP m further back (commitment: the guard does not leave him the moment
- * he steps level with the ball and rejoin him when he steps forward again). */
-export const REST_RISK:Record<NonNullable<Tactics['restDefence']>,number>={safe:1.6,even:1,bold:.5};
-export const REST_RISK_W=23,RECOVERING=2,UP_KEEP=2;
-export function theirMenUp(side:number,focus:Vec,players:readonly PracticePlayer[],kept?:ReadonlySet<string>):PracticePlayer[]{
- const bd=depthOf(side,focus.x);
- return players.filter(q=>q.side!==side&&q.role!=='GK'&&depthOf(side,q.x)<bd-1+(kept?.has(q.id)?UP_KEEP:0)&&!onOurBall(q,focus)&&(side===0?q.vx:-q.vx)<RECOVERING)
-  .sort((a,b)=>depthOf(side,a.x)-depthOf(side,b.x)||a.id.localeCompare(b.id));
-}
-/** The counter risk an arrangement leaves, by how many of ours stay behind the ball (isRest), in arrangement value:
- * undefined without the switch, or outside an established attack (Bodies forward's bounds do not bite there either). */
-export function restRisk(t:Tactics,focus:Vec&{side:number;role:string},players:readonly PracticePlayer[]):((rest:number)=>number)|undefined{
- if(!t.restDefence||!establishedAttack(focus))return undefined;
- const up=theirMenUp(focus.side,focus,players).length,share=depthOf(focus.side,focus.x)/L,w=REST_RISK[t.restDefence]*REST_RISK_W;
- return rest=>w*lossDanger(share,up+1-rest);
 }

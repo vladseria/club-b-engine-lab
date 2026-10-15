@@ -1,6 +1,6 @@
 import {clamp} from './model.js';
 import {L} from './pitch.js';
-import {ARRIVAL_SPREAD,ARRIVAL_OPTIMISM,receivingRoom} from './practice-passing.js';
+import {ARRIVAL_SPREAD,ARRIVAL_OPTIMISM} from './practice-passing.js';
 import {arrivalTime} from './practice-defense.js';
 import {possessionSafety,feltPressure} from './practice-possession.js';
 import type {Tactics} from './model.js';
@@ -35,14 +35,9 @@ export function validateApproach(value:unknown):ApproachSettings{
  * is pressed or turned (`regainWindow`). */
 export function approachInPossession(t:Tactics,recoveryAge:number):SituationTactics{
  if(recoveryAge<0)return t;
- if(t.transition==='counter'&&recoveryAge<8)return regainWindowTactics(t);
+ if(t.transition==='counter'&&recoveryAge<8)return {...t,progression:'direct',striker:t.striker==='pivot'||t.striker==='link'?t.striker:'run',commit:Math.max(4,t.commit),regainWindow:true};
  if(t.transition==='secure'&&recoveryAge<3)return {...t,progression:'patient'};
  return t;
-}
-/** Counter's regain window: direct, the lead forward on their last man's shoulder (a Pivot or Drops-deep striker
- * keeps his job), at least four bodies forward. */
-export function regainWindowTactics(t:Tactics):SituationTactics{
- return {...t,progression:'direct',striker:t.striker==='pivot'||t.striker==='link'?t.striker:'run',commit:Math.max(4,t.commit),regainWindow:true};
 }
 /** The numbers of a transition, from visible positions: our outfielders level
  * with or ahead of the ball (the carrier included) against their rest
@@ -75,19 +70,11 @@ export function counterOn(t:Tactics,players:ReadonlyArray<PracticePlayer>,carrie
  const need=t.transition==='counter'?-1:t.transition==='secure'?1:0;
  return theirs<=(t.transition==='counter'?3:2)&&ours-theirs>=need;
 }
-/** (rest-defence sketch) counterOn's read from a keeper who has the ball: his outfielders against their rest defence. */
-export function keeperCounterOn(t:Tactics,players:ReadonlyArray<PracticePlayer>,keeper:PracticePlayer):boolean{
- const {ours,theirs}=counterNumbers(players,keeper),need=t.transition==='secure'?1:0;
- return theirs<=2&&ours-theirs>=need;
-}
 /** The situation's tactics; `counter` marks a counter that is on (counterOn),
  * an internal read, never a manager's input. */
 export type SituationTactics=Tactics&{counter?:boolean;
  /** Counter's regain window is on (approachInPossession). */
  regainWindow?:true;
- /** (rest-defence sketch, Tactics.leaveUp) the man the side left up when it won the ball back, while the counter
-  * through him is on (approachForSituation): the outlet the team built. */
- upOutlet?:string;
  /** The purpose clock (R3 P4): completed passes in a row that have not
   * taken the ball forward, a visible count. */
  recycled?:number};
@@ -120,19 +107,8 @@ export function purposeClock(t:SituationTactics):number{
  * ground, and do not kick a counter that is on away to nobody (`counter`,
  * the carrier's read, which changes no setting). */
 export const COUNTER_FLIP=8;
-/** (rest-defence sketch, 2026-10-15, Tactics.leaveUp) A side that left a man up and has just won the ball back with
- * him still up (`upMan`, practice-coordination) plays the counter it built for: while the counter is on by the numbers
- * (counterOn, at the side's own bar) for COUNTER_FLIP s it takes Counter's regain window (direct, the man up on their
- * last man's shoulder holding while the ball-winner is pressed and running when the ball can reach him, bodies
- * forward), and the ball to him is valued as the counter it is (approachOptions UP_OUTLET). A keeper who has just won
- * it is a launcher too (a throw to the pivot is futsal's oldest counter): from him the numbers are read the same way.
- * When the counter is not on (their rest defence sorted, or more of them than of us), the side keeps the ball as it
- * always does. */
-export function approachForSituation(t:Tactics,players:PracticePlayer[],carrier:PracticePlayer|undefined,recoveryAge:number,continuing:ReadonlyArray<TransitionRun>=[],time=0,upMan?:string):SituationTactics{
+export function approachForSituation(t:Tactics,players:PracticePlayer[],carrier:PracticePlayer|undefined,recoveryAge:number,continuing:ReadonlyArray<TransitionRun>=[],time=0):SituationTactics{
  const on=counterOn(t,players,carrier,recoveryAge);
- if(upMan&&t.transition!=='counter'&&recoveryAge>=0&&recoveryAge<COUNTER_FLIP&&(on||carrier?.role==='GK'&&keeperCounterOn(t,players,carrier))){
-  return {...regainWindowTactics(t),counter:true,upOutlet:upMan};
- }
  if(t.transition==='counter'){
   if(recoveryAge<0||recoveryAge>=COUNTER_FLIP||!carrier)return on?{...t,counter:true}:t;
   if(on)return {...approachInPossession(t,recoveryAge),counter:true};
@@ -198,25 +174,6 @@ export function patientPurpose(p:PracticePlayer,o:Option,block:BlockRead):{bypas
  * long, touchline or corner clearance) throws it away, so under a counter
  * those clearances pay it; a clearance into a team-mate's path does not. */
 export const COUNTER_VALUE=.22;
-/** (rest-defence sketch, Tactics.leaveUp) The ball to the man up while the counter through him is on (upOutlet): the
- * counter it starts, COUNTER_VALUE, as far as it is on from where he receives it:
- *  - the ball gets there and he controls it: (1 - lane risk) x (1 - control risk);
- *  - he can do something with it: turn (room at the reception: receivingRoom) or lay it off (a team-mate within
- *    UP_LAYOFF m of the reception, not ahead of it, with nobody of theirs within UP_LAYOFF_FREE m of him);
- *  - the numbers from there (counterNumbers read at the reception): ours level or ahead of it against their men
- *    clearly goal-side of it; one short counts half, level or better all of it.
- * Marked tight with nobody to lay off to, or the ball unlikely to arrive, it is worth little and the side keeps the
- * ball as before: a value, never a forced pass. */
-export const UP_LAYOFF=8,UP_LAYOFF_FREE=2.5;
-export function upOutletGain(p:PracticePlayer,o:Option,players:ReadonlyArray<PracticePlayer>):number{
- const q=players.find(x=>x.id===o.target),flight=o.pass?.flight??o.loft?.flight;if(!q||flight===undefined)return 0;
- const ball=(o.pass??o.loft)!,through=(1-clamp(ball.risk,0,1))*(1-clamp(ball.controlRisk,0,1));
- const depth=(x:number)=>p.side===0?x:L-x,opponents=players.filter(d=>d.side!==p.side&&d.role!=='GK');
- const room=receivingRoom(o.aim,opponents as PracticePlayer[],flight);
- const layoff=players.some(m=>m.side===p.side&&m.role!=='GK'&&m.id!==q.id&&m.id!==p.id&&Math.hypot(m.x-o.aim.x,m.y-o.aim.y)<UP_LAYOFF&&depth(m.x)<=depth(o.aim.x)&&opponents.every(d=>Math.hypot(d.x-m.x,d.y-m.y)>=UP_LAYOFF_FREE))?1:0;
- const {ours,theirs}=counterNumbers(players,{...q,x:o.aim.x,y:o.aim.y});
- return COUNTER_VALUE*through*Math.max(room,layoff)*clamp((ours-theirs+2)/2,0,1);
-}
 /** Striker: Pivot (settings round, 2026-10-03). While the pivot is showing for
  * it (practice-coordination pivotPoint: his own read that the lane to his feet
  * is open), a ball into his feet is preferred among the deliveries, the more
@@ -243,8 +200,6 @@ export const PIVOT_PULL=.06,PIVOT_PRESSED=.4;
  * the ball costs a little. The exact same plans reach execution. */
 export function approachOptions(p:PracticePlayer,options:Option[],t:SituationTactics,players:ReadonlyArray<PracticePlayer>=[],pivot?:string):Option[]{
  if(t.counter)options=options.map(o=>o.kind==='clear'&&o.clearance!=='mate'&&o.clearance!=='channel'?{...o,score:o.score-COUNTER_VALUE}:o);
- // (rest-defence sketch) the ball to the man up, valued as the counter it starts (upOutletGain)
- if(t.upOutlet)options=options.map(o=>(o.pass||o.loft)&&o.target===t.upOutlet?{...o,score:o.score+upOutletGain(p,o,players)}:o);
  const clock=purposeClock(t),s=p.side===0?1:-1;
  const block=t.progression==='patient'||clock>0?readBlock(p,players):null;
  if(clock>0)options=options.map(o=>{

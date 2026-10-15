@@ -19,14 +19,14 @@ import {ownGoalDanger} from './practice-possession.js';
 import type {SupportContext,SupportMove,SupportPlan} from './practice-support.js';
 import type {SituationTactics} from './team-approach.js';
 import {runReleaseAllowance} from './practice-awareness.js';
-import {LOSS_SCALE,REST_MARGIN,REST_RISK,REST_RISK_W,isRest,lossDanger,lossRead,restDefence,theirMenUp} from './practice-rest-defence.js';
+import {LOSS_SCALE,REST_MARGIN,isRest,lossDanger,lossRead,restDefence} from './practice-rest-defence.js';
 import {eagerness,followsTeam,perceive} from './practice-perception.js';
 import {flightSamples,flightMeeting,expectedPassFlight} from './practice-flight.js';
 import {defendOutOfPossession,offGoalLine,REGROUP_BEHIND} from './practice-defending.js';
 import type {DefendMemory} from './practice-defending.js';
 export {REGROUP_BEHIND};
 
-export type JobPurpose='break'|'playbook'|'shape'|'balance'|'zone'|'press'|'screen'|'counter-press'|'counter-screen'|'trap'|'trap-screen'|'cover'|'mark'|'receive'|'collect'|'second-ball'|'join'|'outlet'|'give-and-go'|'depth'|'link'|'overlap'|'near-post'|'far-post'|'cutback'|'build-up'|'counter-cover'|'last-man'|'width'|'drop'|'pivot'|'third-man'|'shoulder'|'wall'|'spot'|'back-post'|'edge'|'ball'|'up';
+export type JobPurpose='break'|'playbook'|'shape'|'balance'|'zone'|'press'|'screen'|'counter-press'|'counter-screen'|'trap'|'trap-screen'|'cover'|'mark'|'receive'|'collect'|'second-ball'|'join'|'outlet'|'give-and-go'|'depth'|'link'|'overlap'|'near-post'|'far-post'|'cutback'|'build-up'|'counter-cover'|'last-man'|'width'|'drop'|'pivot'|'third-man'|'shoulder'|'wall'|'spot'|'back-post'|'edge'|'ball';
 export interface FootballJob {
  player:string;purpose:JobPurpose;kind:Duty;aim:Vec;speed:number;reason:string;
  since:number;until:number;target?:string;velocity?:Vec;
@@ -274,8 +274,6 @@ export const PIVOT_GAP=1,PIVOT_CONTACT=3,PIVOT_WIDTH=4.5,PIVOT_GOAL=5,PIVOT_SHOW
  * own arrival read (R2, 'arrival', THIRD_SPREAD s for a player who cannot
  * read at all). */
 export const THIRD_BACK=[4,6],THIRD_WIDE=[3.5,5.5],THIRD_SPREAD=.6,THIRD_SLACK=.6;
-/** (rest-defence sketch) In the counter through the man up, how long he holds it up while support sprints to him (s). */
-export const UP_JOIN=2;
 export function thirdManSpots(pivot:Vec,side:Side):Vec[]{
  const s=side===0?1:-1;
  return THIRD_BACK.flatMap(dx=>THIRD_WIDE.flatMap(dy=>[-dy,dy].map(y=>inside({x:pivot.x-s*dx,y:pivot.y+y}))));
@@ -413,15 +411,14 @@ export function coordinateFlight(players:PracticePlayer[],ball:MovingBall,side:S
 export const REST_GUARDS=(commit:number)=>commit<=2?2:1;
 export const REST_CUSHION:Record<Tactics['line'],number>={deep:2.5,standard:1.5,high:1};
 const REST_FREE:ReadonlySet<JobPurpose>=new Set(['shape','build-up','counter-cover','outlet','width','link','second-ball','join','third-man']);
-export function restGuards(players:readonly PracticePlayer[],side:Side,focus:Vec,t:Tactics,jobs:Readonly<Record<string,FootballJob>>,mates:readonly PracticePlayer[],time:number,before:Readonly<Record<string,FootballJob>>={}):{player:string;aim:Vec;speed:number;reason:string;target:string}[]{
+export function restGuards(players:readonly PracticePlayer[],side:Side,focus:Vec,t:Tactics,jobs:Readonly<Record<string,FootballJob>>,mates:readonly PracticePlayer[],time:number):{player:string;aim:Vec;speed:number;reason:string;target:string}[]{
  const bd=depth(side,focus.x);
  // (r1-shape) A man pressing our ball is not a forward left ahead of it: if
  // he wins it he is the ball, and the backs play around him (lineThreat).
- const out:{player:string;aim:Vec;speed:number;reason:string;target:string}[]=[];
- const used=new Set<string>();
- if(t.restDefence)return followGuards(players,side,focus,t,jobs,mates,before,out,used);
  const forwards=players.filter(q=>q.side!==side&&q.role!=='GK'&&!onOurBall(q,focus)).sort((a,b)=>depth(side,a.x)-depth(side,b.x)||a.id.localeCompare(b.id));
  const need=REST_GUARDS(t.commit),cushion=REST_CUSHION[t.line];
+ const out:{player:string;aim:Vec;speed:number;reason:string;target:string}[]=[];
+ const used=new Set<string>();
  for(let k=0;k<need;k++){
   const f=forwards[Math.min(k,forwards.length-1)];if(!f)break;
   const fd=depth(side,f.x);
@@ -438,45 +435,6 @@ export function restGuards(players:readonly PracticePlayer[],side:Side,focus:Vec
   if(!pick)continue;
   used.add(pick.id);
   out.push({player:pick.id,aim,speed:pick.pace*(distance(pick,aim)>4?.9:.75),reason:'Echilibru în atac: rămâne între atacantul lor cel mai avansat și poarta noastră, pentru cazul în care pierdem mingea.',target:f.id});
- }
- return out;
-}
-/** (rest-defence sketch, 2026-10-15, Tactics.restDefence) The guards follow their men up (practice-rest-defence
- * theirMenUp, most advanced first), each one priced as the arrangement prices the rest defence: a guard goal-side of
- * a man up is worth the counter danger he takes away (REST_RISK x REST_RISK_W x the drop in lossDanger from one man
- * fewer short), against what his support or shape job was worth to the attack (GUARD_COST: about an ordinary support
- * job's value; an outlet's access is worth up to 0.8 in the arrangement). So a safe side guards a man up even high in
- * their half, a bold one only when he would run at our goal with numbers. A guard stands as REST_GUARDS' does
- * (REST_CUSHION goal-side of his man, tucked towards the middle) and is taken the same way: from support or shape jobs
- * only, never a runner, the carrier or the receiver, and only when the ordinary jobs do not already leave a man there.
- * Commitment: the man who guarded him in the last plan stays his guard while the saving beats GUARD_COST - GUARD_KEEP,
- * even when an ordinary job would also leave a team-mate goal-side of him for a moment, and his man counts as up a
- * little longer (theirMenUp `kept`), so neither he nor the man he guards flips the job on and off. */
-export const GUARD_COST=.5,GUARD_KEEP=.4;
-function followGuards(players:readonly PracticePlayer[],side:Side,focus:Vec,t:Tactics,jobs:Readonly<Record<string,FootballJob>>,mates:readonly PracticePlayer[],before:Readonly<Record<string,FootballJob>>,out:{player:string;aim:Vec;speed:number;reason:string;target:string}[],used:Set<string>){
- const guardOf=(j:FootballJob|undefined)=>j?.purpose==='counter-cover'&&j.reason.startsWith('Echilibru în atac')?j.target:undefined;
- const kept=new Set(mates.map(p=>guardOf(before[p.id])).filter((id):id is string=>!!id));
- const up=theirMenUp(side,focus,players as PracticePlayer[],kept),cushion=REST_CUSHION[t.line],bd=depth(side,focus.x);
- const w=REST_RISK[t.restDefence!]*REST_RISK_W,share=bd/L;
- const rest=mates.filter(p=>jobs[p.id]&&isRest(side,focus,jobs[p.id].aim)).length;
- for(let k=0;k<up.length;k++){
-  const f=up[k],fd=depth(side,f.x),line=fd-cushion;
-  const goalSide=(id:string)=>{const j=jobs[id];const p=mates.find(q=>q.id===id);return !!j&&!!p&&depth(side,j.aim.x)<=line+.3&&depth(side,p.x)<=fd+2;};
-  // the man who guarded him in the last plan stays his guard while the price still holds (commitment), even when an
-  // ordinary job would also leave a team-mate goal-side of him for a moment
-  const was=mates.find(p=>!used.has(p.id)&&guardOf(before[p.id])===f.id&&REST_FREE.has(jobs[p.id]?.purpose??'shape'));
-  const already=mates.filter(p=>!used.has(p.id)&&goalSide(p.id));
-  if(!was&&already.length){used.add(already[0].id);continue;}
-  // the counter danger this guard takes away: their men up + the ball-winner, against ours behind (the guards so far count)
-  const short=up.length+1-Math.max(rest,used.size);
-  const saving=w*(lossDanger(share,short)-lossDanger(share,short-1));
-  const aim=inside({x:world(side,Math.max(2.5,line)),y:f.y*.6});
-  const pick=was??mates.filter(p=>!used.has(p.id)&&REST_FREE.has(jobs[p.id]?.purpose??'shape'))
-   .map(p=>({p,score:arrivalTime(p,aim)+(p.role==='CB'||p.role==='DM'?0:.6)+(jobs[p.id]?.purpose==='counter-cover'?-.4:0)}))
-   .sort((a,b)=>a.score-b.score||a.p.id.localeCompare(b.p.id))[0]?.p;
-  if(!pick||saving<=GUARD_COST-(pick===was?GUARD_KEEP:0)){if(already.length)used.add(already[0].id);continue;}
-  used.add(pick.id);
-  out.push({player:pick.id,aim,speed:pick.pace*(distance(pick,aim)>4?.9:.75),reason:'Echilibru în atac: rămâne între omul lor lăsat sus și poarta noastră, pentru cazul în care pierdem mingea.',target:f.id});
  }
  return out;
 }
@@ -706,9 +664,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   const pivotId=anchor&&anchor.depth>bd+3?pivot!.id:undefined;
   if(anchor)pivots[side]=anchor;
   // Striker: In behind (shoulderPost): the lead forward lives on their last line.
-  // (rest-defence sketch) in the counter through the man up (upOutlet) he is the one on their last man's shoulder
-  const outlet=(t as SituationTactics).upOutlet,runnerId0=outlet&&outlet!==receiver.id?outlet:striker;
-  const runner=t.striker==='run'?players.find(p=>p.id===runnerId0&&p.side===side&&p.id!==receiver.id&&!unavailable.has(p.id)&&!reserved.has(p.id)):undefined;
+  const runner=t.striker==='run'?players.find(p=>p.id===striker&&p.side===side&&p.id!==receiver.id&&!unavailable.has(p.id)&&!reserved.has(p.id)):undefined;
   const runAnchor=runner?pivotAnchor(players,runner,previous?.attacking===side?previous.pivots?.[side]:undefined,RUN_GAP)??undefined:undefined;
   const shoulder=runAnchor&&runAnchor.depth>bd+3?shoulderPost(players,runner!,runAnchor,focus):undefined;
   const runnerId=shoulder?runner!.id:undefined;
@@ -891,19 +847,6 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
      fit:p=>.8+p.skills.reading*.02,target:ref,
      reason:'Al treilea om: vine cu fața la poartă, lângă pivot, pentru pasa lui înapoi.'});
    }
-  }
-  // (rest-defence sketch, Tactics.leaveUp) The counter through the man up (upOutlet): once the ball is his or on its
-  // way to him, the others join it at pace. The third man's lay-off spots around him are offered to whoever can get
-  // there while he holds it up: the ball's time to him plus UP_JOIN s (a pivot with his back to goal keeps it about that
-  // long while support arrives), so the men near the ball sprint up beside him rather than only those already there.
-  // (Offered from the regain itself, in the laptop traces the runs into those spots took the first ball off him:
-  // the first pass went to him in 8% of regains with him up instead of 29%.)
-  if(outlet&&receiver.id===outlet){
-   const soon=(owner?0:distance(ball,focus)/Math.max(3,Math.hypot(ball.vx,ball.vy)))+.35;
-   offerJob({purpose:'third-man',kind:'run',point:focus,range:30,eligible:p=>p.id!==outlet,
-    points:p=>thirdManSpots(focus,side).filter(v=>perceive(p,'arrival',arrivalTime(p,v),THIRD_SPREAD,v,{time,salt:'up-join'})<=soon+UP_JOIN),
-    fit:p=>.9+p.traits.runs*.4,target:outlet,
-    reason:'Contraatac prin omul din față: urcă în viteză lângă el, pentru pasa lui înapoi sau continuarea.'});
   }
   // Rejoining the possession is useful even without a counterattack or a
   // pass available right now. Offer reachable steps towards connected role
@@ -1095,7 +1038,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
    if(timing.waiting)job.reason='Își dozează cursa pentru a sosi odată cu pasa posibilă.';
   }
   // Defending rebuild (5): rest defence in possession (restGuards).
-  for(const g of restGuards(players,side,focus,t,jobs,mates.filter(p=>!instructed.has(p.id)&&!unavailable.has(p.id)),time,previous?.attacking===side?previous.jobs:{})){
+  for(const g of restGuards(players,side,focus,t,jobs,mates.filter(p=>!instructed.has(p.id)&&!unavailable.has(p.id)),time)){
    const p=mates.find(q=>q.id===g.player)!;put(p,'counter-cover','cover',g.aim,g.speed,g.reason,g.target);
   }
   const moves:SupportMove[]=Object.values(jobs).filter(j=>selecting.some(p=>p.id===j.player)&&!['shape','collect','receive','mark','press','cover'].includes(j.purpose)).map(j=>({player:j.player,purpose:j.purpose==='depth'||j.purpose==='break'?'channel':j.purpose==='outlet'||j.purpose==='second-ball'||j.purpose==='width'?'recycle':j.purpose==='pivot'?'link':j.purpose==='shoulder'?'channel':j.purpose==='third-man'?'join':j.purpose as SupportMove['purpose'],kind:j.kind==='keeper'?'support':j.kind as SupportMove['kind'],aim:j.aim,speed:j.speed,since:j.since,until:j.until,reason:j.reason}));
