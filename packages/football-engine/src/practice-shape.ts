@@ -4,7 +4,7 @@ import type {Side,Tactics} from './model.js';
 import type {Vec,MovingBall} from './movement.js';
 import type {PracticePlayer,Duty} from './practice.js';
 import {acuity,perceive} from './practice-perception.js';
-import {arrivalTime} from './practice-arrival.js';
+import {arrivalTime} from './practice-defense.js';
 /** A defender's view of an attacker who is not on the ball (M3): the man as
  * this defender last saw him. Absent, reads are exact (scenes and tests). */
 /** What `reader` sees of `target` (his own picture, a moment late); `before` s earlier still, when asked (the track-runner read of a run setting off compares the two). */
