@@ -1,4 +1,4 @@
-import {L,W,GH,HEIGHT,BOX_DEPTH,BOX_HALF,SPOT,X,Y,G} from './pitch.js';
+import {L,W,GH,HEIGHT,BOX_HALF,SPOT,X,Y,G} from './pitch.js';
 import {clamp} from './model.js';
 import {readDrawnOpening} from './practice-connections.js';
 import {steerMotion} from './movement.js';
@@ -10,7 +10,6 @@ import {turnoverPrice,deliveryLossWeight,LOSS_SCALE} from './practice-rest-defen
 import {arrivalTime} from './practice-defense.js';
 import {duelChance} from './practice-challenge.js';
 import {perceive,daring} from './practice-perception.js';
-import {KEEPER_HOME} from './practice-keeper.js';
 
 export type CarryPurpose='advance'|'shooting-angle'|'passing-lane'|'escape'|'protect';
 export interface CarryAssessment {
@@ -176,9 +175,9 @@ export function carryOptions(p:PracticePlayer,players:PracticePlayer[],held:numb
   // Own-goal guard (as recoveryTouch): an outfielder never carries toward the
   // mouth of his own goal; the backward diagonals stay on offer elsewhere.
   if(p.role!=='GK'&&depth(p,aim.x)<6&&Math.abs(aim.y)<6&&depth(p,aim.x)<depth(p,p.x))continue;
-  // (settings-truth round) a keeper who stays on his line does not carry the ball up out of his area: he
-  // plays it (he had carried it to 17-20 m and was caught there when it was lost)
-  if(p.role==='GK'&&(p.traits.keeperSweep??.2)<=KEEPER_HOME&&depth(p,aim.x)>BOX_DEPTH+1&&depth(p,aim.x)>depth(p,p.x))continue;
+  // (R1 keeper tune, 2026-10-15) the settings-truth round's hard guard (a keeper whose sweep trait was at most KEEPER_HOME never
+  // carried past 9 m) is gone: the goal he leaves behind him (emptyNetDanger, weighed by keeperNetWeight) is the price
+  // that keeps a stay-at-home keeper from carrying it up out of his area.
   const goalGain=beforeGoal-goalDistance(p,aim),shotGain=shotPotential(p,aim)-beforeShot;
   const outlet=passingOutlet(p,aim,players,risk),opening=readDrawnOpening(p,aim,players,risk);
   const passGain=Math.max(0,outlet.value-beforePass.value,opening.gain*.65);

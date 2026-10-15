@@ -1,3 +1,4 @@
 results/.bundle.*
 results/.rev-*
 results/smoke*.jsonl
+umano/results/
