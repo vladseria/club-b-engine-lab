@@ -1,4 +1,4 @@
-import {L,W,GH,HEIGHT,BOX_DEPTH,BOX_HALF,SPOT,X,Y,G} from './pitch.js';
+import {L,W,GH,HEIGHT,BOX_HALF,SPOT,X,Y,G} from './pitch.js';
 import {clamp} from './model.js';
 import {readDrawnOpening} from './practice-connections.js';
 import {steerMotion} from './movement.js';
@@ -10,7 +10,6 @@ import {turnoverPrice,deliveryLossWeight,LOSS_SCALE} from './practice-rest-defen
 import {arrivalTime} from './practice-defense.js';
 import {duelChance} from './practice-challenge.js';
 import {perceive,daring} from './practice-perception.js';
-import {KEEPER_HOME} from './practice-keeper.js';
 
 export type CarryPurpose='advance'|'shooting-angle'|'passing-lane'|'escape'|'protect';
 export interface CarryAssessment {
@@ -85,8 +84,11 @@ export function emptyNetDanger(p:PracticePlayer,players:readonly PracticePlayer[
 /** How much of that danger he feels, by his habit (keeperSweep): a keeper who
  * stays at home feels the empty net behind him (NET_HOME at trait 0), a
  * sweeper keeper is at ease out of his goal and accepts the risk (NET_SWEEPER
- * at 1). It weighs what is at stake; it never forbids a carry. */
-export const NET_HOME=1.5,NET_SWEEPER=.3;
+ * at 1: none of it beyond the price any lost ball pays). It weighs what is at
+ * stake; it never forbids a carry. (R1 keeper tune, 2026-10-15: NET_SWEEPER
+ * 0.3 -> 0, a sweeper at 0.8 weighs it 0.30 instead of 0.54, so he carries
+ * about half as often again; a keeper at home, 1.40 instead of 1.42.) */
+export const NET_HOME=1.5,NET_SWEEPER=0;
 export const keeperNetWeight=(p:{traits:{keeperSweep?:number}})=>NET_HOME+(NET_SWEEPER-NET_HOME)*clamp(p.traits.keeperSweep??.2,0,1);
 /** Keeping the ball away from his goal (what a route's tackle read does not
  * see): the chance the ball is lost while he is out there with it. The
@@ -176,9 +178,9 @@ export function carryOptions(p:PracticePlayer,players:PracticePlayer[],held:numb
   // Own-goal guard (as recoveryTouch): an outfielder never carries toward the
   // mouth of his own goal; the backward diagonals stay on offer elsewhere.
   if(p.role!=='GK'&&depth(p,aim.x)<6&&Math.abs(aim.y)<6&&depth(p,aim.x)<depth(p,p.x))continue;
-  // (settings-truth round) a keeper who stays on his line does not carry the ball up out of his area: he
-  // plays it (he had carried it to 17-20 m and was caught there when it was lost)
-  if(p.role==='GK'&&(p.traits.keeperSweep??.2)<=KEEPER_HOME&&depth(p,aim.x)>BOX_DEPTH+1&&depth(p,aim.x)>depth(p,p.x))continue;
+  // (R1 keeper tune, 2026-10-15) the settings-truth round's hard guard (a keeper whose sweep trait was at most KEEPER_HOME never
+  // carried past 9 m) is gone: the goal he leaves behind him (emptyNetDanger, weighed by keeperNetWeight) is the price
+  // that keeps a stay-at-home keeper from carrying it up out of his area.
   const goalGain=beforeGoal-goalDistance(p,aim),shotGain=shotPotential(p,aim)-beforeShot;
   const outlet=passingOutlet(p,aim,players,risk),opening=readDrawnOpening(p,aim,players,risk);
   const passGain=Math.max(0,outlet.value-beforePass.value,opening.gain*.65);

@@ -188,9 +188,10 @@ export const WIDTH_NONE_WE='No wingers in this shape: our centre-backs split to 
  * half) and practice-set-pieces.ts FK_LEAN / FK_CONTEST / FK_PLAN_B (the taker
  * follows the call: he accepts a contested ball into the box for Into the box,
  * and leaving the call for the other kind of kick costs him). practice-keeper.ts
- * keeperLineDepth, practice-carry.ts and practice-keeper-support.ts KEEPER_HOME:
- * a keeper who stays on his line does not play off his back line, carry the ball
- * out of his area or offer a pass back from outside it.
+ * keeperLineDepth and practice-keeper-support.ts KEEPER_HOME: a keeper who stays
+ * on his line does not play off his back line or offer a pass back from outside
+ * his area; practice-carry.ts keeperNetWeight: he minds the goal he leaves most,
+ * so he keeps the ball in his area (a price since 15 Oct, no longer a hard guard).
  * The lines describe what the call does, never how often free kicks come or
  * how much they decide (owner, 3 Oct). */
 type KeeperCall='own'|'line'|'sweeper';
