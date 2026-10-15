@@ -120,9 +120,7 @@ test('knocking it on into open ground is the carrier\'s read: a confident carrie
 });
 
 // ---- routed reads: pressure (shot or release)
-// (shot fix, 2026-10-15) "cool" here is daring as well as composed: his appetite (shotTemper's SHOT_DARE) is what
-// leans him to the shot; a composed man has no lean of his own under the press.
-test('under the same pressure a daring shooter shoots more; a nervous one releases',()=>{
+test('under the same pressure a daring or composed shooter shoots more; a nervous one releases',()=>{
  const shotScore=traits=>{let s=0,n=0;
   for(let k=0;k<12;k++){const players=practicePlayers(structuredClone(fixture));
    // Team 0's striker 9 m out, a defender 1.5 m away; team-mates to pass to.

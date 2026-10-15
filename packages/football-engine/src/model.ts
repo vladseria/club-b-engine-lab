@@ -14,11 +14,6 @@ export interface Tactics {
   transition?: 'balanced' | 'secure' | 'counter';
   /** "On losing it": the first seconds after a loss. Missing = 'balanced'. */
   onLoss?: 'regroup' | 'balanced' | 'counterpress';
-  /** (beat-direct probe P1, 2026-10-14, ported for the contest combine's cloud arms; scratch, never a Ballers setting)
-   * Hold them in front (practice-defending holdFrontCushion). Missing = off. */
-  holdFront?: boolean;
-  /** (P1 retry) the hold read also weighs inside the job that closes a man as the pass to him is prepared. */
-  holdFrontCue?: boolean;
 }
 export interface Order { id: string; minute: number; when: 'always' | 'losing' | 'winning' | 'booked'; player?: string; substitute?: string; tactics?: Partial<Tactics> }
 export interface Team { id: string; name: string; short: string; color: string; description: string; squad: Player[]; lineup: string[]; tactics: Tactics; orders: Order[] }
