@@ -42,8 +42,11 @@ export interface ReplayHeader {
  * owner (index or -1: the carrier, else the restart taker, else the keeper
  * holding it); ps = possession side; s = score; r = dead ball (restart);
  * c = camera cut (a jump, never interpolate across it); l = the player index
- * at each of the ten positions, present from the first substitution on. */
-export interface ReplayFrame {t:number;p:[number,number,number][];b:[number,number,number];o:number;ps:0|1;s:[number,number];r?:1;c?:1;l?:number[]}
+ * at each of the ten positions, present from the first substitution on;
+ * d = the positions (0-9) of players lying on the floor after a duel (engine
+ * duty 'down', from 16 Oct). Optional and present only in frames where someone
+ * is down, so the version stays 2 and older replays render exactly as before. */
+export interface ReplayFrame {t:number;p:[number,number,number][];b:[number,number,number];o:number;ps:0|1;s:[number,number];r?:1;c?:1;l?:number[];d?:number[]}
 /** Every engine event, slimmed: kind, Romanian engine text, actor/target and
  * last touch as player indices, the side it concerns. Shots keep origin/aim.
  * A substitution: a = the player coming on, g = the one going off, sb = the
@@ -102,6 +105,8 @@ export function sample(frames:ReplayFrame[],t:number){
   owner:a.o,side:a.ps,score:a.s,restart:!!a.r,
   /** Player index per position (identity until the first substitution). */
   lineup:a.l??null,
+  /** Positions of players on the floor at this frame (none on replays from before 16 Oct). */
+  down:a.d??null,
  };
 }
 export const goals=(events:ReplayEvent[])=>events.filter(e=>e.k==='goal');

@@ -96,7 +96,7 @@ export function computeMatch(input:FrozenInput,progress?:(t:number)=>void):Compu
 
 // The slice of PracticeResult this module reads (kept structural so the
 // compaction can be unit-tested with a synthetic result).
-interface EngineFrame {time:number;cut?:boolean;lineup?:number[];players:{x:number;y:number;angle:number}[];ball:{x:number;y:number;z:number;owner:string|null};score:[number,number];restart:boolean;restartInfo?:{taker:string};side:0|1;control?:{owner:string}}
+interface EngineFrame {time:number;cut?:boolean;lineup?:number[];players:{x:number;y:number;angle:number;duty?:string}[];ball:{x:number;y:number;z:number;owner:string|null};score:[number,number];restart:boolean;restartInfo?:{taker:string};side:0|1;control?:{owner:string}}
 interface EngineEvent {time:number;kind:string;text:string;actor?:string;target?:string;side?:0|1;lastTouch?:string;restartKind?:string;shot?:{aim:{x:number;y:number};origin:{x:number;y:number};assessment?:{quality:number}};technique?:string;freeKick?:unknown;
  substitution?:{order:string;trigger:SubstitutionTrigger;energy:number;score:[number,number]}}
 interface EngineSelection {time:number;planId:string|null;name:string;status:string;endedAt?:number;endReason?:string;endDetail?:string;side?:0|1;trace?:{time:number;stepId:string;phase:string;intent?:string;actor?:string;target?:string;responsibility?:string;evidence?:{spaceId?:string}}[]}
@@ -139,6 +139,8 @@ export function compact(input:FrozenInput,r:EngineResult):CompactMatch{
   if(f.restart)frame.r=1;if(f.cut)frame.c=1;
   // After a substitution: who stands at each position (replay indices).
   if(f.lineup)frame.l=f.lineup.map(k=>idx(r.players[k]?.id));
+  // Knocked down in a duel (engine duty 'down', 16 Oct): the positions lying on the floor. Only when someone is.
+  const down=f.players.flatMap((p,k)=>p.duty==='down'?[k]:[]);if(down.length)frame.d=down;
   // Two frames at one instant: the later one wins unless it is a camera cut.
   if(frames.length&&frames[frames.length-1].t===frame.t&&!frame.c)frames[frames.length-1]=frame;else frames.push(frame);
  });
