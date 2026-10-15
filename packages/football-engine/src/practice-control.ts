@@ -29,6 +29,9 @@ export interface TouchControl {
  /** The pace the carrier is running with the ball at (carryPace): open
   * ground lets him knock it further ahead. Unset = close control. */
  pace?:number;
+ /** (receive round) His last touch was a first touch made to set the ball for the kick he planned while it travelled
+  * (cushionControl with a release intention): his next contact strikes it unless it ran clearly wrong (SET_TOUCH_SLACK). */
+ setTouch:boolean;
 }
 /** Running with the ball. In traffic a carrier keeps it close, at about two
  * thirds of his pace; with open ground ahead he knocks it on and runs nearly
@@ -61,7 +64,7 @@ function neutralFoot(p:PracticePlayer,side:ControlFoot):Vec{
 }
 /** Capture intention without relocating the ball or changing its momentum. */
 export function captureControl(p:PracticePlayer,_ball:Vec):TouchControl{
- return {owner:p.id,time:0,readyAt:0,active:null,intent:'Ajunge la minge',contacts:[],feet:(['left','right'] as const).map(side=>({side,...neutralFoot(p,side),active:false}))};
+ return {owner:p.id,time:0,readyAt:0,active:null,intent:'Ajunge la minge',contacts:[],setTouch:false,feet:(['left','right'] as const).map(side=>({side,...neutralFoot(p,side),active:false}))};
 }
 
 /** Foot access is body-relative. A ball behind the stance requires a step/turn;
@@ -311,7 +314,7 @@ function registerTouch(p:PracticePlayer,ball:MovingBall,state:TouchControl,foot:
  const outgoing=kind==='settle'&&!finalStrike?cushionedVelocity(p,ball,velocity):{x:ball.vx+change.x*factor,y:ball.vy+change.y*factor};
  ball.vx=outgoing.x;ball.vy=outgoing.y;
  const event:ControlContact={time,x:ball.x,y:ball.y,actor:p.id,kind,foot:foot.side,footPoint:{x:foot.x,y:foot.y},body:{x:p.x,y:p.y,angle:p.angle},incoming,outgoing:{x:ball.vx,y:ball.vy}};
- state.contacts.push(event);state.lastTouch=event;state.readyAt=time+touchGap(p);state.active=null;
+ state.contacts.push(event);state.lastTouch=event;state.readyAt=time+touchGap(p);state.active=null;state.setTouch=false;
 }
 
 export interface ReceivingContact {fraction:number;foot:ControlFeet;body:PracticePlayer}
@@ -361,12 +364,18 @@ export function receivingContact(p:PracticePlayer,previous:Vec,before:MovingBall
 export function cushionControl(ball:MovingBall,state:TouchControl,meeting:ReceivingContact,time:number,intention?:{aim:Vec;opponents:PracticePlayer[];release?:boolean}):void{
  const velocity=intention?touchVelocity(meeting.body,ball,intention.aim,intention.opponents,!!intention.release,true).velocity:settlingVelocity(meeting.body,ball,{x:ball.x+Math.cos(meeting.body.angle),y:ball.y+Math.sin(meeting.body.angle)},[]);
  registerTouch(meeting.body,ball,state,meeting.foot,velocity,'settle',time);
+ state.setTouch=!!intention?.release;
  // A low descending ball is cushioned at foot height, never teleported to ground.
  if(ball.vz<0)ball.vz=-ball.vz*(1-clamp(meeting.body.skills.control/10,0,1))*.2;
 }
 
+/** The foot is on the ball within 0.16 m (the contact radius every touch is resolved at). With a float's slack: a
+ * foot that has just met the ball sits exactly that far from it, and a rounding error either side decided whether a
+ * receiver's first-time kick (and any kick from that contact) was available (receive round: about half the planned
+ * first-time balls were refused at a foot 0.16000000000000006 m from the ball). */
+const FOOT_ON_BALL=.160001;
 export function controlStrikeReady(p:PracticePlayer,ball:MovingBall,state:TouchControl,aim:Vec,kind:StrikeKind='pass'):boolean{
- return ball.z<.25&&strikeStance(p,ball,aim,kind).available&&controlReleaseAvailable(p,ball,aim)&&state.feet.some(f=>footCanReach(p,ball,f.side)&&distance(f,ball)<=.16);
+ return ball.z<.25&&strikeStance(p,ball,aim,kind).available&&controlReleaseAvailable(p,ball,aim)&&state.feet.some(f=>footCanReach(p,ball,f.side)&&distance(f,ball)<=FOOT_ON_BALL);
 }
 /** Apply the already skill-adjusted pass/shot/clearance exactly once. */
 export function strikeControl(p:PracticePlayer,ball:MovingBall,state:TouchControl,aim:Vec,velocity:{vx:number;vy:number;vz:number},kind:'pass'|'shot'|'clearance'):boolean{
@@ -378,7 +387,7 @@ export function strikeControl(p:PracticePlayer,ball:MovingBall,state:TouchContro
  // sets himself (steerControl brakes while he is ready to strike) or opens up
  // first, instead of striking a ball that meets his own torso a step later.
  if(!kickClearsMovingBody(p,ball,fitted))return false;
- const foot=state.feet.find(f=>footCanReach(p,ball,f.side)&&distance(f,ball)<=.16)!;
+ const foot=state.feet.find(f=>footCanReach(p,ball,f.side)&&distance(f,ball)<=FOOT_ON_BALL)!;
  Object.assign(velocity,fitted);
  registerTouch(p,ball,state,foot,{x:velocity.vx,y:velocity.vy},kind,state.time,true);ball.vz=velocity.vz;
  return true;
@@ -435,6 +444,10 @@ export function rollControlRemainder(ball:MovingBall,players:PracticePlayer[],pr
 
 /** Independent rolling with contact events. Positions are advanced from velocity;
  * no carrier-relative anchor or opponent-driven angular repositioning exists. */
+/** How much further (m/s) the ball off a planned set touch may run from how he wants it before he spends another touch
+ * re-setting it: about what the best controller is allowed on any ball (SET_TOLERANCE_EDGE), since the touch was made
+ * for this kick. */
+export const SET_TOUCH_SLACK=1;
 export function advanceControl(p:PracticePlayer,previous:Vec,ball:MovingBall,state:TouchControl,aim:Vec,opponents:PracticePlayer[],dt:number,preparing=false,allowTouches=true,oldOpponents:Vec[]=opponents):boolean{
  const start=state.time,end=start+dt,before={...ball},trial={...ball};advanceFlight(trial,dt);
  // The ball is already settled during a precision stance correction. Move
@@ -446,7 +459,10 @@ export function advanceControl(p:PracticePlayer,previous:Vec,ball:MovingBall,sta
  // passing-and-control round). A ball he cannot strike from where it is (his
  // body in the kick's way, out of reach) is set as before.
  const wanted=touchVelocity(p,ball,aim,opponents,preparing,false,state.pace),mismatch=Math.hypot(wanted.velocity.x-ball.vx,wanted.velocity.y-ball.vy);
- const needTouch=!state.preciseArrival&&mismatch>.35&&!(preparing&&mismatch<=setTolerance(p)&&controlReleaseAvailable(p,ball,aim));
+ // (receive round) A first touch made to set the ball for the planned kick is the set: off it he strikes the ball as it
+ // runs unless it is SET_TOUCH_SLACK m/s further from how he wants it than his ordinary tolerance. Before, the body still
+ // braking after the reception made almost every set touch "wrong" by a few tenths and cost a second setting touch.
+ const needTouch=!state.preciseArrival&&mismatch>.35&&!(preparing&&mismatch<=setTolerance(p)+(state.setTouch?SET_TOUCH_SLACK:0)&&controlReleaseAvailable(p,ball,aim));
  if(allowTouches&&end>=state.readyAt&&(needTouch||preparing)&&!state.active){
   state.active=state.feet.filter(f=>footCanReach(p,ball,f.side)).sort((a,b)=>distance(a,ball)-distance(b,ball))[0]?.side??null;
  }
@@ -483,7 +499,7 @@ export function controlReleaseAvailable(p:PracticePlayer,ball:Vec,aim:Vec):boole
 /** The prepared passing foot must actually have reached the ball. */
 export function releaseControl(p:PracticePlayer,ball:MovingBall,state:TouchControl,aim:Vec,speed:number):boolean{
  if(ball.z>=.25||!controlReleaseAvailable(p,ball,aim))return false;
- const foot=state.feet.find(f=>footCanReach(p,ball,f.side)&&distance(f,ball)<=.16);if(!foot)return false;
+ const foot=state.feet.find(f=>footCanReach(p,ball,f.side)&&distance(f,ball)<=FOOT_ON_BALL);if(!foot)return false;
  const direction=unit({x:aim.x-ball.x,y:aim.y-ball.y});registerTouch(p,ball,state,foot,{x:direction.x*speed,y:direction.y*speed},'pass',state.time);ball.owner=null;ball.mode='pass';return true;
 }
 

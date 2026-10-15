@@ -101,6 +101,15 @@ export function keeperCaught(p:PracticePlayer,players:readonly PracticePlayer[],
  const reach=Math.min(Infinity,...players.filter(q=>q.side!==p.side&&q.role!=='GK').map(q=>arrivalTime(q,aim)));
  return NET_NEXT+CARRY_LOSS*clamp((NET_HOLD-reach)/NET_HOLD,0,1);
 }
+/** (decide round, 2026-10-15) A carry earns its place by what it achieves. CARRY_BASE is what keeping the ball on
+ * the move is worth before the route does anything (progress, a shooting angle, a passing lane, escaping the man,
+ * drawing one: the terms below); it was 0.19, and in 51.5% of new carries no kick was worth even that, so the carry
+ * won by default (decide notes). A carry that achieves something keeps every credit it had.
+ * CONTINUE_FLOOR: the route he is running is read for its rate of progress (goal gained a metre) down to its last
+ * metre. A fresh route is still read over at least 5 m (a 2 m step is not an advance), but the same floor on the
+ * rest of a committed route made its value decay as it was run (progress = goal gain / max(5, length)), so a fresh
+ * straight line from the new spot beat it every ~0.4 s: dribbling read as dithering. */
+export const CARRY_BASE=.16,CONTINUE_FLOOR=1;
 /** Confidence is a willingness to attempt the duel, never its eventual result. */
 export const dribbleConfidence=(p:PracticePlayer)=>clamp(p.traits.dribble*.45+p.traits.risk*.35+clamp(p.skills.control/10,0,1)*.2,0,1);
 
@@ -196,7 +205,10 @@ export function carryOptions(p:PracticePlayer,players:PracticePlayer[],held:numb
   const alignment=speed>.2?clamp(((aim.x-p.x)*p.vx+(aim.y-p.y)*p.vy)/(length*speed),-1,1):1;
   // Changing a running vector costs time; pace does not grant instant direction changes.
   const turnCost=clamp(speed*Math.sqrt(Math.max(0,2-2*alignment))/Math.max(1,p.acceleration)/2,0,1);
-  const progress=clamp(goalGain/Math.max(5,length),-1,1),advanceValue=Math.max(0,progress)*(.14+p.traits.runs*.035);
+  // (decide round) a route he is already running is valued for how directly it takes him on (goal gained a metre),
+  // not as a short fresh route: the 5 m floor made the part of a route still to run worth less and less as he ran it
+  // (CONTINUE_FLOOR)
+  const progress=clamp(goalGain/Math.max(continuing?CONTINUE_FLOOR:5,length),-1,1),advanceValue=Math.max(0,progress)*(.14+p.traits.runs*.035);
   const purpose:CarryPurpose=passGain>.08&&passGain*.32>Math.max(advanceValue*.65,Math.max(0,shotGain)*.22)?'passing-lane'
    :shotGain>.08&&Math.abs(aim.y)<Math.abs(p.y)-1&&shotGain*.22>advanceValue*.4?'shooting-angle'
    :escapeGain>.16&&escapeGain*.16>advanceValue*.65?'escape':goalGain>.3?'advance':'protect';
@@ -204,7 +216,7 @@ export function carryOptions(p:PracticePlayer,players:PracticePlayer[],held:numb
   // Multiplying by current pressure made freshly escaped receivers blind to
   // the same approaching defender until they were already in the next duel.
   // (B2) an escape is worth what it is if he gets out: a route on which he reads he is tackled escapes nothing
-  const score=.19+clamp(clearance/6,0,1)*.06+progress*(.14+p.traits.runs*.035)+Math.max(0,shotGain)*.22+passGain*.32+escapeGain*.16*(1-beaten)
+  const score=CARRY_BASE+clamp(clearance/6,0,1)*.06+progress*(.14+p.traits.runs*.035)+Math.max(0,shotGain)*.22+passGain*.32+escapeGain*.16*(1-beaten)
    -obstruction*(.18-confidence*.07)-beaten*deliveryLossWeight(p,lossCost)-Math.max(0,local.nearbyChallenges-1)*(.1-confidence*.025)
    +opening.gain*(.08+confidence*.1)*clamp(1-local.contactRisk,0,1)+Math.max(0,progress)*confidence*.045-turnCost*.07-pressure*.06-held*.003
    -local.endPressure*(.16-confidence*.08)-CARRY_LOSS*obstruction*(1-confidence*.4)*lossCost-leaving;

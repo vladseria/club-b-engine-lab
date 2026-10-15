@@ -6,8 +6,10 @@ import {arrivalTime} from './practice-defense.js';
 import {strikeTurnTime} from './practice-striking.js';
 import {PASS_DRAG} from './practice-flight.js';
 import {nerve,perceive,daring,composure} from './practice-perception.js';
-import {turnoverPrice} from './practice-rest-defence.js';
+import {turnoverPrice,deliveryLossWeight} from './practice-rest-defence.js';
+import {duelChance} from './practice-challenge.js';
 import {controlEdge} from './practice-reception.js';
+import {PASS_POINT} from './practice-receive.js';
 
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
 const depth=(p:PracticePlayer,x=p.x)=>p.side===0?x:L-x;
@@ -81,6 +83,51 @@ export function kickHorizon(p:PracticePlayer,aim:Vec,kind:Option['kind']):number
 export const RELEASE_SPREAD=.15,RELEASE_OPTIMISM=.1;
 export function readKickHorizon(p:PracticePlayer,aim:Vec,kind:Option['kind']):number{
  return clamp(perceive(p,'lane',kickHorizon(p,aim,kind),RELEASE_SPREAD,aim,{salt:'release',bias:-RELEASE_OPTIMISM*daring(p)}),.1,1);
+}
+
+/** (decide round, 2026-10-15) "A pressed player picks what he can get away." When he chooses a kick he weighs the
+ * man closing him against the kick's own wind-up: the time until the ball is away (his read of it, readKickHorizon:
+ * setting it, turning to the aim, getting his foot to it), against when the first opponent is on him (his read of an
+ * arrival, as lookAgain reads it). A kick he will still be winding up when the man is on him and has his tackle in
+ * (CHALLENGE_LAND s after he arrives: a challenge takes 0.16-0.30 s to land, practice-challenge startChallenge) is
+ * caught, more and more surely over the next CAUGHT_SPAN s. A caught kick is lost as often as the man wins a duel
+ * against him (duelChance, with his cover): then he gets nothing for the kick and pays a ball lost there (the pass's
+ * own loss weight); when he rides it, the kick still goes (practice.ts: a challenge he survives leaves his prepared
+ * kick in place). So the kick is worth itself less caught x odds x (its worth + the loss).
+ * Before, nothing priced it (decide notes: 42% of prepared kicks were dropped before he struck them, 58% of those
+ * chosen with a man within 2 m; the re-check only revealed it). The launch read (launchRisk) prices a man getting a
+ * foot into the kick's path, not a man arriving on him from the side or behind. A shot is not priced here: its
+ * chance already reads the man arriving by the strike (practice-shot-contest, `lead`). Nothing is forbidden: a
+ * quicker kick (a clearance, a ball already set, one needing no turn), a first-time ball off the reception, or
+ * protecting the ball is what wins when the slow kick cannot get away.
+ * The quicker kick: a pressed player can also play the same ball hurried, with half the preparation (HURRY_SHARE: a
+ * short backswing, the ball poked or stabbed away), struck HURRY_POINTS passing points worse (as a plan made too
+ * late to shape the body for it: practice-receive LATE_POINTS), costing the ball that share of its worth
+ * (PASS_POINT a point). It is offered beside the ordinary kick whenever the ordinary one would be caught, and wins
+ * only when getting it away sooner is worth more than placing it well. (A laptop check without it: pricing the
+ * presser alone sent pressed men into carries and feints, and kept the ball 0.14 s longer.) */
+export const CHALLENGE_LAND=.16,CAUGHT_SPAN=.3,HURRY_SHARE=.5,HURRY_POINTS=2;
+export function caughtOnBall(p:PracticePlayer,players:PracticePlayer[],horizon:number,time?:number):number{
+ const {contactTime}=possessionSafety(p,players);
+ if(!Number.isFinite(contactTime))return 0;
+ const seen=Math.max(0,perceive(p,'arrival',contactTime,LOOK_SPREAD,p,{time,salt:'caught'}));
+ return clamp((horizon-seen-CHALLENGE_LAND)/CAUGHT_SPAN,0,1);
+}
+const CAUGHT_KINDS:readonly Option['kind'][]=['pass','through','loft','clear'];
+export function priceCaught(p:PracticePlayer,players:PracticePlayer[],options:Option[],time?:number):Option[]{
+ const opponents=players.filter(q=>q.side!==p.side&&q.role!=='GK');
+ if(!opponents.length)return options;
+ const presser=opponents.reduce((a,b)=>arrivalTime(b,p)<arrivalTime(a,p)?b:a);
+ const cover=opponents.filter(q=>q.id!==presser.id&&distance(q,p)<6).length,odds=duelChance(p,presser,cover);
+ const loss=deliveryLossWeight(p,turnoverPrice(p,players));
+ return options.map((o):Option[]=>{
+  if(!CAUGHT_KINDS.includes(o.kind))return [o];
+  const horizon=readKickHorizon(p,o.aim,o.kind),caught=caughtOnBall(p,players,horizon,time);
+  if(caught<=0)return [o];
+  const priced=(score:number,c:number)=>score-c*odds*(Math.max(0,score)+loss);
+  const quick=caughtOnBall(p,players,horizon-(1-HURRY_SHARE)*preparationTime(p,o.kind),time),worse=1-HURRY_POINTS*PASS_POINT;
+  return [{...o,score:priced(o.score,caught)},{...o,hurried:true,score:priced(o.score*(o.score>0?worse:1/worse),quick),reason:o.kind==='clear'?o.reason:'Omul vine peste el: scapă repede de minge.'}];
+ }).flat();
 }
 
 /** Step-across round (2026-10-04): the passer's OWN read of how far an

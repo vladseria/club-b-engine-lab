@@ -77,8 +77,10 @@ const fixture=JSON.parse(readFileSync(new URL('./feint-release-scene.json',impor
 // and the keeper with the ball in his hands (2026-10-13) changed it; searching from 13591, 13671 is the next
 // (evidence/2026-10-13-keeper-2/repin.mjs shotTrace; 13630 before he could jog anywhere in his area with it). The R1
 // combined build (2026-10-14: mech + keeper + shape, and the pull-up a metre from a holding keeper) changed it; searching
-// from 13671, 13682 is the next (evidence/2026-10-14-r1/repin.mjs shotTrace).
-fixture.seed=13682;fixture.teams[0].lineup[1]='motanescu';Object.assign(fixture.teams[0].tactics,teamApproaches.balanced.settings);Object.assign(fixture.teams[1].tactics,defensiveApproaches.press.tactics);
+// from 13671, 13682 is the next (evidence/2026-10-14-r1/repin.mjs shotTrace). The receive round (2026-10-15: the
+// reception read in flight) changed it; searching from 13682, 13724 is the next (same repin.mjs shotTrace). The decide
+// round (2026-10-15: plans carried through the reception) changed it; searching from 13724, 13745 is the next.
+fixture.seed=13745;fixture.teams[0].lineup[1]='motanescu';Object.assign(fixture.teams[0].tactics,teamApproaches.balanced.settings);Object.assign(fixture.teams[1].tactics,defensiveApproaches.press.tactics);
 const result=runMatch({fixture,durationSeconds:100}).result;
 
 test('goal events identify the beneficiary even when an opponent made the last touch',()=>{
