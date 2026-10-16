@@ -47,15 +47,6 @@ export function chooseFreeKickTaker(players:PracticePlayer[],side:Side,spot:Vec,
  return available.slice().sort((a,b)=>value(b)-value(a)||distance(a,spot)-distance(b,spot)||a.id.localeCompare(b.id))[0];
 }
 
-/** The penalty taker: the plan's named taker when he is on the pitch and not the keeper (as for free kicks,
- * chooseFreeKickTaker); otherwise the outfield player with the best finishing plus set pieces. */
-export function choosePenaltyTaker(players:PracticePlayer[],side:Side,nominated?:string):PracticePlayer {
- const available=players.filter(p=>p.side===side&&p.role!=='GK');
- const named=nominated?available.find(p=>p.id===nominated||p.id===`${side}:${nominated}`):undefined;
- if(named)return named;
- return available.slice().sort((a,b)=>(b.skills.finishing+b.skills.setPieces)-(a.skills.finishing+a.skills.setPieces))[0];
-}
-
 /** A stationary delivery uses both ordinary technique and dead-ball technique, without changing the player. */
 export function setPiecePlayer(p:PracticePlayer):PracticePlayer {
  return {...p,skills:{...p.skills,passing:p.skills.passing*.55+p.skills.setPieces*.45,finishing:p.skills.finishing*.45+p.skills.setPieces*.55}};

@@ -6,9 +6,6 @@ import {goalAngle} from './practice-football.js';
 import {arrivalTime} from './practice-defense.js';
 
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
-/** The lanes a defender reads across the goal mouth: the centre and the two corners the shooter himself aims at
- * (practice-football assessShot maps the same reference points through G, so ±1.78 m, inside the posts at ±GH). */
-export const SHOT_LANES=[0,-2.6,2.6].map(G);
 export interface ShotDanger {level:number;openness:number;angle:number;blockAim:Vec;canBlock:boolean;blockArrival:number}
 
 /** Visible geometry and body orientation, not the attacker's selected action or shot outcome. */
@@ -18,7 +15,7 @@ export function readShotDanger(d:PracticePlayer,a:PracticePlayer,ball:Vec,player
  const geometry=clamp(angle/.55,0,1)*clamp((38-length)/24,0,1);
  const defenders=players.filter(q=>q.side===d.side&&q.id!==d.id&&q.role!=='GK');
  // Check several shooting lanes. One teammate in the centre need not cover both corners.
- const lanes=SHOT_LANES.map(y=>{
+ const lanes=[0,-2.6,2.6].map(y=>{
   const target={x:goal.x,y},vx=target.x-ball.x,vy=target.y-ball.y,squared=vx*vx+vy*vy;
   let obstruction=0;
   for(const q of defenders){
