@@ -41,7 +41,7 @@ test('review preserves the purpose of a committed duel and stronger manager pref
 });
 
 test('live take-on can become a pass before its old timeout without skipping the fake, preparation or foot contact',()=>{
- const fixture=structuredClone(scene.fixture);fixture.seed=2114;fixture.teams[0].lineup[1]='motanescu';Object.assign(fixture.teams[0].tactics,teamApproaches.direct.settings);
+ const fixture=structuredClone(scene.fixture);fixture.seed=2095;fixture.teams[0].lineup[1]='motanescu';Object.assign(fixture.teams[0].tactics,teamApproaches.direct.settings);
  const r=runMatch({fixture,durationSeconds:40}).result;
  // Live restart setups (2026-09-29) changed the seed-2026 passage (Fleasca to
  // Van). The recorded encounter was Crocodinho's take-on at 6.53 s of seed
@@ -86,10 +86,8 @@ test('live take-on can become a pass before its old timeout without skipping the
  // (evidence/2026-10-12-prepush-fixes/repin.mjs takeonGolusor). Stamina as lasting (2026-10-12: the sprint reserve the
  // same at any stamina, its threshold following today's legs) moved it to seed 2095: Crocodinho's take-on at 8.217 s,
  // released to Golusor at 9.667 s (evidence/2026-10-12-stamina/repin.mjs takeonGolusor). The combined build with box
- // defending (b0174c30) keeps it there (evidence/2026-10-12-box-defending/repin.mjs takeonGolusor from 2093). The striker
- // outlet round (2026-10-17: a player left behind the play hurries back into it) moved it to seed 2114: Crocodinho's
- // take-on at 25.817 s, released to Golusor at 27.450 s (evidence/2026-10-14-r1/repin.mjs takeonGolusor from 2095).
- const attempt=r.events.find(e=>e.kind==='feint'&&e.actor==='0:crocodinho'&&e.time>25.767&&e.time<25.867);assert(attempt,'Recorded encounter still occurs');
+ // defending (b0174c30) keeps it there (evidence/2026-10-12-box-defending/repin.mjs takeonGolusor from 2093).
+ const attempt=r.events.find(e=>e.kind==='feint'&&e.actor==='0:crocodinho'&&e.time>8.167&&e.time<8.267);assert(attempt,'Recorded encounter still occurs');
  const player=r.players.findIndex(p=>p.id===attempt.actor),prepare=r.choices.find(c=>c.player===player&&c.kind==='prepare'&&c.action&&c.time>attempt.time);
  const pass=r.events.find(e=>e.kind==='pass'&&e.actor===attempt.actor&&e.time>attempt.time);
  assert(prepare&&pass);assert(prepare.time>=attempt.time+.41,'Fake and initial burst must complete');
