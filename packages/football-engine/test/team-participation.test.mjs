@@ -108,3 +108,15 @@ test('a third teammate keeps the movement used by a released pass, with live esc
   assert.notEqual(read().jobs[runner.id].reason,job.reason,'An opponent occupying the receiving destination releases the commitment');
  }
 });
+
+test('a player left behind the play hurries back into it; one whose spot is behind him does not',async()=>{
+ // (striker outlet, 2026-10-17) the attacking mirror of 'ball past': with the ball 14 m ahead of him and his job taking
+ // him up, he goes with everything his job allows rather than strolling to the next step (practice-intensity LEFT_BEHIND).
+ const {offBallIntensity,LEFT_BEHIND}=await import('../dist/practice-intensity.js');
+ const p={id:'0:st',side:0,x:8,y:2,vx:0,vy:0,pace:6.5,skills:{reading:6,defending:6}};
+ const read=(aimX,ballX)=>offBallIntensity({p,aim:{x:aimX,y:2},kind:'support',defending:false,depth:x=>x,goal:{x:0,y:0},ball:{x:ballX,y:0},cue:1.5,drift:0,time:3});
+ const up=read(12,8+LEFT_BEHIND[1]);
+ assert.equal(up.urgency,1);assert.equal(up.why,'left behind');
+ assert.equal(read(12,8+LEFT_BEHIND[0]).why,'cruise','a short support distance behind the ball is no hurry');
+ assert.notEqual(read(5,8+LEFT_BEHIND[1]).why,'left behind','a spot behind him (rest defence, an outlet) is not rejoining the attack');
+});

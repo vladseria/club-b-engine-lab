@@ -1,4 +1,4 @@
-// Press cover (2026-10-16): ../2026-10-13-keeper-2/rr.mjs (the release-2 round robin runner) with the entry cp.ts (probe.ts row minus sh/aer, plus cp). Otherwise unchanged.
+// Striker outlet (2026-10-17): ../2026-10-16-striker/run.mjs with outlet.ts (the striker study's row + the R1 situation keys) as the entry.
 // Accuracy probe (2026-10-13): probe.ts matches (audit.ts row + per-shot situations); was: audit.ts matches (the deep-study row + st), laptop (<= 3 workers) or cloud
 // (SIM_WORKERS, <= 4 on a 4-vCPU runner). The deep-study runner unchanged but for the entry.
 //   node run.mjs --label s1 --revs eng=working s1-ref-di121,s1-wid-di121:0-59
@@ -29,7 +29,7 @@ if(!isMainThread){
  if(!blocks.length)throw Error('give at least one <arm,arm>:<seeds> block');
  const revs=parseRevs(arg('revs','base=working'));
  const outDir=path.join(here,'results');
- const bundles=await bundleRevs({entry:path.join(here,"cp.ts"),revs,outDir});
+ const bundles=await bundleRevs({entry:path.join(here,"outlet.ts"),revs,outDir});
  const chk=await import(pathToFileURL(Object.values(bundles)[0]).href);
  for(const b of blocks)for(const a of b.arms)chk.armTreatment(a);// throws on an unknown arm
 

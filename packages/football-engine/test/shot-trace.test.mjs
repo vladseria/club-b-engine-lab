@@ -82,7 +82,8 @@ const fixture=JSON.parse(readFileSync(new URL('./feint-release-scene.json',impor
 // round (2026-10-15: plans carried through the reception) changed it; searching from 13724, 13745 is the next. Its lane
 // re-check (a committed pass looked at again when its lane shuts) changed it; searching from 13745, 13782 is the next.
 // Recovery following the duel (2026-10-16) changed it; searching from 13782, 13826 is the next (repin.mjs shotTrace).
-fixture.seed=13826;fixture.teams[0].lineup[1]='motanescu';Object.assign(fixture.teams[0].tactics,teamApproaches.balanced.settings);Object.assign(fixture.teams[1].tactics,defensiveApproaches.press.tactics);
+// The striker outlet round (2026-10-17) changed it; searching from 13826, 13878 is the next (same repin.mjs shotTrace).
+fixture.seed=13878;fixture.teams[0].lineup[1]='motanescu';Object.assign(fixture.teams[0].tactics,teamApproaches.balanced.settings);Object.assign(fixture.teams[1].tactics,defensiveApproaches.press.tactics);
 const result=runMatch({fixture,durationSeconds:100}).result;
 
 test('goal events identify the beneficiary even when an opponent made the last touch',()=>{

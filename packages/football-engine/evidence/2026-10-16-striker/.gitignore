@@ -1,4 +1,4 @@
 results/.bundle.*
 results/.rev-*
 results/smoke*.jsonl
-results/trace/
+results/watch/*.json.gz

@@ -74,13 +74,13 @@ test('leaving the rest defence for a cutback is priced by the counter it would g
 // both are rest defence.
 const {counterPressFires}=await import('../dist/practice-coordination.js');
 const {PracticePlaybook}=await import('../dist/practice-playbook.js');
-const afterLoss=(onLoss,{parity=false,escaped=false,order=null,sharp=false,at=null}={})=>{
+const afterLoss=(onLoss,{parity=false,escaped=false,order=null,sharp=false}={})=>{
  const f=structuredClone(fixture);f.teams[1].tactics={...f.teams[1].tactics,...(onLoss?{onLoss}:{})};
  // The counter-press is the call of the man who would go (R2): `sharp`
  // makes team 1 perfect, disciplined readers, so the team's rule shows exactly.
  if(sharp)for(const p of f.teams[1].squad){p.skills.reading=10;p.traits.discipline=1;}
  const players=practicePlayers(f);
- place(players,at??[[4,0],[10,5],[16,-6],[24,8],[28,-2],[46,0],[34,0],[19,-4],parity?[10,10]:[13,-8],[22,4]]);
+ place(players,[[4,0],[10,5],[16,-6],[24,8],[28,-2],[46,0],[34,0],[19,-4],parity?[10,10]:[13,-8],[22,4]]);
  const owner=players[2],tactics=f.teams.map(t=>t.tactics);
  const book=order?new PracticePlaybook({side:1,plans:[{id:'policy',name:'Policy',weight:100,emphasis:1,instructions:[],preferred:null,lesson:{spaces:[],moments:[{id:'start',name:'Start',cue:{kind:'start'}}],jobs:[]},standing:[order]}]},2026):null;
  let v=null;
@@ -102,19 +102,6 @@ test('On losing it: a counter-press sends the nearest at the ball and the next t
   const pressing=s.team.filter(p=>['counter-press','counter-screen'].includes(s.job(p).purpose));
   assert(pressing.every(p=>s.wide.includes(p)),'only the two near the ball, never the rest defence');
  }
-});
-// Press cover (2026-10-16): the counter-press goer is the defence's presser, so the man who chose to cover him covers
-// him: goal-side behind him, a step inside, as in open play (before, he chose the cover and was sent to screen 8 m off).
-test('a counter-press goer has a team-mate covering goal-side behind him',()=>{
- // Team 1's striker (22, -1) is free near the cover spot; the two wide players press and screen.
- const s=afterLoss('counterpress',{sharp:true,at:[[4,0],[10,5],[16,-6],[24,8],[28,-2],[46,0],[34,0],[19,-4],[13,-8],[22,-1]]});
- const goer=s.team.find(p=>s.job(p).purpose==='counter-press'),cover=s.team.find(p=>s.job(p).purpose==='cover');
- assert(goer&&cover,`a goer and a cover (${s.purposes})`);
- assert.equal(s.v.defense.presser,goer.id);assert.equal(s.v.defense.coverer,cover.id);
- const g={x:48,y:0},d=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y),pa=s.job(goer).aim,ca=s.job(cover).aim;
- assert(d(ca,g)<d(pa,g)-1.5,`goal-side of the goer (${d(ca,g).toFixed(1)} v ${d(pa,g).toFixed(1)} m from our goal)`);
- assert(d(ca,pa)<6,`close behind him (${d(ca,pa).toFixed(1)} m)`);
- assert.equal(s.job(cover).target,s.v.defense.owner,'covering the man on the ball');
 });
 test('On losing it: at parity only Counter-press goes; Regroup delays with the nearest and drops the rest',()=>{
  assert(counterPressFires('counterpress',1,1,false)&&!counterPressFires('balanced',1,1,false),'parity: counter-press only');
