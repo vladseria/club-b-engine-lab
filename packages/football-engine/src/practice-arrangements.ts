@@ -109,27 +109,34 @@ export function pressureArrangement(players:PracticePlayer[],focus:PracticePlaye
    if(prior&&prior.until>time&&prior.purpose!=='break')points.push({aim:prior.aim,purpose:prior.purpose});
   }
   const rows:Candidate[]=[];
-  for(const {aim,purpose} of points){
-   const forward=depth(focus,aim)-carrierDepth,run=fixed?original.kind==='run':['break','depth','give-and-go','overlap','near-post','far-post','cutback'].includes(purpose);
-   if(!fixed&&run&&depth(focus,aim)<depth(focus,p)-.5)continue;
-   if(!fixed&&run&&p.energy<22)continue;
+  for(const [index,{aim,purpose}] of points.entries()){
+   // (striker outlet, 2026-10-17) His ordinary job is the plan this
+   // arrangement must clearly beat (ordinaryScore below), so it is always
+   // scored, never dropped by the release filters: a player on his way up
+   // from far behind the play (a join or his shape slot out of a 4 s reach)
+   // otherwise left the comparison with nothing to beat, and any arrangement
+   // pulled him back as one more release behind the ball.
+   const ordinaryJob=!!original&&index===0;
+   const forward=depth(focus,aim)-carrierDepth,run=fixed||ordinaryJob?original.kind==='run':['break','depth','give-and-go','overlap','near-post','far-post','cutback'].includes(purpose);
+   if(!fixed&&!ordinaryJob&&run&&depth(focus,aim)<depth(focus,p)-.5)continue;
+   if(!fixed&&!ordinaryJob&&run&&p.energy<22)continue;
    const read=readSupportLocation(p,aim,players,focus,risk,run);
-   if(!fixed&&(read.gap<4.5||read.gap>22||read.travel>4||read.room<1.5||!run&&read.risk>.85))continue;
+   if(!fixed&&!ordinaryJob&&(read.gap<4.5||read.gap>22||read.travel>4||read.room<1.5||!run&&read.risk>.85))continue;
    const access=(1-read.risk)*( .3+.7*read.releaseRoom)*Math.exp(-read.travel*.3);
    const continuation=prior&&prior.purpose===purpose&&prior.until>time&&distance(prior.aim,aim)<1;
    const affinity=run?p.traits.runs*.18:p.traits.comesShort*.12;
-   const opportunity=attack.read(p,{player:p.id,purpose,kind:run?'run':'support',aim,speed:fixed?original.speed:p.pace*(run?.9:.83),since:time,until:fixed?original.until:time+2,reason:''},time);
+   const opportunity=attack.read(p,{player:p.id,purpose,kind:run?'run':'support',aim,speed:fixed||ordinaryJob?original.speed:p.pace*(run?.9:.83),since:time,until:fixed||ordinaryJob?original.until:time+2,reason:''},time);
    const forwardValue=opportunity.gain+opportunity.development;
    const score=access*.7-read.travel*.11-read.crowding*.5+affinity+forwardValue+
     (continuation?.23:0)-(slot?distance(slot.aim,aim)*.015:0)+(p.role==='CB'&&forward<-3?.12:0);
-   const kind=fixed?original.kind:run?'run':forward<-3?'support':'show';
-   const speed=fixed?original.speed:p.pace*(run?.9:.83);
+   const kind=fixed||ordinaryJob?original.kind:run?'run':forward<-3?'support':'show';
+   const speed=fixed||ordinaryJob?original.speed:p.pace*(run?.9:.83);
    const moving={...p},path:Vec[]=[];for(let i=0;i<12;i++){steerMotion(moving,aim,.1,speed);if(i%3===2)path.push({x:moving.x,y:moving.y});}
    const initial=distance(p,focus),carrierConflict=Math.max(0,...path.map((point,i)=>{
     const at=(i+1)*.3,gap=distance(point,{x:focus.x+focus.vx*at,y:focus.y+focus.vy*at});
     return gap>initial+.2?0:clamp((2.5-gap)/2.5,0,1);
    }));
-   rows.push({opportunity,coverage:exposure.coverage(p,{player:p.id,aim,speed}),path,start:p,score:score-carrierConflict*1.2,access,gap:read.gap,travel:read.travel,forward,job:fixed?original:{player:p.id,purpose:purpose==='shape'?(forward<-3?'counter-cover':'outlet'):purpose,kind,aim,speed,
+   rows.push({opportunity,coverage:exposure.coverage(p,{player:p.id,aim,speed}),path,start:p,score:score-carrierConflict*1.2,access,gap:read.gap,travel:read.travel,forward,job:fixed||ordinaryJob?original:{player:p.id,purpose:purpose==='shape'?(forward<-3?'counter-cover':'outlet'):purpose,kind,aim,speed,
     since:continuation?prior.since:time,until:continuation?prior.until:time+2,
     reason:run?'Păstrează o amenințare înainte, în timp ce colegii deschid ieșirea din presiune.':forward<-3?'Oferă întoarcerea în afara presiunii, păstrând legătura cu atacul.':'Deschide un unghi diferit, pentru a scoate pasa din aglomerație.'}});
   }
