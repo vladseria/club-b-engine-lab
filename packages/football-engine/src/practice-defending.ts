@@ -288,6 +288,10 @@ export interface DefendInput {
  busy:ReadonlySet<string>;
  /** Defenders already committed (an order, a counter-press, a trap): defender -> attacker. */
  fixed:ReadonlyMap<string,string>;
+ /** (press-cover round) The man a counter-press or a trap has sent at the man on the ball (one of `fixed`), and where
+  * he is going. He is this plan's presser: it covers behind him and steps out to the ball when he is beaten, as for a
+  * presser it chose itself; his own job stays his. */
+ pressing?:{id:string;aim:Vec};
  /** Defenders among `available` whose man is decided for them (a set piece's man-marker): positioned here, never re-chosen. */
  locked?:ReadonlyMap<string,string>;
  view:View;memory?:DefendMemory;
@@ -1074,16 +1078,19 @@ export function defendOutOfPossession(given:DefendInput):DefendPlan{
 
  // ---- pressure ----
  let presser:PracticePlayer|undefined,engaged=false;
+ // (press-cover round) nobody here chose the man on the ball because a counter-press or a trap sent its own goer: he is the presser
+ let committed:PracticePlayer|undefined;
  if(carrier){
   // (threat round) of two on the man on the ball, the one pressing keeps pressing unless the other gets there PRESSER_KEEP s sooner (they took turns every look)
   const keepP=(q:PracticePlayer)=>memory.presserBy===q.id&&memory.presserOf===carrier.id?PRESSER_KEEP:0;
   const claim=own.filter(q=>manOf(q)?.id===carrier.id).sort((a,b)=>(busy.has(a.id)?1:0)-(busy.has(b.id)?1:0)||arrivalTime(a,carrier)-keepP(a)-(arrivalTime(b,carrier)-keepP(b))||a.id.localeCompare(b.id));
   presser=claim[0];
+  if(!presser&&input.pressing){committed=byId.get(input.pressing.id);presser=committed;}
   if(presser&&!restart){
    const cd=depth(defending,carrier.x),running=goalward(carrier,defending)>=RUN_GOALWARD;
    // (threat round) a carrier who can shoot or drive at our goal from where he is is engaged wherever Press would wait (the presser's own read of it)
    const threat=carrier.role!=='GK'&&input.threat?perceive(presser,'threat',carrierThreat(carrier,input.threat.defenders,defending),THREAT_SPREAD_C,carrier,{time,salt:'carrier'}):0;
-   engaged=input.intent==='engage'||cd<=ENGAGE[tactics.press]+ENGAGE_LINE[tactics.line]||running||carrier.role==='GK'&&tactics.press==='aggressive'||threat>=ENGAGE_THREAT;
+   engaged=presser===committed||input.intent==='engage'||cd<=ENGAGE[tactics.press]+ENGAGE_LINE[tactics.line]||running||carrier.role==='GK'&&tactics.press==='aggressive'||threat>=ENGAGE_THREAT;
    // The presser beaten: the cover (or the best placed goal-side team-mate
    // whose man matters less) steps out to the ball; the beaten one recovers
    // goal-side towards the middle and takes that team-mate's man.
@@ -1101,15 +1108,20 @@ export function defendOutOfPossession(given:DefendInput):DefendPlan{
      const theirs=manOf(step);
      memory.men={...memory.men,[step.id]:{target:carrier.id,since:time,pin:time+PIN}};
      memory.calls={...memory.calls,[step.id]:[...(memory.calls[step.id]??[]),{target:carrier.id,at:time}].slice(-3)};
-     if(theirs){memory.men[presser.id]={target:theirs.id,since:time,pin:time+PIN};memory.calls[presser.id]=[...(memory.calls[presser.id]??[]),{target:theirs.id,at:time}].slice(-3);}
-     else{delete memory.men[presser.id];memory.calls[presser.id]=[...(memory.calls[presser.id]??[]),{target:'',at:time}].slice(-3);}
+     // (a committed goer keeps his own job: he chases from behind, and his man is the counter-press's, not this plan's)
+     if(presser!==committed){
+      if(theirs){memory.men[presser.id]={target:theirs.id,since:time,pin:time+PIN};memory.calls[presser.id]=[...(memory.calls[presser.id]??[]),{target:theirs.id,at:time}].slice(-3);}
+      else{delete memory.men[presser.id];memory.calls[presser.id]=[...(memory.calls[presser.id]??[]),{target:'',at:time}].slice(-3);}
+     }
      presser=step;
     }
    }
   }
  }
  if(presser&&carrier){
-  if(restart){
+  // (press-cover round) the committed goer's job is placed for the plan to read (cover, spacing, the shot lane) and taken out at the end
+  if(presser===committed)push({player:presser.id,purpose:'press',kind:'press',aim:input.pressing!.aim,speed:0,reason:'',target:carrier.id});
+  else if(restart){
    // the taker cannot be tackled: his man stands at the legal distance,
    // goal-side, between the ball and the goal
    const d=distance(restart.spot,g)||1,r=restart.radius+.3;
@@ -1468,6 +1480,7 @@ export function defendOutOfPossession(given:DefendInput):DefendPlan{
   }
  }
  for(const j of plan.jobs)j.aim=offGoalLine(defending,j.aim,ball);
+ if(committed)plan.jobs=plan.jobs.filter(j=>j.player!==committed!.id);
  if(presser)plan.presser=presser.id;
  if(cover)plan.coverer=cover.id;
  memory.presserBy=presser?.id;memory.presserOf=carrier?.id;
