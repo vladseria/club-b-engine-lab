@@ -305,6 +305,11 @@ export function pivotAnchor(players:readonly PracticePlayer[],pivot:PracticePlay
  * block. RUN_ALSO lists the jobs he still takes. */
 export const RUN_GAP=.5,RUN_PAST=3,RUN_CHANNEL=2.5,RUN_WIDTH=6.5,RUN_ROOM=9,RUN_HOLD=.8,RUN_FIT=.5,RUN_LINE=4;
 export const RUN_ALSO:ReadonlySet<JobPurpose>=new Set(['give-and-go','near-post','far-post','break','link']);
+/** (striker outlet, 2026-10-17) Joining the attack from behind it: besides
+ * an 8 m step, the waypoint JOIN_STEP m along the way and the connected
+ * position itself, within the reach a run is allowed (5 s). Short steps alone
+ * made a player left behind the play brake into each one and stroll. */
+export const JOIN_STEP=12;
 export interface Shoulder {post:Vec;run:Vec|null;last:number}
 /** Striker: Drops deep, a false nine (settings round, 2026-10-03). The lead
  * forward takes a standing post between their lines, LINK_GAP metres in front
@@ -779,7 +784,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
      // own goal a spot on the goal line beside the keeper is worth little.
      const worth=develop?0:supportWorth(receiver.id===focus.id?receiver:{...receiver,...focus},aim,laneRiskHere,read.releaseRoom,players,p.id);
      const score=spec.fit(p)+style+roleFit-lane+(same&&distance(old!.aim,aim)<2?.25:0)+clamp(room/7,0,1)*.3-(develop?.07:.15)*travel-(spec.purpose==='outlet'?distance(aim,shapes[side].slots[p.id]?.aim??p)*.035:0)-laneRiskHere*(develop?.18:.8)-spacing*1.8-read.crowding*.35-sharedAngle*.6-(1-read.releaseRoom)*(develop?.15+(1-p.traits.risk)*.4:.55)-destinationCost+worth;
-     const valid=gap>=(spec.purpose==='outlet'?4.5:3.2)&&gap<=(spec.range??24)&&travel<=(run||spec.purpose==='width'?5:3.5)&&room>1.3&&spacing<.5&&(develop||laneRiskHere<.78)&&
+     const valid=gap>=(spec.purpose==='outlet'?4.5:3.2)&&gap<=(spec.range??24)&&travel<=(run||spec.purpose==='width'||spec.purpose==='join'?5:3.5)&&room>1.3&&spacing<.5&&(develop||laneRiskHere<.78)&&
       (spec.purpose!=='give-and-go'||laneRiskHere<.65&&travel<2.5)&&
       (!run||depth(side,aim.x)>=depth(side,p.x)-2||spec.purpose==='cutback');
      return {p,aim,score,valid,travel};
@@ -859,7 +864,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
     if(targetDepth<=depth(side,p.x)+2)return [];
     return [-W*.25,0,W*.25].flatMap(y=>{
      const destination=inside({x:world(side,targetDepth),y}),gap=distance(p,destination);
-     return [4,8].map(step=>{const f=Math.min(1,step/Math.max(.1,gap));return {x:p.x+(destination.x-p.x)*f,y:p.y+(destination.y-p.y)*f};});
+     return [8,JOIN_STEP,Infinity].map(step=>{const f=Math.min(1,step/Math.max(.1,gap));return {x:p.x+(destination.x-p.x)*f,y:p.y+(destination.y-p.y)*f};});
     });
    },fit:p=>.7+p.traits.runs*.15,reason:'Urcă în legătură cu atacul, pregătind o poziție utilă pentru următoarele pase.'});
   const pressured=opponents.some(q=>q.role!=='GK'&&(distance(q,focus)<4.5||arrivalTime(q,focus)<.75));

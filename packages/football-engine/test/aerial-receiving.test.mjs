@@ -211,9 +211,11 @@ test('ordinary match aerial releases have matching physical contacts without a c
  // (repin.mjs header 14505 / volley 14099; aerial 14505-14544 has no seed with both). The decide round (2026-10-15:
  // plans carried through the reception) lost 14508's header and 14099's volley; 14511 has a header and 14103 a volley
  // (repin.mjs header 14508 / volley 14100). The decide round's lane re-check (a committed pass looked at again when its
- // lane shuts) lost both; 14541 has a header and 14105 a volley (repin.mjs header 14511 / volley 14103). A seeded
- // passage, not a header-frequency target.
- for(const [technique,seed] of [['header',14541],['volley',14105]]){
+ // lane shuts) lost both; 14541 has a header and 14105 a volley (repin.mjs header 14511 / volley 14103). The striker
+ // outlet round (2026-10-17: a player left behind the play hurries back into it; joining aims along the way) lost both;
+ // 14570 has a header and 14113 a volley (repin.mjs header 14541 / volley 14105). A seeded passage, not a
+ // header-frequency target.
+ for(const [technique,seed] of [['header',14570],['volley',14113]]){
   const f=structuredClone(sandbox);f.seed=seed;
   f.teams[0].lineup[1]='motanescu';Object.assign(f.teams[0].tactics,teamApproaches.combinations.settings);
   Object.assign(f.teams[1].tactics,defensiveApproaches.press.tactics);

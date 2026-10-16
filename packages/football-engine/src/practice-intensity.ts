@@ -50,6 +50,8 @@ export const CUE_LATE=.35;
 export const INTENSITY_EVERY=.1;
 /** (threat round) A marker whose man he reads as a threat of THREAT_HURRY[0] goes as before; of THREAT_HURRY[1] or more, at full urgency while more than 1.5 m from his spot or while his man is moving. */
 export const THREAT_HURRY:readonly [number,number]=[.12,.3];
+/** (striker outlet) Attacking, moving up: the ball this far ahead of him (m) starts to hurry him, this far is everything he has. */
+export const LEFT_BEHIND:readonly [number,number]=[6,14];
 
 export interface IntensityMover extends Vec {id:string;side:number;vx:number;vy:number;pace:number;skills:{reading:number;defending:number}}
 export interface IntensityMan extends Vec {id:string;vx:number;vy:number}
@@ -106,6 +108,12 @@ export function offBallIntensity(r:IntensityRead):Intensity{
   }
  }else{
   if(r.kind==='show')up(.5,'show');
+  // (striker outlet, 2026-10-17) left behind the play: the attack has gone on
+  // ahead of him (the ball LEFT_BEHIND m and more further up than he is) and
+  // his job takes him up to it. The attacking mirror of 'ball past': he gets
+  // back into the move with urgency instead of strolling to the next step.
+  const behind=depth(r.ball.x)-depth(p.x);
+  if(depth(aim.x)>depth(p.x)+1)up(clamp((behind-LEFT_BEHIND[0])/(LEFT_BEHIND[1]-LEFT_BEHIND[0]),0,1),'left behind');
  }
  // the time he has: until the ball can be played into his spot (an attacker who is not the pass's target is one option of several)
  const time=Math.max(.4,(r.cue+dist(r.ball,aim)/BALL_REACH+(r.defending||r.target?0:.8))*(1+.4*misread(p,'trigger')*readNoise(p,'trigger',aim,r.time,'time')));
