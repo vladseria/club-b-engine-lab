@@ -51,6 +51,7 @@
 //                              mixed) | pmix (progression mixed) | wstd (width standard); added 2026-10-15 (default
 //                              measurement, branch ballers-contest-live): ldeep (line deep) | psel (press selective) | pdir
 //                              (progression direct) | f22 | f211 (that team's formation 2-2 | 2-1-1).
+//                              Added 2026-10-16 (striker options): slink | spiv (striker Drops deep | Pivot).
 //                              sp-<a>-<b> with no changes builds exactly the inputs of <a>121v<b>121.
 // Treated side = seed % 2; kick-off = (seed >> 1) % 2, so every 4 seeds cover
 // both sides x both kick-offs. Match id `skill-<seed>`, as the audit's, so a
@@ -93,7 +94,7 @@ function side(code:string,treat:{skill?:Skill;delta?:number;style?:Style;from?:S
  return {club:{id:code,name:code,code,color:code==='AAA'?'#3fd38a':'#d33f6a'},formation:(treat.formation??'2-1-1') as any,style,approach:tuned,captain:`${code}2`,lineup:players.map(p=>p.id),bench:[],players,plans:[],...(treat.keeper||treat.fk?{settings:{...(treat.keeper?{keeper:treat.keeper}:{}),...(treat.fk?{setPiece:treat.fk}:{})}}:{})} as any;
 }
 
-const SPLIT:Record<string,Record<string,string|number>>={c3:{commit:3},c4:{commit:4},srun:{striker:'run'},smix:{striker:'mixed'},pmix:{progression:'mixed'},wstd:{width:'standard'},
+const SPLIT:Record<string,Record<string,string|number>>={c3:{commit:3},c4:{commit:4},srun:{striker:'run'},smix:{striker:'mixed'},slink:{striker:'link'},spiv:{striker:'pivot'},pmix:{progression:'mixed'},wstd:{width:'standard'},
  ldeep:{line:'deep'},psel:{press:'selective'},pdir:{progression:'direct'}};
 const SPLIT_FORM:Record<string,string>={f22:'2-2',f211:'2-1-1'};
 function splitTeam(code:string):{style:Style;set?:Record<string,string|number>;formation:string}{

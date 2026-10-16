@@ -61,8 +61,10 @@ export function playedApproach<A extends {width:ApproachSettings['width']}>(form
  * engineApproach, playedApproach and compute.ts never call these. They are
  * applied only where a club's CURRENT setup is read for the screens and for a
  * new browser match: lib/ballers/plans.ts `plan()` (every plan row) and
- * lib/ballers/data.ts `myClub` (the club defaults). Past preps, plan
- * snapshots, replays and other clubs' last games stay as they were played.
+ * lib/ballers/data.ts `myClub` (the club defaults), and to another club's
+ * side when practice or a rehearsal plays it now (boardSide below, through
+ * data.ts practiceSide). Past preps, plan snapshots, replays and other clubs'
+ * last games as scouting shows them stay as they were played.
  * 2-1-1 plays 1-2-1, 1 and 2 forward play 3, Regroup plays Balanced.
  * The server does the same for official matches: migration
  * 20261015200000_ballers_board_trim (applied together with this UI) maps at
@@ -72,6 +74,16 @@ export const boardFormation=<F extends string>(f:F):F=>(f==='2-1-1'?'1-2-1':f) a
 export function boardApproach<A extends StoredApproach>(a:A):A{
  const commit=a.commit<3?3:a.commit,onLoss=a.onLoss==='regroup'?'balanced':a.onLoss;
  return commit===a.commit&&onLoss===a.onLoss?a:{...a,commit,onLoss};
+}
+/** Another club's side as it would play now (formation and approach mapped as
+ * above; everything else as it is). For practice and rehearsals against a
+ * club "as in their last game" (data.ts practiceSide): a retired value can't
+ * be played any more, and its next official match plays the mapped one
+ * (private.ballers_input_side). Scouting's "last game" reads the side
+ * unmapped (practiceSideStored), as it was played. */
+export function boardSide<S extends {formation:string;approach:StoredApproach}>(s:S):S{
+ const formation=boardFormation(s.formation),approach=boardApproach(s.approach);
+ return formation===s.formation&&approach===s.approach?s:{...s,formation,approach};
 }
 
 /** The approach as the engine takes it: every key kept exactly as stored
