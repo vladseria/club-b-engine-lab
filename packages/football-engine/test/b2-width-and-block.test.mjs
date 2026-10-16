@@ -31,7 +31,9 @@ test('width with the ball: the far winger holds a lane as wide as the team asks,
  // check (branch width-check) found that in matches Standard still holds the far
  // touchline 8% of the time against Narrow's 3% and Wide's 17% (clear steps). His
  // resting lane above still orders narrow < standard < wide; his job is a lane or a run.
- assert(standard.job.purpose==='width'?standard.job.aim.y>=10:standard.job.kind==='run','standard holds a lane too, less wide, unless he is given a run');
+ // (recon 2026-10-16, finding 16) This used to accept a lane or a run for Standard, true whatever Width did; his job
+ // is now held to the setting's direction: whatever he is given, it ends nearer the ball than Wide's lane.
+ assert(standard.job.aim.y<wide.job.aim.y-2,`standard's job (${standard.job.purpose}, y ${standard.job.aim.y.toFixed(1)}) is less wide than wide's (${wide.job.aim.y.toFixed(1)})`);
  assert(narrow.job.aim.y<wide.job.aim.y-6,'narrow: he comes towards the ball for close support');
 });
 
@@ -99,7 +101,9 @@ test('the far man\'s defender tucks in towards the middle, goal-side; Width sets
  assert(owner(narrow).aim.y<owner(wide).aim.y-1,'and Narrow stands nearer the middle');
 });
 
-test('narrow is zone-minded: it steps inside to pick up a man, not out towards the touchline; wide follows him either way',async()=>{
+// (recon 2026-10-16, finding 15) Classic policy only: markingDeparture belongs to practice-shape's teamShape, which no
+// match plays. Width's live defending effect (the far man's defender tucking in, by Width) is the test above.
+test('classic policy: narrow is zone-minded: it steps inside to pick up a man, not out towards the touchline; wide follows him either way',async()=>{
  const {markingDeparture}=await import('../dist/practice-shape.js');
  // A midfield defender (slot y 8, 24 m from his goal, a team-mate inside him)
  // and an attacker who is not yet dangerous, 24 m out.

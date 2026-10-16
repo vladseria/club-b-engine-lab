@@ -11,12 +11,12 @@ const scenes={
  pressured:[[3,0],[6,0],[28,0],[32,9],[29,3],[46,0],[34,0],[27,-2],[28,4],[25,0]],
  keeper:[[4,0],[7,-4],[9,7],[12,-9],[15,3],[46,0],[28,1],[12,-2],[17,10],[9,4]],
 };
-function allocate(scene,style,mirror=false){
+function allocate(scene,style,mirror=false,over={}){
  const players=practicePlayers(fixture);
  players.forEach((p,i)=>Object.assign(p,{x:scenes[scene][i][0],y:scenes[scene][i][1],vx:0,vy:0}));
  if(mirror)players.forEach(p=>Object.assign(p,{side:1-p.side,x:48-p.x,angle:Math.PI-p.angle}));
  const owner=players[scene==='keeper'?0:2],before=structuredClone(players);
- const tactics=fixture.teams.map(t=>({...t.tactics,...teamApproaches[style].settings}));
+ const tactics=fixture.teams.map(t=>({...t.tactics,...teamApproaches[style].settings,...over}));
  if(mirror)tactics.reverse();
  const plan=coordinateFootball(players,{...owner,z:0,vz:0,mode:'control',owner:owner.id},owner.side,tactics,laneRisk,{time:10,recoveredAt:scene==='keeper'?9.9:0});
  assert.deepEqual(players,before,'Choosing jobs must not change ability or move players');
@@ -29,6 +29,9 @@ test('ordinary possession can choose multiple runs or no run; tactical preferenc
   assert(runners(direct)>=2,'Two forward invitations must be possible without a custom instruction');
   assert(runners(patient)<runners(direct),'The same geometry should also support a short-play alternative');
   assert(runners(allocate('keeper','counter',mirror))>2,'An exposed opponent can warrant more than the former two-run cap');
+  // (recon 2026-10-16, finding 16) the line above held for any style; On winning it must order the runs just after a regain
+  const won=transition=>runners(allocate('keeper','balanced',mirror,{transition}));
+  assert(won('secure')<won('balanced')&&won('balanced')<won('counter'),`runs just after winning it: Keep it ${won('secure')}, Balanced ${won('balanced')}, Counter ${won('counter')}`);
   for(const jobs of [direct,patient])for(let i=0;i<jobs.length;i++)for(let j=i+1;j<jobs.length;j++)
    assert(Math.hypot(jobs[i].aim.x-jobs[j].aim.x,jobs[i].aim.y-jobs[j].aim.y)>2,'Multiple runs must offer distinct destinations');
  }

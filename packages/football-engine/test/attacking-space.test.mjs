@@ -47,7 +47,11 @@ test('joining an attack has purpose before a forward reception is available, wit
  assert.equal(forward.gain,0,'Preparation must not be reported as an available pass');
  assert(forward.development>0,'Catching up into connected space is useful even while behind the carrier');
  assert(forward.development>back.development,'Becoming an attacking threat is a stronger default priority for the forward');
- assert(read({...s.runner,role:'ST'},{...s.tactics,striker:'link',progression:'patient'}).development<forward.development);
+ // (recon 2026-10-16, finding 16) one check changed two settings at once, so either could be inert; each in its own direction:
+ const dev=over=>read({...s.runner,role:'ST'},{...s.tactics,...over}).development;
+ assert(dev({striker:'link'})<dev({striker:'mixed'})&&dev({striker:'mixed'})<dev({striker:'run'}),'Striker: Drops deep < Mixed < In behind');
+ assert(dev({progression:'patient'})<dev({progression:'mixed'})&&dev({progression:'mixed'})<dev({progression:'direct'}),'Progression: Patient < Mixed < Direct');
+ assert(dev({commit:2})<dev({commit:3})&&dev({commit:3})<dev({commit:4}),'Bodies forward: more bodies, more ambition');
  const hold=attackingSpaceReader(s.players,s.carrier,s.tactics,()=>1).read(s.runner,{...job,aim:{x:s.runner.x,y:s.runner.y}},0);
  assert.equal(hold.development,0,'Standing still must not claim preparation progress');
  assert.equal(attackingSpaceReader(s.players,s.carrier,s.tactics,()=>1).read(s.runner,job,job.until).development,0);

@@ -70,7 +70,12 @@ test('persistent plans validate their areas and actor uniqueness, and run throug
  for(const mode of ['match','training']){
   const result=(mode==='match'?runMatch:runTraining)({fixture,durationSeconds:40,...(mode==='training'?{setup:createTrainingSetup('middle')} :{}),playbook:{side:0,plans:[p],adaptive:true}}).result;
   assert(result.standingNotes.some(n=>n.status==='active'));assert(result.standingNotes.some(n=>n.kind==='press'&&n.status==='active'));
-  assert(result.frames.some(f=>f.players.some(q=>q.duty==='press'||q.duty==='jockey')));
+  // (recon 2026-10-16, finding 16) this used to pass if anyone on either side ever pressed; now the ordered man
+  // (side 0, #4) must press more with the standing order than in the same run without it
+  const actor=result.players.findIndex(q=>q.side===0&&q.number===4);
+  const pressing=r=>r.frames.filter(f=>['press','jockey'].includes(f.players[f.lineup?f.lineup.indexOf(actor):actor]?.duty)).length;
+  const plain=(mode==='match'?runMatch:runTraining)({fixture,durationSeconds:40,...(mode==='training'?{setup:createTrainingSetup('middle')} :{})}).result;
+  assert(pressing(result)>pressing(plain),`${mode}: #4 presses in ${pressing(result)} frames with the order, ${pressing(plain)} without`);
  }
 });
 test('a live attacking combination keeps its participants while a separate standing outlet remains available',()=>{

@@ -43,8 +43,12 @@ test('a receiving outlet adjusts away from closing pressure without dissolving t
 });
 test('an explicit destination is preserved while ordinary teammates adjust around it',()=>{
  const {jobs,refine}=scene(),ids=Object.keys(jobs);
+ // (recon 2026-10-16, finding 16) the check below only ran when refine returned moves, and with the outlet fixed it
+ // returns none, so it never ran. Now: the outlet is the man who would step away (first), and fixed he stays put,
+ // whether refine hands back no moves at all or moves that keep his job.
+ assert.notDeepEqual(refine().find(j=>j.player===ids[1]).aim,jobs[ids[1]].aim,'unfixed, the outlet adjusts');
  const moves=refine(new Set([ids[1]]));
- if(moves)assert.deepEqual(moves.find(j=>j.player===ids[1]),jobs[ids[1]]);
+ assert.deepEqual(moves?moves.find(j=>j.player===ids[1]):jobs[ids[1]],jobs[ids[1]],'fixed, his destination is kept');
  assert.equal(refine(new Set(ids)),null,'A fully authored arrangement must not be replaced');
 });
 test('receiving adjustments have symmetric geometry in both attacking directions',()=>{

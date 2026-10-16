@@ -28,6 +28,9 @@ test('style changes selection without changing execution plans, and mirrors for 
  const p={side:0,x:10,y:0};
  const short=approachOptions(p,original,teamApproaches.combinations.settings),direct=approachOptions(p,original,teamApproaches.direct.settings);
  assert(short[0].score>short[1].score);assert(direct[1].score>direct[0].score);
+ // (recon 2026-10-16, finding 16) measured against Balanced: Short leans to the short pass, Direct to the long ball
+ const lean=o=>o[0].score-o[1].score,balanced=approachOptions(p,original,teamApproaches.balanced.settings);
+ assert(lean(short)>lean(balanced)&&lean(balanced)>lean(direct),`short-over-long lean ${lean(short)} / ${lean(balanced)} / ${lean(direct)}`);
  assert.equal(short[0].pass,pass);assert.equal(direct[1].loft,loft);assert.equal(direct[2],original[2]);assert.equal(original[0].score,.5);
  const mirrored=approachOptions({side:1,x:38,y:0},original.map(o=>({...o,aim:{x:48-o.aim.x,y:o.aim.y}})),teamApproaches.direct.settings);
  assert.deepEqual(mirrored.map(o=>o.score),direct.map(o=>o.score));

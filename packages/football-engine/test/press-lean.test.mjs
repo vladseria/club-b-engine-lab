@@ -14,7 +14,31 @@ const place=(players,at)=>players.forEach((p,i)=>Object.assign(p,{x:at[i][0],y:a
 const ballAt=(owner)=>({x:owner.x,y:owner.y,vx:0,vy:0,z:0,vz:0,mode:'control',owner:owner.id});
 const sharp=p=>Object.assign(p,{skills:{...p.skills,reading:10,defending:10},traits:{...p.traits,discipline:1,engagement:.55}});
 
-// ---- M2: the lean -----------------------------------------------------------
+// ---- Press on the live path (recon 2026-10-16, finding 15) ----------------------
+// The two lean tests below read the classic policy's teamShape and markLean, which no match plays (markLean has no
+// caller). Ballers defends with practice-defending: Press sets where the man on their carrier engages (ENGAGE) and
+// how far off he waits until then (HOLD), and Aggressive marks more of their men further out (DANGER_PRESS).
+const pressScene=(press,depthOut)=>{
+ const f=structuredClone(fixture);f.teams[1].tactics={...f.teams[1].tactics,press};
+ const players=practicePlayers(f),owner=players[3];players.filter(p=>p.side===1).forEach(sharp);
+ const cx=48-depthOut;
+ place(players,[[4,0],[cx-6,-6],[cx-4,8],[cx,1],[cx+8,-3],[46,0],[cx+12,0],[cx+8,7],[cx+7,-5],[cx+5,2]]);
+ const tactics=f.teams.map(t=>t.tactics);let plan=null;
+ for(let k=0;k<12;k++)plan=coordinateFootball(players,ballAt(owner),0,tactics,laneRisk,{time:10+k*.25,recoveredAt:-10},plan);
+ const jobs=players.filter(p=>p.side===1&&p.role!=='GK').map(p=>plan.jobs[p.id]);
+ return {off:Math.min(...jobs.map(j=>Math.hypot(j.aim.x-owner.x,j.aim.y-owner.y))),men:jobs.filter(j=>j.purpose==='mark'||j.purpose==='press').length};
+};
+test('live Press: far from our goal the man on their carrier stands closest on Aggressive, furthest off on Selective',()=>{
+ for(const out of [32,38]){
+  const s=pressScene('selective',out),b=pressScene('balanced',out),a=pressScene('aggressive',out);
+  assert(s.off>=b.off&&b.off>a.off,`${out} m out: off the carrier ${s.off.toFixed(2)} / ${b.off.toFixed(2)} / ${a.off.toFixed(2)}`);
+  assert(s.off>a.off,`${out} m out: Selective holds off more than Aggressive`);
+ }
+ // 38 m out, Aggressive also picks up more of their men than Balanced
+ assert(pressScene('aggressive',38).men>pressScene('balanced',38).men);
+});
+
+// ---- M2: the lean (classic policy only) --------------------------------------
 test('press sets how far the block leans: about 0.35 / 0.5 / 0.7 m per metre of ball movement',()=>{
  const f=structuredClone(fixture),players=practicePlayers(f),owner=players[3];
  // Team 0 has the ball in midfield; team 1 defends (goal at x = 48).
@@ -95,12 +119,14 @@ test('the trap does not fire on every ball: not centrally, not deep in our third
  assert(!trapScene('selective',[27,13.2]).log.some(x=>x.trap&&!x.trap.over),'no trap 21 m from our goal');
  // Balanced and Aggressive never trap.
  for(const press of ['balanced','aggressive'])assert(!trapScene(press).log.some(x=>x.trap),`${press} has no trap`);
- // After a trap the block rests: the same trigger held for 12 s springs at
- // most twice, TRAP_REST apart.
- const long=trapScene('selective',[21,13.2],{ticks:60}).log;
+ // After a trap the block rests: the same trigger held springs again only
+ // TRAP_REST after the last spring. (recon 2026-10-16, finding 16: this held
+ // the trigger 15 s, shorter than TRAP_REST (20 s), so the spacing check never
+ // ran.) Held long enough for a second spring, it comes, and not before.
+ const long=trapScene('selective',[21,13.2],{ticks:Math.ceil((TRAP_SETTLED+TRAP_REST+10)/.25)}).log;
  const springs=long.filter((x,i)=>x.trap&&!x.trap.over&&!(long[i-1]?.trap&&!long[i-1].trap.over&&long[i-1].trap.at===x.trap.at)).map(x=>x.time);
- assert(springs.length>=1&&springs.length<=2,`${springs.length} springs`);
- if(springs.length===2)assert(springs[1]-springs[0]>=TRAP_REST);
+ assert.equal(springs.length,2,`springs at ${springs.join(', ')} s`);
+ assert(springs[1]-springs[0]>=TRAP_REST,`${springs[1]-springs[0]} s apart`);
 });
 test('each engager reads the trigger himself: a poor reader can miss a faint one, the plan decides for a disciplined sharp one',()=>{
  // A faint trigger (just inside the touchline band): sharp disciplined readers

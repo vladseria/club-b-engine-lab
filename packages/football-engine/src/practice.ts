@@ -43,7 +43,7 @@ import {loftPass,loftOptions,strikeLoftPass,LoftPass,ReceivingSpace} from './pra
 import {advanceFlight,flightSamples,flightMeeting,flightContact,compareFlightContacts} from './practice-flight.js';
 import {Restart,RestartKind,RestartInfo,restartPositions,restartPlayersReady,restartBlockers,restartLabels,restartKickPosition,routineRelaxed,ROUTINE_SETUP_CAP,ROUTINE_SETTLE_EVERY} from './practice-restarts.js';
 import {liveRestart,restartRoutine,authoredRoutine,planLiveRestart,restartHold,restartOptions,settleRestart,SET_PIECE_HOLD} from './practice-restart-live.js';
-import {chooseFreeKickTaker,freeKickOptions,setPiecePlayer,strikeFreeKick,DirectFreeKickPlan} from './practice-set-pieces.js';
+import {chooseFreeKickTaker,choosePenaltyTaker,freeKickOptions,setPiecePlayer,strikeFreeKick,DirectFreeKickPlan} from './practice-set-pieces.js';
 import {createOffsideAwareness,perceivedOffside,runReleaseAllowance,ReleaseCue} from './practice-awareness.js';
 import {feintOptions,feintDuration,finishFeint,feintReleaseOpening,FeintMemory} from './practice-feints.js';
 import {strikeStance} from './practice-striking.js';
@@ -625,10 +625,11 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
   for(const team of [0,1] as Side[])while(subCounts[team]<SUB_MINUTES.length&&time>=SUB_MINUTES[subCounts[team]]*60){
    const change=chooseReplacement(f.teams[team],sidePlayers(team),used);if(!change){subCounts[team]=SUB_MINUTES.length;break;}
    const {outgoing,incoming}=change,source=structuredClone(incoming) as Player&{archetype?:string;temperament?:string};
-   const basePace=4.5+source.skills.pace*.34;
+   // keeper formulas only for a keeper, as in the triggered path (applyOrders) and practicePlayers
+   const gk=outgoing.role==='GK',basePace=gk?4.5+source.skills.pace*.34:4.75+source.skills.pace*.35;
    const replacement:PracticePlayer={...outgoing,...source,id:`${team}:${source.id}`,role:outgoing.role,lane:outgoing.lane,side:team,
     number:f.teams[team].squad.findIndex(q=>q.id===source.id)+1,archetype:source.archetype??'',temperament:source.temperament??'',
-    vx:0,vy:0,basePace,pace:basePace*(.7+.3*source.energy/100),acceleration:3.1+source.skills.pace*.19,duty:'restart',job:'Intră în joc'};
+    vx:0,vy:0,basePace,pace:basePace*(.7+.3*source.energy/100),acceleration:gk?3.1+source.skills.pace*.19:3.5+source.skills.pace*.22,duty:'restart',job:'Intră în joc'};
    players[players.indexOf(outgoing)]=replacement;byId.set(replacement.id,replacement);used.add(replacement.id);subCounts[team]++;
    rosterIndex.set(replacement.id,roster.length);roster.push(structuredClone(replacement));lineup=players.map(p=>rosterIndex.get(p.id)!);
    say('substitution',`${f.teams[team].name}: ${outgoing.name} iese, ${replacement.name} intră cu energie proaspătă.`,replacement,outgoing);
@@ -679,7 +680,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
   // far from the ball (and every thrower) gives way to him.
   const book=coordinated&&liveRestart(kind)?playbooks.find(b=>b.config.side===team):undefined;
   const candidates=sidePlayers(team).filter(p=>kind==='goalKick'?p.role==='GK':p.role!=='GK');
-  const engineTaker=opening?get(opening.taker):kind==='freeKick'||kind==='indirect'?chooseFreeKickTaker(players,team,spot,f.teams[team].tactics.taker,kind):candidates.slice().sort((a,b)=>kind==='penalty'?(b.skills.finishing+b.skills.setPieces)-(a.skills.finishing+a.skills.setPieces):dist(a,spot)-dist(b,spot))[0];
+  const engineTaker=opening?get(opening.taker):kind==='freeKick'||kind==='indirect'?chooseFreeKickTaker(players,team,spot,f.teams[team].tactics.taker,kind):kind==='penalty'?choosePenaltyTaker(players,team,f.teams[team].tactics.taker):candidates.slice().sort((a,b)=>dist(a,spot)-dist(b,spot))[0];
   const authored=book?.chooseRoutine(time,kind,team,spot,players,laneRisk,!!opening?.force,engineTaker.id)??null;
   const taker=authored?get(authored.taker):engineTaker;
   transitionAt=-10;inHands=false;groundDelivery=false;aerialDelivery=false;carryPlan=null;defense=null;support=null;teamShapes=[null,null];completedPass=undefined;passContinuation=undefined;restart={kind,side:team,spot,taker:taker.id,ready:time+(kind==='kickoff'?5:2),phase:'gather',legalSince:null,organized:coordinated,positions:restartPositions(kind,team,spot,taker.id,players,coordinated,f.teams[team].tactics.setPiece),...(coordinated&&(kind==='freeKick'||kind==='indirect')&&(f.teams[team].tactics.setPiece==='short'||f.teams[team].tactics.setPiece==='delivery')?{call:f.teams[team].tactics.setPiece}:{})};if(coordinated&&liveRestart(kind)){restart.routine=restartRoutine(restart,players,restart.positions,f.teams[team].tactics.setPiece);restart.live=null;}

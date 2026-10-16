@@ -15,6 +15,7 @@ import {practicePlayers,laneRisk} from '../dist/practice.js';
 import {teamShape,LINE_CUSHION} from '../dist/practice-shape.js';
 import {coordinateFootball} from '../dist/practice-coordination.js';
 import {assignBuildUp} from '../dist/practice-build-up.js';
+import {blockDepth} from '../dist/practice-defending.js';
 import {L} from '../dist/pitch.js';
 const fixture=JSON.parse(readFileSync(new URL('./fixture.json',import.meta.url)));
 const place=(players,at)=>players.forEach((p,i)=>Object.assign(p,{x:at[i][0],y:at[i][1],vx:0,vy:0,angle:p.side?Math.PI:0}));
@@ -42,6 +43,48 @@ const scene=(line,{st=9,run=0,reading=10,ticks=12,drift=0}={})=>{
  return {shape,players,striker,trail,last:trail.at(-1),f};
 };
 
+// ---- The live path (recon 2026-10-16, finding 15). The four tests after this block read the classic policy's
+// teamShape, which no match plays; Ballers defends with practice-defending (coordinated policy). The Line's board
+// claim: how high the team defends, how hard it steps up when their man is pressed or plays it back, and the last
+// defender always keeping their furthest forward in front. These check those directions on the live path.
+const live=(line,{st=30,carrierX=14}={})=>{
+ const f=structuredClone(fixture);
+ f.teams[1].tactics={...f.teams[1].tactics,formation:'1-2-1',line,press:'balanced'};
+ for(const p of f.teams[1].squad)Object.assign(p.skills,{reading:10,defending:10});
+ const players=practicePlayers(f);
+ place(players,[[4,0],[14,-5],[14,5],[carrierX,0],[48-st,2],[46,0],[34,-4],[34,4],[30.5,-3],[30,4]]);
+ const carrier=players[3],ball={x:carrier.x,y:carrier.y,vx:0,vy:0,z:0,vz:0,mode:'control',owner:carrier.id};
+ const tactics=f.teams.map(t=>t.tactics);
+ let v=null;for(let k=0;k<8;k++)v=coordinateFootball(players,ball,0,tactics,laneRisk,{time:20+k*.25,recoveredAt:-10},v);
+ const jobs=players.filter(p=>p.side===1&&p.role!=='GK').map(p=>v.jobs[p.id]);
+ return {jobs,depths:jobs.map(j=>depth1(j.aim.x)),striker:depth1(players[4].x)};
+};
+const mean=a=>a.reduce((s,x)=>s+x,0)/a.length;
+
+test('live Line: the block defends deeper on Deep, higher on High (their man unpressed, 34 m out)',()=>{
+ // the men not on the ball (the presser's own distance is the Press setting's business)
+ const rest=line=>mean(live(line).jobs.filter(j=>j.purpose!=='press').map(j=>depth1(j.aim.x)));
+ const deep=rest('deep'),standard=rest('standard'),high=rest('high');
+ assert.ok(deep<standard&&standard<high,`block depth deep ${deep.toFixed(2)} < standard ${standard.toFixed(2)} < high ${high.toFixed(2)}`);
+});
+
+test('live Line: the block steps up when their man is pressed or plays it back, hardest on High, not at all on Deep',()=>{
+ // practice-defending blockDepth is the block's height on the live path (defendOutOfPossession, balancePoint)
+ for(const ref of [20,26,32]){
+  const step=line=>blockDepth({line},ref,1)-blockDepth({line},ref,0);
+  assert.ok(blockDepth({line:'deep'},ref,0)<blockDepth({line:'standard'},ref,0)&&blockDepth({line:'standard'},ref,0)<blockDepth({line:'high'},ref,0),`height at ${ref} m`);
+  assert.equal(step('deep'),0);assert.ok(step('standard')>0&&step('high')>step('standard'),`step-up at ${ref} m: ${step('standard')} / ${step('high')}`);
+ }
+});
+
+test('live Line: on every Line the last defender keeps their furthest forward in front of him',()=>{
+ for(const line of ['deep','standard','high'])for(const st of [9,20]){
+  const s=live(line,{st,carrierX:24});
+  assert.ok(Math.min(...s.depths)<s.striker,`${line}, striker ${st} m out: last defender at ${Math.min(...s.depths).toFixed(2)} m`);
+ }
+});
+
+// ---- Classic policy (teamShape), kept as a check of that code; matches never play it.
 test('the Line cushion: deep 2 m goal-side, standard level, high holds',()=>{
  assert.deepEqual(LINE_CUSHION,{deep:2,standard:0,high:null});
  const deep=scene('deep').last,standard=scene('standard').last,high=scene('high').last;

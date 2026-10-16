@@ -140,6 +140,8 @@ test('score, margin and half-time triggers fire at stoppages when true; three pe
  for(const e of made){
   const [own,opp]=e.substitution.score,t=e.substitution.trigger;
   if(t.kind==='score')assert(t.state==='winning'?own>opp:t.state==='losing'?own<opp:own===opp,`${t.state} held`);
+  // (recon 2026-10-16, finding 16) no margin order is met in this passage ('m' stays waiting, the notes check below), so
+  // this line never runs here; the margin rule itself is checked directly in 'each trigger kind reads ...' above
   if(t.kind==='margin')assert((t.direction==='up'?own-opp:opp-own)>=t.atLeast);
   if(t.kind==='half')assert(e.time>=150);
   const order=orders.find(o=>o.id===e.substitution.order);if(order.notBefore)assert(e.time>=order.notBefore);

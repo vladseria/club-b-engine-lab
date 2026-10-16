@@ -122,10 +122,13 @@ export const APPROACH_FIELDS:ApproachField[]=[
  // Board audit (2026-10-15, settings audit b0174c30): the three shapes look different but goals for and
  // against stay flat, so no option claims a gain or a cost any more (Narrow's "a switch hurts you", Wide's
  // "gaps open in your middle" and the "middle is shut" never landed). They say only how the team spreads.
- {key:'width',label:'Width',about:'How far apart your players spread when you have the ball.',options:[
-  {value:'narrow',label:'Narrow',line:'Your players stay close together when you have the ball, near enough to help each other.'},
+ // (2026-10-16, recon finding 13) Width also sets the defending shape: practice-defending.ts BALANCE_Y (the free
+ // man's tuck across: narrow 1 / standard 2.5 / wide 4.5 m) and WIDTH_SAG (how far a marker sags off a far man:
+ // narrow x1.25 / wide x0.75), so the lines say so, still with no gain or cost.
+ {key:'width',label:'Width',about:'How far apart your players spread with the ball, and how far across they cover without it.',options:[
+  {value:'narrow',label:'Narrow',line:'Your players stay close together with the ball. Without it they tuck into the middle and give their far man room.'},
   {value:'standard',label:'Standard',line:'In between: some width, without spreading right out. Fits any squad.'},
-  {value:'wide',label:'Wide',line:'Your players spread right out towards the touchlines when you have the ball.'}]},
+  {value:'wide',label:'Wide',line:'Your players spread right out towards the touchlines with the ball. Without it they stay closer to their far man.'}]},
  // Without the ball (settings-truth round, 2026-10-04): practice-defending.ts DANGER_R (who is marked, by the
  // Line), BLOCK (how high the block sits and how hard it squeezes up when their man is pressed or plays it
  // back: blockDepth), ENGAGE_LINE; their furthest forward is always somebody's man, marked goal-side of him
@@ -182,10 +185,13 @@ export const APPROACH_FIELDS:ApproachField[]=[
  // Drops deep striker keeps his own job in the counter window (approachInPossession), so it holds only for two of four.
  // Keep it (board audit 2026-10-15): it handed the ball back more, not less (settings audit b0174c30), so
  // the line no longer says "loses it least"; it says only what the players do and what that costs.
+ // (2026-10-16, recon finding 13) Counter's window (team-approach.ts approachInPossession, 8 s after a regain):
+ // Direct progression, Bodies forward at least 4, and the lead forward on In behind unless the Striker setting is
+ // Pivot or Drops deep (those keep their job), hence "a Mixed or In behind striker".
  {key:'transition',label:'On winning it',about:'What your team does in the first seconds after winning the ball back.',options:[
   {value:'balanced',label:'Balanced',line:'Breaks when it’s on, otherwise keeps playing your usual game. Fits any squad.'},
   {value:'secure',label:'Keep it',line:'Doesn’t rush after winning it: breaks only with a clear extra man, so it makes the fewest breaks.'},
-  {value:'counter',label:'Counter',line:'Breaks at once, even a man short. The most breaks, but loses it more.'}]},
+  {value:'counter',label:'Counter',line:'Breaks at once: more bodies join for a few seconds and a Mixed or In behind striker runs in behind. Loses it more.'}]},
  // practice-coordination.ts counterPressFires / counterPressRead (Counter-press goes whatever the numbers, Balanced
  // only a man up). Regroup (its drop and delay, practice-defending.ts intent / regroup) is retired from the board
  // (owner, 15 Oct 2026; approach.ts boardApproach): it cost at both ends. The engine still plays it for old inputs.
@@ -429,7 +435,7 @@ const REFUSALS:Record<string,string>={
  invalid_accents:'An idea’s emphasis runs from 0 to 100.',
  invalid_substitutions:'Check the substitutions: a bench player on, a starter (or someone brought on) off, keepers only for keepers.',
  invalid_idea_lineups:'Each idea part goes to a different outfield starter.',
- invalid_match_settings:'Check the keeper and free kicks: the taker has to be one of your four outfield starters.',
+ invalid_match_settings:'Check the keeper and free kicks: the set-piece taker has to be one of your four outfield starters.',
  identity_locked:'The name and code are locked for this season.',
  faces_changed:'Someone just signed one of these players for another club. Here is your squad as it stands now.',
  invalid_emphasis:'An idea’s emphasis runs from 0 to 100.',

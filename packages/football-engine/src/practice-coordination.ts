@@ -616,12 +616,15 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   const loose=!owner&&!(ball.mode==='pass'&&meet)?(flight.defenders?.[0]?.point??{x:ball.x,y:ball.y}):undefined;
   const plan=defendOutOfPossession({players,defending,attacking,tactics:tactics[defending],time,ball,carrier:owner,receiver:receiverId&&meet?{id:receiverId,meet}:undefined,loose,
    available:deciding,busy:unavailable,fixed:fixedOwn,locked,view:seen,memory:previous?.defending,intent:engaging?undefined:delaying?'delay':undefined,regroup:!!counterPress?.drop,
+   // (press-cover round) the counter-press's or the trap's goer: the plan covers behind him and steps out if he is beaten
+   pressing:engaging&&jobs[fixedPresser!.id]?{id:fixedPresser!.id,aim:jobs[fixedPresser!.id].aim}:undefined,
    restart:context.restart,since:possession?.since,reach:owner?undefined:flight.defenders,theirs:flight.theirs,keeperCall:owner?undefined:context.keeperCall,cue:owner?context.passCue:undefined});
   defendingMemory=plan.memory;
   for(const j of plan.jobs){const p=players.find(q=>q.id===j.player)!;put(p,j.purpose,j.kind,j.aim,j.speed,j.reason,j.target,j.velocity);if(j.threat!==undefined&&jobs[p.id]&&!instructed.has(p.id))jobs[p.id].threat=j.threat;}
   for(const [id,t] of plan.marks)marks.set(id,t);
   for(const [id,t] of fixedOwn)if(!marks.has(id))marks.set(id,t);
-  if(owner)defense={owner:owner.id,presser:fixedPresser?.id??plan.presser??'',coverer:plan.coverer??''};
+  // (press-cover round) when the plan has stepped a team-mate out past a beaten goer, he is the one on the ball
+  if(owner)defense={owner:owner.id,presser:(engaging?plan.presser:undefined)??fixedPresser?.id??plan.presser??'',coverer:plan.coverer??''};
   if(!owner){
    // the defence's one man for the ball (or nobody, when nobody free to go can get there)
    const theirs=flight.hunters.filter(id=>players.find(p=>p.id===id)?.side===defending);

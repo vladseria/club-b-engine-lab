@@ -85,7 +85,9 @@ test('defenders protect simultaneous receiving threats through a pass, and are n
   const before=structuredClone(ps),plan=coordinateFootball(ps,controlled(carrier),carrier.side,tactics,laneRisk,{time:10,recoveredAt:0});
   // Defending round (2026-10-03): with every man owned, a cover keeps his own
   // man within reach; he never abandons an equally immediate receiver.
-  if(plan.defense.coverer){const c=plan.defense.coverer,man=ps.find(p=>p.id===plan.marks.get(c));assert(man,'the cover keeps his man');assert(Math.hypot(plan.jobs[c].aim.x-man.x,plan.jobs[c].aim.y-man.y)<3,'Do not manufacture cover by abandoning an equally immediate receiver');}
+  // (recon 2026-10-16, finding 16) this used to check the cover only if there was one, and there never is here: four
+  // receivers for four outfielders, so a cover could only come from abandoning one. Said outright:
+  assert.equal(plan.defense.coverer,'','Do not manufacture cover by abandoning an equally immediate receiver');
   for(const target of [ps[1],far,receiver])assert([...plan.marks.values()].includes(target.id));
   assert.equal(plan.marks.get(marker.id),far.id);
   const travelling={x:mirror?7:41,y:-7.2,z:0,vz:0,vx:mirror?-5:5,vy:12,owner:null,mode:'pass'};
