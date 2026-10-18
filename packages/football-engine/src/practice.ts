@@ -731,7 +731,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    // depth, level with it), but no further from his set spot for this ball than he could sprint back from before they
    // could shoot if it were lost now (attackTime, keeperGiveBack): near his goal that is the angle, not the middle of his
    // area (the study: with the ball within 16 m he stood 2.1 m off the ball-goal line, 26% of the time 2.5 m or more).
-   if(false&&ownTeam){const d=Math.hypot(x-setDepth,y-position.y),room=keeperGiveBack(p,attackTime(p.side,ball,sidePlayers(other(p.side)).filter(q=>q.role!=='GK')),KEEPER_SPRINT);
+   if(ownTeam){const d=Math.hypot(x-setDepth,y-position.y),room=keeperGiveBack(p,attackTime(p.side,ball,sidePlayers(other(p.side)).filter(q=>q.role!=='GK')),KEEPER_SPRINT);
     if(d>room){x=setDepth+(x-setDepth)*room/d;y=position.y+(y-position.y)*room/d;}}
    if(tracking){const usual=x;lastLine=Math.min(...sidePlayers(p.side).filter(q=>q.role!=='GK').map(q=>depth(p.side,q.x)));x=Math.max(x,keeperLineDepth(sweep,lastLine,bd));
     // (keeper fix, 2026-10-19) He takes his place from where the attack is heading, not from where his back line

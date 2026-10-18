@@ -41,13 +41,13 @@ export function keeperSupportCandidates(p:PracticePlayer,focus:PracticePlayer,pl
  // out as a sweeper-keeper does (the default trait, 0.2, and up: unchanged)
  // (keeper fix, 2026-10-19) ... inside it: "he stays in his area when you have the ball" (the setting's words). His far
  // point was a metre outside it, and he stood 8 m+ out in 16% of his side's possession with the ball 24-32 m out.
- const home=clamp((sweep-KEEPER_HOME)/(.2-KEEPER_HOME),0,1),reachOut=BOX_DEPTH+1+home*(L*.42-BOX_DEPTH-1);
+ const home=clamp((sweep-KEEPER_HOME)/(.2-KEEPER_HOME),0,1),reachOut=BOX_DEPTH-1+home*(L*.42-BOX_DEPTH+1);
  const step=clamp(bd-12,{deep:3,standard:4,high:5}[tactics.line],reachOut);
  // (keeper fix, 2026-10-19) ... and with the ball in our third (where a loss is a shot) staying set on his ready spot is
  // one of his options: with a team-mate on the ball right in front of goal the baseline and the middle points are on the
  // carrier's own spot, and the only points left were 5 m to either side of the goal, so he went wide however the price
  // read them. (Further out it is not offered: it took the sweeper's height in his side's possession away, 8.0 to 5.8 m.)
- const points=[baseline,...[Math.max(2,step-4),step].flatMap(x=>[-5,0,5].map(y=>({x:world(x),y:clamp(focus.y*.4+y,-W*.3,W*.3)}))),...(false?[ready]:[])];
+ const points=[baseline,...[Math.max(2,step-4),step].flatMap(x=>[-5,0,5].map(y=>({x:world(x),y:clamp(focus.y*.4+y,-W*.3,W*.3)}))),...(bd<16?[ready]:[])];
  const given=Math.min(1,Math.max(lossThreat(p.side,focus,players,focus.id),lossDanger(bd/L,restDefence(focus,players).deficit))/LOSS_OWN);
  const back=keeperGiveBack(p,attackTime(p.side,focus,attackers),KEEPER_SPRINT);
  return points.map(aim=>{
@@ -56,7 +56,7 @@ export function keeperSupportCandidates(p:PracticePlayer,focus:PracticePlayer,pl
   const open=(1-read.risk)*read.releaseRoom*clamp((read.gap-3)/3,0,1)*clamp((26-read.gap)/10,0,1);
   const likely=LOSS_LIKELY+(1-LOSS_LIKELY)*Math.max(danger,clamp(read.risk,0,1));
   const left=clamp((Math.hypot(aim.x-ready.x,aim.y-ready.y)-back-OPEN_FROM)/OPEN_SPAN,0,1);
-  const exposed=0*LOSS_SCALE*likely*given*EMPTY_NET*left*(1-SWEEPER_EASE*sweep);
+  const exposed=LOSS_SCALE*likely*given*EMPTY_NET*left*(1-SWEEPER_EASE*sweep);
   return {score:.6+open*.7-read.travel*.055-returnTime*(.12+(1-sweep)*.07+danger*.25)-exposed,job:{player:p.id,purpose:'build-up',kind:'keeper',aim,speed:p.pace*.78,since:time,until:time+2,reason:'Oferă un unghi de întoarcere, cântărind timpul necesar revenirii în poartă.'}};
  });
 }
