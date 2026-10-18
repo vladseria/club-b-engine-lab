@@ -83,6 +83,13 @@ export function play(t:{label:string;arm:string;seed:number;rev:string;parity?:b
  // ---- candidates from the hook, keyed by keeper id and time
  const cands=new Map<string,any[]>();
  (globalThis as any).__ks=(c:any)=>{const key=c.id+'|'+c.time;let a=cands.get(key);if(!a){a=[];cands.set(key,a);}a.push({x:c.aim.x,y:c.aim.y,score:c.score,rt:c.returnTime,open:c.open,travel:c.travel,risk:c.risk,danger:c.danger,nearest:c.nearest,bd:c.bd});};
+ // ---- (follow-up) every keeper's steer each tick (hook.mjs __gk): position, velocity, aim, speed limit, pace, acceleration, kind, crowd
+ const KINDS:string[]=[],kindIx=(k:string)=>{let i=KINDS.indexOf(k);if(i<0){i=KINDS.length;KINDS.push(k);}return i;};
+ const gkT:number[][]=[[],[]];// per side, 11 numbers a tick: t,x,y,vx,vy,aimx,aimy,limit,pace,acc,kind*2+crowd
+ (globalThis as any).__gk=(p:any,aim:any,limit:number,kind:string,time:number,players:any[])=>{
+  if(p.role!=='GK')return;let crowd=0;for(const q of players)if(q!==p&&Math.hypot(q.x-p.x,q.y-p.y)<1.65){crowd=1;break;}
+  gkT[p.side].push(time,p.x,p.y,p.vx,p.vy,aim.x,aim.y,limit,p.pace,p.acceleration,kindIx(kind)*2+crowd);
+ };
  let run:any,c:any;const t0=performance.now();
  try{
   // computeMatch's runMatch call, verbatim (lib/ballers/compute.ts:87-95)
@@ -92,7 +99,7 @@ export function play(t:{label:string;arm:string;seed:number;rev:string;parity?:b
   const subs=sideOrders(inp,teams as any);
   run=runMatch({fixture:{teams,seed:inp.seed,kickoff:inp.kickoff},durationSeconds:inp.duration,policy:'coordinated',substitutions:'none',record:true,...(playbooks.length?{playbooks}:{}),...(subs.orders.length?{substitutionOrders:subs.orders}:{})} as any);
   c=compact(inp,run.result);
- }finally{(globalThis as any).__ks=undefined;}
+ }finally{(globalThis as any).__ks=undefined;(globalThis as any).__gk=undefined;}
  const ms=Math.round(performance.now()-t0);
  const R=run.result,roster:any[]=R.players,frames:any[]=R.frames,events:any[]=R.events,choices:any[]=R.choices;
  const idx=new Map<string,number>(roster.map((p:any,i:number)=>[p.id,i]));
@@ -189,6 +196,48 @@ export function play(t:{label:string;arm:string;seed:number;rev:string;parity?:b
   return [r2(e.time),e.side,r3(chanceOf(e)),scored.has(e)?1:0,sh?r1(dist(sh,goal)):-1,g?r2(depthOf(D,g.q.x)):-1,g&&ready?r2(dist(g.q,ready)):-1,g?sourceOf(g.i,decAt(g.i,e.time)):'',-1,e.shot?.assessment?.quality!=null?r3(e.shot.assessment.quality):-1];
  });
 
+ // ---- (follow-up) the keeper's recovery after a loss, and where he is when the attack arrives
+ // Appended to each TO row (indices 30-35):
+ //  30 entry: [s after the loss when the ball first comes within 16 m of A's goal while B keeps it (0 if lost inside; -1 never
+ //     within the window), his m from ready then, his depth, his |y|, A outfielders goal-side of the ball then, B shots after it
+ //     in the window, goal after it 0/1, best chance after it]
+ //  31 gap curve: his m from ready at +0.5, +1, +1.5, +2, +3 s (-1 once the window has ended)
+ //  32 his steer in the first 2 s (or to the window end), from __gk ticks: [ticks, mean speed / pace, share of ticks with limit
+ //     ~0.55 x pace (the defending keeper's jog, practice.ts:726), ~0.9 x pace, >= pace (sweep / shot / receive), other (e.g.
+ //     plant 0.3), share braking-limited (sqrt(2 a (d - 0.2)) below the limit: steerMotion's arrival braking), mean m to his aim,
+ //     mean m from his aim to his ready spot, mean (aim depth - ready depth), share crowded (someone within 1.65 m pushes him),
+ //     mean pace m/s, mean speed m/s, his velocity toward ready at the loss (m/s, negative = moving away)]
+ //  33 the same steer numbers split: ticks with the ball < 10.5 m from his goal [ticks, speed/pace, limit 0.55, limit 0.9,
+ //     braking-limited, crowded, mean m to aim] and >= 10.5 m (same 7)
+ //  34 his kinds in those ticks (top 3: name:share)
+ const tickIx=(s:number,time:number)=>{const a=gkT[s],m=a.length/11;let lo=0,hi=m-1,b=-1;while(lo<=hi){const md=(lo+hi)>>1;if(a[md*11]<=time+1e-9){b=md;lo=md+1;}else hi=md-1;}return b;};
+ const recovery=(A:number,gi:number,k:number,tt:number,until:number,gk:any,ready:any)=>{
+  // entry
+  let entry:any=[-1,-1,-1,-1,-1,0,0,0];
+  for(let q=k;q<n&&frames[q].time<=until;q++){const fr=frames[q];if(depthOf(A,fr.ball.x)<16){const gg=gkAt(fr,A);if(!gg)break;
+   const rd=readyFor(A,gg.i,fr.ball),bd2=depthOf(A,fr.ball.x),gs=outfieldAt(fr,A).filter((x:any)=>depthOf(A,x.q.x)<bd2).length;
+   let ns=0,g2=0,b2=0;shotEv.forEach((e:any,j:number)=>{if(e.side!==1-A||e.time<fr.time-1e-6||e.time>until)return;ns++;b2=Math.max(b2,shots[j][2]);if(scored.has(e))g2=1;});
+   entry=[r2(fr.time-tt),r2(dist(gg.q,rd)),r2(depthOf(A,gg.q.x)),r2(Math.abs(gg.q.y)),gs,ns,g2,r3(b2)];break;}}
+  const curve=[.5,1,1.5,2,3].map(d=>{if(tt+d>until)return -1;const fr=frames[frameAt(tt+d)],gg=gkAt(fr,A);if(!gg)return -1;return r2(dist(gg.q,readyFor(A,gg.i,fr.ball)));});
+  // steer ticks
+  const a=gkT[A],i0=Math.max(0,tickIx(A,tt)),end=Math.min(tt+2,until);
+  const acc0=()=>({n:0,sp:0,j:0,n9:0,full:0,oth:0,brake:0,toAim:0,aimReady:0,aimDepth:0,crowd:0,pace:0,speed:0});
+  const all=acc0(),near=acc0(),far=acc0();const kinds:Record<string,number>={};
+  for(let m=i0;m<a.length/11&&a[m*11]<=end+1e-9;m++){
+   const o=m*11,t=a[o],x=a[o+1],y=a[o+2],vx=a[o+3],vy=a[o+4],ax=a[o+5],ay=a[o+6],lim=a[o+7],pace=a[o+8],accl=a[o+9],kc=a[o+10];
+   if(t<tt-1e-9)continue;
+   const fr=frames[frameAt(t)],rd=readyFor(A,gi,fr.ball),d=Math.hypot(ax-x,ay-y),cap=Math.min(lim,pace),r=lim/pace,sp=Math.hypot(vx,vy);
+   const kname=KINDS[Math.floor(kc/2)];kinds[kname]=(kinds[kname]??0)+1;
+   for(const z of [all,depthOf(A,fr.ball.x)<10.5?near:far]){z.n++;z.sp+=sp/pace;z.speed+=sp;z.pace+=pace;
+    if(Math.abs(r-.55)<.02)z.j++;else if(Math.abs(r-.9)<.02)z.n9++;else if(r>=.99)z.full++;else z.oth++;
+    if(Math.sqrt(2*accl*Math.max(0,d-.2))<cap)z.brake++;z.toAim+=d;z.aimReady+=Math.hypot(ax-rd.x,ay-rd.y);z.aimDepth+=depthOf(A,ax)-depthOf(A,rd.x);z.crowd+=kc%2;}
+  }
+  const u={x:ready.x-gk.x,y:ready.y-gk.y},ul=Math.hypot(u.x,u.y)||1,v0=((gk.vx??0)*u.x+(gk.vy??0)*u.y)/ul;
+  const S=(z:any)=>z.n?[z.n,r2(z.sp/z.n),r2(z.j/z.n),r2(z.n9/z.n),r2(z.full/z.n),r2(z.oth/z.n),r2(z.brake/z.n),r2(z.toAim/z.n),r2(z.aimReady/z.n),r2(z.aimDepth/z.n),r2(z.crowd/z.n),r2(z.pace/z.n),r2(z.speed/z.n),r2(v0)]:[0];
+  const s7=(z:any)=>z.n?[z.n,r2(z.sp/z.n),r2(z.j/z.n),r2(z.n9/z.n),r2(z.brake/z.n),r2(z.crowd/z.n),r2(z.toAim/z.n)]:[0];
+  const top=Object.entries(kinds).sort((p,q)=>q[1]-p[1]).slice(0,3).map(([kk,v])=>kk+':'+r2(v/Math.max(1,all.n)));
+  return [entry,curve,S(all),[s7(near),s7(far)],top];
+ };
  // ---- 2. open-play turnovers: a spell of side B starts at frame k (not a restart) right after a spell of A
  const evIdxAt=(time:number)=>{let lo=0,hi=events.length-1,b=-1;while(lo<=hi){const m=(lo+hi)>>1;if(events[m].time<=time+1e-6){b=m;lo=m+1;}else hi=m-1;}return b;};
  const HOW=['loose','tackle','block','intercept','intercept-loft','clearance','shot-loose','keeper'];
@@ -244,7 +293,8 @@ export function play(t:{label:string;arm:string;seed:number;rev:string;parity?:b
   //      27 A keeper's sweep, 28 his lateral offset from the ball-goal line (m), 29 his |y| (m off the goal's centre line)]
   const sp=(x:any)=>x?[x.cls,r2(x.danger),r1(x.nearest),r1(x.bd),r2(x.rt),r2(x.rt0),r3(x.ds)]:0;
   to.push([r2(tt),A,HOW.indexOf(how),lostBy,r1(bd),r1(f.ball.y),r2(depthOf(A,gk.x)),r2(off),r2(dist(gk,goal)),r2(tBack),src,goalSide,carrier?r1(dist(carrier,goal)):-1,
-   sp(si),sp(lastSup),rec,r2(until-tt),nsh,r3(ch),r3(mx),gl,first,firstDepth,firstOff,firstDist,raw,rawGoal,r2(roster[g.i].traits.keeperSweep??.2),r2(lateral(A,gk,f.ball)),r2(Math.abs(gk.y))]);
+   sp(si),sp(lastSup),rec,r2(until-tt),nsh,r3(ch),r3(mx),gl,first,firstDepth,firstOff,firstDist,raw,rawGoal,r2(roster[g.i].traits.keeperSweep??.2),r2(lateral(A,gk,f.ball)),r2(Math.abs(gk.y)),
+   ...recovery(A,g.i,k,tt,until,gk,ready)]);
   // a render window for a turnover with the keeper out of position and a shot after it
   const kind=bd<12&&lateral(A,gk,f.ball)>2.5?'tw':(off>3||depthOf(A,gk.x)>6)?'to':'';
   if(nsh>0&&kind&&eps.filter((e:any)=>e.kind===kind).length<6){
@@ -254,6 +304,15 @@ export function play(t:{label:string;arm:string;seed:number;rev:string;parity?:b
     const gg=gkAt(fr,A);
     win.push([r2(fr.time),r2(fr.ball.x),r2(fr.ball.y),own&&idx.has(own)?idx.get(own)!:-1,gg?sourceOf(gg.i,decAt(gg.i,fr.time)):'',fr.restart?1:0,ps]);}
    eps.push({kind,to:ti,frames:win});
+  }
+  // (follow-up) a midfield loss (>= 16 m) a goal followed, with him > 2 m off ready at the shot: up to 4 a match
+  if(bd>=16&&gl&&firstOff>2&&eps.filter((e:any)=>e.kind==='mid').length<4){
+   const win:any[]=[];
+   for(let s2=tt-.5;s2<=tt+first+1+1e-6;s2+=.25){const fr=frames[frameAt(s2)],own=ownerOf(fr);
+    const ps:any[]=[];roster.forEach((_p:any,i:number)=>{const q=pos(fr,i);if(q)ps.push(i,r2(q.x),r2(q.y),r1(q.vx??0),r1(q.vy??0));});
+    const gg=gkAt(fr,A);
+    win.push([r2(fr.time),r2(fr.ball.x),r2(fr.ball.y),own&&idx.has(own)?idx.get(own)!:-1,gg?sourceOf(gg.i,decAt(gg.i,fr.time)):'',fr.restart?1:0,ps]);}
+   eps.push({kind:'mid',to:ti,frames:win});
   }
  }
  // ---- 3. opponents' receptions near his goal: is he set, or still out / recovering?

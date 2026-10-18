@@ -15,4 +15,14 @@ export const hook={name:'keeper-support-hook',setup(b){
    "  return {score:__score,job:");
   return {contents:src,loader:'ts'};
  });
+ // (2026-10-19 follow-up) one read-only call before the ordinary steer of every player each tick (practice.ts, the
+ // `}else steer(p,aim,STEP,Math.min(limit,p.pace),...)` line): __gk gets the player, his aim, his speed limit, his kind,
+ // the time and the players, and reads them only (the keeper's recovery: which limit, which aim). No __gk = a no-op.
+ b.onLoad({filter:/[\\/]src[\\/]practice\.ts$/},a=>{
+  let src=readFileSync(a.path,'utf8');
+  if(src.split(STEER).length!==2)throw Error('steer anchor not found exactly once');
+  src=src.replace(STEER,"}else{(globalThis as any).__gk?.(p,aim,limit,kind,time,players);"+STEER.slice(5)+"}");
+  return {contents:src,loader:'ts'};
+ });
 }};
+export const STEER="}else steer(p,aim,STEP,Math.min(limit,p.pace),kind==='press'||kind==='challenge'||kind==='intercept'||kind==='receive'||kind==='sweep'?players.filter(q=>q.side===p.side):players,trackingVelocity);";
