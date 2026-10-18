@@ -731,7 +731,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    // depth, level with it), but no further from his set spot for this ball than he could sprint back from before they
    // could shoot if it were lost now (attackTime, keeperGiveBack): near his goal that is the angle, not the middle of his
    // area (the study: with the ball within 16 m he stood 2.1 m off the ball-goal line, 26% of the time 2.5 m or more).
-   if(ownTeam){const d=Math.hypot(x-setDepth,y-position.y),room=keeperGiveBack(p,attackTime(p.side,ball,sidePlayers(other(p.side)).filter(q=>q.role!=='GK')),KEEPER_SPRINT);
+   if(false&&ownTeam){const d=Math.hypot(x-setDepth,y-position.y),room=keeperGiveBack(p,attackTime(p.side,ball,sidePlayers(other(p.side)).filter(q=>q.role!=='GK')),KEEPER_SPRINT);
     if(d>room){x=setDepth+(x-setDepth)*room/d;y=position.y+(y-position.y)*room/d;}}
    if(tracking){const usual=x;lastLine=Math.min(...sidePlayers(p.side).filter(q=>q.role!=='GK').map(q=>depth(p.side,q.x)));x=Math.max(x,keeperLineDepth(sweep,lastLine,bd));
     // (keeper fix, 2026-10-19) He takes his place from where the attack is heading, not from where his back line
@@ -747,7 +747,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
     // before that shot needs (it was a 0.55 jog whenever the ball was 10.5 m+ away, with a sprint only when he was
     // 1.5 m deeper into the pitch than his target: 0.23-0.38 of his pace after a loss). Nearer goal he keeps his 0.9
     // shuffle against the ball, so a quick switch across the box still beats him (KEEPER_REREAD).
-    if(false&&bd>=X(23))speed=Math.max(speed,Math.min(p.pace,keeperRunSpeed(p,Math.hypot(depth(p.side,p.x)-setDepth,p.y-position.y),attackIn)));
+    if(bd>=X(23))speed=Math.max(speed,Math.min(p.pace,keeperRunSpeed(p,Math.hypot(depth(p.side,p.x)-setDepth,p.y-position.y),attackIn)));
     // Caught off his line as the ball comes into range: he sprints back to set himself.
     if(depth(p.side,p.x)>x+1.5)speed=Math.max(speed,p.pace*.9);
     // (keeper upgrade) he sees the shooter shape to shoot and sets himself for the strike: near his spot (SET_PLANT m)
@@ -1313,7 +1313,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    // into a near aim was the main limit on his speed after a loss (the study: braking-limited in 60-85% of his ticks, at
    // 0.23-0.38 of his pace). Only the goalward part, and only while the ball is 10.5 m+ away (as his run back, above):
    // across the goal, coming out, and against a ball near goal he still steps and sets as before.
-   if(!restart&&p.role==='GK'&&kind==='keeper'&&aim===intent!.aim&&p.side!==side&&!trackingVelocity&&depth(p.side,ball.x)>=X(23)&&false){
+   if(!restart&&p.role==='GK'&&kind==='keeper'&&aim===intent!.aim&&p.side!==side&&!trackingVelocity&&depth(p.side,ball.x)>=X(23)){
     const drift=keeperDrift.update(p.id,kind,aim,time),back=p.side===0?Math.max(-limit,Math.min(0,drift.x)):Math.min(limit,Math.max(0,drift.x));
     if(back)trackingVelocity={x:back,y:0};
    }else keeperDrift.forget(p.id);
