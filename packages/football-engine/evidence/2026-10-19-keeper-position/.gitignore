@@ -1,4 +1,4 @@
 results/.bundle.*
 results/.rev-*
-results/record/
 results/smoke*.jsonl
+results/local/
