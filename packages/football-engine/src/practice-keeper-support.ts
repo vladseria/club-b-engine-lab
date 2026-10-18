@@ -12,7 +12,8 @@ import {LOSS_SCALE,LOSS_OWN,lossDanger,restDefence} from './practice-rest-defenc
 type Risk=(from:Vec,to:Vec,defenders:PracticePlayer[],speed?:number)=>number;
 /** Keeper fix (2026-10-19): what a loss with him at a point would give away. "If we lose the ball now, how out of
  * position am I" comes first, the angle he offers second. He prices each point by:
- *  - how likely a loss is right now: LOSS_LIKELY always (a pass can be cut out, a touch can go astray), more as the
+ *  - how likely a loss is right now: LOSS_LIKELY always (a pass can be cut out, a touch can go astray: a side loses it
+ *    about once in 11 s of its possession, 40 times a match, so about 0.15 in the 2 s a support job lasts), more as the
  *    carrier is pressed (the nearest opponent within 7 m) or as the ball to this very point could be cut out (its lane);
  *  - what a loss at the ball would give them: the shot the man who wins it gets near our goal, or the counter further
  *    up with whoever is free behind the ball (lossThreat, lossDanger with the rest defence: the passers' own reads), as
@@ -29,7 +30,7 @@ type Risk=(from:Vec,to:Vec,defenders:PracticePlayer[],speed?:number)=>number;
  * pressed), which alone read a 1.06 s standing-start run back (about 1.5 s or more was observed) and ignored where the ball
  * was and who was goal-side: he offered points 5 m beside his goal at a ball 10 m out on every setting. Far from his goal,
  * with team-mates behind the ball and the carrier free, it adds nothing and his angle is what it was. */
-export const LOSS_LIKELY=.25,OPEN_FROM=1,OPEN_SPAN=3,EMPTY_NET=.9,SWEEPER_EASE=.3;
+export const LOSS_LIKELY=.15,OPEN_FROM=1,OPEN_SPAN=3,EMPTY_NET=.9,SWEEPER_EASE=.3;
 /** A keeper offers a return angle while pricing what a turnover would leave
  * open behind him. The selected movement uses ordinary physics;
  * defending, saves and sweeps retain their live-ball decisions. */
