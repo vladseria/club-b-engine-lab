@@ -2,3 +2,4 @@ results/.bundle.*
 results/.rev-*
 results/smoke*.jsonl
 results/local/
+results/*.jsonl

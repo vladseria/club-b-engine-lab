@@ -19,14 +19,14 @@ type Risk=(from:Vec,to:Vec,defenders:PracticePlayer[],speed?:number)=>number;
  *    a share of a loss on our goal line;
  *  - how much of the goal he would leave open to it: the metres still between him and his ready spot when they could
  *    shoot (attackTime from the ball, his sprint back after his reaction: keeperGiveBack), from OPEN_FROM m (about
- *    where shots stopped beating a set keeper) growing over OPEN_SPAN m to EMPTY_NET, the goals a shot gains against a
+ *    where shots stopped beating a set keeper) growing over OPEN_SPAN m (full from 4 m off) to EMPTY_NET, the goals a shot gains against a
  *    keeper that far off (the study's shots: goals minus their chance -0.07 with him set, +0.17 at 3-6 m off, +0.24 beyond);
  *  - a sweeper accepts a little more of it (SWEEPER_EASE): his habit, not a licence to leave the goal.
  * In the loss price's units (LOSS_SCALE). It comes on top of his old habit (the return time, more of it with the carrier
  * pressed), which alone read a 1.06 s standing-start run back (about 1.5 s or more was observed) and ignored where the ball
  * was and who was goal-side: he offered points 5 m beside his goal at a ball 10 m out on every setting. Far from his goal,
  * with team-mates behind the ball and the carrier free, it adds nothing and his angle is what it was. */
-export const LOSS_LIKELY=.25,OPEN_FROM=1,OPEN_SPAN=4,EMPTY_NET=.3,SWEEPER_EASE=.3;
+export const LOSS_LIKELY=.25,OPEN_FROM=1,OPEN_SPAN=3,EMPTY_NET=.3,SWEEPER_EASE=.3;
 /** A keeper offers a return angle while pricing what a turnover would leave
  * open behind him. The selected movement uses ordinary physics;
  * defending, saves and sweeps retain their live-ball decisions. */
