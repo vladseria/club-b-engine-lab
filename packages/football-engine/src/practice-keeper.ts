@@ -128,6 +128,45 @@ export function keeperLineDepth(sweep:number,lastLine:number,ballDepth:number):n
  return follows*far*clamp(lastLine-(KEEPER_BEHIND-KEEPER_BEHIND_SWEEP*s),0,BOX_DEPTH+1+4*s);
 }
 
+/** Keeper fix (2026-10-19): "if we lose the ball now, how out of position am I". The keeper position study
+ * (evidence/2026-10-19-keeper-position) found him offering a pass outside his posts near his own goal (a loss there
+ * scored 17.8% with him > 4 m off his ready spot against 5.8% with him set) and still standing up the pitch when an
+ * attack arrived (he took his depth from his back line and jogged back). He now reads the attack instead:
+ *  - attackTime: how soon the opponents could get a shot away from where the ball is: a shot after a touch (SHOT_SET s)
+ *    once it is inside SHOT_RANGE m, from further out the ball first travels into range (ATTACK_SPEED m/s, a carry and a
+ *    pass forward between them; faster if it is already travelling goalward), or is played to a man nearer goal who
+ *    then does the same (PASS_PREP + the pass at PASS_SPEED m/s). Who marks that man is left out: the keeper must be set
+ *    for the ball going in there whoever is on him.
+ *  - keeperGiveBack: how far he can get back and be set (a run from standing that stops on his spot) in a given time,
+ *    after his reaction, at a share of his pace (KEEPER_DROP, a comfortable drop with something left, when he chooses
+ *    how high to stand; KEEPER_SPRINT when he prices where a loss would leave him, since then he runs).
+ *  - keeperBackTime: the same run the other way round, from a point to his set spot. It replaces the support job's
+ *    standing-start arrival time (which ignored his reaction and his stop: 1.06 s modelled where about 1.5 s or more
+ *    was observed). */
+export const SHOT_RANGE=12,SHOT_SET=.6,ATTACK_SPEED=8,PASS_PREP=.3,PASS_SPEED=13,KEEPER_DROP=.6,KEEPER_SPRINT=.9;
+type Runner=Pick<KeeperState,'pace'|'acceleration'>&{skills:{reading:number}};
+const keeperReaction=(p:{skills:{reading:number}})=>.2+(10-clamp(p.skills.reading,0,10))*.015;
+export function attackTime(side:0|1,ball:Vec&{vx?:number},attackers:readonly Vec[],carrier?:Vec|null):number{
+ const bd=ownDepth(side,ball.x),goalward=Math.max(0,(side===0?-1:1)*(ball.vx??0));
+ const into=(d:number,speed=ATTACK_SPEED)=>SHOT_SET+Math.max(0,d-SHOT_RANGE)/Math.max(ATTACK_SPEED,speed);
+ let t=into(bd,goalward);
+ for(const q of attackers)if(q!==carrier&&ownDepth(side,q.x)<bd)t=Math.min(t,PASS_PREP+Math.hypot(q.x-ball.x,q.y-ball.y)/PASS_SPEED+into(ownDepth(side,q.x)));
+ return t;
+}
+export function keeperGiveBack(p:Runner,time:number,share=KEEPER_DROP):number{
+ const t=Math.max(0,time-keeperReaction(p)),v=Math.max(.5,p.pace*share),a=Math.max(.1,p.acceleration);
+ return t<=2*v/a?a*t*t/4:v*(t-v/a);
+}
+export function keeperBackTime(p:Runner,from:Vec,to:Vec,share=KEEPER_SPRINT):number{
+ const d=Math.hypot(to.x-from.x,to.y-from.y),v=Math.max(.5,p.pace*share),a=Math.max(.1,p.acceleration);
+ return keeperReaction(p)+(d<=v*v/a?2*Math.sqrt(d/a):d/v+v/a);
+}
+/** The top speed a run from standing that stops `distance` m away within `time` s needs (Infinity: not in time). */
+export function keeperRunSpeed(p:Runner,distance:number,time:number):number{
+ const t=Math.max(0,time-keeperReaction(p)),a=Math.max(.1,p.acceleration),disc=a*a*t*t-4*a*Math.max(0,distance);
+ return disc<0?Infinity:(a*t-Math.sqrt(disc))/2;
+}
+
 export interface KeeperFlightRead {
  /** Time to the goal line, and a fresh interception target on the observed flight. */
  time:number;crossing:Vec;aim:Vec;contactTime:number;
