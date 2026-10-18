@@ -351,7 +351,12 @@ export function play(t:{label:string;arm:string;seed:number;rev:string;parity?:b
   const rs=!!frames[frameAt(e.time)].restart;
   if(a.role==='GK'){kp[a.side][rs?3:2]++;continue;}
   if(t&&t.role==='GK'&&t.side===a.side&&!rs){kp[a.side][0]++;
-   for(let q=j+1;q<events.length&&events[q].time<=e.time+4;q++){const x=events[q];if(x.kind==='receive'&&x.actor===e.target){kp[a.side][1]++;break;}if(x.kind==='receive'||x.kind==='pass'||x.kind==='shot'||x.kind==='clearance')break;}}
+   for(let q=j+1;q<events.length&&events[q].time<=e.time+4;q++){const x=events[q];if(x.kind==='receive'&&x.actor===e.target){kp[a.side][1]++;break;}if(x.kind==='receive'||x.kind==='pass'||x.kind==='shot'||x.kind==='clearance')break;}
+   // (keeper fix) a build-up window: a team-mate's pass to him, 2 s before it to 3 s after, up to 3 a match
+   if(eps.filter((x:any)=>x.kind==='bu').length<3){const A=a.side,win:any[]=[];
+    for(let s2=e.time-2;s2<=e.time+3+1e-6;s2+=.25){const fr=frames[frameAt(s2)],own=ownerOf(fr),ps:any[]=[];roster.forEach((_p:any,i:number)=>{const qq=pos(fr,i);if(qq)ps.push(i,r2(qq.x),r2(qq.y),r1(qq.vx??0),r1(qq.vy??0));});
+     const gg=gkAt(fr,A);win.push([r2(fr.time),r2(fr.ball.x),r2(fr.ball.y),own&&idx.has(own)?idx.get(own)!:-1,gg?sourceOf(gg.i,decAt(gg.i,fr.time)):'',fr.restart?1:0,ps]);}
+    eps.push({kind:'bu',A,t:r2(e.time),bd:r1(depthOf(A,frames[frameAt(e.time)].ball.x)),frames:win});}}
  }
  const official=print(c);
  return {label:t.label,arm:t.arm,seed:t.seed,rev:t.rev,build:run.engineBuild.slice(0,8),plat:`${process.platform}-${process.arch}-node${process.versions.node}`,
