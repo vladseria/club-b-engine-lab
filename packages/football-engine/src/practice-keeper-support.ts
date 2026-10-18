@@ -43,7 +43,10 @@ export function keeperSupportCandidates(p:PracticePlayer,focus:PracticePlayer,pl
  // point was a metre outside it, and he stood 8 m+ out in 16% of his side's possession with the ball 24-32 m out.
  const home=clamp((sweep-KEEPER_HOME)/(.2-KEEPER_HOME),0,1),reachOut=BOX_DEPTH-1+home*(L*.42-BOX_DEPTH+1);
  const step=clamp(bd-12,{deep:3,standard:4,high:5}[tactics.line],reachOut);
- const points=[baseline,...[Math.max(2,step-4),step].flatMap(x=>[-5,0,5].map(y=>({x:world(x),y:clamp(focus.y*.4+y,-W*.3,W*.3)})))];
+ // (keeper fix, 2026-10-19) ... and staying set on his ready spot is always one of his options: with a team-mate on the
+ // ball right in front of goal the baseline and the middle points are on the carrier's own spot, and the only points left
+ // were 5 m to either side of the goal, so he went wide however the price read them.
+ const points=[baseline,...[Math.max(2,step-4),step].flatMap(x=>[-5,0,5].map(y=>({x:world(x),y:clamp(focus.y*.4+y,-W*.3,W*.3)}))),ready];
  const given=Math.min(1,Math.max(lossThreat(p.side,focus,players,focus.id),lossDanger(bd/L,restDefence(focus,players).deficit))/LOSS_OWN);
  const back=keeperGiveBack(p,attackTime(p.side,focus,attackers),KEEPER_SPRINT);
  return points.map(aim=>{

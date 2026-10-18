@@ -86,7 +86,7 @@ export function play(t:{label:string;arm:string;seed:number;rev:string;parity?:b
  const inp=inputOf(t.arm,t.seed);
  // ---- candidates from the hook, keyed by keeper id and time
  const cands=new Map<string,any[]>();
- (globalThis as any).__ks=(c:any)=>{const key=c.id+'|'+c.time;let a=cands.get(key);if(!a){a=[];cands.set(key,a);}a.push({x:c.aim.x,y:c.aim.y,score:c.score,rt:c.returnTime,open:c.open,travel:c.travel,risk:c.risk,danger:c.danger,nearest:c.nearest,bd:c.bd});};
+ (globalThis as any).__ks=(c:any)=>{const key=c.id+'|'+c.time;let a=cands.get(key);if(!a){a=[];cands.set(key,a);}a.push({nc:c.nc??7,x:c.aim.x,y:c.aim.y,score:c.score,rt:c.returnTime,open:c.open,travel:c.travel,risk:c.risk,danger:c.danger,nearest:c.nearest,bd:c.bd});};
  // ---- (follow-up) every keeper's steer each tick (hook.mjs __gk): position, velocity, aim, speed limit, pace, acceleration, kind, crowd
  const KINDS:string[]=[],kindIx=(k:string)=>{let i=KINDS.indexOf(k);if(i<0){i=KINDS.length;KINDS.push(k);}return i;};
  const gkT:number[][]=[[],[]];// per side, 11 numbers a tick: t,x,y,vx,vy,aimx,aimy,limit,pace,acc,kind*2+crowd
@@ -128,11 +128,13 @@ export function play(t:{label:string;arm:string;seed:number;rev:string;parity?:b
   if(supInfo.has(ch))return supInfo.get(ch);
   const a=ch.assignment,list=a?cands.get(roster[i].id+'|'+a.since):undefined;let info:any=null;
   if(list){
-   // a call yields 7 candidates; with more than one call at that time take the last block that contains the aim
-   for(let b=Math.floor((list.length-1)/7)*7;b>=0&&!info;b-=7){
-    const block=list.slice(b,b+7),k=block.findIndex((x:any)=>x.x===a.aim.x&&x.y===a.aim.y);
+   // a call yields 7 candidates (8 on the keeper fix: + his ready spot, class 3 'supR'); with more than one call at that
+   // time take the last block that contains the aim
+   const N=list[0].nc;
+   for(let b=Math.floor((list.length-1)/N)*N;b>=0&&!info;b-=N){
+    const block=list.slice(b,b+N),k=block.findIndex((x:any)=>x.x===a.aim.x&&x.y===a.aim.y);
     if(k>=0){const base=block[0],best=block.reduce((m:any,x:any)=>x.score>m.score?x:m,block[0]);
-     info={k,cls:k===0?0:k<=3?1:2,danger:base.danger,nearest:base.nearest,bd:base.bd,rt:block[k].rt,rt0:base.rt,ds:block[k].score-base.score,open:block[k].open,top:best===block[k]?1:0};}
+     info={k,cls:k===0?0:k<=3?1:k<=6?2:3,danger:base.danger,nearest:base.nearest,bd:base.bd,rt:block[k].rt,rt0:base.rt,ds:block[k].score-base.score,open:block[k].open,top:best===block[k]?1:0};}
    }
   }
   supInfo.set(ch,info);return info;
@@ -141,7 +143,7 @@ export function play(t:{label:string;arm:string;seed:number;rev:string;parity?:b
   if(!ch)return 'none';
   const k=ch.kind,r=ch.reason;
   if(k==='restart')return 'restart';
-  if(r===SUPPORT_REASON){const s=supClass(i,ch);return s?['sup0','supN','supF'][s.cls]:'sup?';}
+  if(r===SUPPORT_REASON){const s=supClass(i,ch);return s?['sup0','supN','supF','supR'][s.cls]:'sup?';}
   if(r===OFF_REASON)return 'off';
   if(r===HOLD_REASON)return 'offhold';
   if(r===ADJ_REASON)return 'offadj';
@@ -177,7 +179,7 @@ export function play(t:{label:string;arm:string;seed:number;rev:string;parity?:b
   }
  }
  // support decisions by ball depth x danger x class
- const sup=[0,1].map(()=>Array.from({length:4},()=>Array.from({length:4},()=>[0,0,0])));
+ const sup=[0,1].map(()=>Array.from({length:4},()=>Array.from({length:4},()=>[0,0,0,0])));
  for(const s of [0,1])for(const i of gkIdx[s])for(const ch of dec.get(i)??[]){
   if(ch.reason!==SUPPORT_REASON)continue;const info=supClass(i,ch);if(!info)continue;
   sup[s][bdBin(info.bd)][info.danger<=0?0:info.danger<1/3?1:info.danger<2/3?2:3][info.cls]++;

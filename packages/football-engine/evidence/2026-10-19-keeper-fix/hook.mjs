@@ -16,7 +16,7 @@ export const hook={name:'keeper-support-hook',setup(b){
   if(live===fix)throw Error('keeper support score anchor not found (or both found)');
   const expr=(live?LIVE:FIX).slice('  return {score:'.length,-',job:'.length);
   src=src.replace(live?LIVE:FIX,`  const __score=${expr};\n`+
-   `  (globalThis as any).__ks?.({id:p.id,side:p.side,time,aim,score:__score,returnTime,open,travel:read.travel,risk:read.risk,danger,nearest,bd,sweep${fix?',exposed':''}});\n`+
+   `  (globalThis as any).__ks?.({id:p.id,side:p.side,time,aim,score:__score,returnTime,open,travel:read.travel,risk:read.risk,danger,nearest,bd,sweep${fix?',exposed,nc:points.length':''}});\n`+
    "  return {score:__score,job:");
   return {contents:src,loader:'ts'};
  });
