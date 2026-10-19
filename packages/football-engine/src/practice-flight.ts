@@ -1,6 +1,6 @@
 import {L,W,GH,HEIGHT,BOX_DEPTH,BOX_HALF,SPOT,X,Y,G} from './pitch.js';
 import {clamp} from './model.js';
-import {contact,STEP} from './movement.js';
+import {contact,steerMotion,STEP} from './movement.js';
 import type {MovingBall,MovingPlayer,Vec} from './movement.js';
 import {goalBoundFlight,keeperReach} from './practice-football.js';
 
@@ -75,24 +75,10 @@ function travelBound(speed:number,acceleration:number,pace:number,time:number):n
  const accelerating=Math.min(time,(pace-speed)/acceleration);
  return speed*accelerating+.5*acceleration*accelerating*accelerating+pace*(time-accelerating);
 }
-/** The player's real run at the point: from his reacted position, steerMotion (movement.ts) toward it each tick at his
- * pace, accelerating and braking, until the ball is there; the gap left. (engine speed, 2026-10-19) steerMotion's
- * arithmetic written out on four numbers instead of a copied player, for its call here only (no neighbours, a still
- * target, arrival radius 0.2): the same operations in the same order, so the same gap to the last bit. */
-export function previewGap(p:FlightPlayer,point:FlightSample,reaction:number):number {
- const delay=Math.min(reaction,point.time),tx=point.x,ty=point.y,end=point.time,limit=p.pace,acceleration=p.acceleration;
- let x=p.x+p.vx*delay,y=p.y+p.vy*delay,vx=p.vx,vy=p.vy;
- for(let time=delay;time<end-1e-9;time+=STEP){
-  const dt=Math.min(STEP,end-time);
-  const dx=tx-x,dy=ty-y,distance=Math.hypot(dx,dy);
-  const directionX=distance?dx/distance:0,directionY=distance?dy/distance:0;
-  const speed=Math.min(limit,Math.sqrt(2*acceleration*Math.max(0,distance-.2)));
-  let desiredX=0+directionX*speed,desiredY=0+directionY*speed;
-  const length=Math.hypot(desiredX,desiredY);if(length>limit){desiredX*=limit/length;desiredY*=limit/length;}
-  const dvx=desiredX-vx,dvy=desiredY-vy,change=Math.hypot(dvx,dvy),factor=Math.min(1,acceleration*dt/Math.max(change,.00001));
-  vx+=dvx*factor;vy+=dvy*factor;x+=vx*dt;y+=vy*dt;
- }
- return Math.hypot(x-tx,y-ty);
+function previewGap(p:FlightPlayer,point:FlightSample,reaction:number):number {
+ const delay=Math.min(reaction,point.time),preview:MovingPlayer={...p,side:p.side??0,role:p.role??'',x:p.x+p.vx*delay,y:p.y+p.vy*delay};
+ for(let time=delay;time<point.time-1e-9;time+=STEP)steerMotion(preview,point,Math.min(STEP,point.time-time),p.pace);
+ return distance(preview,point);
 }
 
 function findMeeting(player:FlightPlayer,ball:MovingBall,reaction:number,samples:readonly FlightSample[],flightAge:number,needsFallback:boolean):FlightMeeting|null {

@@ -51,6 +51,12 @@ on:
         default: ubuntu-24.04-arm
         type: choice
         options: [ubuntu-24.04-arm, ubuntu-latest]
+      install:
+        description: "esbuild: the bundler only (simulation harnesses). app: npm install of package.json's devDependencies (app-test snapshots a-<sha12>: vitest, vite, react)"
+        required: false
+        default: esbuild
+        type: choice
+        options: [esbuild, app]
       label:
         description: Free text shown in the run name (the driver puts a unique id here)
         required: false
@@ -107,13 +113,20 @@ jobs:
         with:
           node-version: ${{ inputs.node }}
       - name: install
+        env:
+          INSTALL: ${{ inputs.install }}
         run: |
           start=$(date +%s)
-          # Only the bundler the harnesses import, at the version package.json pins.
-          ver=$(node -p "require('./package.json').devDependencies.esbuild")
-          mkdir -p "$RUNNER_TEMP/simdeps"
-          npm install --prefix "$RUNNER_TEMP/simdeps" --no-save --no-audit --no-fund "esbuild@$ver"
-          ln -s "$RUNNER_TEMP/simdeps/node_modules" node_modules
+          if [ "$INSTALL" = app ]; then
+            # App-test snapshots: package.json's exact devDependencies, in place (vitest resolves from the repo root).
+            npm install --no-audit --no-fund --no-package-lock --ignore-scripts
+          else
+            # Only the bundler the harnesses import, at the version package.json pins.
+            ver=$(node -p "require('./package.json').devDependencies.esbuild")
+            mkdir -p "$RUNNER_TEMP/simdeps"
+            npm install --prefix "$RUNNER_TEMP/simdeps" --no-save --no-audit --no-fund "esbuild@$ver"
+            ln -s "$RUNNER_TEMP/simdeps/node_modules" node_modules
+          fi
           echo "install took $(( $(date +%s) - start )) s"
       - name: run
         env:

@@ -124,8 +124,7 @@ test('score, margin and half-time triggers fire at stoppages when true; three pe
  // (evidence/2026-10-10-matchups-combined/repin.mjs subs). Still 2030 on the
  // combined build with stamina as lasting and box defending (b0174c30,
  // evidence/2026-10-12-box-defending/repin.mjs subs).
- // The keeper fix (2026-10-19) changed it; 2031 is the next (evidence/2026-10-19-keeper-fix/repin.mjs subs).
- const f=withBench(2031);
+ const f=withBench(2030);
  const orders=[
   {id:'h',side:0,in:'r10',trigger:{kind:'half'}},
   {id:'chain',side:0,in:'r20',out:'r10',trigger:{kind:'tired',player:'r10',threshold:99.9},notBefore:200},

@@ -99,8 +99,7 @@ test('release review preserves an ordinary shot when its opportunity remains use
  // Track the runner (2026-10-11) removed it again; 13011 has one (evidence/2026-10-11-track-runner/repin.mjs ordinary).
  // The combined build with stamina as lasting and box defending (b0174c30, 2026-10-13) removed it again; 13012 has
  // one (evidence/2026-10-12-box-defending/repin.mjs ordinary).
- // The keeper fix (2026-10-19) removed it again; 13013 has one (evidence/2026-10-19-keeper-fix/repin.mjs ordinary).
- const r=match(13013,'press',75),shots=r.events.filter(e=>e.kind==='shot');
+ const r=match(13012,'press',75),shots=r.events.filter(e=>e.kind==='shot');
  assert(shots.length,'The review must not suppress shooting as a class');
  assert(shots.some(e=>{const index=r.players.findIndex(p=>p.id===e.actor),preparation=r.choices.findLast(c=>c.player===index&&c.action&&c.time<e.time);return !e.firstTime&&!e.technique&&!e.freeKick&&preparation?.action==='shoot'&&e.time-preparation.time<2&&!r.events.some(n=>n.actor===e.actor&&n.kind==='receive'&&n.time>preparation.time&&n.time<e.time);}), 'An ordinary prepared foot shot must still release');
  for(const shot of shots){

@@ -12,7 +12,7 @@ import type {PlaybookConfig,PlaybookSelection,TrainingSetup} from './practice-pl
 import {previewLessonRecognition} from './practice-recognition.js';
 import type {LessonSpec} from './practice-lesson.js';
 import {throwOptions,strikeThrow} from './practice-throw.js';
-import {keeperReadyPosition,readKeeperFlight,keeperHandling,keeperSweepReach,keeperSweepDepth,keeperRead,keeperLineDepth,keeperSweepNeed,SWEEP_READ_SPREAD,attackTime,keeperGiveBack,keeperRunSpeed,SHOT_SET,SHOT_RANGE,ATTACK_SPEED,KEEPER_SPRINT} from './practice-keeper.js';
+import {keeperReadyPosition,readKeeperFlight,keeperHandling,keeperSweepReach,keeperSweepDepth,keeperRead,keeperLineDepth,keeperSweepNeed,SWEEP_READ_SPREAD} from './practice-keeper.js';
 import {coordinateFootball,CoordinationPlan,FootballJob} from './practice-coordination.js';
 import {Fixture,Player,Role,Side,Skills,Traits,Tactics,clamp,rng,shapes} from './model.js';
 import {MovingPlayer,MovingBall,Vec,steer,steerMotion,contact,STEP} from './movement.js';
@@ -175,15 +175,11 @@ export function laneRisk(from:Vec,to:Vec,defenders:PracticePlayer[],speed=16,del
  for(const p of defenders){
   const projection=clamp(((p.x-from.x)*dx+(p.y-from.y)*dy)/d2,.06,1);
   // Include the receiver's end of the lane: a marker can intercept just before reception.
-  // (engine speed, 2026-10-19) written on scalars: no array or point/unit objects per defender, and the one
-  // hypot(point - p) serves both the unit direction and the distance (unit and dist computed exactly that), so every
-  // value is the one before to the last bit.
-  for(let end=0;end<2;end++){
-   const t=end===0?projection:Math.min(1,projection+.15);
-   const flight=length*t/speed,available=Math.max(0,flight+delay-.22),px=from.x+dx*t,py=from.y+dy*t;
-   const ux=px-p.x,uy=py-p.y,gap=Math.hypot(ux,uy),norm=gap||1,towards=p.vx*(ux/norm)+p.vy*(uy/norm);
+  for(const t of [projection,Math.min(1,projection+.15)]){
+   const flight=length*t/speed,available=Math.max(0,flight+delay-.22),point={x:from.x+dx*t,y:from.y+dy*t};
+   const delta=unit(point.x-p.x,point.y-p.y),towards=p.vx*delta.x+p.vy*delta.y;
    const reach=Math.max(0,Math.min(p.pace*available,towards*available+.5*p.acceleration*available*available));
-   risk=Math.max(risk,clamp((reach+1.1-gap)/2,0,1));
+   risk=Math.max(risk,clamp((reach+1.1-dist(point,p))/2,0,1));
   }
  }
  return risk;
@@ -730,30 +726,10 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    const set=keeperReadyPosition(p,seen,!ownTeam&&!!owner,oneOnOne),position=tracking?{x:set.x,y:clamp(set.y+read.offset,-GH+.18,GH-.18)}:set;kind='keeper';x=Math.max(.3,(ownTeam?X(7)+bd*.035:depth(p.side,position.x))+keeperSweepDepth(sweep,bd,ownTeam));y=ownTeam?clamp(ball.y*.15,-G(3.2),G(3.2)):position.y;speed=p.pace*(!ownTeam&&bd<X(23)?.9:.55);reason='Își potrivește poziția cu mingea și păstrează poarta acoperită.';
    // Behaviour round A: defending, he plays off his back line (keeperLineDepth),
    // and comes for a ball as far beyond where he usually stands as he now stands.
-   let higher=0,lastLine=Infinity;const setDepth=depth(p.side,position.x);
-   // (keeper fix, 2026-10-19) With his own side on the ball he stands where he likes to be for it (3.2 m + 3.5% of its
-   // depth, level with it), but no further from his set spot for this ball than he could sprint back from before they
-   // could shoot if it were lost now (attackTime, keeperGiveBack): near his goal that is the angle, not the middle of his
-   // area (the study: with the ball within 16 m he stood 2.1 m off the ball-goal line, 26% of the time 2.5 m or more).
-   if(ownTeam){const d=Math.hypot(x-setDepth,y-position.y),room=keeperGiveBack(p,attackTime(p.side,ball,sidePlayers(other(p.side)).filter(q=>q.role!=='GK')),KEEPER_SPRINT);
-    if(d>room){x=setDepth+(x-setDepth)*room/d;y=position.y+(y-position.y)*room/d;}}
-   if(tracking){const usual=x;lastLine=Math.min(...sidePlayers(p.side).filter(q=>q.role!=='GK').map(q=>depth(p.side,q.x)));x=Math.max(x,keeperLineDepth(sweep,lastLine,bd));
-    // (keeper fix, 2026-10-19) He takes his place from where the attack is heading, not from where his back line
-    // stands: the height his habit wants (a sweeper's extra metres, following his back line) only as far as he can
-    // still drop and be set before the opponents could get a shot away (attackTime: the ball carried or passed into
-    // range, or played to a man nearer goal). With their ball deep and nobody near his goal a sweeper still stands
-    // high; as the attack comes on, or a man waits nearer goal, he comes back. (The study: after a loss 16 m or more
-    // out he was more than 2 m off his ready spot when the ball first came within 16 m 70% of the time as a sweeper,
-    // 23% at the default trait, and further off the longer it went on.)
-    const attackIn=attackTime(p.side,seen,sidePlayers(other(p.side)).filter(q=>q.role!=='GK'),owner);
-    x=Math.min(x,setDepth+keeperGiveBack(p,attackIn));higher=Math.max(0,x-usual);
-    // ... and he gets there at a real run when he is out of place, sideways included: as fast as being set on his spot
-    // before that shot needs (it was a 0.55 jog whenever the ball was 10.5 m+ away, with a sprint only when he was
-    // 1.5 m deeper into the pitch than his target: 0.23-0.38 of his pace after a loss). Nearer goal he keeps his 0.9
-    // shuffle against the ball, so a quick switch across the box still beats him (KEEPER_REREAD).
-    if(bd>=X(23))speed=Math.max(speed,Math.min(p.pace,keeperRunSpeed(p,Math.hypot(depth(p.side,p.x)-setDepth,p.y-position.y),attackIn)));
+   let higher=0,lastLine=Infinity;
+   if(tracking){const usual=x;lastLine=Math.min(...sidePlayers(p.side).filter(q=>q.role!=='GK').map(q=>depth(p.side,q.x)));x=Math.max(x,keeperLineDepth(sweep,lastLine,bd));higher=x-usual;
     // Caught off his line as the ball comes into range: he sprints back to set himself.
-    if(depth(p.side,p.x)>x+1.5)speed=Math.max(speed,p.pace*.9);
+    if(depth(p.side,p.x)>x+1.5)speed=p.pace*.9;
     // (keeper upgrade) he sees the shooter shape to shoot and sets himself for the strike: near his spot (SET_PLANT m)
     // he plants where he is, the earlier the better he reads it
     if(!ownTeam&&owner&&owner.side!==p.side&&prepared&&prepared.option.kind==='shoot'&&time>=prepared.at-(SET_READ+p.skills.reading*SET_READ_PER)&&Math.hypot(depth(p.side,p.x)-x,p.y-y)<SET_PLANT){x=depth(p.side,p.x);y=p.y;speed=p.pace*.3;}}
@@ -767,10 +743,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
     // across with its flight): he stays ready to come, and is not caught
     // going backwards when the man meets it (never past where that man meets it).
     // (and never deeper into the pitch than he stands with the ball far away)
-    // (keeper fix, 2026-10-19) ... and only as high as he can still drop from and be set before the man who meets it
-    // could shoot (he met it within 16 m with the keeper stranded high: the study's "caught high", 0.9 a match for a sweeper).
-    const theirs=Math.max(0,flight.theirs!-(time-flightAt)),meetDepth=depth(p.side,meet.x);
-    const standing=Math.min(depth(p.side,p.x),meetDepth-1.25,2.8+keeperSweepDepth(sweep,L,false)+higher,setDepth+keeperGiveBack(p,theirs+SHOT_SET+Math.max(0,meetDepth-SHOT_RANGE)/ATTACK_SPEED));
+    const standing=Math.min(depth(p.side,p.x),depth(p.side,meet.x)-1.25,2.8+keeperSweepDepth(sweep,L,false)+higher);
     if(standing>x){x=standing;reason='Mingea trece de apărare; își ține poziția, gata să iasă, în loc să se retragă pe linie.';}
     // He comes when he reads he is there first, or level if he is a sweeper
     // (keeperSweepNeed): his own reaction, his own pace, his own read.
@@ -886,7 +859,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
  // (keeper with the ball in his hands) an opponent as the keeper sees him: his own picture, a moment old for a poor reader
  const keeperSees=(k:PracticePlayer,q:PracticePlayer)=>sightingsLive?sightings.at(q,time,sightLag(k,{energy:k.energy,inView:inView(k,lookingAt(k,ball),q),watching:0,at:q,time,salt:q.id})):q;
  // How hard each off-ball positional move is made (practice-intensity): his last read and his spot's motion.
- const intensities=new Map<string,{kind:Duty;defending:boolean;at:number;urgency:number;why:string}>(),spotDrift=new SpotDrift(),keeperDrift=new SpotDrift();
+ const intensities=new Map<string,{kind:Duty;defending:boolean;at:number;urgency:number;why:string}>(),spotDrift=new SpotDrift();
  const marks=new Map<string,string>();
  // Full time (practice-match.ts attackAtFullTime): the clock ends the match
  // unless a side is in an attack, which plays out for at most LAST_ATTACK_MAX.
@@ -1312,15 +1285,6 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
     limit=intensityLimit(limit,p.pace,read.urgency);p.acceleration*=intensityPush(read.urgency);
     if(!trackingVelocity){const m=Math.hypot(drift.x,drift.y),c=Math.min(1,limit/Math.max(m,1e-6));trackingVelocity={x:drift.x*c,y:drift.y*c};}
    }else spotDrift.forget(p.id);
-   // (keeper fix, 2026-10-19) A defending keeper whose spot is moving back towards his goal (the attack coming on, so the
-   // height he can afford shrinks: attackTime) runs back with it instead of braking into each re-read step of it: braking
-   // into a near aim was the main limit on his speed after a loss (the study: braking-limited in 60-85% of his ticks, at
-   // 0.23-0.38 of his pace). Only the goalward part, and only while the ball is 10.5 m+ away (as his run back, above):
-   // across the goal, coming out, and against a ball near goal he still steps and sets as before.
-   if(!restart&&p.role==='GK'&&kind==='keeper'&&aim===intent!.aim&&p.side!==side&&!trackingVelocity&&depth(p.side,ball.x)>=X(23)){
-    const drift=keeperDrift.update(p.id,kind,aim,time),back=p.side===0?Math.max(-limit,Math.min(0,drift.x)):Math.min(limit,Math.max(0,drift.x));
-    if(back)trackingVelocity={x:back,y:0};
-   }else keeperDrift.forget(p.id);
    if(restartPace&&kind==='restart'&&!restartPace.needed.has(p.id)){
     // not needed quickly: walk or jog so as to be set just before the kick can come (a run timed to the kick keeps its speed)
     const live=restart!.live?.jobs[p.id];
