@@ -215,8 +215,11 @@ test('ordinary match aerial releases have matching physical contacts without a c
  // outlet round (2026-10-17: a player left behind the play hurries back into it; joining aims along the way) lost both;
  // 14570 has a header and 14113 a volley (repin.mjs header 14541 / volley 14105). Release 3 (2026-10-16: the outlet
  // fix with press cover and the recon batch) lost both; 14578 has a header and 14118 a volley (evidence/2026-10-16-
- // release-3/repin.mjs header 14570 / volley 14113, public lab). A seeded passage, not a header-frequency target.
- for(const [technique,seed] of [['header',14578],['volley',14118]]){
+ // release-3/repin.mjs header 14570 / volley 14113, public lab). The keeper fix (2026-10-19: the keeper reads the attack
+ // and what a loss would leave open) lost the header; 14581 has one (evidence/2026-10-19-keeper-fix/repin.mjs header
+ // 14579, public lab; 14579 does not reproduce on macOS arm64, 14581 is the next lab hit that does). A seeded passage,
+ // not a header-frequency target.
+ for(const [technique,seed] of [['header',14581],['volley',14118]]){
   const f=structuredClone(sandbox);f.seed=seed;
   f.teams[0].lineup[1]='motanescu';Object.assign(f.teams[0].tactics,teamApproaches.combinations.settings);
   Object.assign(f.teams[1].tactics,defensiveApproaches.press.tactics);
