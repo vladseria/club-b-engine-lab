@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {runMatch,teamApproaches} from '../dist/index.js';
 import {practiceOptions} from '../dist/practice.js';
 import {approachOptions} from '../dist/team-approach.js';
-import {feintReleaseOpening} from '../dist/practice-feints.js';
+import {feintReleaseOpening,TAKEON_PRICE} from '../dist/practice-feints.js';
 const scene=JSON.parse(readFileSync(new URL('./feint-release-scene.json',import.meta.url)));
 // Styles choose which pass, not whether to pass (2026-09-30): Direct's forward
 // preference no longer lifts the best release above its neutral value, so in
@@ -12,22 +12,25 @@ const scene=JSON.parse(readFileSync(new URL('./feint-release-scene.json',import.
 // short of the 0.18 opening. The opening is tested with Crocodinho trailing
 // the run by 4 m (through ball 0.565 against the duel's 0.304).
 const opened=structuredClone(scene.players);Object.assign(opened.find(p=>p.id==='0:crocodinho'),{x:22.8});
-function alternatives(players){const p=players.find(p=>p.id===scene.actor);return approachOptions(p,practiceOptions(p,players,new Set(players.filter(p=>p.duty==='run').map(p=>p.id))),{progression:'direct'});}
+// The take-on price (2026-10-19) values this duel for what beating Motanescu gets Fleasca, a shot from 12.5 m with
+// their keeper set for it (0.331, the live score 0.284), still short of the through ball's 0.551 by more than the
+// 0.18 margin: the release opens under either price.
+function alternatives(players,priced=false){const was=TAKEON_PRICE.on;TAKEON_PRICE.on=priced;try{const p=players.find(p=>p.id===scene.actor);return approachOptions(p,practiceOptions(p,players,new Set(players.filter(p=>p.duty==='run').map(p=>p.id))),{progression:'direct'});}finally{TAKEON_PRICE.on=was;}}
 
 // Honest reads 2/3 (4dd77eb1) read the lane from where the carrier's momentum takes him by the kick, which carried
 // him through the still defender this test stands 1.4 m ahead of him (through ball 0.58, risk 0). Since the pre-push
 // fixes (2026-10-12, carrierMeets) he meets a man standing in his path before he kicks, and the defender closes the
 // opening again (through ball -0.20), as he does moving with the carrier or standing beyond his projected spot.
 test('a release opened during a real take-on can interrupt it; a defender closing the outlet changes that reading',()=>{
- for(const mirror of [false,true]){
+ for(const priced of [false,true])for(const mirror of [false,true]){
   const ps=structuredClone(opened);
   if(mirror)for(const p of ps)Object.assign(p,{side:1-p.side,x:48-p.x,y:-p.y,vx:-p.vx,vy:-p.vy,angle:p.angle+Math.PI,lane:-p.lane});
-  const before=structuredClone(ps),open=alternatives(ps);
+  const before=structuredClone(ps),open=alternatives(ps,priced);
   assert(feintReleaseOpening(scene.original.score,scene.original.target,open));
   assert.deepEqual(ps,before,'Evaluation must not move players or change skills');
   const p=ps.find(p=>p.id===scene.actor),d=ps.find(q=>q.side!==p.side&&q.id!==scene.original.target&&q.role!=='GK'),s=p.side===0?1:-1;
   Object.assign(d,{x:p.x+s,y:p.y+s,vx:0,vy:0});
-  assert.equal(feintReleaseOpening(scene.original.score,scene.original.target,alternatives(ps)),false);
+  assert.equal(feintReleaseOpening(scene.original.score,scene.original.target,alternatives(ps,priced)),false);
  }
 });
 
@@ -38,6 +41,11 @@ test('review preserves the purpose of a committed duel and stronger manager pref
  const instructed=[...open,{...scene.original,score:bestRelease}];
  assert.equal(feintReleaseOpening(scene.original.score,scene.original.target,instructed),false,'A strong live preference for the duel remains meaningful');
  assert.equal(feintReleaseOpening(scene.original.score,scene.original.target,[...open,...structuredClone(open)]),true,'More variants cannot change the reconsideration threshold');
+});
+
+test('priced, beating the man into a shot is worth more than the live take-on score said',()=>{
+ const priced=alternatives(opened,true).find(o=>o.kind==='feint'&&o.target===scene.original.target),live=alternatives(opened).find(o=>o.kind==='feint'&&o.target===scene.original.target);
+ assert(priced&&live&&priced.score>live.score);
 });
 
 test('live take-on can become a pass before its old timeout without skipping the fake, preparation or foot contact',()=>{

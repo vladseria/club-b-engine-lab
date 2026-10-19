@@ -1,5 +1,4 @@
-// Reading start (2026-10-19): ../2026-10-19-keeper-fix/repin.mjs with this folder's repin.ts (plus keeperBox, standing).
-// Keeper fix (2026-10-19): ../2026-10-16-release-3/repin.mjs with this folder's repin.ts (plus ordinary, subs).
+// Take-on price (2026-10-19): ../2026-10-19-keeper-fix/repin.mjs with this folder's repin.ts (keeper-box rule added).
 // Release 3 (2026-10-16): the seed search for the seeded tests that move, made shardable for the public lab (the
 // laptop may play at most 4 matches). Bundles repin.ts (engine src, its fixtures, lib/ballers/compute) once and plays
 // EVERY seed of each range (not only up to the first hit), so a seed that does not reproduce on the laptop (arm64
