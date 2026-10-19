@@ -3,7 +3,7 @@
 //  tp[] [side, t, carrier depth from his own goal (m), dribble trait, risk trait, control, player number in order of first
 //        appearance, then (builds with the price, either arm) his reads of this take-on and the facts behind them:
 //        7 through (his read of getting past), 8 stopped (his read of losing it to the man), 9 gain (takeOnGain at the
-//        aim, the man left out; routeCredits before it existed), 10 loss weight (deliveryLossWeight of turnoverPrice here), 11 the fake's exact odds
+//        aim; round 3 signature), 10 loss weight (deliveryLossWeight of turnoverPrice here), 11 the fake's exact odds
 //        (feintFoolChance), 12 the duel's exact odds for the man (duelChance with his cover), 13 gap to the man (m),
 //        14 room at the aim from the others (m), 15 route contact risk from the others, 16 others closing the route,
 //        17 the man's reading, 18 his defending, 19 cover (the man's team-mates within 6 m of the carrier, keeper incl.),
@@ -29,11 +29,11 @@ export function play(t:{label:string;arm:string;seed:number;rev:string}){
   const row:any[]=[p.side,r1(time),r1(p.side===0?p.x:48-p.x),p.traits.dribble,p.traits.risk,p.skills.control,ids.get(p.id)];
   const d=players?.find((q:any)=>q.id===option.target);
   if(d&&f.takeOnRead&&c.routeCredits){
-   const read=f.takeOnRead(p,d,players),beyond=players.filter((q:any)=>q.id!==d.id);
+   const read=f.takeOnRead(p,d,players,option.aim),beyond=players.filter((q:any)=>q.id!==d.id);
    const near=Math.min(...players.filter((q:any)=>q.side!==p.side&&q.role!=='GK').map((q:any)=>dist(q,p)));
    const cover=players.filter((q:any)=>q.side===d.side&&q.id!==d.id&&dist(q,p)<6).length;
    const local=c.readDribbleRoute(p,option.aim,players,d.id),room=Math.min(...players.filter((q:any)=>q.side!==p.side&&q.id!==d.id).map((q:any)=>dist(q,option.aim)));
-   row.push(r3(read.through),r3(read.stopped),r3(f.takeOnGain?(f.takeOnGain.length>=8?f.takeOnGain(p,option.aim,players,d,laneRisk,near,list?.find((o:any)=>o.kind==='shoot')?.quality??0,time):f.takeOnGain(p,option.aim,beyond,laneRisk,near,list?.find((o:any)=>o.kind==='shoot')?.quality??0,time)):c.routeCredits(p,option.aim,beyond,laneRisk,near).credits),r3(RD.deliveryLossWeight(p,RD.turnoverPrice(p,players,p))),
+   row.push(r3(read.through),r3(read.stopped),r3(f.takeOnGain(p,option.aim,players,d,laneRisk,near,time)),r3(RD.deliveryLossWeight(p,RD.turnoverPrice(p,players,p))),
     r3(f.feintFoolChance(p,d)),r3(duelChance(p,d,cover)),r1(dist(p,d)),r1(room),r3(local.contactRisk),local.nearbyChallenges,d.skills.reading,d.skills.defending,cover,r3(option.score));
   }
   tp.push(row);

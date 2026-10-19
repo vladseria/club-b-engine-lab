@@ -20,7 +20,7 @@ import {receptionTarget} from './decisions.js';
 import {practiceFixture} from './practice-data.js';
 import {carryOptions,chooseFootballOption,commitCarry,CarryPlan,CarryAssessment,CarryOption} from './practice-carry.js';
 import type {ShotAssessment} from './practice-football.js';
-import {assessShot,shotZone,strikeShot,keeperReach,goalBoundFlight,markPosition,goalAngle,pitchExit,keeperEdge,placeHurried,NO_EDGE} from './practice-football.js';
+import {assessShot,shotZone,keeperClaimChance,strikeShot,keeperReach,goalBoundFlight,markPosition,goalAngle,pitchExit,keeperEdge,placeHurried,NO_EDGE} from './practice-football.js';
 import {shotContest,shotRead,shotTemper,SHOT_BASE,SHOT_WORTH,type ShotContest} from './practice-shot-contest.js';
 import type {KeeperEdge} from './practice-football.js';
 import {arrivalTime,assignDefense,containMovement,coverPosition,shootingThreat,BLOCK_NEAR,BLOCK_GAP,DefenseAssignment,assignFlight,assignMarking,FlightAssignment,runnerBehindShoulder,runnerPickupDelay} from './practice-defense.js';
@@ -45,7 +45,7 @@ import {Restart,RestartKind,RestartInfo,restartPositions,restartPlayersReady,res
 import {liveRestart,restartRoutine,authoredRoutine,planLiveRestart,restartHold,restartOptions,settleRestart,SET_PIECE_HOLD} from './practice-restart-live.js';
 import {chooseFreeKickTaker,choosePenaltyTaker,freeKickOptions,setPiecePlayer,strikeFreeKick,DirectFreeKickPlan} from './practice-set-pieces.js';
 import {createOffsideAwareness,perceivedOffside,runReleaseAllowance,ReleaseCue} from './practice-awareness.js';
-import {feintOptions,feintDuration,finishFeint,feintReleaseOpening,feintFoolChance,FOOLED_FOR,FeintMemory} from './practice-feints.js';
+import {feintOptions,feintDuration,finishFeint,feintReleaseOpening,feintFoolChance,FOOLED_FOR,FAKE_TIME,FeintMemory} from './practice-feints.js';
 import {strikeStance} from './practice-striking.js';
 import {duelGeometry,readDuel,resolveDuel,shieldTouch,turnTouch,dangerAt,TURNED_TIME,DuelResult} from './practice-duel.js';
 import {carryPace,captureControl,faceControl,steerControl,advanceControl,receivingContact,cushionControl,controlReleaseAvailable,controlStrikeReady,strikeControl,rollControlRemainder,deflectBodyBall,TouchControl,ControlContact} from './practice-control.js';
@@ -277,7 +277,7 @@ export function practiceOptions(p:PracticePlayer,players:PracticePlayer[],runnin
  }
  // Keep one best duel in ordinary selection; the lesson may prefer another
  // exit toward its taught destination without multiplying random chances.
- const duel=feintOptions(p,players,lastFeint,time,laneRisk,options.find(o=>o.kind==='shoot')?.quality??0)[0];if(duel)options.push(duel);
+ const duel=feintOptions(p,players,lastFeint,time,laneRisk)[0];if(duel)options.push(duel);
  return securePossessionOptions(p,players,options,laneRisk);
 }
 // (B2) the duel's odds live with the challenge model, where the carrier's own read of them can use them too
@@ -1424,7 +1424,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    const goalkeeper=sidePlayers(other(p.side)).find(q=>canUseHands(q)&&depth(q.side,q.x)<BOX_DEPTH&&Math.abs(q.y)<BOX_HALF&&depth(q.side,ball.x)>=0&&depth(q.side,ball.x)<=BOX_DEPTH&&Math.abs(ball.y)<=BOX_HALF&&ball.z<=2.3&&dist(q,ball)<1.25);
    if(!restart&&goalkeeper&&time>=(duelAfter.get(goalkeeper.id)??0)){
     duelAfter.set(goalkeeper.id,time+1);
-    if(execution()<clamp(.6+(goalkeeper.skills.keeping-p.skills.control)*.035,.35,.85))own(goalkeeper,'save',true);
+    if(execution()<keeperClaimChance(goalkeeper,p))own(goalkeeper,'save',true);
    }
    if(!restart&&!challenge&&!inHands&&ball.owner===p.id){
     // "On losing it": a counter-presser engages like an aggressive press; the
@@ -1550,7 +1550,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
      nextThink=time+lookCadence(p,option);
      if(inHands){nextThink=Math.min(nextThink,Math.max(time+STEP,holdUntil));keeperStep=option.kind==='carry'&&dist(option.aim,p)>.2?{...option.aim}:null;}
      if(option.kind==='carry')carry=option.aim;
-     else if(option.kind==='feint'){stats[p.side].feints++;const marker=get(option.target!);feintMemory.set(p.id,{opponent:marker.id,at:time,attacker:{x:p.x,y:p.y},defender:{x:marker.x,y:marker.y}});feint={attacker:p.id,defender:marker.id,check:time+.26,aim:option.aim,resolved:false,score:option.score,review:time+.41,finish:time+feintDuration(p,option.aim)};say('feint',`${p.name} scoate o fentă din buzunar. ${marker.name} îl așteaptă.`,p,marker);}
+     else if(option.kind==='feint'){stats[p.side].feints++;const marker=get(option.target!);feintMemory.set(p.id,{opponent:marker.id,at:time,attacker:{x:p.x,y:p.y},defender:{x:marker.x,y:marker.y}});feint={attacker:p.id,defender:marker.id,check:time+FAKE_TIME,aim:option.aim,resolved:false,score:option.score,review:time+.41,finish:time+feintDuration(p,option.aim)};say('feint',`${p.name} scoate o fentă din buzunar. ${marker.name} îl așteaptă.`,p,marker);}
      else {
       prepared={option,at:time+preparationTime(p,option.kind)*(option.hurried?HURRY_SHARE:1)};recheckAt=time+RELEASE_RECHECK;
       // Teammates can read their release cue. The private target must not

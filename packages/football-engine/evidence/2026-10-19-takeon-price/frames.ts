@@ -3,7 +3,7 @@
 // the feint under BOTH prices (the other one recomputed and swapped into the same list, as static.ts) with its reads,
 // what was chosen, and the frames, so moments can be picked and drawn (render.mjs) in both matches.
 import {runMatch} from '../../src/index';
-import {feintOptions,takeOnRead,TAKEON_PRICE} from '../../src/practice-feints';
+import {feintOptions,takeOnRead,takeOnGain,TAKEON_PRICE} from '../../src/practice-feints';
 import {laneRisk} from '../../src/practice';
 import {viableOptions,routeCredits} from '../../src/practice-carry';
 import {actionWeights} from '../../src/practice-selection';
@@ -28,13 +28,13 @@ function one(inp:any,on:boolean){
   TAKEON_PRICE.on=!on;const other=feintOptions(p,players,mem,time,laneRisk)[0];TAKEON_PRICE.on=on;
   const mine=list[i],own=feintOptions(p,players,mem,time,laneRisk)[0];
   const swapped=list.slice();swapped[i]={...mine,aim:other.aim,target:other.target,score:mine.score-own.score+other.score};
-  const marker=players.find((q:any)=>q.id===own.target),read=takeOnRead(p,marker,players);
+  const marker=players.find((q:any)=>q.id===own.target),read=takeOnRead(p,marker,players,own.aim);
   const near=Math.min(...players.filter((q:any)=>q.side!==p.side&&q.role!=='GK').map((q:any)=>Math.hypot(q.x-p.x,q.y-p.y)));
-  const credits=routeCredits(p,own.aim,players.filter((q:any)=>q.id!==marker.id),laneRisk,near);
+  const credits={...routeCredits(p,own.aim,players.filter((q:any)=>q.id!==marker.id),laneRisk,near),credits:takeOnGain(p,own.aim,players,marker,laneRisk,near,time)};
   const best=list.filter((o:any)=>o!==mine).sort((a:any,b:any)=>b.score-a.score)[0];
   rows.push({t:time,id:p.id,side:p.side,dribble:p.traits.dribble,risk:p.traits.risk,control:p.skills.control,depth:p.side===0?p.x:L-p.x,
    chosen:option.kind,chosenTarget:option.target??null,score:mine.score,otherScore:swapped[i].score,p:pick(list,plan,time,'feint'),pOther:pick(swapped,plan,time,'feint'),
-   through:read.through,stopped:read.stopped,credits:credits.credits,shotGain:credits.shotGain,passGain:credits.passGain,progress:credits.progress,
+   through:read.through,stopped:read.stopped,fail:read.fail,contact:read.contact,credits:credits.credits,shotGain:credits.shotGain,passGain:credits.passGain,progress:credits.progress,
    lossWeight:deliveryLossWeight(p,turnoverPrice(p,players,p)),marker:own.target,bestOther:best?{kind:best.kind,score:best.score,target:best.target??null}:null});
  };
  const teams=inp.sides.map(engineTeam),plans=inp.sides.map(sidePlans);
