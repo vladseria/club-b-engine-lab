@@ -10,7 +10,10 @@
 // passes, shots, balls won in their half: under 100 bytes), so the averages
 // count every run of a setup; the replays themselves stay in the page's
 // memory, the latest KEEP_REPLAYS kick-offs only (owner, 4 Oct: "not sure I
-// want a huge list of 40 individual runs").
+// want a huge list of 40 individual runs"). Since batches go to 20 (owner, 19
+// Oct) a whole batch stays watchable, but the strip shows the newest
+// NEWEST_CHIPS and keeps the rest one tap away ("the option should exist, but
+// shouldn't be thrown at you unless you want to look at an older game").
 import {setupKey} from './practice-tally';
 import type {FrozenInput} from './compute';
 
@@ -73,8 +76,11 @@ export function addToBook(book:Book,setup:Omit<SetupRuns,'runs'|'first'|'last'>,
 }
 
 // ------------------------------------------------------------------ replays kept
-/** At most this many kick-offs keep their replay in the page (each one's versions: two when "also play it as"). */
-export const KEEP_REPLAYS=5;
+/** At most this many kick-offs keep their replay in the page (each one's versions: two when "also play it as").
+ * 20 = a whole batch at MAX_RUNS (owner, 19 Oct: "keep 20, but show the newest 5"); about 1 MB each. */
+export const KEEP_REPLAYS=20;
+/** The watchable runs the strip shows until the player asks for the earlier ones. */
+export const NEWEST_CHIPS=5;
 /** The kept list after one more kick-off arrives: the newest `max`, oldest dropped first (pure). */
 export function retain<T>(kept:readonly T[],add:T,max:number=KEEP_REPLAYS):T[]{return [...kept,add].slice(-Math.max(1,max));}
 
@@ -87,6 +93,17 @@ export interface RunChip {
 export function runChips(runs:readonly RunFacts[],kept:ReadonlySet<string>,show=15):{earlier:number;chips:RunChip[]}{
  const from=Math.max(0,runs.length-show);
  return {earlier:from,chips:runs.slice(from).map((r,k)=>({i:from+k,gf:r.gf,ga:r.ga,id:r.id&&kept.has(r.id)?r.id:null}))};
+}
+
+/** Which watchable chips the strip shows (pure). Open: all of them. Shut: the newest `newest`, plus the one
+ * on screen when it is older (a run you picked stays in sight). `earlier` is how many sit before the newest
+ * (0: no control at all); `hidden` how many the shut strip leaves out. One chip to spare is shown rather
+ * than hidden behind a control as big as itself. */
+export function chipsShown<C extends {id:string|null}>(chips:readonly C[],open:boolean,onScreen:string|null,newest=NEWEST_CHIPS):{shown:C[];earlier:number;hidden:number}{
+ const earlier=chips.length>newest+1?chips.length-newest:0;
+ if(!earlier||open)return {shown:[...chips],earlier,hidden:0};
+ const shown=chips.filter((c,k)=>k>=earlier||(c.id!==null&&c.id===onScreen));
+ return {shown,earlier,hidden:chips.length-shown.length};
 }
 
 /** Wall milliseconds per simulated second of one match on this device, as last measured in this

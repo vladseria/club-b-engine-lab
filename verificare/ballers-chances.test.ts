@@ -9,7 +9,7 @@ import {gunzipSync} from 'node:zlib';
 import {ENGINE_BUILD} from '../packages/football-engine/src/index';
 import {CHANCE_TABLE,chanceText,matchChances,rateOf,shotChance,type ChanceTable} from '../lib/ballers/chances';
 import {amount,asShown,averagesOf,shownDiff,batchWords,compareOf,compareWords,floorFor,howYouPlayed,readOf,readWords,runStatsOf,sd,setupLabels,wonInTheirHalf} from '../lib/ballers/practice-read';
-import {KEEP_REPLAYS,MAX_RUNS,MAX_SETUPS,addToBook,bookKey,emptyBook,loadBook,loadPace,retain,runChips,saveBook,savePace,versionKey,type Book,type RunFacts,type RunStats} from '../lib/ballers/practice-store';
+import {KEEP_REPLAYS,MAX_RUNS,NEWEST_CHIPS,chipsShown,MAX_SETUPS,addToBook,bookKey,emptyBook,loadBook,loadPace,retain,runChips,saveBook,savePace,versionKey,type Book,type RunFacts,type RunStats} from '../lib/ballers/practice-store';
 import {buildReport,type ReportInput} from '../lib/ballers/plan-report';
 import {computeMatch,type FrozenInput} from '../lib/ballers/compute';
 import type {ReplayEvent,ReplayFrame,ReplayHeader} from '../lib/ballers/replay';
@@ -187,10 +187,11 @@ describe('across the runs: averages a match, you v them in the same runs',()=>{
 
 describe('replays kept: only the latest kick-offs, every run still counted',()=>{
  it('keeps the newest KEEP_REPLAYS, oldest dropped first',()=>{
-  expect(KEEP_REPLAYS).toBe(5);
+  // 20, a whole batch at its most (owner, 19 Oct: "keep 20, but show the newest 5"); was 5 when a go was 5 runs
+  expect(KEEP_REPLAYS).toBe(20);
   let kept:string[]=[];
-  for(let i=1;i<=11;i++)kept=retain(kept,`k${i}`);
-  expect(kept).toEqual(['k7','k8','k9','k10','k11']);
+  for(let i=1;i<=26;i++)kept=retain(kept,`k${i}`);
+  expect(kept).toEqual(Array.from({length:20},(_,i)=>`k${i+7}`));
   expect(retain(['a','b'],'c',2)).toEqual(['b','c']);
  });
  it('a chip is watchable only while its replay is kept; older ones are results; the strip shows the latest, the rest are counted as earlier',()=>{
@@ -205,6 +206,29 @@ describe('replays kept: only the latest kick-offs, every run still counted',()=>
   const few=runChips(runs,kept,4);
   expect(few.earlier).toBe(7);
   expect(few.chips.map(c=>[c.i,c.id])).toEqual([[7,'k8'],[8,'k9'],[9,'k10'],[10,'k11']]);
+ });
+});
+
+describe('the strip: the newest five out, the earlier ones on request',()=>{
+ const chips=(n:number)=>Array.from({length:n},(_,i)=>({i,id:`k${i+1}`}));
+ const ids=(r:{shown:{id:string|null}[]})=>r.shown.map(c=>c.id);
+ it('few runs: all of them, no control',()=>{
+  expect(NEWEST_CHIPS).toBe(5);
+  for(const n of [0,1,3,5]){const r=chipsShown(chips(n),false,null);expect(r.shown.length).toBe(n);expect(r.earlier).toBe(0);expect(r.hidden).toBe(0);}
+  // one to spare: shown, never hidden behind a control as big as the chip
+  const six=chipsShown(chips(6),false,null);expect(six.shown.length).toBe(6);expect(six.earlier).toBe(0);
+ });
+ it('a batch of 20: the newest 5 shut, all 20 open, in run order',()=>{
+  const shut=chipsShown(chips(20),false,'k20');
+  expect(ids(shut)).toEqual(['k16','k17','k18','k19','k20']);expect(shut.earlier).toBe(15);expect(shut.hidden).toBe(15);
+  const open=chipsShown(chips(20),true,'k20');
+  expect(ids(open)).toEqual(chips(20).map(c=>c.id));expect(open.earlier).toBe(15);expect(open.hidden).toBe(0);
+ });
+ it('an earlier run on screen stays out when the list shuts',()=>{
+  const r=chipsShown(chips(20),false,'k3');
+  expect(ids(r)).toEqual(['k3','k16','k17','k18','k19','k20']);expect(r.earlier).toBe(15);expect(r.hidden).toBe(14);
+  // a run with no replay is never the one on screen
+  expect(chipsShown([{i:0,id:null},...chips(7)],false,null).shown.length).toBe(5);
  });
 });
 
