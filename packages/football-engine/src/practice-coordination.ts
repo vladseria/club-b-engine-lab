@@ -189,6 +189,8 @@ export interface CoordinationContext extends SupportContext {
  keeperCall?:Vec;
  /** (marking and shape round) the man on the ball preparing a pass: to whom, where, since when (practice-defending's cue). */
  passCue?:{target:string;passer:string;aim:Vec;since:number};
+ /** (reading start) how long before this player has seen where a ground ball that has just set off is going (s). Absent: 0. */
+ late?:(p:PracticePlayer)=>number;
 }
 
 /** A set piece's zonal anchor takes over a runner within this many metres of his spot. */
@@ -378,7 +380,8 @@ export function pivotPoint(players:readonly PracticePlayer[],pivot:PracticePlaye
  *    CONTEST_WITHIN s of the ball takes the second-ball job there, the same
  *    job the kicking side already gets. Nothing about the pass changes. */
 export function coordinateFlight(players:PracticePlayer[],ball:MovingBall,side:Side,unavailable:ReadonlySet<string>,context:CoordinationContext,previous?:FlightAssignment):FlightAssignment {
- const flight=assignFlight(players,ball,side,unavailable,{intended:context.intended,passer:context.passer,previous:previous?.receiver,defensiveUnit:context.defensiveUnit});
+ const flight=assignFlight(players,ball,side,unavailable,{intended:context.intended,passer:context.passer,previous:previous?.receiver,defensiveUnit:context.defensiveUnit,late:context.late});
+ const late=context.late??(()=>0);
  if(ball.owner||ball.mode==='shot'||ball.z>.05||Math.abs(ball.vz)>.5)return flight;
  const speed=Math.hypot(ball.vx,ball.vy),stop={x:ball.x+ball.vx*speed/1.3,y:ball.y+ball.vy*speed/1.3};
  if(stop.x<0||stop.x>L||Math.abs(stop.y)>W/2)return flight;
@@ -386,16 +389,16 @@ export function coordinateFlight(players:PracticePlayer[],ball:MovingBall,side:S
  // opposition's collector independently of its intended/previous receiver.
  if(!flight.observedReceiver){
   flight.observedReceiver=players.filter(p=>p.side===side&&p.role!=='GK'&&!unavailable.has(p.id))
-   .sort((a,b)=>arrivalTime(a,stop)-arrivalTime(b,stop)||a.id.localeCompare(b.id))[0]?.id;
+   .sort((a,b)=>arrivalTime(a,stop)+late(a)-arrivalTime(b,stop)-late(b)||a.id.localeCompare(b.id))[0]?.id;
   if(flight.observedReceiver)flight.observedMeeting=stop;
  }
  for(const team of [0,1] as const){
   if(flight.hunters.some(id=>players.find(p=>p.id===id)?.side===team))continue;
   const candidates=players.filter(p=>p.side===team&&p.role!=='GK'&&!unavailable.has(p.id))
-   .map(p=>({p,score:arrivalTime(p,stop)-(previous?.hunters.includes(p.id)?.25:0)})).sort((a,b)=>a.score-b.score||a.p.id.localeCompare(b.p.id));
+   .map(p=>({p,score:arrivalTime(p,stop)+late(p)-(previous?.hunters.includes(p.id)?.25:0)})).sort((a,b)=>a.score-b.score||a.p.id.localeCompare(b.p.id));
   // the defence's reads of a ball rolling to a stop (practice-defending chooses among them)
-  if(team!==side&&!flight.defenders?.length)flight.defenders=candidates.map(c=>({id:c.p.id,point:stop,score:arrivalTime(c.p,stop)}));
-  if(team===side&&flight.theirs===undefined&&candidates[0])flight.theirs=arrivalTime(candidates[0].p,stop);
+  if(team!==side&&!flight.defenders?.length)flight.defenders=candidates.map(c=>({id:c.p.id,point:stop,score:arrivalTime(c.p,stop)+late(c.p)}));
+  if(team===side&&flight.theirs===undefined&&candidates[0])flight.theirs=arrivalTime(candidates[0].p,stop)+late(candidates[0].p);
   const p=candidates[0]?.p;if(!p)continue;
   flight.hunters.push(p.id);flight.meetings[p.id]=stop;if(team===side)flight.receiver=p.id;
  }

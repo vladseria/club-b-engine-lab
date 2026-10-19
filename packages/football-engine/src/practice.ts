@@ -23,8 +23,9 @@ import type {ShotAssessment} from './practice-football.js';
 import {assessShot,strikeShot,keeperReach,goalBoundFlight,markPosition,goalAngle,pitchExit,keeperEdge,placeHurried,NO_EDGE} from './practice-football.js';
 import {shotContest,shotRead,shotTemper,SHOT_BASE,SHOT_WORTH,type ShotContest} from './practice-shot-contest.js';
 import type {KeeperEdge} from './practice-football.js';
-import {arrivalTime,assignDefense,containMovement,coverPosition,shootingThreat,BLOCK_NEAR,BLOCK_GAP,DefenseAssignment,assignFlight,assignMarking,FlightAssignment,runnerBehindShoulder,runnerPickupDelay} from './practice-defense.js';
-import {offGoalLine,mayLeaveForBall,BOX_BLOCK_NEAR,BOX_BLOCK_DANGER,blockLeg,BLOCK_LEG_HEIGHT} from './practice-defending.js';
+import {arrivalTime,assignDefense,containMovement,coverPosition,shootingThreat,BLOCK_NEAR,BLOCK_GAP,DefenseAssignment,assignFlight,assignMarking,FlightAssignment,runnerBehindShoulder,runnerPickupDelay,LANE_READ,laneSkill} from './practice-defense.js';
+import {seeingLag,readAim,cutPoint} from './practice-anticipation.js';
+import {offGoalLine,mayLeaveForBall,BOX_BLOCK_NEAR,BOX_BLOCK_DANGER,blockLeg,BLOCK_LEG_HEIGHT,cueDelay,CUE_SPREAD} from './practice-defending.js';
 import {readShotDanger} from './practice-shot-defense.js';
 import {duelChance,readChallenge,startChallenge,bodyScreensBall,recoveryPosition,resolveChallengeContact,followThroughOf,BEATEN_WINDOW,BEATEN_NEAR,ChallengeContact,ChallengeRead,ChallengeAttempt} from './practice-challenge.js';
 import {contactLoad,felt,struck,lunged,KICK_FOLLOW,FALL_KEEP,LEG_AFTER_BALL,TACKLER_STAGGER,Balance} from './practice-balance.js';
@@ -376,6 +377,29 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
  const observedLine=(p:PracticePlayer)=>awareness.lineFor(p,players,time,clamp((5-Math.min(...players.filter(q=>q.side!==p.side).map(q=>dist(q,p))))/5,0,1));
  let ball:MovingBall={x:(L/2),y:0,vx:0,vy:0,z:0,vz:0,owner:null,mode:'loose'},restart:Restart|null=null as Restart|null,prepared:{option:Option;at:number}|null=null,carry:Vec={x:(L/2),y:0},reception:Vec|null=null,receptionAt=0;
  let cueState:{prepared:{option:{kind:string;target?:string;aim:Vec}};since:number}|null=null;
+ // (reading start, practice-anticipation) the pass being shaped (kept through its release), who has read it and when,
+ // and the one defender who has set off to cut its line; the movement each player had on the last tick; and the latest
+ // ball news: when the ball last set off on a new path, whether on the ground, when each player has seen it, where the
+ // ones who had read it coming are going, and the movement everyone had just before
+ type Move={aim:Vec;limit:number;kind:Duty;reason:string;velocity?:Vec};
+ type Shape={passer:string;target:string;aim:Vec;since:number};type Cut={since:number;id:string;aim:Vec};
+ let shape:Shape|null=null as Shape|null,cutting:Cut|null=null as Cut|null;
+ const shapeReaders=new Map<string,number>(),lastMove=new Map<string,Move>();
+ type News={release:number;ground:boolean;seen:Map<string,number>;read:Map<string,Vec>;held:Map<string,Move>};
+ let news:News={release:-5,ground:false,seen:new Map(),read:new Map(),held:new Map()};
+ const unseen=(p:PracticePlayer):boolean=>news.ground&&news.release===releaseAt&&!ball.owner&&p.role!=='GK'&&time<(news.seen.get(p.id)??0);
+ // the time before he can act on the ball's real path: none once seen, none for one who read it coming
+ const lateness=(p:PracticePlayer):number=>unseen(p)&&!news.read.has(p.id)?news.seen.get(p.id)!-time:0;
+ const readCut=(passer:PracticePlayer):void=>{
+  const sh=shape;if(!sh||cutting?.since===sh.since)return;
+  cutting=null;const receiver=get(sh.target);let best:{id:string;aim:Vec;margin:number}|null=null;
+  for(const q of players){
+   if(q.side===passer.side||q.role==='GK'||!shapeReaders.has(q.id)||q.id===presser||q.id===challenge?.defender||isDown(q.id)||time<(wrongfoot.get(q.id)?.until??0)||time<(recovering.get(q.id)?.until??0))continue;
+   const cut=cutPoint(q,ball,readAim(q,'threat',ball,sh.aim,CUE_SPREAD,sh.since),LANE_READ.slack*laneSkill(q));
+   if(cut&&arrivalTime(q,cut.aim)<arrivalTime(receiver,cut.aim)&&(!best||cut.margin>best.margin))best={id:q.id,aim:cut.aim,margin:cut.margin};
+  }
+  if(best)cutting={since:sh.since,id:best.id,aim:best.aim};
+ };
  const passCue=()=>{const o=cueState?.prepared.option,owner=ball.owner?get(ball.owner):undefined;return o&&owner&&!restart&&o.target&&(o.kind==='pass'||o.kind==='through'||o.kind==='loft')?{target:o.target,passer:owner.id,aim:{x:o.aim.x,y:o.aim.y},since:cueState!.since}:undefined;};
  const releaseCue=():ReleaseCue|undefined=>prepared?.option.target&&(prepared.option.kind==='through'||prepared.option.kind==='loft')&&(prepared.option.run||get(prepared.option.target).duty==='run')?{target:prepared.option.target,at:prepared.at}:undefined;
  let feint:{attacker:string;defender:string;check:number;aim:Vec;resolved:boolean;finish:number;score:number;review:number}|null=null;
@@ -935,6 +959,28 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
   if(tick%12===1){for(const p of players)lastObserved.set(p.id,{x:p.x+p.vx*.1,y:p.y+p.vy*.1});}
   // (marking and shape round) since when the man on the ball has been preparing this pass (the defenders' cue)
   if(prepared!==(cueState as {prepared:unknown}|null)?.prepared)cueState=prepared?{prepared,since:time}:null;
+  // (reading start) a pass being shaped: everyone who can see the passer picks it up at his own sight lag on him
+  // (practice-defending cueDelay); kept through the release for the news
+  {const o:{kind:string;target?:string;aim:Vec}|undefined=cueState?.prepared.option;
+   if(o&&owner&&o.target&&(o.kind==='pass'||o.kind==='through'||o.kind==='loft')){
+    if(shape?.since!==cueState!.since||shape.passer!==owner.id){shape={passer:owner.id,target:o.target,aim:{x:o.aim.x,y:o.aim.y},since:cueState!.since};shapeReaders.clear();}
+    for(const q of players)if(q.id!==owner.id&&q.role!=='GK'&&!shapeReaders.has(q.id)&&time>=shape.since+cueDelay(q,owner,ball,shape.since))shapeReaders.set(q.id,time);
+   }}
+  // (reading start) the ball has set off on a new path (a release, a tackle, a block, a parry, a deflection): when
+  // each outfielder sees it, and what the ones who read the pass coming go for meanwhile
+  if(releaseAt!==news.release){
+   const ground=!ball.owner&&ball.mode!=='shot'&&!(ball.z>.05||Math.abs(ball.vz)>.5);
+   const shaped:Shape|null=ground&&ball.mode==='pass'&&shape&&shape.passer===releaseBy&&shape.target===intended&&shape.since<=releaseAt+1e-9?shape:null;
+   const held=new Map<string,Move>();for(const [id,m] of lastMove)held.set(id,{...m,aim:{...m.aim},velocity:m.velocity&&{...m.velocity}});
+   news={release:releaseAt,ground,seen:new Map(),read:new Map(),held};
+   if(ground)for(const q of players){
+    if(q.role==='GK')continue;
+    news.seen.set(q.id,releaseAt+seeingLag(q,ball,releaseAt));
+    if(!shaped||!shapeReaders.has(q.id))continue;
+    if(q.id===shaped.target)news.read.set(q.id,readAim(q,'arrival',releaseFrom??ball,shaped.aim,CUE_SPREAD,shaped.since));
+    else if(cutting?.id===q.id&&cutting.since===shaped.since)news.read.set(q.id,{...cutting.aim});
+   }
+  }
   if(!restart&&time>=assignmentAt){
    const oldPresser=presser,oldCover=coverer;
    const unavailable=new Set(players.filter(p=>time<(wrongfoot.get(p.id)?.until??0)||time<(recovering.get(p.id)?.until??0)).map(p=>p.id));
@@ -952,7 +998,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
      return v;
     };
     coordination=coordinateFootball(players,ball,side,[tacticsFor(0),tacticsFor(1)],laneRisk,
-     {time,recoveredAt:transitionAt,lastPass:completedPass,passContinuation,lineFor:observedLine,releaseCue:releaseCue(),intended,passer:releaseBy,sight,keeperCall:keeperCall(),passCue:passCue(),
+     {time,recoveredAt:transitionAt,lastPass:completedPass,passContinuation,lineFor:observedLine,releaseCue:releaseCue(),intended,passer:releaseBy,sight,keeperCall:keeperCall(),passCue:passCue(),late:lateness,
       responsibilities:preview=>{
        let proposed=playbook?.apply(time,players,ball,preview,null,unavailable)??null;
        if(coaching)proposed=coaching.apply(time,players,ball,preview,proposed,unavailable,laneRisk);
@@ -981,7 +1027,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
      presser=defense.presser;coverer=defense.coverer;flight={hunters:[],meetings:{},coverer:''};
     }else{
      const previousReceiver=flight.receiver;
-     flight=assignFlight(players,ball,side,unavailable,{intended,passer:releaseBy,previous:previousReceiver});presser='';coverer=flight.coverer;
+     flight=assignFlight(players,ball,side,unavailable,{intended,passer:releaseBy,previous:previousReceiver,late:lateness});presser='';coverer=flight.coverer;
      if(flight.receiver!==previousReceiver){reception=null;intercepts.clear();for(const id of [previousReceiver,flight.receiver])if(id)intents.delete(id);}
     }
     assignmentAt=time+.25;
@@ -1072,6 +1118,12 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    }else defenderPlan=null;
   }else{continuation=null;defenderPlan=null;}
   const hunters=!owner&&!restart?flight.hunters.filter(id=>time>=(recovering.get(id)?.until??0)&&time>=(wrongfoot.get(id)?.until??0)):[];
+  // (reading start) a ground pass being shaped in open play: the one defender who has read it and reads he can cut the
+  // line he reads before the receiver (practice-anticipation cutPoint) sets off into it now, before it is struck; the
+  // first to read one he can cut commits to it. Not the man on the ball's presser, nor anyone on the floor, beaten or
+  // in a challenge. A pass that is never struck leaves him committed.
+  const shapeLive:boolean=!!owner&&!restart&&!!shape&&cueState?.since===shape.since&&shape.passer===owner.id&&cueState.prepared.option.kind!=='loft';
+  if(shapeLive)readCut(owner!);
   // (contests in the air, 2026-10-15) a ball in the air on its way to one of theirs: a defender who reads he can get
   // to it as it comes down through his jumping height may go up for it. The receiver's own marker goes when his read of
   // the duel, the inside track and his nerve say so (attacksTheBall); one other defender may come across for it if his
@@ -1217,9 +1269,22 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
     if(!owner&&ball.mode==='shot'&&p.side!==side&&block&&block.opponent===releaseBy&&time<block.until){aim=block.aim;kind='block';limit=p.pace*.94;trackingVelocity=undefined;reason='A pornit să acopere șutul; ține corpul pe traiectorie.';}
     const recoveringStep=recovering.get(p.id);
     if(recoveringStep&&time<recoveringStep.until&&p.side!==side){aim=recoveryPosition(p,get(recoveringStep.opponent));kind='recover';reason='A ratat intrarea; își reface poziția înainte să încerce din nou.';trackingVelocity=undefined;}
+    if(shapeLive&&cutting?.id===p.id&&cutting.since===shape!.since&&p.side!==owner!.side&&p.id!==presser&&!(recoveringStep&&time<recoveringStep.until)){aim=cutting.aim;limit=p.pace*.94;kind='intercept';reason='Citește pasa din postura pasatorului: pornește spre culoar înainte să plece mingea.';trackingVelocity=undefined;}
     if(challenge?.defender===p.id){aim=challenge.aim;trackingVelocity=challenge.velocity;kind='challenge';reason=challenge.read.reason;limit=p.pace*.94;}
-    if(ball.mode==='pass'&&flight.receiver===p.id&&hunters.includes(p.id)&&time-releaseAt>.12){if(!reception||time>=receptionAt){reception=aerialDelivery?flightMeeting(p,ball).aim:receptionTarget(p,ball);receptionAt=time+.2;}aim=reception;limit=p.pace;kind='receive';reason=p.id===intended?'Ajustează cursa la traiectoria reală a pasei.':'Preia cursa spre pasă; colegul poate oferi următoarea soluție.';}
-    else if(!owner&&kind!=='block'&&hunters.includes(p.id)&&time-releaseAt>.2){let meeting=intercepts.get(p.id);if(!meeting||time>=meeting.at){meeting={at:time+.25,aim:flight.meetings[p.id]??(aerialDelivery?flightMeeting(p,ball).aim:receptionTarget(p,ball))};intercepts.set(p.id,meeting);}aim=meeting.aim;limit=p.pace*.93;kind='intercept';reason='Caută un punct de întâlnire cu mingea, în loc să alerge în urma ei.';}
+    // (reading start) on a ground ball he goes for its real path once he has seen it (practice-anticipation); a ball
+    // in the air keeps the reactions it had (the receiver re-aims after 0.12 s, a hunter after 0.2 s)
+    const sawIt=news.ground&&news.release===releaseAt&&p.role!=='GK'?!unseen(p):undefined;
+    if(ball.mode==='pass'&&flight.receiver===p.id&&hunters.includes(p.id)&&(sawIt??time-releaseAt>.12)){if(!reception||time>=receptionAt){reception=aerialDelivery?flightMeeting(p,ball).aim:receptionTarget(p,ball);receptionAt=time+.2;}aim=reception;limit=p.pace;kind='receive';reason=p.id===intended?'Ajustează cursa la traiectoria reală a pasei.':'Preia cursa spre pasă; colegul poate oferi următoarea soluție.';}
+    else if(!owner&&kind!=='block'&&hunters.includes(p.id)&&(sawIt??time-releaseAt>.2)){let meeting=intercepts.get(p.id);if(!meeting||time>=meeting.at){meeting={at:time+.25,aim:flight.meetings[p.id]??(aerialDelivery?flightMeeting(p,ball).aim:receptionTarget(p,ball))};intercepts.set(p.id,meeting);}aim=meeting.aim;limit=p.pace*.93;kind='intercept';reason='Caută un punct de întâlnire cu mingea, în loc să alerge în urma ei.';}
+    // (reading start) until he has seen where a ground ball that has just set off is going, a man going for it carries
+    // on with what he was doing; the receiver who read the pass coming, and the defender who set off to cut its line,
+    // go for where they read it going
+    if(!owner&&unseen(p)&&(kind==='receive'||kind==='intercept'||news.read.has(p.id))){
+     const readTo=news.read.get(p.id),before=news.held.get(p.id);
+     if(readTo){aim=readTo;limit=p.side===side?p.pace:p.pace*.94;kind=p.side===side?'receive':'intercept';trackingVelocity=undefined;
+      reason=p.side===side?'A citit pasa din postura colegului: pornește spre locul unde vine mingea.':'A citit pasa: e deja pe drum spre culoarul ei.';}
+     else if(before){aim=before.aim;limit=before.limit;kind=before.kind;reason=before.reason;trackingVelocity=before.velocity;}
+    }
     const read=p.role==='GK'?readKeeperFlight(p,ball,time-releaseAt,edgeOf(p)):null;
     // A ball his own side played (a back-pass, a throw, a clearance gone astray)
     // is received, not saved: he gets in line with it and never dives at it.
@@ -1286,6 +1351,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
     const ref=inside?p:dist(aim,owner)<KEEPER_BODY?(dist(aim,owner)>.1?aim:p):null,r=ref?dist(ref,owner):0;
     if(ref&&r>.1){aim={x:owner.x+(ref.x-owner.x)/r*KEEPER_BODY,y:owner.y+(ref.y-owner.y)/r*KEEPER_BODY};trackingVelocity=undefined;}
    }
+   {const m=lastMove.get(p.id);if(m){m.aim=aim;m.limit=limit;m.kind=kind;m.reason=reason;m.velocity=trackingVelocity;}else lastMove.set(p.id,{aim,limit,kind,reason,velocity:trackingVelocity});}
    decision(p,kind,reason);
    const facing=p.angle,acceleration=p.acceleration;limit=Math.min(limit,p.pace);
    if(kind==='dive'&&dive&&time<dive.until)p.acceleration*=2.2;
