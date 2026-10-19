@@ -45,7 +45,7 @@ import {Restart,RestartKind,RestartInfo,restartPositions,restartPlayersReady,res
 import {liveRestart,restartRoutine,authoredRoutine,planLiveRestart,restartHold,restartOptions,settleRestart,SET_PIECE_HOLD} from './practice-restart-live.js';
 import {chooseFreeKickTaker,choosePenaltyTaker,freeKickOptions,setPiecePlayer,strikeFreeKick,DirectFreeKickPlan} from './practice-set-pieces.js';
 import {createOffsideAwareness,perceivedOffside,runReleaseAllowance,ReleaseCue} from './practice-awareness.js';
-import {feintOptions,feintDuration,finishFeint,feintReleaseOpening,FeintMemory} from './practice-feints.js';
+import {feintOptions,feintDuration,finishFeint,feintReleaseOpening,feintFoolChance,FeintMemory} from './practice-feints.js';
 import {strikeStance} from './practice-striking.js';
 import {duelGeometry,readDuel,resolveDuel,shieldTouch,turnTouch,dangerAt,TURNED_TIME,DuelResult} from './practice-duel.js';
 import {carryPace,captureControl,faceControl,steerControl,advanceControl,receivingContact,cushionControl,controlReleaseAvailable,controlStrikeReady,strikeControl,rollControlRemainder,deflectBodyBall,TouchControl,ControlContact} from './practice-control.js';
@@ -278,7 +278,7 @@ export function practiceOptions(p:PracticePlayer,players:PracticePlayer[],runnin
  }
  // Keep one best duel in ordinary selection; the lesson may prefer another
  // exit toward its taught destination without multiplying random chances.
- const duel=feintOptions(p,players,lastFeint,time)[0];if(duel)options.push(duel);
+ const duel=feintOptions(p,players,lastFeint,time,laneRisk)[0];if(duel)options.push(duel);
  return securePossessionOptions(p,players,options,laneRisk);
 }
 // (B2) the duel's odds live with the challenge model, where the carrier's own read of them can use them too
@@ -1408,7 +1408,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    if(!resolveExit(before)&&ball.owner===p.id){
    if(feint&&feint.attacker===p.id){
     if(!feint.resolved&&time>=feint.check){
-     const d=get(feint.defender);const fooled=execution()<clamp(.42+(p.skills.control-d.skills.reading)*.055+(1-d.traits.discipline)*.1,.12,.8);
+     const d=get(feint.defender);const fooled=execution()<feintFoolChance(p,d);
      if(fooled){wrongfoot.set(d.id,{until:time+.65,aim:inside({x:d.x-sign(p.side)*1.5,y:d.y-(feint.aim.y-p.y)})});duelAfter.set(d.id,Math.max(duelAfter.get(d.id)??0,time+.65));}
      feint.resolved=true;
     }
