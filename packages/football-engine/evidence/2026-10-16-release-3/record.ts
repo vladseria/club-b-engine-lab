@@ -19,11 +19,6 @@ function side(i:0|1,plans:any[]=[]):any{
   players:t.squad.map((p:any,n:number)=>({id:p.id,name:p.name,short:p.name.split(' ')[0],number:n+1,roles:p.roles,skills:p.skills,traits:p.traits,energy:p.energy,archetype:p.archetype??'',temperament:p.temperament??'',note:p.note,portrait:'p0001'})),plans};
 }
 const LEAD=1.2,TAIL=7,STEP=.2,CLIP_ROUNDS=16;
-// (release 4 31573ffb, 19 Oct) the clip carries when ours shot (the engine's shot events inside the clip's window), so
-// the chalk draws a shot from what the go says rather than from who had the ball next: Ball in behind's shot, parried
-// wide off the keeper for our kick-in, was drawn as a pass to the wing.
-const shotsIn=(chunks:any[],from:number,to:number)=>
- chunks.flatMap(ch=>ch.e.filter((e:any)=>e.k==='shot'&&e.s===0&&e.t>=from*1000&&e.t<=to*1000).map((e:any)=>+(e.t/1000-from).toFixed(2)));
 
 function record(key:string):any{
  const plan=(PLANS as any[]).find(x=>x.key===key)!.plan;
@@ -43,7 +38,7 @@ function record(key:string):any{
    let f=tl.frames[0];for(const x of tl.frames){if(x.t<=s*1000)f=x;else break;}
    frames.push([...f.p.slice(0,10).flatMap(p=>[Math.round(p[0]/10),Math.round(p[1]/10)]),Math.round(f.b[0]/10),Math.round(f.b[1]/10),Math.round(f.b[2]/10),f.o]);
   }
-  return {key,status:best.c.status as any,shots:best.c.shots,start:+(best.c.startAt!/1000-from).toFixed(1),step:STEP,frames,shotAt:shotsIn(best.g.with.chunks,from,to)};
+  return {key,status:best.c.status as any,shots:best.c.shots,start:+(best.c.startAt!/1000-from).toFixed(1),step:STEP,frames};
  };
  for(let round=0;round<4;round++){const c=clip(round,true);if(c)return c;}
  // (release 3 e4d6678a, 16 Oct) Drive and slip, the rarest to reach a shot (5 to-plan goes with a shot inside the
@@ -67,7 +62,7 @@ function record(key:string):any{
    let f=tl.frames[0];for(const x of tl.frames){if(x.t<=s*1000)f=x;else break;}
    frames.push([...f.p.slice(0,10).flatMap(p=>[Math.round(p[0]/10),Math.round(p[1]/10)]),Math.round(f.b[0]/10),Math.round(f.b[1]/10),Math.round(f.b[2]/10),f.o]);
   }
-  return {key,status:best.c.status as any,shots:best.c.shots,start:+(best.c.startAt!/1000-from).toFixed(1),step:STEP,frames,shotAt:shotsIn(best.g.with.chunks,from,to)};
+  return {key,status:best.c.status as any,shots:best.c.shots,start:+(best.c.startAt!/1000-from).toFixed(1),step:STEP,frames};
  }
  throw new Error(`no go of ${key} ever started`);
 }
