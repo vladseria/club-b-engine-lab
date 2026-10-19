@@ -1,3 +1,4 @@
+// Copied unchanged (below this line) from branch squad-fit-study, packages/football-engine/evidence/2026-10-19-squad-fit/squads.ts (19 Oct).
 // Squad fit (2026-10-19): the squads and the plans of the squad-fit experiment. Evidence only, no engine or game change.
 //
 // THE BUDGET. Every squad is nine players (five starters + four on the bench, as every Ballers squad), the same
