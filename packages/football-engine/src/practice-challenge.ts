@@ -20,6 +20,12 @@ export interface ChallengeContact {
  reach:number;followThrough:number;
 }
 
+/** (caught kick, 2026-10-19) Named so the carrier's read of a tackle (practice-possession footOnBall) uses the same
+ * numbers as the tackle itself; values unchanged. A defender may go in once he is within CHALLENGE_RANGE m of the BALL
+ * (readChallenge, and the candidate filter in practice.ts); his boot reaches at most BOOT_REACH m from his body and
+ * meets the ball within BALL_CONTACT m of it (resolveChallengeContact). */
+export const CHALLENGE_RANGE=2.2,BOOT_REACH=1.3,BALL_CONTACT=.24;
+
 /** Resolve the committed reach, not a circle around the defender. Radii approximate
  * a boot/ball and an opponent's legs; they are deliberately smaller than reach.
  * A clean poke cannot foul someone the boot and body never contact. */
@@ -35,9 +41,9 @@ export function resolveChallengeContact(d:PracticePlayer,a:PracticePlayer,ball:V
  const aim={x:attempt.aim.x+(ball.x-attempt.aim.x)*correction,y:attempt.aim.y+(ball.y-attempt.aim.y)*correction};
  const direction=unit(aim.x-d.x,aim.y-d.y);
  const followThrough=followThroughOf(d,closingSpeed,deficit);
- const reach=Math.min(1.3,distance(d,aim)+followThrough);
+ const reach=Math.min(BOOT_REACH,distance(d,aim)+followThrough);
  const foot={x:d.x+direction.x*reach,y:d.y+direction.y*reach};
- const ballAt=contact(d,foot,ball,ball,.24),legAt=contact(d,foot,a,a,.38);
+ const ballAt=contact(d,foot,ball,ball,BALL_CONTACT),legAt=contact(d,foot,a,a,.38);
  const collision=distance(d,a)<.6,leg=legAt!==null,body=leg||collision;
  const ballFirst=ballAt!==null&&!collision&&(legAt===null||ballAt<legAt);
  // Contact with the legs before the ball is usually a trip. Ball-first contact
@@ -111,7 +117,7 @@ export function readChallenge(d:PracticePlayer,a:PracticePlayer,ball:Vec,players
  }else if(screened){
   mode=goalSide<-.3?'recover':'contain';
   reason=mode==='recover'?'Adversarul protejează mingea; revine pe lângă el spre drumul porții.':'Mingea e protejată de corp; rămâne în față fără să intre prin adversar.';
- }else if(gap<=2.2&&opportunity>=threshold){
+ }else if(gap<=CHALLENGE_RANGE&&opportunity>=threshold){
   mode='challenge';emergency=opportunity<ordinaryThreshold+penaltyRisk;
   reason=emergency?'Poate șuta la poartă; riscă intrarea, deși nu are pasul bine așezat.':'Mingea e accesibilă; își așază pasul și încearcă s-o ia.';
  }
