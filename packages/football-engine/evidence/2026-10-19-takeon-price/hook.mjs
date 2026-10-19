@@ -11,7 +11,7 @@ export const wpHook={name:'takeon-wp-hook',setup(b){
   let src=readFileSync(a.path,'utf8');
   if(src.split(CHOICE).length!==2)throw Error('choice anchor not found exactly once');
   if(src.split(TACKLE).length!==2)throw Error('tackle anchor not found exactly once');
-  src=src.replace(CHOICE,CHOICE+'(globalThis as any).__ch?.(time,p,option,restartChoice??available,restart?restart.kind:\'\');(globalThis as any).__tp?.(time,p,option,restart?restart.kind:\'\',players,feintMemory.get(p.id));');
+  src=src.replace(CHOICE,CHOICE+'(globalThis as any).__ch?.(time,p,option,restartChoice??available,restart?restart.kind:\'\');(globalThis as any).__tp?.(time,p,option,restart?restart.kind:\'\',players,feintMemory.get(p.id),restartChoice??available);');
   src=src.replace(TACKLE,TACKLE+'(globalThis as any).__tk?.(time,d,p,touch,foul);');
   return {contents:src,loader:'ts'};
  });

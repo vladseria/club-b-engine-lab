@@ -20,7 +20,7 @@ import {receptionTarget} from './decisions.js';
 import {practiceFixture} from './practice-data.js';
 import {carryOptions,chooseFootballOption,commitCarry,CarryPlan,CarryAssessment,CarryOption} from './practice-carry.js';
 import type {ShotAssessment} from './practice-football.js';
-import {assessShot,strikeShot,keeperReach,goalBoundFlight,markPosition,goalAngle,pitchExit,keeperEdge,placeHurried,NO_EDGE} from './practice-football.js';
+import {assessShot,shotZone,strikeShot,keeperReach,goalBoundFlight,markPosition,goalAngle,pitchExit,keeperEdge,placeHurried,NO_EDGE} from './practice-football.js';
 import {shotContest,shotRead,shotTemper,SHOT_BASE,SHOT_WORTH,type ShotContest} from './practice-shot-contest.js';
 import type {KeeperEdge} from './practice-football.js';
 import {arrivalTime,assignDefense,containMovement,coverPosition,shootingThreat,BLOCK_NEAR,BLOCK_GAP,DefenseAssignment,assignFlight,assignMarking,FlightAssignment,runnerBehindShoulder,runnerPickupDelay} from './practice-defense.js';
@@ -248,9 +248,8 @@ export function practiceOptions(p:PracticePlayer,players:PracticePlayer[],runnin
   options.push(loftOptions(p,q,players,run,p,laneRisk,undefined,{support,time})[0]);
  }
  const goal={x:world(p.side,L),y:0},keeper=defenders.find(q=>q.role==='GK')!,exposure=L-depth(p.side,keeper.x);
- // An audacious player ("shoots on sight") looks at goal from further out.
- const audacity=clamp(p.traits.audacity??0,0,1);
- if((forward>X(73)-audacity*X(12)&&Math.abs(p.y)<Y(24))||(forward>X(48)&&exposure>X(15)&&p.traits.risk>.6)){
+ // An audacious player ("shoots on sight") looks at goal from further out (shotZone).
+ if(shotZone(p)||(forward>X(48)&&exposure>X(15)&&p.traits.risk>.6)){
   const assessment=assessShot(p,players),uncovered=exposure>X(15)&&assessment.keeperCoverage<.25;
   // (shot decision, 2026-10-15, owner: "what's the chance" is a skill, "do I
   // take it" is a personality) Two steps, kept apart:
@@ -278,7 +277,7 @@ export function practiceOptions(p:PracticePlayer,players:PracticePlayer[],runnin
  }
  // Keep one best duel in ordinary selection; the lesson may prefer another
  // exit toward its taught destination without multiplying random chances.
- const duel=feintOptions(p,players,lastFeint,time,laneRisk)[0];if(duel)options.push(duel);
+ const duel=feintOptions(p,players,lastFeint,time,laneRisk,options.find(o=>o.kind==='shoot')?.quality??0)[0];if(duel)options.push(duel);
  return securePossessionOptions(p,players,options,laneRisk);
 }
 // (B2) the duel's odds live with the challenge model, where the carrier's own read of them can use them too

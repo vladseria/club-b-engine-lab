@@ -2,8 +2,8 @@
 // (flag.ts) and `tp`, every open-play take-on the carrier chose (hook.mjs adds a read-only __tp call beside wp's __ch):
 //  tp[] [side, t, carrier depth from his own goal (m), dribble trait, risk trait, control, player number in order of first
 //        appearance, then (builds with the price, either arm) his reads of this take-on and the facts behind them:
-//        7 through (his read of getting past), 8 stopped (his read of losing it to the man), 9 credits (routeCredits at
-//        the aim, the man left out), 10 loss weight (deliveryLossWeight of turnoverPrice here), 11 the fake's exact odds
+//        7 through (his read of getting past), 8 stopped (his read of losing it to the man), 9 gain (takeOnGain at the
+//        aim, the man left out; routeCredits before it existed), 10 loss weight (deliveryLossWeight of turnoverPrice here), 11 the fake's exact odds
 //        (feintFoolChance), 12 the duel's exact odds for the man (duelChance with his cover), 13 gap to the man (m),
 //        14 room at the aim from the others (m), 15 route contact risk from the others, 16 others closing the route,
 //        17 the man's reading, 18 his defending, 19 cover (the man's team-mates within 6 m of the carrier, keeper incl.),
@@ -23,7 +23,7 @@ const dist=(a:any,b:any)=>Math.hypot(a.x-b.x,a.y-b.y);
 export function play(t:{label:string;arm:string;seed:number;rev:string}){
  const on=setFlag(t.rev),tp:any[]=[],ids=new Map<string,number>();
  const f:any=F,c:any=C;
- (globalThis as any).__tp=(time:number,p:any,option:any,rk:string,players:any[])=>{
+ (globalThis as any).__tp=(time:number,p:any,option:any,rk:string,players:any[],_mem:any,list:any[])=>{
   if(rk||option.kind!=='feint')return;
   if(!ids.has(p.id))ids.set(p.id,ids.size);
   const row:any[]=[p.side,r1(time),r1(p.side===0?p.x:48-p.x),p.traits.dribble,p.traits.risk,p.skills.control,ids.get(p.id)];
@@ -33,7 +33,7 @@ export function play(t:{label:string;arm:string;seed:number;rev:string}){
    const near=Math.min(...players.filter((q:any)=>q.side!==p.side&&q.role!=='GK').map((q:any)=>dist(q,p)));
    const cover=players.filter((q:any)=>q.side===d.side&&q.id!==d.id&&dist(q,p)<6).length;
    const local=c.readDribbleRoute(p,option.aim,players,d.id),room=Math.min(...players.filter((q:any)=>q.side!==p.side&&q.id!==d.id).map((q:any)=>dist(q,option.aim)));
-   row.push(r3(read.through),r3(read.stopped),r3(c.routeCredits(p,option.aim,beyond,laneRisk,near).credits),r3(RD.deliveryLossWeight(p,RD.turnoverPrice(p,players,p))),
+   row.push(r3(read.through),r3(read.stopped),r3(f.takeOnGain?f.takeOnGain(p,option.aim,beyond,laneRisk,near,list?.find((o:any)=>o.kind==='shoot')?.quality??0,time):c.routeCredits(p,option.aim,beyond,laneRisk,near).credits),r3(RD.deliveryLossWeight(p,RD.turnoverPrice(p,players,p))),
     r3(f.feintFoolChance(p,d)),r3(duelChance(p,d,cover)),r1(dist(p,d)),r1(room),r3(local.contactRisk),local.nearbyChallenges,d.skills.reading,d.skills.defending,cover,r3(option.score));
   }
   tp.push(row);
