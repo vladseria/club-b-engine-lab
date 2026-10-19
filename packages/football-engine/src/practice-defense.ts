@@ -226,10 +226,7 @@ export interface FlightAssignment {
  /** The attackers' best visible arrival (s). */
  theirs?:number;
 }
-export interface ReceivingAssignment {intended?:string;passer?:string;previous?:string;defensiveUnit?:DefensiveUnitContext & {tactics:Tactics};
- /** (reading start, practice-anticipation) how long before he has seen where a ground ball that has just set off is
-  * going (s): he cannot start for its real path before then. Absent: 0 (as before). */
- late?:(p:PracticePlayer)=>number}
+export interface ReceivingAssignment {intended?:string;passer?:string;previous?:string;defensiveUnit?:DefensiveUnitContext & {tactics:Tactics}}
 /** Interceptions (marking and shape round, item 5): a good defender reads a passing lane. How much better than the
  * engine's plain read (which everyone keeps: nobody is worse than before) a player reads the ball's path when it
  * is the opponents' pass, 0..1: reading and defending together, above a typical 5. It buys him LANE_READ.slack s
@@ -262,9 +259,8 @@ export function assignFlight(players:PracticePlayer[],ball:import('./movement.js
     if(high&&high.ball.time<meeting.time)return [{p,point:{...high.aim,time:high.ball.time,z:high.ball.z},score:high.ball.time}];
     if(!meeting.reachable&&meeting.gap>5)return [];return [{p,point:{...meeting.aim,time:meeting.time,z:0},score:meeting.time+(meeting.reachable?0:meeting.gap/p.pace)}];
    }
-   const late=receiving.late?.(p)??0;
-   const reachable=points.find(q=>arrivalTime(p,q)+late<=q.time+.12+LANE_READ.slack*lane),point=reachable??points.at(-1)!;
-   const arrival=arrivalTime(p,point)+late;if(!reachable&&arrival>point.time+1.1)return [];
+   const reachable=points.find(q=>arrivalTime(p,q)<=q.time+.12+LANE_READ.slack*lane),point=reachable??points.at(-1)!;
+   const arrival=arrivalTime(p,point);if(!reachable&&arrival>point.time+1.1)return [];
    return [{p,point,score:reachable?point.time:arrival+.3}];
   }).sort((a,b)=>a.score-b.score||a.p.id.localeCompare(b.p.id));
   // Opponents can forecast who could reach this flight, including a keeper,
@@ -280,7 +276,7 @@ export function assignFlight(players:PracticePlayer[],ball:import('./movement.js
   if(side===attacking&&ball.mode==='pass'&&receiving.intended&&!candidates.some(c=>c.p.id===receiving.intended)){
    const p=players.find(q=>q.id===receiving.intended&&q.side===side&&!unavailable.has(q.id));
    const point=points.at(-1);
-   if(p&&point&&!airborne)candidates.push({p,point,score:arrivalTime(p,point)+(receiving.late?.(p)??0)+.3});
+   if(p&&point&&!airborne)candidates.push({p,point,score:arrivalTime(p,point)+.3});
    candidates.sort((a,b)=>a.score-b.score||a.p.id.localeCompare(b.p.id));
   }
   let best=candidates[0];
