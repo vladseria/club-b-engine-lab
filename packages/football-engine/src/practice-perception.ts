@@ -83,6 +83,21 @@ function lattice(h:number,i:number,j:number,k:number):number{
 const fade=(t:number)=>t*t*(3-2*t);
 /** The engine's side prefix on player ids ("0:", "1:"). */
 const SIDE=/(^|[^0-9A-Za-z])[01]:/g;
+/** (engine speed, 2026-10-19) keyHash(`${id}|${read}|${salt}` without the side prefixes), remembered per (id, read,
+ * salt) as given, so a repeated read skips building the key string and the prefix-stripping replace. The value is a
+ * pure function of the three strings: what is remembered is exactly what would be computed. */
+const readHashes=new Map<string,Map<string,Map<unknown,number>>>();let readHashCount=0;
+function readHash(id:string,read:string,salt:unknown):number{
+ let byRead=readHashes.get(id);if(byRead===undefined){byRead=new Map();readHashes.set(id,byRead);}
+ let bySalt=byRead.get(read);if(bySalt===undefined){bySalt=new Map();byRead.set(read,bySalt);}
+ let h=bySalt.get(salt);
+ if(h===undefined){
+  h=keyHash(`${id}|${read}|${salt}`.replace(SIDE,'$1'));
+  if(readHashCount>100000){readHashes.clear();readHashCount=0;byRead=new Map();readHashes.set(id,byRead);bySalt=new Map();byRead.set(read,bySalt);}
+  bySalt.set(salt,h);readHashCount++;
+ }
+ return h;
+}
 /** A misread persists over about this many metres of the place read ... */
 export const READ_CELL=4;
 /** ... and about this many seconds, where the caller knows the time. */
@@ -97,7 +112,7 @@ export function readNoise(p:{id:string;side?:number},read:Read,at:Vec,time?:numb
  // centre line across) and keyed on the squad player, not the side he
  // happens to play on: a mirrored situation (end to end, or flank to flank)
  // is read the same way by the same player.
- const h=keyHash(`${p.id}|${read}|${salt}`.replace(SIDE,'$1'));
+ const h=readHash(p.id,read,salt);
  const ax=p.side===1?L-at.x:at.x,ay=Math.abs(at.y);
  const x=ax/READ_CELL,y=ay/READ_CELL,i=Math.floor(x),j=Math.floor(y),u=fade(x-i),v=fade(y-j);
  let s=0;
