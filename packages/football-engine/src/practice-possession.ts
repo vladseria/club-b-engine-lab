@@ -7,8 +7,7 @@ import {strikeTurnTime} from './practice-striking.js';
 import {PASS_DRAG} from './practice-flight.js';
 import {nerve,perceive,daring,composure} from './practice-perception.js';
 import {turnoverPrice,deliveryLossWeight} from './practice-rest-defence.js';
-import {duelChance,CHALLENGE_RANGE,BOOT_REACH,BALL_CONTACT} from './practice-challenge.js';
-import {arrivalWithin} from './practice-arrival.js';
+import {duelChance} from './practice-challenge.js';
 import {controlEdge} from './practice-reception.js';
 import {PASS_POINT} from './practice-receive.js';
 
@@ -108,61 +107,25 @@ export function readKickHorizon(p:PracticePlayer,aim:Vec,kind:Option['kind']):nu
  * only when getting it away sooner is worth more than placing it well. (A laptop check without it: pricing the
  * presser alone sent pressed men into carries and feints, and kept the ball 0.14 s longer.) */
 export const CHALLENGE_LAND=.16,CAUGHT_SPAN=.3,HURRY_SHARE=.5,HURRY_POINTS=2;
-/** (caught kick, 2026-10-19) "Can he get a foot to the ball before I strike it?" The read above timed the man
- * arriving on the carrier's BODY (arrivalTime: within 1 m of him) and added CHALLENGE_LAND; but a tackle is about the
- * ball. A defender may go in once he is within CHALLENGE_RANGE (2.2 m) of the ball, and his tackle lands
- * CHALLENGE_LAND s later at the soonest, his boot meeting it at most BOOT_REACH + BALL_CONTACT m from his body
- * (practice-challenge: the same constants the tackle uses). The ball is often a stride off the carrier's feet as he
- * shapes the kick. Measured on live dbdb6b81 (evidence 2026-10-19-caught-kick): at the set of a pass later lost
- * unstruck the nearest defender was a median 1.3 m from the BALL, 77% were already within tackle range of it and 65%
- * of these sets "looked safe" to the body read. So the time a man needs to get a foot to the ball is the later of
- * (in range + the tackle's landing) and (his boot within reach of it): footOnBall, by the same motion model as
- * arrivalTime (his momentum, acceleration and tired pace) to the ball where it is now. The carrier's read of it is
- * the same read as before (perceive 'arrival', LOOK_SPREAD: reading and passing set how well he judges it); nothing
- * else changes. The flag (on by default; an object so a measurement can switch it per match) off is the previous body
- * read, bit for bit. */
-export const CAUGHT_KICK:{byBall:boolean}={byBall:true};
-export function footOnBall(q:PracticePlayer,ball:Vec):number{
- return Math.max(arrivalWithin(q,ball,CHALLENGE_RANGE)+CHALLENGE_LAND,arrivalWithin(q,ball,BOOT_REACH+BALL_CONTACT));
-}
-/** The opponent who can get a foot to the ball first, and when (exact picture; the carrier's read is perceived). */
-export function firstOnBall(p:PracticePlayer,players:PracticePlayer[],ball:Vec):{q:PracticePlayer|null;t:number}{
- let q:PracticePlayer|null=null,t=Infinity;
- for(const o of players){if(o.side===p.side||o.role==='GK')continue;const s=footOnBall(o,ball);if(s<t){t=s;q=o;}}
- return {q,t};
-}
-/** His read, made once for the picture: the time until a man is on it as he sees it, and the share of a kick with
- * a given read horizon that is caught (0 = it gets away). */
-function caughtRead(p:PracticePlayer,players:PracticePlayer[],time?:number,ball?:Vec):(horizon:number)=>number{
- if(CAUGHT_KICK.byBall&&ball){
-  const {t}=firstOnBall(p,players,ball);
-  if(!Number.isFinite(t))return ()=>0;
-  const seen=Math.max(0,perceive(p,'arrival',t,LOOK_SPREAD,p,{time,salt:'caught'}));
-  return horizon=>clamp((horizon-seen)/CAUGHT_SPAN,0,1);
- }
+export function caughtOnBall(p:PracticePlayer,players:PracticePlayer[],horizon:number,time?:number):number{
  const {contactTime}=possessionSafety(p,players);
- if(!Number.isFinite(contactTime))return ()=>0;
+ if(!Number.isFinite(contactTime))return 0;
  const seen=Math.max(0,perceive(p,'arrival',contactTime,LOOK_SPREAD,p,{time,salt:'caught'}));
- return horizon=>clamp((horizon-seen-CHALLENGE_LAND)/CAUGHT_SPAN,0,1);
-}
-export function caughtOnBall(p:PracticePlayer,players:PracticePlayer[],horizon:number,time?:number,ball?:Vec):number{
- return caughtRead(p,players,time,ball)(horizon);
+ return clamp((horizon-seen-CHALLENGE_LAND)/CAUGHT_SPAN,0,1);
 }
 const CAUGHT_KINDS:readonly Option['kind'][]=['pass','through','loft','clear'];
-export function priceCaught(p:PracticePlayer,players:PracticePlayer[],options:Option[],time?:number,ball?:Vec):Option[]{
+export function priceCaught(p:PracticePlayer,players:PracticePlayer[],options:Option[],time?:number):Option[]{
  const opponents=players.filter(q=>q.side!==p.side&&q.role!=='GK');
  if(!opponents.length)return options;
- // (caught kick) with the ball read, the man whose duel it would be is the one who gets a foot to the ball first
- const byBall=CAUGHT_KICK.byBall&&ball?firstOnBall(p,players,ball).q:null;
- const presser=byBall??opponents.reduce((a,b)=>arrivalTime(b,p)<arrivalTime(a,p)?b:a);
+ const presser=opponents.reduce((a,b)=>arrivalTime(b,p)<arrivalTime(a,p)?b:a);
  const cover=opponents.filter(q=>q.id!==presser.id&&distance(q,p)<6).length,odds=duelChance(p,presser,cover);
- const loss=deliveryLossWeight(p,turnoverPrice(p,players)),read=caughtRead(p,players,time,ball);
+ const loss=deliveryLossWeight(p,turnoverPrice(p,players));
  return options.map((o):Option[]=>{
   if(!CAUGHT_KINDS.includes(o.kind))return [o];
-  const horizon=readKickHorizon(p,o.aim,o.kind),caught=read(horizon);
+  const horizon=readKickHorizon(p,o.aim,o.kind),caught=caughtOnBall(p,players,horizon,time);
   if(caught<=0)return [o];
   const priced=(score:number,c:number)=>score-c*odds*(Math.max(0,score)+loss);
-  const quick=read(horizon-(1-HURRY_SHARE)*preparationTime(p,o.kind)),worse=1-HURRY_POINTS*PASS_POINT;
+  const quick=caughtOnBall(p,players,horizon-(1-HURRY_SHARE)*preparationTime(p,o.kind),time),worse=1-HURRY_POINTS*PASS_POINT;
   return [{...o,score:priced(o.score,caught)},{...o,hurried:true,score:priced(o.score*(o.score>0?worse:1/worse),quick),reason:o.kind==='clear'?o.reason:'Omul vine peste el: scapă repede de minge.'}];
  }).flat();
 }

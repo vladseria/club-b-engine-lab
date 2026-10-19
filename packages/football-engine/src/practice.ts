@@ -26,7 +26,7 @@ import type {KeeperEdge} from './practice-football.js';
 import {arrivalTime,assignDefense,containMovement,coverPosition,shootingThreat,BLOCK_NEAR,BLOCK_GAP,DefenseAssignment,assignFlight,assignMarking,FlightAssignment,runnerBehindShoulder,runnerPickupDelay} from './practice-defense.js';
 import {offGoalLine,mayLeaveForBall,BOX_BLOCK_NEAR,BOX_BLOCK_DANGER,blockLeg,BLOCK_LEG_HEIGHT} from './practice-defending.js';
 import {readShotDanger} from './practice-shot-defense.js';
-import {duelChance,readChallenge,startChallenge,bodyScreensBall,recoveryPosition,resolveChallengeContact,followThroughOf,CHALLENGE_RANGE,BEATEN_WINDOW,BEATEN_NEAR,ChallengeContact,ChallengeRead,ChallengeAttempt} from './practice-challenge.js';
+import {duelChance,readChallenge,startChallenge,bodyScreensBall,recoveryPosition,resolveChallengeContact,followThroughOf,BEATEN_WINDOW,BEATEN_NEAR,ChallengeContact,ChallengeRead,ChallengeAttempt} from './practice-challenge.js';
 import {contactLoad,felt,struck,lunged,KICK_FOLLOW,FALL_KEEP,LEG_AFTER_BALL,TACKLER_STAGGER,Balance} from './practice-balance.js';
 import {possessionSafety,lookAgain,securePossessionOptions,recoveryTouch,preparationTime,strikeClearance,launchRisk,ClearanceIntent,footToBall,priceCaught,HURRY_SHARE,HURRY_POINTS} from './practice-possession.js';
 import {perceive,Sightings,sightLag,inView,lookingAt} from './practice-perception.js';
@@ -45,7 +45,7 @@ import {Restart,RestartKind,RestartInfo,restartPositions,restartPlayersReady,res
 import {liveRestart,restartRoutine,authoredRoutine,planLiveRestart,restartHold,restartOptions,settleRestart,SET_PIECE_HOLD} from './practice-restart-live.js';
 import {chooseFreeKickTaker,choosePenaltyTaker,freeKickOptions,setPiecePlayer,strikeFreeKick,DirectFreeKickPlan} from './practice-set-pieces.js';
 import {createOffsideAwareness,perceivedOffside,runReleaseAllowance,ReleaseCue} from './practice-awareness.js';
-import {feintOptions,feintDuration,finishFeint,feintReleaseOpening,FeintMemory} from './practice-feints.js';
+import {feintOptions,feintDuration,finishFeint,feintReleaseOpening,feintFoolChance,FeintMemory} from './practice-feints.js';
 import {strikeStance} from './practice-striking.js';
 import {duelGeometry,readDuel,resolveDuel,shieldTouch,turnTouch,dangerAt,TURNED_TIME,DuelResult} from './practice-duel.js';
 import {carryPace,captureControl,faceControl,steerControl,advanceControl,receivingContact,cushionControl,controlReleaseAvailable,controlStrikeReady,strikeControl,rollControlRemainder,deflectBodyBall,TouchControl,ControlContact} from './practice-control.js';
@@ -278,7 +278,7 @@ export function practiceOptions(p:PracticePlayer,players:PracticePlayer[],runnin
  }
  // Keep one best duel in ordinary selection; the lesson may prefer another
  // exit toward its taught destination without multiplying random chances.
- const duel=feintOptions(p,players,lastFeint,time)[0];if(duel)options.push(duel);
+ const duel=feintOptions(p,players,lastFeint,time,laneRisk)[0];if(duel)options.push(duel);
  return securePossessionOptions(p,players,options,laneRisk);
 }
 // (B2) the duel's odds live with the challenge model, where the carrier's own read of them can use them too
@@ -1408,7 +1408,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    if(!resolveExit(before)&&ball.owner===p.id){
    if(feint&&feint.attacker===p.id){
     if(!feint.resolved&&time>=feint.check){
-     const d=get(feint.defender);const fooled=execution()<clamp(.42+(p.skills.control-d.skills.reading)*.055+(1-d.traits.discipline)*.1,.12,.8);
+     const d=get(feint.defender);const fooled=execution()<feintFoolChance(p,d);
      if(fooled){wrongfoot.set(d.id,{until:time+.65,aim:inside({x:d.x-sign(p.side)*1.5,y:d.y-(feint.aim.y-p.y)})});duelAfter.set(d.id,Math.max(duelAfter.get(d.id)??0,time+.65));}
      feint.resolved=true;
     }
@@ -1435,7 +1435,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
     const trapping=(q:PracticePlayer)=>coordination?.trap?.side===q.side&&!coordination.trap.over&&coordination.jobs[q.id]?.purpose==='trap';
     const challengeTactics=(q:PracticePlayer)=>lossJob(q)==='counter-press'||trapping(q)?{...f.teams[q.side].tactics,press:'aggressive' as const}:f.teams[q.side].tactics;
     const delaying=(q:PracticePlayer)=>lossPlan?.mode==='delay'&&lossJob(q)==='press';
-    const candidates=sidePlayers(other(p.side)).filter(q=>q.role!=='GK'&&dist(q,ball)<CHALLENGE_RANGE&&time>=(duelAfter.get(q.id)??0)&&time>=(recovering.get(q.id)?.until??0)&&q.duty!=='wrongfoot')
+    const candidates=sidePlayers(other(p.side)).filter(q=>q.role!=='GK'&&dist(q,ball)<2.2&&time>=(duelAfter.get(q.id)??0)&&time>=(recovering.get(q.id)?.until??0)&&q.duty!=='wrongfoot')
      .map(q=>({p:q,read:readChallenge(q,p,ball,players,challengeTactics(q),score[p.side]-score[q.side])}))
      .filter(q=>q.read.mode==='challenge'&&!(delaying(q.p)&&q.read.shot.level<=.32)).sort((a,b)=>(b.read.opportunity-b.read.threshold)-(a.read.opportunity-a.read.threshold));
     const candidate=candidates[0];
@@ -1511,7 +1511,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
     if(time>=nextThink&&!prepared){
      const runs=new Set(players.filter(q=>q.duty==='run').map(q=>q.id)),free=restart&&(restart.kind==='freeKick'||restart.kind==='indirect');let holdUntil=Infinity,available=footballOptions(free?setPiecePlayer({...p,...restart!.spot}):p,players,runs,lastFrom,time-receivedAt,carryPlan,time,support,observedLine(p),feintMemory.get(p.id));
      // (decide round) a kick he cannot get away before the man closing him is on him is worth less (priceCaught)
-     if(!mustRelease&&!inHands&&!restart)available=priceCaught(p,players,available,time,ball);
+     if(!mustRelease&&!inHands&&!restart)available=priceCaught(p,players,available,time);
      if(mustRelease){available=restart?.kind==='throw'?throwOptions(p,ball,players,available):free?freeKickOptions(p,players,restart!,available,f.teams[p.side].tactics):available.filter(o=>o.kind==='pass'||o.kind==='through'||o.kind==='loft');if(!available.length){const q=sidePlayers(p.side).filter(q=>q.id!==p.id).sort((a,b)=>dist(a,p)-dist(b,p))[0];available=[{kind:'pass',target:q.id,aim:q,score:1,reason:'Reia jocul cu o pasă către colegul apropiat.'}];}}
      if(inHands){
       available=available.filter(o=>o.kind==='pass'||o.kind==='through'||o.kind==='loft');
