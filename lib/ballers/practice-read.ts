@@ -178,11 +178,20 @@ export function compareWords(r:Read,a:string,b:string,aRuns:number,bRuns:number)
 }
 
 // ------------------------------------------------------------------ batches
-/** How long `total` kick-offs of `matches` matches each take here, in words; a multiple of one run when the tab hasn't timed one yet. */
-export function batchWords(total:number,matches:number,duration:number,pace:number|null){
- if(pace===null)return `${total} runs play one after another: about ${total} times as long as one.`;
- const min=total*matches*duration*pace/60000;
- return `${total} runs play one after another: ${min<1?'under a minute':`about ${longWords(min)}`} on this device.`;
+/** How long `total` kick-offs of `matches` matches each take here, in words, with `size` matches
+ * playing at once (lib/ballers/lab/batch.ts); a multiple of one run when the tab hasn't timed one
+ * yet. `pace`: one match's wall ms per simulated second, timed with that many playing at once. */
+export function batchWords(total:number,matches:number,duration:number,pace:number|null,size=1){
+ const jobs=total*matches,at=Math.max(1,Math.min(size,jobs)),waves=Math.ceil(jobs/at);
+ const how=at===1?'one after another':waves===1?'at the same time':`${at}${matches>1?' matches':''} at a time`;
+ if(pace===null){
+  // one run on its own plays its matches side by side too
+  // matches side by side each go a little slower, so all at once is a little longer than one, never "as long"
+  const times=Math.round(waves/Math.ceil(matches/at));
+  return `${total} runs play ${how}: ${times>2?`about ${times} times as long as`:times===2?'about twice as long as':at>1?'a little longer than':'about as long as'} one.`;
+ }
+ const min=waves*duration*pace/60000;
+ return `${total} runs play ${how}: ${min<1?'under a minute':`about ${longWords(min)}`} on this device.`;
 }
 /** Minutes in words: "7 minutes"; from an hour, to the nearest 5 minutes ("1 hour 15 minutes", "2 hours"). */
 function longWords(min:number){

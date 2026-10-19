@@ -89,10 +89,13 @@ export function runChips(runs:readonly RunFacts[],kept:ReadonlySet<string>,show=
  return {earlier:from,chips:runs.slice(from).map((r,k)=>({i:from+k,gf:r.gf,ga:r.ga,id:r.id&&kept.has(r.id)?r.id:null}))};
 }
 
-/** Wall milliseconds per simulated second on this device, as last measured in this tab. */
-export function loadPace():number|null{
- try{const v=Number(storage()?.getItem(PACE_KEY));return Number.isFinite(v)&&v>0?v:null;}catch{return null;}
+/** Wall milliseconds per simulated second of one match on this device, as last measured in this
+ * tab with `together` matches playing at once (a batch side by side: each match is slower, the
+ * batch faster); one at a time keeps the key it always had. */
+const paceKey=(together:number)=>together>1?`${PACE_KEY}:${together}`:PACE_KEY;
+export function loadPace(together=1):number|null{
+ try{const v=Number(storage()?.getItem(paceKey(together)));return Number.isFinite(v)&&v>0?v:null;}catch{return null;}
 }
-export function savePace(msPerSecond:number){
- try{if(Number.isFinite(msPerSecond)&&msPerSecond>0)storage()?.setItem(PACE_KEY,String(Math.round(msPerSecond*100)/100));}catch{/* the estimate falls back to "N times as long" */}
+export function savePace(msPerSecond:number,together=1){
+ try{if(Number.isFinite(msPerSecond)&&msPerSecond>0)storage()?.setItem(paceKey(together),String(Math.round(msPerSecond*100)/100));}catch{/* the estimate falls back to "N times as long" */}
 }

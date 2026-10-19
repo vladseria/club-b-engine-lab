@@ -184,8 +184,10 @@ describe('on this engine build, Lab watches classify every start',()=>{
   // a player left behind the play hurrying up into it, shot lanes read inside
   // the posts, the plan's taker on penalties; idea code unchanged),
   // then release 4 (the keeper reads the attack, not his back line, and his
-  // support job prices the goal a loss would leave open; idea code unchanged).
-  expect(ENGINE_BUILD.slice(0,8)).toBe('31573ffb');
+  // support job prices the goal a loss would leave open; idea code unchanged),
+  // then engine-speed dbdb6b81 (four speed-ups, match results byte-identical
+  // to 31573ffb; idea code unchanged).
+  expect(ENGINE_BUILD.slice(0,8)).toBe('dbdb6b81');
   const side=demoSide(),seen:Record<string,number>={};
   for(const st of STARTERS)for(const seed of [3,11,2026]){
    const fixture=withDefensiveApproach(trialFixture(side.team,seed),1,'original');fixture.seed=seed;

@@ -2,7 +2,7 @@ import {L,W,GH,HEIGHT,BOX_DEPTH,BOX_HALF,SPOT,X,Y,G} from './pitch.js';
 import {acuity,perceive} from './practice-perception.js';
 import type {Reader} from './practice-perception.js';
 import {clamp} from './model.js';
-import {Vec,MovingBall,steer,steerMotion,contact} from './movement.js';
+import {Vec,MovingBall,steer,steerMotion,contact,STEP} from './movement.js';
 import {advanceFlight,flightContact,PASS_DRAG} from './practice-flight.js';
 import type {PracticePlayer} from './practice.js';
 import {bodyScreensBall} from './practice-challenge.js';
@@ -317,6 +317,36 @@ function registerTouch(p:PracticePlayer,ball:MovingBall,state:TouchControl,foot:
  state.contacts.push(event);state.lastTouch=event;state.readyAt=time+touchGap(p);state.active=null;state.setTouch=false;
 }
 
+/** (engine speed, 2026-10-19) The receiving feet's look-ahead (receivingContact) forecasts the SAME ball for every
+ * player in a tick: it runs once per player against the one live ball, and about nine calls in ten repeat a ball state
+ * already forecast that tick. advanceFlight(copy,lead) for lead = 0, .02, .04, ... is a run of whole STEP ticks and at
+ * most one shorter remainder tick, and the whole ticks are a common prefix of every lead. So each ball state's
+ * forecasts are made once, extending that prefix, and every forecast is bit-identical to advanceFlight({...ball},lead):
+ * the same calls on the same numbers in the same order. Keyed on the ball's six numbers (Object.is, so -0 and NaN are
+ * told apart) and on each lead's own value. A returned forecast is shared: read it, never change it. */
+const leads={key:[NaN,NaN,NaN,NaN,NaN,NaN],values:[] as number[],forecasts:[] as MovingBall[],base:null as MovingBall|null,whole:0};
+export function leadForecast(ball:MovingBall,index:number,lead:number):MovingBall{
+ const c=leads,k=c.key;
+ if(!(Object.is(k[0],ball.x)&&Object.is(k[1],ball.y)&&Object.is(k[2],ball.z)&&Object.is(k[3],ball.vx)&&Object.is(k[4],ball.vy)&&Object.is(k[5],ball.vz))){
+  k[0]=ball.x;k[1]=ball.y;k[2]=ball.z;k[3]=ball.vx;k[4]=ball.vy;k[5]=ball.vz;
+  c.values.length=0;c.forecasts.length=0;c.base={...ball};c.whole=0;
+ }
+ if(index<c.forecasts.length&&Object.is(c.values[index],lead))return c.forecasts[index];
+ let forecast:MovingBall;
+ if(!(lead>STEP+1e-9)){forecast={...ball};advanceFlight(forecast,lead);}// advanceFlight's own single-tick branch
+ else{
+  // advanceFlight's loop replayed on the scalars alone: how many whole STEP ticks, then the remainder tick (if any)
+  let whole=0,rest=0,partial=false;
+  for(let left=lead;left>1e-9;left-=STEP){if(Math.min(STEP,left)===STEP)whole++;else{rest=left;partial=true;}}
+  if(whole<c.whole){forecast={...ball};advanceFlight(forecast,lead);}// out of order: the plain call
+  else{
+   const base=c.base!;while(c.whole<whole){advanceFlight(base,STEP);c.whole++;}
+   forecast={...base};if(partial)advanceFlight(forecast,rest);
+  }
+ }
+ if(index===c.forecasts.length){c.values.push(lead);c.forecasts.push(forecast);}
+ return forecast;
+}
 export interface ReceivingContact {fraction:number;foot:ControlFeet;body:PracticePlayer}
 /** Off-ball feet prepare at bounded speed. Proximity alone never claims the ball.
  * The caller advances the ball once and resolves the earliest foot/hand/body hit. */
@@ -330,9 +360,12 @@ export function receivingContact(p:PracticePlayer,previous:Vec,before:MovingBall
  const horizon=.22+clamp((intercepting?Math.max(p.skills.reading,p.skills.defending):p.skills.reading)/10,0,1)*.16;
  const footSkill=intercepting?Math.max(p.skills.control,p.skills.defending):p.skills.control;
  let target:Vec|null=null;
- for(let lead=0;lead<=horizon+1e-8;lead+=.02){
-  const forecast={...after};advanceFlight(forecast,lead);
-  const future={...p,x:p.x+p.vx*lead,y:p.y+p.vy*lead};
+ // (engine speed) each forecast from leadForecast (the same numbers as advanceFlight({...after},lead)), and one copy of
+ // the body moved along instead of a fresh copy per lead (footCanReach reads its x, y and angle and keeps nothing)
+ const future={...p};
+ for(let lead=0,index=0;lead<=horizon+1e-8;lead+=.02,index++){
+  const forecast=leadForecast(after,index,lead);
+  future.x=p.x+p.vx*lead;future.y=p.y+p.vy*lead;
   if(forecast.z>.25||distance(future,forecast)>receivingSetupRadius)continue;
   if(!footCanReach(future,forecast,'left')&&!footCanReach(future,forecast,'right'))continue;
   target={x:p.x+forecast.x-future.x,y:p.y+forecast.y-future.y};break;

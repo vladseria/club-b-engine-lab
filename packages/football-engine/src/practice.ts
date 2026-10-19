@@ -175,11 +175,15 @@ export function laneRisk(from:Vec,to:Vec,defenders:PracticePlayer[],speed=16,del
  for(const p of defenders){
   const projection=clamp(((p.x-from.x)*dx+(p.y-from.y)*dy)/d2,.06,1);
   // Include the receiver's end of the lane: a marker can intercept just before reception.
-  for(const t of [projection,Math.min(1,projection+.15)]){
-   const flight=length*t/speed,available=Math.max(0,flight+delay-.22),point={x:from.x+dx*t,y:from.y+dy*t};
-   const delta=unit(point.x-p.x,point.y-p.y),towards=p.vx*delta.x+p.vy*delta.y;
+  // (engine speed, 2026-10-19) written on scalars: no array or point/unit objects per defender, and the one
+  // hypot(point - p) serves both the unit direction and the distance (unit and dist computed exactly that), so every
+  // value is the one before to the last bit.
+  for(let end=0;end<2;end++){
+   const t=end===0?projection:Math.min(1,projection+.15);
+   const flight=length*t/speed,available=Math.max(0,flight+delay-.22),px=from.x+dx*t,py=from.y+dy*t;
+   const ux=px-p.x,uy=py-p.y,gap=Math.hypot(ux,uy),norm=gap||1,towards=p.vx*(ux/norm)+p.vy*(uy/norm);
    const reach=Math.max(0,Math.min(p.pace*available,towards*available+.5*p.acceleration*available*available));
-   risk=Math.max(risk,clamp((reach+1.1-dist(point,p))/2,0,1));
+   risk=Math.max(risk,clamp((reach+1.1-gap)/2,0,1));
   }
  }
  return risk;
