@@ -2,7 +2,7 @@ import {L,W,GH,HEIGHT,BOX_DEPTH,BOX_HALF,SPOT,X,Y,G} from './pitch.js';
 import {clamp} from './model.js';
 import type {PracticePlayer,Option} from './practice.js';
 import type {Vec} from './movement.js';
-import {dribbleConfidence,readDribbleRoute,carryLossRead,routeCredits,BEAT_SPREAD,CARRY_BASE,CARRY_SHOT} from './practice-carry.js';
+import {dribbleConfidence,readDribbleRoute,carryLossRead,routeCredits,BEAT_SPREAD,CARRY_BASE,CARRY_SHOT,DRIBBLE_TYPICAL} from './practice-carry.js';
 import {perceive} from './practice-perception.js';
 import {turnoverPrice,deliveryLossWeight} from './practice-rest-defence.js';
 import {assessShot,shotZone,keeperClaimChance} from './practice-football.js';
@@ -69,10 +69,11 @@ export const TAKEON_PRICE={on:true};
 /** How long a man who buys the fake is wrong-footed (practice.ts: his wrongfoot and his next duel wait this long),
  * jogging (WRONG_PACE of his pace) to the wrong side: WRONG_BACK m back and as far across as the take-on goes. */
 export const FOOLED_FOR=.65,WRONG_PACE=.65,WRONG_BACK=1.5;
-/** A flashy player's liking for taking a man on, beyond what it gets him (his appetite): TAKEON_FLAIR per unit of
- * dribble tendency, the live score's own trait term, kept as the owner asked (flashy players flashy). It is not
- * centred on the squad's typical tendency (DRIBBLE_TYPICAL), so a typical man (0.33) has +0.12 over the same carry;
- * centring it (as shotTemper is) is the owner's call, proposed in the round-3 report, not made here. */
+/** A flashy player's liking for taking a man on, beyond what it gets him (his appetite, as shotTemper is the
+ * shooter's): TAKEON_FLAIR per unit of dribble tendency away from the squad's typical DRIBBLE_TYPICAL (owner's decision,
+ * round 3, option B): a typical dribbler is neutral, a flashy one has a clear push (0.9: +0.21), a poor one leans
+ * against it (0.1: -0.08). The live score's uncentred dribble x 0.36 gave every player a take-on bonus over the same
+ * carry, a typical one +0.12. */
 export const TAKEON_FLAIR=.36;
 type Risk=(from:Vec,to:Vec,defenders:PracticePlayer[],speed?:number)=>number;
 
@@ -208,7 +209,7 @@ export function feintOptions(p:PracticePlayer,players:PracticePlayer[],memory:Fe
    const read=takeOnRead(p,marker,players,aim);
    const free=read.fail*(1-read.contact);
    const gain=(1-read.other)*((1-read.fail)*takeOnGain(p,aim,players,marker,risk!,near,time)+(free>0?free*takeOnGain(p,aim,players,marker,risk!,near,time,false):0));
-   score=CARRY_BASE+TAKEON_FLAIR*p.traits.dribble+gain-read.stopped*lossWeight
+   score=CARRY_BASE+TAKEON_FLAIR*((p.traits.dribble??DRIBBLE_TYPICAL)-DRIBBLE_TYPICAL)+gain-read.stopped*lossWeight
     -(gap<2?.1:0)-Math.max(0,gap-3.5)*.045-local.nearbyChallenges*(.12-confidence*.04)-clamp((3-exitRoom)/3,0,1)*.2-(1-alignment)*.035-repeatFeintCost(p,marker,memory,time);
   }else score=.16+p.traits.dribble*.36+clamp(p.skills.control/10,0,1)*.1+(p.traits.risk-.5)*.08
    -(gap<2?.1:0)-Math.max(0,gap-3.5)*.045-local.contactRisk*(.28-confidence*.08)
