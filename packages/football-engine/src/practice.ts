@@ -216,6 +216,20 @@ export function kickBlocked(p:PracticePlayer,o:Option,players:PracticePlayer[],d
  * steer past team-mates only: two players under 0.6 m apart in 6.6% of frames, team-mates 73 pair-frames a match
  * (evidence/2026-10-15-watch-notes). Opponents are untouched: contact there is a contest. */
 export const TEAM_GAP=.7;
+/** (bodies probe, 2026-10-19; evidence only, default 'off' = the live engine byte for byte) Opponents' bodies are solid
+ * too: a pair from different sides closer than OPP_GAP m is parted like team-mates (separateTeamMates). OPP_GAP is
+ * shoulder to shoulder, leaning in (two 0.31 m torsos just touching is 0.62): opponents may be in contact, team-mates keep
+ * a hand apart. It stays below every reach a contest needs: a tackle's body "collision" (< 0.6 m, practice-challenge),
+ * the reception duel's full reach to the ball (0.65 m) and "fully tight" on a man's back (0.7 m, practice-duel), a
+ * tackle's boot (1.3 m) and the challenge gate (2.2 m from the ball).
+ *  'b1': the man on the ball holds his ground; otherwise both give way equally (as team-mates).
+ *  'b2': who gives way follows strength: off the ball each gives way 0.5 + 0.06 per strength point the other has over
+ *        him (0.2..0.8); the man on the ball holds unless the other is stronger, giving way 0.08 a point (at most 0.6).
+ * `stats` counts what separation did (harness read; never part of a result). */
+export const OPP_GAP=.55;
+export const OPPONENT_BODIES:{mode:'off'|'b1'|'b2';stats:{pairs:number;metres:number;carrierPairs:number;carrierMetres:number;keeperPairs:number;keeperMetres:number}}=
+ {mode:'off',stats:{pairs:0,metres:0,carrierPairs:0,carrierMetres:0,keeperPairs:0,keeperMetres:0}};
+export function resetOpponentBodiesStats(){OPPONENT_BODIES.stats={pairs:0,metres:0,carrierPairs:0,carrierMetres:0,keeperPairs:0,keeperMetres:0};}
 /** How far a shooter who cannot read his chance misjudges it (a relative
  * error, R2): now with the rest of his read, practice-shot-contest shotRead. */
 export {SHOT_SPREAD} from './practice-shot-contest.js';
@@ -482,12 +496,20 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
  // way equally. Nobody is pushed further out than he already was: the touchline brake keeps him .3 m inside the lines.
  const separateTeamMates=()=>{
   const keepIn=(p:PracticePlayer,x:number,y:number)=>{p.x=clamp(p.x,Math.min(.3,x),Math.max(L-.3,x));p.y=clamp(p.y,Math.min(-W/2+.3,y),Math.max(W/2-.3,y));};
+  const bodies=OPPONENT_BODIES.mode;
   for(let i=0;i<players.length;i++)for(let j=i+1;j<players.length;j++){
-   const a=players[i],b=players[j];if(a.side!==b.side)continue;
-   const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);if(d>=TEAM_GAP)continue;
+   const a=players[i],b=players[j],mates=a.side===b.side;if(!mates&&bodies==='off')continue;
+   const gap=mates?TEAM_GAP:OPP_GAP;
+   const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);if(d>=gap)continue;
    // exactly on top of each other: part them across the pitch, the later-listed man to the right of his attack
-   const nx=d>1e-6?dx/d:0,ny=d>1e-6?dy/d:sign(a.side),push=TEAM_GAP-d;
-   const share=a.id===ball.owner?0:b.id===ball.owner?1:.5,ax=a.x,ay=a.y,bx=b.x,by=b.y;
+   const nx=d>1e-6?dx/d:0,ny=d>1e-6?dy/d:sign(a.side),push=gap-d;
+   let share=a.id===ball.owner?0:b.id===ball.owner?1:.5;
+   if(!mates&&bodies==='b2'){
+    const sa=a.skills.strength,sb=b.skills.strength;
+    share=a.id===ball.owner?clamp((sb-sa)*.08,0,.6):b.id===ball.owner?1-clamp((sa-sb)*.08,0,.6):clamp(.5+(sb-sa)*.06,.2,.8);
+   }
+   if(!mates){const s=OPPONENT_BODIES.stats;s.pairs++;s.metres+=push;if(a.id===ball.owner||b.id===ball.owner){s.carrierPairs++;s.carrierMetres+=push;}if(a.role==='GK'||b.role==='GK'){s.keeperPairs++;s.keeperMetres+=push;}}
+   const ax=a.x,ay=a.y,bx=b.x,by=b.y;
    a.x-=nx*push*share;a.y-=ny*push*share;b.x+=nx*push*(1-share);b.y+=ny*push*(1-share);keepIn(a,ax,ay);keepIn(b,bx,by);
    const closing=(b.vx-a.vx)*nx+(b.vy-a.vy)*ny;
    if(closing<0){a.vx+=nx*closing*share;a.vy+=ny*closing*share;b.vx-=nx*closing*(1-share);b.vy-=ny*closing*(1-share);}
