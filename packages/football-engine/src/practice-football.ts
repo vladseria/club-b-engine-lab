@@ -26,9 +26,6 @@ export function keeperPosition(p:PracticePlayer,ball:Vec,closing=false):Vec{
  * (practice-shot-contest shotRead), so it is counted once. `pressure` also widens his striking error (`deviation`) and
  * the lift (strikeShot): execution, not the read. */
 export interface ShotAssessment {aim:Vec;distance:number;angle:number;pressure:number;deviation:number;quality:number;open:number;keeperCoverage:number}
-/** Where a shot is on offer as a matter of course (practiceOptions): beyond X(73) of the pitch, up to X(12) further out
- * for an audacious player ("shoots on sight"), and within Y(24) of the middle. `at` defaults to where he is. */
-export const shotZone=(p:PracticePlayer,at:Vec=p)=>(p.side===0?at.x:L-at.x)>X(73)-clamp(p.traits.audacity??0,0,1)*X(12)&&Math.abs(at.y)<Y(24);
 export function assessShot(p:PracticePlayer,players:PracticePlayer[]):ShotAssessment{
  const goalX=p.side===0?L:0,distanceToGoal=Math.hypot(goalX-p.x,p.y),angle=goalAngle(p);
  const opponents=players.filter(q=>q.side!==p.side),keeper=opponents.find(q=>q.role==='GK');

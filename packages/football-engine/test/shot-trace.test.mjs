@@ -85,7 +85,9 @@ const fixture=JSON.parse(readFileSync(new URL('./feint-release-scene.json',impor
 // The striker outlet round (2026-10-17) changed it; searching from 13826, 13878 is the next (same repin.mjs shotTrace).
 // Release 3 (2026-10-16) changed it; searching from 13878, 13893 is the next (evidence/2026-10-16-release-3/repin.mjs).
 // The keeper fix (2026-10-19) changed it; searching from 13894, 13900 is the next (evidence/2026-10-19-keeper-fix/repin.mjs).
-fixture.seed=13900;fixture.teams[0].lineup[1]='motanescu';Object.assign(fixture.teams[0].tactics,teamApproaches.balanced.settings);Object.assign(fixture.teams[1].tactics,defensiveApproaches.press.tactics);
+// The caught-kick read (2026-10-19) changed it; searching from 13901, 13901 holds (evidence/2026-10-19-reading-start/repin.mjs
+// on the lab, run 39321270474).
+fixture.seed=13901;fixture.teams[0].lineup[1]='motanescu';Object.assign(fixture.teams[0].tactics,teamApproaches.balanced.settings);Object.assign(fixture.teams[1].tactics,defensiveApproaches.press.tactics);
 const result=runMatch({fixture,durationSeconds:100}).result;
 
 test('goal events identify the beneficiary even when an opponent made the last touch',()=>{

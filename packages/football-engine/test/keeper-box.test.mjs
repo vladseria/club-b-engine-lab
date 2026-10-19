@@ -147,8 +147,10 @@ test('a defender never carries the ball toward the mouth of his own goal',()=>{
 // (recon fixes, 2026-10-16: defenders read the shot lanes inside the posts) Re-pinned 3 -> 4 (four spells, two pressed,
 // both moved). Seed 3 keeps the rules but has one pressed hold. Over seeds 3-12 (repin-keeper.mjs) 8 of 10 pass and none
 // breaks a rule; seeds 3 and 10 have too few pressed holds.
+// (caught kick, 2026-10-19: the carrier reads the man's reach to the ball) Re-pinned 4 -> 6 (three spells, two pressed, both
+// moved). Over seeds 5-24 on the lab (run 39321270474, reading-start repin.mjs) 11 of 20 hold the test's conditions (5, 7, 8, 14, 15, 17, 20, 21, 22 do not).
 test('a keeper holding the ball under a press moves with it, lets it go within 4 s, and never to the man next to him',()=>{
- const f=structuredClone(fixture);f.seed=4;for(const t of f.teams)t.tactics.press='aggressive';
+ const f=structuredClone(fixture);f.seed=6;for(const t of f.teams)t.tactics.press='aggressive';
  const r=runMatch({fixture:f,durationSeconds:300,policy:'coordinated'}).result;
  const pos=(fr,i)=>fr.lineup?fr.players[fr.lineup.indexOf(i)]:fr.players[i];
  const at=new Map(r.players.map((p,i)=>[p.id,i])),gk=new Set(r.players.filter(p=>p.role==='GK').map(p=>p.id));
