@@ -232,7 +232,7 @@ const keeperCall=(value:KeeperCall,label:string,does:string)=>({value,label,does
 export const KEEPER_ABOUT='How far your keeper comes off his line: for balls in behind, for high balls and when you have the ball.';
 export const KEEPER_OPTIONS:readonly {value:KeeperCall;label:string;does:string;line:string}[]=[
  keeperCall('own','As usual','plays his own way.'),
- keeperCall('line','Stay on line','stays home: balls in behind are left to his defenders, he claims less in the air and he stays in his area when you have the ball.'),
+ keeperCall('line','Stay on line','stays home: he comes for a ball in behind only when he’s clearly first, claims less in the air and stays in his area when you have the ball.'),
  keeperCall('sweeper','Sweeper','comes out for balls in behind and claims more in the air, but if he’s late the goal is open.'),
 ];
 /** What the free-kick call is about (the plan page, above its options). */

@@ -77,9 +77,11 @@ export const valueWord=(k:SettingKey,v:string)=>k==='commit'?(v==='3'?'3 · thei
 /** A row's meaning: the first sentence of the option's line (the open row shows all of it). */
 export const firstSentence=(line:string)=>line.match(/^.*?[.!?](?=\s|$)/)?.[0]??line;
 export const meaning=(k:SettingKey,v:string)=>firstSentence(optionOf(k,v).line);
-/** What a keeper does when left to himself (his keeperSweep trait, engine default 0.2), as Prep says it. */
+/** What a keeper does when left to himself (his keeperSweep trait, engine default 0.2), as Prep says it.
+ * (Release 4, 19 Oct 2026: "stays on his line" only at or below KEEPER_HOME 0.1, where the engine stops him
+ * following his back line; the default 0.2 keeper is outside his area 38% of the time with their ball far away.) */
 export const keeperHabit=(p:Pick<Player,'short'|'traits'>)=>{const v=p.traits.keeperSweep??.2;
- return `${p.short} ${v>=.6?'comes off his line for balls in behind':v<=.2?'stays on his line':'picks his moments to come out'}.`;};
+ return `${p.short} ${v>=.6?'comes off his line for balls in behind':v<=.1?'stays on his line':'picks his moments to come out'}.`;};
 
 /** The style value a setting started from (approach settings only; keeper and free kicks have no style). */
 export const baseValue=(p:Pick<Plan,'based_on'>,k:SettingKey)=>isApproachKey(k)?String(PRESETS[p.based_on][k]):undefined;

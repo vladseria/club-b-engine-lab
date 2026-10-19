@@ -1,11 +1,14 @@
 // The ready-made moves' clips (recorded by verificare/gp-wp2-clips.test.ts from
 // real engine goes, the rehearsal's own runScenes path). One frame per 0.2 s:
 // ten players' x, y (our five first, then theirs) and the ball's x, y, z, all
-// in decimetres, then the ball owner's index (-1 = nobody).
+// in decimetres, then the ball owner's index (-1 = nobody). shotAt: seconds into
+// the clip when one of ours shot (the engine's shot events); clips recorded
+// before release 4 lack it.
 import data from './clips.json';
 
 export interface MoveClip {key:string;status:'to_plan'|'half'|'broke';shots:number;
- /** Seconds into the clip when the move started. */ start:number;step:number;frames:number[][]}
+ /** Seconds into the clip when the move started. */ start:number;step:number;frames:number[][];
+ /** Seconds into the clip when one of ours shot, from the engine's shot events (absent in older clips). */ shotAt?:number[]}
 export interface MoveClips {engineBuild:string;clips:Record<string,MoveClip>}
 export const CLIPS=data as unknown as MoveClips;
 export const clipOf=(key:string|undefined):MoveClip|null=>key?CLIPS.clips[key]??null:null;
@@ -37,7 +40,11 @@ export function clipDiagram(c:MoveClip):{marks:SketchMark[];from:number;involved
    const p=path(g.a,g.b,ballAt);if(dist(p[0],p[p.length-1])>3)marks.push({kind:'carry',pts:p,at:at(g.a)});
    free[g.o]=g.b;continue;}
   const nx=segs[k+1],a=ballAt(F[g.a]);
-  if(nx&&ours(nx.o)){
+  // the recording says this flight is a shot: kicked after the last frame on our foot (frames are the last
+  // engine frame at or before each 0.2 s step, so up to two steps late). Saved, parried, blocked, wide or in,
+  // it is drawn as the shot; without shotAt (older clips) the next owner decides, as before.
+  const shot=!!c.shotAt?.some(t=>t>at(g.a)-2*c.step-1e-6&&t<=at(g.b)+1e-6);
+  if(!shot&&nx&&ours(nx.o)){
    marks.push({kind:'pass',pts:[a,ballAt(F[nx.a])],at:at(g.a)});
    const r=nx.o,run=path(free[r],nx.a,f=>playerAt(f,r));
    if(span(run)>3)marks.push({kind:'run',pts:run,at:at(free[r])});
@@ -45,7 +52,13 @@ export function clipDiagram(c:MoveClip):{marks:SketchMark[];from:number;involved
   // in flight to their keeper (or still in the air at the end) near goal: the shot; a goal too, where the next
   // frame is already their kick-off on the centre spot, so the flight's own last point is where it went
   const kickoff=!!nx&&nx.o>5&&Math.abs(ballAt(F[nx.a]).x-24)<.5&&Math.abs(ballAt(F[nx.a]).y)<.5;
-  if(!nx||nx.o===5||kickoff){const end=nx&&!kickoff?ballAt(F[nx.a]):ballAt(F[g.b]);if(end.x>40)marks.push({kind:'shot',pts:[a,{x:48,y:Math.max(-1.6,Math.min(1.6,end.y))}],at:at(g.a)});}
+  // with shotAt the recording alone decides what was a shot; older clips fall back to the next owner
+  const keeper=!nx||nx.o===5||kickoff;
+  if(c.shotAt?shot:keeper){
+   // where it went: to their keeper (or in), its flight's end; otherwise (parried or blocked on its way) the
+   // line it left the foot on, carried to the goal line
+   const b=ballAt(F[Math.min(g.b,g.a+1)]),end=keeper?(nx&&!kickoff?ballAt(F[nx.a]):ballAt(F[g.b])):b.x>a.x?{x:48,y:a.y+(b.y-a.y)*(48-a.x)/(b.x-a.x)}:b;
+   if(shot||end.x>40)marks.push({kind:'shot',pts:[a,{x:48,y:Math.max(-1.6,Math.min(1.6,end.y))}],at:at(g.a)});}
   break;
  }
  return {marks:marks.sort((x,y)=>x.at-y.at),from,involved:[...involved]};

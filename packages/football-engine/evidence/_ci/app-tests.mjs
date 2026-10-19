@@ -36,14 +36,16 @@ const SPLIT='gp-board-truth';
 export const LAB_SKIPS={
  'ballers-pipeline':[['compute route','imports app/api/ballers/compute/route.ts (the server route: Next.js and the database RPC client), which is not exported']],
 };
-// Estimated seconds per unit on one lab core (board-truth units: wall on its own pool). Measured on the lab
-// (README "App test suites"); a unit missing here counts 120.
+// Seconds per unit on the lab (arm64, 4 vCPU), as measured on main cf18fbf7 (run 39244464858, 2026-10-19): file time
+// (tests plus collection) for plain suites, wall for the board-truth units on their own pool. A missing unit counts 30.
 export const WEIGHT={
- 'ballers-approach':120,'ballers-board-trim':120,'ballers-chances':400,'ballers-idea-run':120,'ballers-lab':120,
- 'ballers-match-settings':600,'ballers-orders-squad13':120,'ballers-p5':200,'ballers-pipeline':150,'ballers-practice-tally':120,
- 'ballers-routines':60,'ballers-save':60,'ballers-starters':120,'ballers-stats':200,'ballers-sub-moments':120,'ballers-voice':120,
- 'gp-wp2-clips':300,'gp-wp2':120,'gp-wp3':60,'gp-wp4':200,'gp-wp5':60,
- 'gp-board-truth#0':120,'gp-board-truth#*':600,
+ 'ballers-approach':75,'ballers-board-trim':5,'ballers-chances':20,'ballers-idea-run':35,'ballers-lab':15,
+ 'ballers-match-settings':250,'ballers-orders-squad13':5,'ballers-p5':30,'ballers-pipeline':10,'ballers-practice-tally':5,
+ 'ballers-routines':5,'ballers-save':5,'ballers-starters':70,'ballers-stats':5,'ballers-sub-moments':5,'ballers-voice':15,
+ 'gp-wp2-clips':5,'gp-wp2':10,'gp-wp3':5,'gp-wp4':25,'gp-wp5':5,
+ 'gp-board-truth#0':10,'gp-board-truth#1':230,'gp-board-truth#2':295,'gp-board-truth#3':370,'gp-board-truth#4':240,
+ 'gp-board-truth#5':225,'gp-board-truth#6':235,'gp-board-truth#7':235,'gp-board-truth#8':230,'gp-board-truth#9':235,
+ 'gp-board-truth#10':30,'gp-board-truth#*':240,
 };
 
 const here=path.dirname(fileURLToPath(import.meta.url));
@@ -60,19 +62,19 @@ function titles(suite){
 export function units(suites=SUITES){
  const out=[];
  for(const s of suites){
-  if(s!==SPLIT){out.push({id:s,suite:s,weight:WEIGHT[s]??120});continue;}
-  titles(s).forEach((t,i)=>out.push({id:`${s}#${i}`,suite:s,title:t,weight:WEIGHT[`${s}#${i}`]??WEIGHT[`${s}#*`]??600}));
+  if(s!==SPLIT){out.push({id:s,suite:s,weight:WEIGHT[s]??30});continue;}
+  titles(s).forEach((t,i)=>out.push({id:`${s}#${i}`,suite:s,title:t,weight:WEIGHT[`${s}#${i}`]??WEIGHT[`${s}#*`]??240}));
  }
  return out;
 }
 /** Shard plans: longest unit first onto the shard that would finish first. Plain units share `workers` cores. */
 export function plan(list,shards,workers){
- const bins=Array.from({length:shards},()=>({plain:0,solo:0,units:[]}));
- const cost=b=>b.plain/workers+b.solo;
+ // a vitest call's plain files share the workers, but one file runs on one worker: max(longest, sum / workers)
+ const bins=Array.from({length:shards},()=>({plain:0,longest:0,solo:0,units:[]}));
+ const cost=(b,u)=>{const solo=b.solo+(u?.title?u.weight:0),sum=b.plain+(u&&!u.title?u.weight:0),longest=Math.max(b.longest,u&&!u.title?u.weight:0);return Math.max(longest,sum/workers)+solo;};
  for(const u of [...list].sort((a,b)=>b.weight-a.weight||a.id.localeCompare(b.id))){
-  const solo=!!u.title;
-  const b=bins.reduce((best,x)=>{const after=y=>cost(y)+(solo?u.weight:u.weight/workers);return after(x)<after(best)?x:best;});
-  if(solo)b.solo+=u.weight;else b.plain+=u.weight;b.units.push(u);
+  const b=bins.reduce((best,x)=>cost(x,u)<cost(best,u)?x:best);
+  if(u.title)b.solo+=u.weight;else{b.plain+=u.weight;b.longest=Math.max(b.longest,u.weight);}b.units.push(u);
  }
  return bins.map(b=>({est:Math.round(cost(b)),units:b.units}));
 }
