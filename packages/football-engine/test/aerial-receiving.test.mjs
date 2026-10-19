@@ -218,8 +218,9 @@ test('ordinary match aerial releases have matching physical contacts without a c
  // release-3/repin.mjs header 14570 / volley 14113, public lab). The keeper fix (2026-10-19: the keeper reads the attack
  // and what a loss would leave open) lost both; 14581 has a header and 14123 a volley (evidence/2026-10-19-keeper-fix/repin.mjs volley 14123, header
  // 14579, public lab; 14579 does not reproduce on macOS arm64, 14581 is the next lab hit that does). A seeded passage,
- // not a header-frequency target.
- for(const [technique,seed] of [['header',14581],['volley',14123]]){
+ // not a header-frequency target. The take-on price (2026-10-19) lost the header; 14582 has one (evidence/2026-10-19-
+ // takeon-price/repin.mjs header 14581-14640, public lab; the volley at 14123 holds).
+ for(const [technique,seed] of [['header',14582],['volley',14123]]){
   const f=structuredClone(sandbox);f.seed=seed;
   f.teams[0].lineup[1]='motanescu';Object.assign(f.teams[0].tactics,teamApproaches.combinations.settings);
   Object.assign(f.teams[1].tactics,defensiveApproaches.press.tactics);

@@ -2,7 +2,7 @@ import {L,W,GH,HEIGHT,BOX_DEPTH,BOX_HALF,SPOT,X,Y,G} from './pitch.js';
 import {clamp} from './model.js';
 import type {PracticePlayer,Option} from './practice.js';
 import type {Vec} from './movement.js';
-import {dribbleConfidence,readDribbleRoute,carryLossRead,beatNature,routeCredits,BEAT_SPREAD,CARRY_BASE,CARRY_SHOT} from './practice-carry.js';
+import {dribbleConfidence,readDribbleRoute,carryLossRead,routeCredits,BEAT_SPREAD,CARRY_BASE,CARRY_SHOT} from './practice-carry.js';
 import {perceive} from './practice-perception.js';
 import {turnoverPrice,deliveryLossWeight} from './practice-rest-defence.js';
 import {assessShot,shotZone} from './practice-football.js';
@@ -10,6 +10,8 @@ import {shotContest,shotRead,SHOT_WORTH} from './practice-shot-contest.js';
 import {preparationTime} from './practice-possession.js';
 import {keeperReadyPosition} from './practice-keeper.js';
 import {steerMotion} from './movement.js';
+import {projectOpponents,ON_HIM} from './practice-receive.js';
+import {arrivalTime} from './practice-arrival.js';
 
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
 export interface FeintMemory {opponent:string;at:number;attacker:Vec;defender:Vec}
@@ -63,46 +65,61 @@ export function feintFoolChance(p:PracticePlayer,d:PracticePlayer):number{
  * take-on score exactly). */
 export const TAKEON_PRICE={on:true};
 /** His read of a take-on on `marker`, from what he can see (where the men are, who they are):
- *  - getting past him (`through`): the fake's odds (feintFoolChance), the chance it fails believed less likely by his
- *    nature (beatNature: daring, a natural dribbler), misjudged by his read of a carry (an error up to BEAT_SPREAD of
- *    that chance for one who cannot read it);
+ *  - getting past him (`through`): the fake's odds (feintFoolChance), misjudged by his read of a carry (an error up
+ *    to BEAT_SPREAD of the chance it fails for one who cannot read it);
  *  - being stopped (`stopped`): when the fake fails the man is on the ball, and wins it as often as he reads the duel
- *    (carryLossRead: duelChance with the man's cover, the same nature, the same read).
+ *    (carryLossRead: duelChance with the man's cover, read with his nature, beatNature).
+ * His nature (daring, a natural dribbler) enters once, in the read of losing the ball to the man: the same read, of
+ * the same event, the carry makes (carryLossRead), so a temperament misjudges "will he take it off me" alike whether
+ * he carries at the man or fakes him. (Round 2, 2026-10-20: it was also in the fake's read, so the loss read carried
+ * it twice; for a natural dribbler stopped read about 0.8 of itself.)
  * The everyday hazards of the route (another man closing the exit, no room beyond him) stay in the score as before. */
 export function takeOnRead(p:PracticePlayer,marker:PracticePlayer,players:PracticePlayer[]):{through:number;stopped:number}{
  const fails=1-feintFoolChance(p,marker);
- const fail=clamp(perceive(p,'carry',fails*beatNature(p),BEAT_SPREAD*fails,p,{salt:'fool'+marker.id}),.03,.97);
+ const fail=clamp(perceive(p,'carry',fails,BEAT_SPREAD*fails,p,{salt:'fool'+marker.id}),.03,.97);
  return {through:1-fail,stopped:carryLossRead(p,players,fail,marker.id)};
 }
 type Risk=(from:Vec,to:Vec,defenders:PracticePlayer[],speed?:number)=>number;
+/** How long a man who buys the fake is wrong-footed (practice.ts: his wrongfoot and his next duel wait this long). */
+export const FOOLED_FOR=.65;
 /** The shot that opens when he gets past the man: from the aim, inside the zone a shot is on offer from (shotZone),
- * his read of the chance there with the man left out (the shoot option's own read: assessShot's free chance, less
- * what the contest at the strike costs it as he reads it, shotContest and shotRead), above the shot he has now
- * (`here`, the shoot option's read, 0 when none), at the shot's own worth (SHOT_WORTH a unit). He arrives there
- * running (the burst, practice.ts: p.pace x 0.88 toward the aim), the other men keep closing while he gets there
- * and winds up (lead: feintDuration plus his shooting preparation), and their keeper sets himself for the ball there
- * as he goes (keeperReadyPosition at his pace over the take-on, as the pass's receiver-shot read previews him,
- * practice-passing): without it a spot past the man near the goal line read the keeper standing behind the shot. The
- * carry's shooting-angle credit sees only angle and distance; this is the man in the way of the shot. */
-export function shotOpening(p:PracticePlayer,aim:Vec,beyond:PracticePlayer[],here:number,time:number):number{
+ * his read of the chance there (the shoot option's own read: assessShot's free chance, less what the contest at the
+ * strike costs it as he reads it, shotContest and shotRead), above the shot he has now (`here`, the shoot option's
+ * read, 0 when none), at the shot's own worth (SHOT_WORTH a unit). Read for the moment he arrives there, running (the
+ * burst, practice.ts: p.pace x 0.88 toward the aim), getThere (feintDuration) after he starts:
+ *  - the other men where their visible momentum takes them by then (projectOpponents, the reception read's own
+ *    projection), then closing over his wind-up as the shoot option reads it (lead: his shooting preparation);
+ *  - the man he beats, as the fake leaves him: wrong-footed for FOOLED_FOR s, then chasing from a standstill
+ *    (arrivalTime: his acceleration and tired pace) toward the aim, as far as he gets by then, at the speed he has;
+ *  - their keeper set for the ball there (keeperReadyPosition at his pace, as the pass's receiver-shot read previews
+ *    him, practice-passing).
+ * (Round 2, 2026-10-20: the beaten man was left out altogether, and the shooter, already placed at the aim, had his
+ * own run counted again in the contest's closing over getThere.) The carry's shooting-angle credit sees only angle
+ * and distance; this is the man in the way of the shot. */
+export function shotOpening(p:PracticePlayer,aim:Vec,players:PracticePlayer[],marker:PracticePlayer,here:number,time:number):number{
  if(!shotZone(p,aim))return 0;
  const len=Math.max(.01,distance(p,aim)),burst=p.pace*.88,getThere=feintDuration(p,aim);
- const keeper=beyond.find(q=>q.side!==p.side&&q.role==='GK');let context=beyond;
+ const others=players.filter(q=>q.id!==marker.id),keeper=others.find(q=>q.side!==p.side&&q.role==='GK');
+ const outfield=projectOpponents(others.filter(q=>q!==keeper),p.side,aim,getThere);
+ const back=distance(marker,aim),still={...marker,vx:0,vy:0},chase=Math.max(0,getThere-FOOLED_FOR),arrive=arrivalTime(still,aim);
+ const made=arrive>0?clamp(chase/arrive,0,1)*Math.max(0,back-ON_HIM):0,ux=(aim.x-marker.x)/Math.max(.01,back),uy=(aim.y-marker.y)/Math.max(.01,back);
+ const speed=chase>0?Math.min(marker.pace*.94,marker.acceleration*chase):0;
+ const context=[...outfield,{...marker,x:marker.x+ux*made,y:marker.y+uy*made,vx:ux*speed,vy:uy*speed}];
  if(keeper){
   const preview={...keeper},ready=keeperReadyPosition(keeper,aim,true);
   for(let t=0;t<getThere;t+=.1)steerMotion(preview,ready,Math.min(.1,getThere-t),keeper.pace);
-  context=beyond.map(q=>q.id===keeper.id?preview:q);
+  context.push(preview);
  }
  const body={...p,x:aim.x,y:aim.y,vx:(aim.x-p.x)/len*burst,vy:(aim.y-p.y)/len*burst},there=assessShot(body,context);
- const contest=shotContest(body,context,there.aim,{lead:getThere+preparationTime(p,'shoot')});
+ const contest=shotContest(body,context,there.aim,{lead:preparationTime(p,'shoot')});
  return Math.max(0,shotRead(p,there.open,contest.hurry,aim,time)-here)*SHOT_WORTH;
 }
 
 /** What getting past the man gets him at `aim`: the carry's credits for being there (routeCredits), with its
  * shooting-angle credit raised to the shot that opens when that is worth more (shotOpening). */
-export function takeOnGain(p:PracticePlayer,aim:Vec,beyond:PracticePlayer[],risk:Risk,near:number,shotHere:number,time:number):number{
- const r=routeCredits(p,aim,beyond,risk,near),angle=Math.max(0,r.shotGain)*CARRY_SHOT;
- return r.credits-angle+Math.max(angle,shotOpening(p,aim,beyond,shotHere,time));
+export function takeOnGain(p:PracticePlayer,aim:Vec,players:PracticePlayer[],marker:PracticePlayer,risk:Risk,near:number,shotHere:number,time:number):number{
+ const r=routeCredits(p,aim,players.filter(q=>q.id!==marker.id),risk,near),angle=Math.max(0,r.shotGain)*CARRY_SHOT;
+ return r.credits-angle+Math.max(angle,shotOpening(p,aim,players,marker,shotHere,time));
 }
 
 /** The coach and ordinary play share the same plausible one-on-one attempts.
@@ -114,7 +131,8 @@ export function takeOnGain(p:PracticePlayer,aim:Vec,beyond:PracticePlayer[],risk
  * pass, the carry and the shot price it) as often as he reads he is stopped. The old score's control and risk terms
  * are gone: control now acts through the fake's and the duel's odds, his risk appetite through the loss weight and
  * his nature. The route hazards (gap, men closing the route and its exit, alignment, repeating the move) are
- * unchanged. Off: the live score, unchanged. */
+ * unchanged. A priced take-on is marked `lossPriced`: its loss is priced where he is, so the possession urgency charge
+ * (practice-possession securePossessionOptions) is not laid on it again. Off: the live score, unchanged. */
 export function feintOptions(p:PracticePlayer,players:PracticePlayer[],memory:FeintMemory|undefined,time:number,risk?:Risk,shotHere=0):Option[]{
  if(p.role==='GK')return [];
  const sign=p.side===0?1:-1,confidence=dribbleConfidence(p);
@@ -124,17 +142,17 @@ export function feintOptions(p:PracticePlayer,players:PracticePlayer[],memory:Fe
  const lossWeight=priced?deliveryLossWeight(p,turnoverPrice(p,players,p)):0;
  const near=priced?Math.min(...players.filter(q=>q.side!==p.side&&q.role!=='GK').map(q=>distance(q,p))):0;
  return markers.flatMap(marker=>{
-  const read=priced?takeOnRead(p,marker,players):null,beyond=priced?players.filter(q=>q.id!==marker.id):players;
+  const read=priced?takeOnRead(p,marker,players):null;
   return [-1,1].map(lateral=>{
   const aim={x:clamp(marker.x+sign*2.2,.8,L-.8),y:clamp(marker.y+lateral*2.6,-W/2+1,W/2-1)};
   const local=readDribbleRoute(p,aim,players,marker.id),exitRoom=Math.min(...players.filter(q=>q.side!==p.side&&q.id!==marker.id).map(q=>distance(q,aim)));
   const gap=distance(p,marker),speed=Math.hypot(p.vx,p.vy),alignment=speed>.3?((aim.x-p.x)*p.vx+(aim.y-p.y)*p.vy)/(Math.max(.01,distance(p,aim))*speed):1;
   const hazards=()=>-(gap<2?.1:0)-Math.max(0,gap-3.5)*.045-local.contactRisk*(.28-confidence*.08)
    -local.nearbyChallenges*(.12-confidence*.04)-clamp((3-exitRoom)/3,0,1)*.2-(1-alignment)*.035-repeatFeintCost(p,marker,memory,time);
-  const score=read?CARRY_BASE+p.traits.dribble*.36+read.through*takeOnGain(p,aim,beyond,risk!,near,shotHere,time)-read.stopped*lossWeight+hazards()
+  const score=read?CARRY_BASE+p.traits.dribble*.36+read.through*takeOnGain(p,aim,players,marker,risk!,near,shotHere,time)-read.stopped*lossWeight+hazards()
    :.16+p.traits.dribble*.36+clamp(p.skills.control/10,0,1)*.1+(p.traits.risk-.5)*.08
    -(gap<2?.1:0)-Math.max(0,gap-3.5)*.045-local.contactRisk*(.28-confidence*.08)
    -local.nearbyChallenges*(.12-confidence*.04)-clamp((3-exitRoom)/3,0,1)*.2-(1-alignment)*.035-repeatFeintCost(p,marker,memory,time);
-  return {kind:'feint' as const,target:marker.id,aim,score,reason:`Îl provoacă pe ${marker.name}; încearcă să treacă pe lângă el cu mingea.`};
+  return {kind:'feint' as const,target:marker.id,aim,score,reason:`Îl provoacă pe ${marker.name}; încearcă să treacă pe lângă el cu mingea.`,...(read?{lossPriced:true}:{})};
  });}).sort((a,b)=>b.score-a.score);
 }

@@ -327,7 +327,8 @@ export function securePossessionOptions(p:PracticePlayer,players:PracticePlayer[
    const obstruction=o.carry?.obstruction??0;
    score-=urgency*(.3+obstruction*.5+(o.carry?.turnCost??0)*.18)*(1-adventure*.55);
    if(adventure>.65&&urgency>.35)reason='E presat lângă propria poartă, dar se încrede în control și încearcă să iasă cu mingea.';
-  }else if(o.kind==='feint'&&urgency>=.06){
+  }else if(o.kind==='feint'&&urgency>=.06&&!o.lossPriced){
+   // (take-on price round 2) a priced take-on already pays a ball lost here at its location price (lossPriced)
    score-=urgency*(.55-adventure*.25);
    if(urgency>.35)reason='Știe că pierde mult dacă greșește aici, dar încearcă să scape prin fentă.';
   }

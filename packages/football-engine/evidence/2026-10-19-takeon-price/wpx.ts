@@ -33,7 +33,7 @@ export function play(t:{label:string;arm:string;seed:number;rev:string}){
    const near=Math.min(...players.filter((q:any)=>q.side!==p.side&&q.role!=='GK').map((q:any)=>dist(q,p)));
    const cover=players.filter((q:any)=>q.side===d.side&&q.id!==d.id&&dist(q,p)<6).length;
    const local=c.readDribbleRoute(p,option.aim,players,d.id),room=Math.min(...players.filter((q:any)=>q.side!==p.side&&q.id!==d.id).map((q:any)=>dist(q,option.aim)));
-   row.push(r3(read.through),r3(read.stopped),r3(f.takeOnGain?f.takeOnGain(p,option.aim,beyond,laneRisk,near,list?.find((o:any)=>o.kind==='shoot')?.quality??0,time):c.routeCredits(p,option.aim,beyond,laneRisk,near).credits),r3(RD.deliveryLossWeight(p,RD.turnoverPrice(p,players,p))),
+   row.push(r3(read.through),r3(read.stopped),r3(f.takeOnGain?(f.takeOnGain.length>=8?f.takeOnGain(p,option.aim,players,d,laneRisk,near,list?.find((o:any)=>o.kind==='shoot')?.quality??0,time):f.takeOnGain(p,option.aim,beyond,laneRisk,near,list?.find((o:any)=>o.kind==='shoot')?.quality??0,time)):c.routeCredits(p,option.aim,beyond,laneRisk,near).credits),r3(RD.deliveryLossWeight(p,RD.turnoverPrice(p,players,p))),
     r3(f.feintFoolChance(p,d)),r3(duelChance(p,d,cover)),r1(dist(p,d)),r1(room),r3(local.contactRisk),local.nearbyChallenges,d.skills.reading,d.skills.defending,cover,r3(option.score));
   }
   tp.push(row);

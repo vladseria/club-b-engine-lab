@@ -45,7 +45,7 @@ import {Restart,RestartKind,RestartInfo,restartPositions,restartPlayersReady,res
 import {liveRestart,restartRoutine,authoredRoutine,planLiveRestart,restartHold,restartOptions,settleRestart,SET_PIECE_HOLD} from './practice-restart-live.js';
 import {chooseFreeKickTaker,choosePenaltyTaker,freeKickOptions,setPiecePlayer,strikeFreeKick,DirectFreeKickPlan} from './practice-set-pieces.js';
 import {createOffsideAwareness,perceivedOffside,runReleaseAllowance,ReleaseCue} from './practice-awareness.js';
-import {feintOptions,feintDuration,finishFeint,feintReleaseOpening,feintFoolChance,FeintMemory} from './practice-feints.js';
+import {feintOptions,feintDuration,finishFeint,feintReleaseOpening,feintFoolChance,FOOLED_FOR,FeintMemory} from './practice-feints.js';
 import {strikeStance} from './practice-striking.js';
 import {duelGeometry,readDuel,resolveDuel,shieldTouch,turnTouch,dangerAt,TURNED_TIME,DuelResult} from './practice-duel.js';
 import {carryPace,captureControl,faceControl,steerControl,advanceControl,receivingContact,cushionControl,controlReleaseAvailable,controlStrikeReady,strikeControl,rollControlRemainder,deflectBodyBall,TouchControl,ControlContact} from './practice-control.js';
@@ -117,7 +117,7 @@ export interface PracticeStats {passes:number;completed:number;clearances:number
 export interface AerialDuelRecord {time:number;x:number;y:number;z:number;attacker:string;defender:string;toucher:string;winner:string;outcome:'clean'|'knock'|'foul';result:string;way:'up'|'nip';chance:number}
 export interface PracticeResult {version:string;seed:number;duration:number;played?:number;teams:[string,string];players:PracticePlayer[];frames:PracticeFrame[];events:PracticeEvent[];choices:Choice[];stats:[PracticeStats,PracticeStats];score:[number,number];controlContacts?:ControlContact[];receptionDuels?:ReceptionDuelRecord[];aerialDuels?:AerialDuelRecord[];aerialChallenges?:{time:number;id:string;result:string}[];playbookSelections?:PlaybookSelection[];standingNotes?:StandingNote[];coachingNotes?:CoachingNote[];substitutionNotes?:SubstitutionNote[]}
 type Action='pass'|'through'|'loft'|'carry'|'shoot'|'feint'|'clear';
-export interface Option {/** What the receiver can do next, already in `score` (receiverProspects). */next?:number;/** A delivery's pass-only pressure credits (relief, retreat, pressure x space), already in `score`: what the purpose clock decays (R3). */relief?:number;/** A shot: the shooter's own read of his chance (R2), already in `score`. */quality?:number;/** Interception risk of a planned throw (throw-ins only). */throwRisk?:number;/** A throw that leads a run: where the receiver meets it. */throwLead?:Vec;kind:Action;clearance?:ClearanceIntent;target?:string;aim:Vec;score:number;reason:string;carry?:CarryAssessment;continuing?:boolean;delivery?:DeliveryRead;run?:PassRun;pass?:GroundPass;loft?:LoftPass;freeKick?:DirectFreeKickPlan;teachingStep?:string;teachingPlan?:string;teachingFit?:number;teachingSpace?:boolean;receivingSpace?:ReceivingSpace;/** (decide round) played hurried by a pressed man: half the preparation, struck worse (practice-possession priceCaught). */hurried?:boolean}
+export interface Option {/** What the receiver can do next, already in `score` (receiverProspects). */next?:number;/** A delivery's pass-only pressure credits (relief, retreat, pressure x space), already in `score`: what the purpose clock decays (R3). */relief?:number;/** A shot: the shooter's own read of his chance (R2), already in `score`. */quality?:number;/** Interception risk of a planned throw (throw-ins only). */throwRisk?:number;/** A throw that leads a run: where the receiver meets it. */throwLead?:Vec;kind:Action;clearance?:ClearanceIntent;target?:string;aim:Vec;score:number;reason:string;carry?:CarryAssessment;continuing?:boolean;delivery?:DeliveryRead;run?:PassRun;pass?:GroundPass;loft?:LoftPass;freeKick?:DirectFreeKickPlan;teachingStep?:string;teachingPlan?:string;teachingFit?:number;teachingSpace?:boolean;receivingSpace?:ReceivingSpace;/** (decide round) played hurried by a pressed man: half the preparation, struck worse (practice-possession priceCaught). */hurried?:boolean;/** (take-on price) a take-on whose loss is already priced where he is (practice-feints): the possession urgency charge is not laid on it again. */lossPriced?:boolean}
 interface Intent {kind:Duty;aim:Vec;speed:number;until:number;since:number;reason:string;teamSide:Side;shapeOffset?:Vec;
  /** The release this intent was read against (a keeper re-reads each new ball). */release?:number}
 interface FirstTouch {owner:string;aim:Vec}
@@ -1408,7 +1408,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    if(feint&&feint.attacker===p.id){
     if(!feint.resolved&&time>=feint.check){
      const d=get(feint.defender);const fooled=execution()<feintFoolChance(p,d);
-     if(fooled){wrongfoot.set(d.id,{until:time+.65,aim:inside({x:d.x-sign(p.side)*1.5,y:d.y-(feint.aim.y-p.y)})});duelAfter.set(d.id,Math.max(duelAfter.get(d.id)??0,time+.65));}
+     if(fooled){wrongfoot.set(d.id,{until:time+FOOLED_FOR,aim:inside({x:d.x-sign(p.side)*1.5,y:d.y-(feint.aim.y-p.y)})});duelAfter.set(d.id,Math.max(duelAfter.get(d.id)??0,time+FOOLED_FOR));}
      feint.resolved=true;
     }
     let releaseOpening=false;
