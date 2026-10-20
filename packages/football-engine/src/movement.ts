@@ -1,7 +1,8 @@
 import { clamp, rng } from './model.js';
+import {WORLD} from './world.js';
 
 // A bounded movement experiment, in metres and seconds. It is not the full-match resolver.
-export const STEP = 1/60;
+export const STEP = 1/WORLD.clock.sim.ticksPerSecond.v;
 export type Cover = 'track' | 'step';
 export interface Vec {x:number;y:number}
 export interface MovingPlayer extends Vec {

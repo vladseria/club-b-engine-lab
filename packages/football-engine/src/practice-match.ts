@@ -2,11 +2,12 @@ import {L,W,GH,HEIGHT,BOX_DEPTH,BOX_HALF,SPOT,X,Y,G} from './pitch.js';
 import {clamp} from './model.js';
 import type {Player,Team} from './model.js';
 import type {PracticePlayer} from './practice.js';
+import {WORLD} from './world.js';
 
-export const MATCH_LENGTHS=[300,900,5400] as const;
+export const MATCH_LENGTHS=[WORLD.clock.match.MATCH_LENGTHS.five.v,WORLD.clock.match.MATCH_LENGTHS.fifteen.v,WORLD.clock.match.MATCH_LENGTHS.ninety.v] as const;
 export type MatchLength=typeof MATCH_LENGTHS[number];
-export const HALF_SECONDS=2700;
-export const SUB_MINUTES=[60,70,80] as const;
+export const HALF_SECONDS=WORLD.clock.match.HALF_SECONDS.v;
+export const SUB_MINUTES=[WORLD.clock.match.SUB_MINUTES.first.v,WORLD.clock.match.SUB_MINUTES.second.v,WORLD.clock.match.SUB_MINUTES.third.v] as const;
 
 /**
  * Full time plays out the last attack (owner-approved, 12 Oct 2026). Matches
@@ -28,7 +29,7 @@ export const SUB_MINUTES=[60,70,80] as const;
  * Half-time (matches over 2700 s) is left alone: delaying it would shift the
  * whole second half's clock.
  */
-export const LAST_ATTACK_MAX=20;
+export const LAST_ATTACK_MAX=WORLD.clock.match.LAST_ATTACK_MAX.v;
 export interface LastAttackView {restart:{kind:string}|null;side:0|1;ball:{x:number;mode:'control'|'pass'|'shot'|'loose'}}
 const ownHalf=(side:0|1,x:number)=>(side===0?x:L-x)<=L/2;
 /** At full time: is `view.side` in an attack worth playing out? */

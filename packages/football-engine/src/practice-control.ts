@@ -8,6 +8,7 @@ import type {PracticePlayer} from './practice.js';
 import {bodyScreensBall} from './practice-challenge.js';
 import {controlTouchBudget as touchBudget,cushionedVelocity,touchGap,bodyTurnRate,openBody,turnWithBall,setTolerance} from './practice-reception.js';
 import {strikeStance,fitStrikeToStance,StrikeKind} from './practice-striking.js';
+import {WORLD} from './world.js';
 
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
 const difference=(a:number,b:number)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
@@ -539,7 +540,7 @@ export function releaseControl(p:PracticePlayer,ball:MovingBall,state:TouchContr
 export function forecastControl(p:PracticePlayer,ball:MovingBall,opponents:PracticePlayer[],aim:Vec,horizon=.65,current?:TouchControl):ControlForecast{
  const runner=structuredClone(p),near=opponents.filter(d=>distance(d,p)<7).map(d=>structuredClone(d)),b={...ball},state=current?structuredClone(current):captureControl(runner,b);
  let sum=0,peak=0,lost=false,count=0;
- const dt=1/60;
+ const dt=1/WORLD.clock.sim.ticksPerSecond.v;
  for(let time=0;time<horizon-1e-8;time+=dt){
   const old={x:runner.x,y:runner.y},oldOpponents=near.map(d=>({x:d.x,y:d.y}));steerControl(runner,b,state,aim,near,dt);
   for(const d of near){if(time<.18){d.x+=d.vx*dt;d.y+=d.vy*dt;}else steer(d,b,dt,d.pace*.9);}

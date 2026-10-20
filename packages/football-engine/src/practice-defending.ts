@@ -9,6 +9,7 @@ import {arrivalTime,containMovement,coverPosition,laneSkill,LANE_READ} from './p
 import {readThreat,carrierThreat,threatSource} from './practice-threat.js';
 import {stepInWillingness,dangerAt} from './practice-duel.js';
 import type {ThreatPicture} from './practice-threat.js';
+import {WORLD} from './world.js';
 
 /** Defending rebuild (2026-10-03, evidence/2026-10-03-defending-rebuild).
  *
@@ -907,7 +908,7 @@ export function protectShare(man:Vec,ball:Vec,g:Vec,q?:PracticePlayer,time?:numb
 }
 /** The shot lanes a defence covers: the line from the ball to each of these points across the goal mouth (the
  * shooter's own targets, practice-football assessShot). */
-export const PROTECT_AIMS=[-2.6,-1.3,0,1.3,2.6].map(y=>y*GH/3.66);
+export const PROTECT_AIMS=[-2.6,-1.3,0,1.3,2.6].map(y=>y*GH/WORLD.pitch.reference.goalHalf.v);
 export function protectBox(q:PracticePlayer,man:Vec,aim:Vec,ball:Vec,tactics:Tactics,defending:Side,time?:number,taken:readonly Vec[]=[]):Vec{
  const g={x:world(defending,0),y:0},db=distance(ball,g);
  const zone=clamp((PROTECT_R[tactics.line]-db)/PROTECT_FADE,0,1);
