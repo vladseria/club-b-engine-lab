@@ -89,7 +89,10 @@ export const STYLES:Record<Style,{label:string;line:string}>={
  * (Narrow + Drops deep) keeps it, and now shows as "Adjusted". Change
  * this table AND SQL private.ballers_preset together (verificare/
  * ballers-approach pins the two). Stored approaches without the field read as
- * 'balanced', so clubs already on a preset keep playing it as before. */
+ * 'balanced', so clubs already on a preset keep playing it as before.
+ * The ONE source of the four presets (engine as data, S1): the engine's
+ * teamApproaches, the newest ballers_preset migration and the schema.sql
+ * mirror are asserted equal to this table by verificare/ballers-preset-source. */
 export const PRESETS:Record<Style,Approach>={
  balanced:{progression:'mixed',width:'standard',line:'standard',press:'balanced',commit:3,striker:'mixed',transition:'balanced',onLoss:'balanced'},
  combinations:{progression:'patient',width:'standard',line:'high',press:'balanced',commit:3,striker:'pivot',transition:'secure',onLoss:'counterpress'},

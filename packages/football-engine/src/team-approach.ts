@@ -13,6 +13,8 @@ import type {TransitionRun} from './practice-transition.js';
 /** The style fine-tune. `onLoss` ("On losing it") is optional everywhere:
  * missing means 'balanced', so inputs from before the field play as before. */
 export type ApproachSettings=Pick<Tactics,'progression'|'width'|'line'|'press'|'commit'|'striker'|'onLoss'> & {transition:'balanced'|'secure'|'counter'};
+/** The four presets' settings are a copy of lib/ballers/league.ts PRESETS, their one source (the engine package
+ * cannot import the app); verificare/ballers-preset-source.test.ts asserts the copy equal, key for key. */
 export const teamApproaches:Record<string,{name:string;description:string;settings:ApproachSettings}>={
  balanced:{name:'Echilibrat',description:'Pase, avansări și curse în funcție de situație. Păstrează sprijinul și acoperirea.',settings:{progression:'mixed',width:'standard',line:'standard',press:'balanced',commit:3,striker:'mixed',transition:'balanced',onLoss:'balanced'}},
  combinations:{name:'Combinații scurte',description:'Colegi aproape, în unghiuri diferite. Caută schimburi scurte și continuarea după pasă.',settings:{progression:'patient',width:'standard',line:'high',press:'balanced',commit:3,striker:'pivot',transition:'secure',onLoss:'counterpress'}},
