@@ -169,8 +169,8 @@ export function restartRoutine(scene:Scene,players:PracticePlayer[],formula:Reco
    // A called routine (practice-restarts freeKickCallAims): the man on the
    // edge of the box waits for the knock-down; a short option further away
    // than the formula's keeps his angle.
-   else if(call!=='mixed'&&depth(side,aim.x)>=L-BOX_DEPTH-6&&Math.abs(aim.y)<BOX_HALF)slots[p.id]={aim,leash:3,purpose:'cutback',reason:'Pândește mingea respinsă la marginea careului.'};
-   else if(call==='short'&&distance(aim,spot)<14)slots[p.id]={aim,leash:3,purpose:'recycle',reason:'Se oferă scurt, în alt unghi, pentru lovitura liberă jucată scurt.'};
+   else if(S.FREE_KICK[call].callsRoutine.v&&depth(side,aim.x)>=L-BOX_DEPTH-6&&Math.abs(aim.y)<BOX_HALF)slots[p.id]={aim,leash:3,purpose:'cutback',reason:'Pândește mingea respinsă la marginea careului.'};
+   else if(S.FREE_KICK[call].callsShort.v&&distance(aim,spot)<14)slots[p.id]={aim,leash:3,purpose:'recycle',reason:'Se oferă scurt, în alt unghi, pentru lovitura liberă jucată scurt.'};
   }
  }
  return {slots,posts};

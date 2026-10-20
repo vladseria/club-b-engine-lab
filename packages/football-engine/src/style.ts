@@ -454,6 +454,41 @@ export const ON_LOSS_COMMON={
  dropFloor:{v:.75,unit:'x',kind:'multiplier',at:['practice-defending.ts:1447'],says:'... and never below this share of his pace'},
 };
 
+// ------------------------------------------------------------------ Free kicks (setPiece: S12)
+/** One entry per call. `setPiece` is required in Tactics, but freeKickOptions takes its tactics optionally and the restart
+ * helpers default their `call` to 'mixed': every site reads S.FREE_KICK[call??'mixed'], which is what each did with
+ * nothing passed. Ballers sends Mixed unless the match settings call Short or Into the box (plan 6.2). */
+export interface FreeKickOption{callsShort:Effect<boolean>;callsDelivery:Effect<boolean>;callsRoutine:Effect<boolean>;shotCost:Effect}
+const freeKickOption=(o:{callsShort:boolean;callsDelivery:boolean;callsRoutine:boolean;shotCost:number}):FreeKickOption=>({
+ callsShort:{v:o.callsShort,unit:'flag',kind:'optionCreditByFeature',at:['practice-set-pieces.ts:122','practice-set-pieces.ts:123','practice-restart-live.ts:173'],says:'Short: the taker leans to a short ball; the routine offers a short man at another angle'},
+ callsDelivery:{v:o.callsDelivery,unit:'flag',kind:'optionCreditByFeature',at:['practice-set-pieces.ts:122','practice-set-pieces.ts:123','practice-restarts.ts:99','practice-restarts.ts:340'],says:'Into the box: the taker leans to a delivery; the routine sets men in the box and waits for them'},
+ callsRoutine:{v:o.callsRoutine,unit:'flag',kind:'arrangementConstraint',at:['practice.ts:690','practice-restarts.ts:91','practice-restart-live.ts:172'],says:'a called routine is laid out in their half (the edge man waits for the knock-down)'},
+ shotCost:{v:o.shotCost,unit:'A',kind:'situationalOptionCost',at:['practice-set-pieces.ts:130'],says:'a direct shot costs this under the call'},
+});
+/** Free kicks. Values exactly as the code had them at b107e7b2. */
+export const FREE_KICK:Readonly<Record<Tactics['setPiece'],FreeKickOption>>={
+ mixed:freeKickOption({callsShort:false,callsDelivery:false,callsRoutine:false,shotCost:0}),
+ short:freeKickOption({callsShort:true,callsDelivery:false,callsRoutine:true,shotCost:.035}),
+ delivery:freeKickOption({callsShort:false,callsDelivery:true,callsRoutine:true,shotCost:0}),
+};
+/** The call's lean and the called routine's spots (depths from L, or from L-BOX_DEPTH for the edge; y across). */
+export const FREE_KICK_COMMON={
+ lean:{v:.2,unit:'A',kind:'optionCreditByFeature',at:['practice-set-pieces.ts:31 (FK_LEAN)'],says:'the called kick gains this ...'},
+ contest:{v:.6,unit:'A',kind:'optionCreditByFeature',at:['practice-set-pieces.ts:31 (FK_CONTEST)'],says:'... plus this times its risk (a header fought for in the box is the point)'},
+ planB:{v:.15,unit:'A',kind:'situationalOptionCost',at:['practice-set-pieces.ts:31 (FK_PLAN_B)'],says:'the other call\'s kick costs this'},
+ nearDepth:{v:2.5,unit:'m',kind:'positionOffset',axis:'L',at:['practice-restarts.ts:88 (FK_NEAR)'],says:'Into the box: near-post header, this short of their goal line'},
+ nearY:{v:2,unit:'m',kind:'positionOffset',axis:'W',at:['practice-restarts.ts:88 (FK_NEAR)'],says:'... this across, ball side'},
+ farDepth:{v:3.5,unit:'m',kind:'positionOffset',axis:'L',at:['practice-restarts.ts:88 (FK_FAR)'],says:'far-post header, this short of their goal line'},
+ farY:{v:4,unit:'m',kind:'positionOffset',axis:'W',at:['practice-restarts.ts:88 (FK_FAR)'],says:'... this across, far side'},
+ edgeDepth:{v:1.5,unit:'m',kind:'positionOffset',axis:'L',at:['practice-restarts.ts:88 (FK_EDGE)'],says:'the edge man, this outside their box'},
+ edgeY:{v:2,unit:'m',kind:'positionOffset',axis:'W',at:['practice-restarts.ts:88 (FK_EDGE)'],says:'... this across'},
+ shortSquare:{v:6,unit:'m',kind:'positionOffset',axis:'W',at:['practice-restarts.ts:88 (FK_SHORT_SQUARE)'],says:'Short: the square man, this across from the ball'},
+ shortBackDepth:{v:7,unit:'m',kind:'positionOffset',axis:'L',at:['practice-restarts.ts:88 (FK_SHORT_BACK)'],says:'Short: the man behind, this far back ...'},
+ shortBackY:{v:3,unit:'m',kind:'positionOffset',axis:'W',at:['practice-restarts.ts:88 (FK_SHORT_BACK)'],says:'... and this across'},
+ boxDepth:{v:3,unit:'m',kind:'positionOffset',axis:'L',at:['practice-restarts.ts:88 (FK_BOX)'],says:'Short: the man in the box, this short of their goal line'},
+ boxY:{v:2,unit:'m',kind:'positionOffset',axis:'W',at:['practice-restarts.ts:88 (FK_BOX)'],says:'... this across'},
+} as const satisfies Record<string,Effect>;
+
 // ------------------------------------------------------------------ views (old names survive, rule 1.3.6)
 type Scalar<O>={[K in keyof O]:O[K] extends Effect<infer V>?K:never}[keyof O];
 /** {option: entry.v} for one scalar effect, keys in the table's own order. */

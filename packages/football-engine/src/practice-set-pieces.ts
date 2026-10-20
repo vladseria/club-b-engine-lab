@@ -1,3 +1,4 @@
+import * as S from './style.js';
 import {L,W,GH,HEIGHT,BOX_DEPTH,BOX_HALF,SPOT,X,Y,G} from './pitch.js';
 import {clamp} from './model.js';
 import type {Side,Tactics} from './model.js';
@@ -27,7 +28,7 @@ export type FreeKickOption=Option&{freeKick?:DirectFreeKickPlan};
  * FK_PLAN_B (Short does not float it into the box because one man there is
  * free; Into the box does not tap it to the edge man). A direct shot stays
  * his own judgement under either call. */
-export const FK_LEAN=.2,FK_CONTEST=.6,FK_PLAN_B=.15;
+export const FK_LEAN=S.FREE_KICK_COMMON.lean.v,FK_CONTEST=S.FREE_KICK_COMMON.contest.v,FK_PLAN_B=S.FREE_KICK_COMMON.planB.v;
 /** Below this read a direct free kick is not offered as a shot at all. */
 const SHOT_OPTION_QUALITY=.015;
 
@@ -118,15 +119,15 @@ export function freeKickOptions(p:PracticePlayer,players:PracticePlayer[],restar
   const short=o.kind!=='loft'&&length<=16;
   const delivery=!short&&depth(p.side,o.aim.x)>X(78)&&Math.abs(o.aim.y)<Y(17);
   const shotGain=o.delivery?.shotGain??0;
-  const called=tactics?.setPiece==='short'&&short||tactics?.setPiece==='delivery'&&delivery;
-  const planB=tactics?.setPiece==='short'&&delivery||tactics?.setPiece==='delivery'&&short;
+  const called=S.FREE_KICK[tactics?.setPiece??'mixed'].callsShort.v&&short||S.FREE_KICK[tactics?.setPiece??'mixed'].callsDelivery.v&&delivery;
+  const planB=S.FREE_KICK[tactics?.setPiece??'mixed'].callsShort.v&&delivery||S.FREE_KICK[tactics?.setPiece??'mixed'].callsDelivery.v&&short;
   const preference=called?FK_LEAN+FK_CONTEST*risk:planB?-FK_PLAN_B:0;
   const score=o.score+(short?.035:0)+(delivery?(.035+precision*.065+shotGain*.1)*(1-risk)*(wide?1.3:1):0)+preference;
   return {...o,score,reason:short?'Reia scurt spre un coleg liber, ca să construiască următoarea fază.':delivery?'Caută un coleg în fața porții, comparând culoarul cu riscul de intercepție.':o.reason};
  });
  if(restart.kind==='freeKick'){
   const plan=assessFreeKick(p,players,restart.spot);
-  if(plan&&plan.quality>SHOT_OPTION_QUALITY)options.push({kind:'shoot',aim:plan.aim,score:.12+plan.quality*.93+p.traits.risk*.025-plan.blocked*.2-(tactics?.setPiece==='short'?.035:0),freeKick:plan,
+  if(plan&&plan.quality>SHOT_OPTION_QUALITY)options.push({kind:'shoot',aim:plan.aim,score:.12+plan.quality*.93+p.traits.risk*.025-plan.blocked*.2-S.FREE_KICK[tactics?.setPiece??'mixed'].shotCost.v,freeKick:plan,
    reason:plan.wallHeight>1.1?'Încearcă poarta cu o traiectorie peste zid; compară precizia cu timpul oferit portarului.':'Vede un culoar spre poartă și încearcă direct lovitura liberă.'});
  }
  // Normal restart layout supplies a nearby outlet. Retain a legal pass if an

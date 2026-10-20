@@ -1,3 +1,4 @@
+import * as S from './style.js';
 import {L,W,GH,HEIGHT,BOX_DEPTH,BOX_HALF,SPOT,X,Y,G} from './pitch.js';
 import {clamp,Side} from './model.js';
 import type {PracticePlayer} from './practice.js';
@@ -84,10 +85,10 @@ export function freeKickWall(side:Side,spot:Vec,players:PracticePlayer[]):Practi
  *    square and inside, one behind and outside), the best in the air in the box.
  * The defending side's free outfielders pick up our men in the box first. */
 export type FreeKickCall='mixed'|'short'|'delivery';
-export const FK_NEAR={depth:L-2.5,y:2},FK_FAR={depth:L-3.5,y:4},FK_EDGE={depth:L-BOX_DEPTH-1.5,y:2},FK_SHORT_SQUARE=6,FK_SHORT_BACK={depth:7,y:3},FK_BOX={depth:L-3,y:2};
+export const FK_NEAR={depth:L-S.FREE_KICK_COMMON.nearDepth.v,y:S.FREE_KICK_COMMON.nearY.v},FK_FAR={depth:L-S.FREE_KICK_COMMON.farDepth.v,y:S.FREE_KICK_COMMON.farY.v},FK_EDGE={depth:L-BOX_DEPTH-S.FREE_KICK_COMMON.edgeDepth.v,y:S.FREE_KICK_COMMON.edgeY.v},FK_SHORT_SQUARE=S.FREE_KICK_COMMON.shortSquare.v,FK_SHORT_BACK={depth:S.FREE_KICK_COMMON.shortBackDepth.v,y:S.FREE_KICK_COMMON.shortBackY.v},FK_BOX={depth:L-S.FREE_KICK_COMMON.boxDepth.v,y:S.FREE_KICK_COMMON.boxY.v};
 export function freeKickCallAims(side:Side,spot:Vec,taker:string,players:PracticePlayer[],call:FreeKickCall):{aims:Record<string,Vec>;box:string[]}|null{
  const at=depth(side,spot.x);
- if(call==='mixed'||at<L/2)return null;
+ if(!S.FREE_KICK[call].callsRoutine.v||at<L/2)return null;
  const allies=players.filter(p=>p.side===side&&p.id!==taker&&p.role!=='GK');
  const g=spot.y>=0?1:-1,aims:Record<string,Vec>={},box:string[]=[];
  const remaining=[...allies];
@@ -95,7 +96,7 @@ export function freeKickCallAims(side:Side,spot:Vec,taker:string,players:Practic
  const header=(p:PracticePlayer)=>p.skills.aerial*.6+p.skills.strength*.3+p.skills.finishing*.1;
  const passer=(p:PracticePlayer)=>p.skills.passing*.7+p.skills.control*.3;
  const put=(p:PracticePlayer|undefined,d:number,y:number,inBox=false)=>{if(!p)return;aims[p.id]={x:world(side,d),y:clamp(y,-(W/2-2),W/2-2)};if(inBox)box.push(p.id);};
- if(call==='delivery'){
+ if(S.FREE_KICK[call].callsDelivery.v){
   put(take(header),FK_NEAR.depth,g*FK_NEAR.y,true);
   put(take(header),FK_FAR.depth,-g*FK_FAR.y,true);
   put(take(header),Math.min(FK_EDGE.depth,Math.max(at+3,FK_EDGE.depth-4)),-g*FK_EDGE.y);
@@ -336,7 +337,7 @@ function readyCheck(restart:ReadyScene,players:PracticePlayer[],relaxed:boolean)
    // Into the box waits, like a live corner, for its men to be set inside
    // their leash (at most ROUTINE_SETUP_GRACE past the setup); a short
    // routine is played as soon as it is on.
-   if(restart.call==='delivery'&&p.side===side){
+   if(S.FREE_KICK[restart.call??'mixed'].callsDelivery.v&&p.side===side){
     const slot=restart.routine?.slots[p.id],aim=restart.positions?.[p.id];
     if(slot&&aim&&!slot.authored&&!relaxed&&distance(p,aim)>=slot.leash+2.5)return false;
    }
