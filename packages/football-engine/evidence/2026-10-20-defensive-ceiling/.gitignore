@@ -3,3 +3,6 @@ results/.rev-*
 results/local/
 results/ceiling-watch-*
 results/watch-trace.jsonl
+results/screen.jsonl
+results/par.jsonl
+results/conf.jsonl
