@@ -1,20 +1,26 @@
-// Defensive ceiling (2026-10-20): the per-side measures of one match, from its compact replay (5 Hz frames, the
-// official events) plus, when the full engine record is at hand, pass aims and the players' job history. Evidence only.
-// Used by pd.ts (every lab row) and step0.ts (the premise trace, which also reads older compact replays without jobs).
+// Pitch probe (2026-10-20): the per-side measures of one match. Ported from ../2026-10-20-defensive-ceiling/measure.ts
+// (branch defensive-ceiling) with every pitch-position threshold scaled by sL = L/48 (README "Measures"); body
+// distances (3 m nearest man, 0.3 m behind margin) and speeds (1 m/s run) stay. Evidence only.
+// Added: possession spells (the deep study's funnel, ../2026-10-12-deep-study/deep.ts, at the compact replay's 5 Hz),
+// losses, entries into the final third by type, and chance rows for EVERY shot (not only W1-table clear chances), so
+// the analysis can re-threshold on each world's own goal rates.
 //
-// Coordinates: metres, x 0..48 along the pitch, y -15..15. depth(s, x) = distance from side s's OWN goal line, so for an
-// attacking side S the goal it attacks is the defending side D's own goal and depth(D, x) is the distance from it.
+// Coordinates: metres, x 0..L along the pitch, y -W/2..W/2 (the world's own pitch.ts, read from the hooked bundle).
+// depth(s, x) = distance from side s's OWN goal line.
 import {shotChance} from '../../../../lib/ballers/chances';
 
-export const L=48,CLEAR=.3;
+import {L as PL} from '../../src/pitch';
+export const L=PL,SL=L/48,CLEAR=.3;
+/** Thirds at L/3 and 2L/3; a long ground ball is LONG_GROUND m or more (15 m on 48). */
+export const T1=L/3,T2=2*L/3,ENTRY_TO=28*SL,RUN_GAIN=6*SL,LONG_GROUND=15*SL;
 /** The pre-registered depth run (README): started at least DEEP_FROM m from the goal, received within ARRIVE_IN m of it. */
-export const DEEP_FROM=20,ARRIVE_IN=16;
+export const DEEP_FROM=20*SL,ARRIVE_IN=16*SL;
 export const depth=(s:number,x:number)=>s===0?x:L-x;
 const dist=(a:{x:number;y:number},b:{x:number;y:number})=>Math.hypot(a.x-b.x,a.y-b.y);
 const r1=(v:number)=>Math.round(v*10)/10,r2=(v:number)=>Math.round(v*100)/100,r3=(v:number)=>Math.round(v*1000)/1000;
 
 export interface NFrame {t:number;p:{x:number;y:number}[];b:{x:number;y:number};o:number;ps:number;r:boolean}
-export interface NEvent {t:number;k:string;a:number;g:number;s:number;ch?:number;aim?:{x:number;y:number};rk?:string;aerial?:boolean}
+export interface NEvent {t:number;k:string;a:number;g:number;s:number;ch?:number;q?:number;sk?:number;aim?:{x:number;y:number};rk?:string;aerial?:boolean}
 export interface NJob {t:number;i:number;kind:string;purpose:string|null;target:number}
 export interface Norm {roles:string[];sides:number[];frames:NFrame[];events:NEvent[];jobs?:NJob[]}
 
@@ -26,7 +32,7 @@ export function normalize(header:any,frames:any[],events:any[],jobs?:NJob[],aims
  const ev:NEvent[]=events.map((e:any,q:number)=>{
   const s=e.s===0||e.s===1?e.s:(e.a>=0&&e.a<pl.length?pl[e.a].side:-1);
   const x:NEvent={t:e.t/1000,k:e.k,a:e.a??-1,g:e.g??-1,s};
-  if(e.k==='shot')x.ch=shotChance(e)??0;
+  if(e.k==='shot'){x.ch=shotChance(e)??0;if(typeof e.q==='number')x.q=e.q;if(e.sk)x.sk=e.sk;}
   if(e.rk)x.rk=e.rk;
   const aim=aims?.[q];if(aim){x.aim={x:aim.x,y:aim.y};x.aerial=aim.aerial;}
   return x;
@@ -84,8 +90,40 @@ export function measure(n:Norm,debug?:any[]){
   const m:any={goals:goals.filter(e=>e.s===S).length,shots:sh.length,clear:sh.filter(e=>(e.ch??0)>=CLEAR).length,good:r3(sh.reduce((x,e)=>x+(e.ch??0),0))};
   // territory: share of open-play time with the ball in S's own / middle / attacking third
   const terr=[0,0,0];let tot=0;
-  for(let k=0;k+1<N;k++){const f=frames[k];if(f.r)continue;const dt=frames[k+1].t-f.t;const d=depth(S,f.b.x);terr[d<16?0:d<32?1:2]+=dt;tot+=dt;}
+  for(let k=0;k+1<N;k++){const f=frames[k];if(f.r)continue;const dt=frames[k+1].t-f.t;const d=depth(S,f.b.x);terr[d<T1?0:d<T2?1:2]+=dt;tot+=dt;}
   m.terr=terr.map(v=>r3(v/Math.max(1e-9,tot)));
+  // (pitch probe) possession spells: runs of frames with S in possession (poss above; a restart counts for its side).
+  //  sp [spells, from short of the final third (start depth < T2), of those reaching it (ball depth >= T2 in the spell),
+  //      ended by an open-play loss (the next spell starts without a restart), of the deep ones lost before reaching,
+  //      open-play seconds in possession]
+  //  ent entries of the reaching spells by how the ball got there: [carried, lofted pass, ground pass >= LONG_GROUND,
+  //      shorter ground pass, other] (the last S pass of the spell before the entry frame; carried = the man on the
+  //      ball at the entry had it before at depth < T2 - 0.5)
+  const sp=[0,0,0,0,0,0],ent=[0,0,0,0,0];
+  for(let k=0;k<N;){
+   let j=k;while(j+1<N&&poss[j+1]===poss[k])j++;
+   if(poss[k]===S){
+    sp[0]++;sp[5]+=frames[j].t-frames[k].t;
+    const lost=j+1<N&&!frames[j+1].r;if(lost)sp[3]++;
+    const d0=depth(S,frames[k].b.x);
+    if(d0<T2){
+     sp[1]++;let ke=-1;for(let q=k;q<=j;q++)if(depth(S,frames[q].b.x)>=T2){ke=q;break;}
+     if(ke<0){if(lost)sp[4]++;}
+     else{
+      sp[2]++;const te=frames[ke].t,o=frames[ke].o;
+      let carried=false;
+      if(o>=0&&sides[o]===S)for(let q=ke-1;q>=k&&frames[q].o===o;q--)if(depth(S,frames[q].b.x)<T2-.5){carried=true;break;}
+      let pass:NEvent|null=null;for(const e of events){if(e.t>te+1e-6)break;if(e.t>=frames[k].t-1e-6&&e.k==='pass'&&e.s===S)pass=e;}
+      if(carried)ent[0]++;
+      else if(pass&&pass.aim&&pass.a>=0){const f=frames[frameAt(pass.t)],len=dist(f.p[pass.a],pass.aim);
+       if(pass.aerial)ent[1]++;else if(len>=LONG_GROUND)ent[2]++;else ent[3]++;}
+      else ent[4]++;
+     }
+    }
+   }
+   k=j+1;
+  }
+  m.sp=[...sp.slice(0,5),r1(sp[5])];m.ent=ent;
   // passes: in behind (aimed beyond D's deepest outfielder, aims known), entry passes, receptions after a run from deep
   const behind=[0,0],entry=[0,0],depthDeep=[0,0,0,0];let ddLine=0;
   // receptions after a run: runs6 = any kept pass whose receiver gained >= 6 m towards goal in the run into it [n, clear
@@ -98,12 +136,12 @@ export function measure(n:Norm,debug?:any[]){
    const k=frameAt(e.t),f=frames[k];if(f.r)continue;
    const kr=receiveOf(e),kept=kr>=0?1:0,line=lastLine(f,D),from=depth(S,f.p[e.a].x);
    if(e.aim){if(depth(D,e.aim.x)<line-.3){behind[0]++;behind[1]+=kept;}
-    const to=depth(S,e.aim.x);if(from<32&&to>=28){entry[0]++;entry[1]+=kept;
+    const to=depth(S,e.aim.x);if(from<T2&&to>=ENTRY_TO){entry[0]++;entry[1]+=kept;
      const j=jobAt(e.g,e.t);if(j?.purpose==='depth'&&roles[e.g]!=='ST'){depthDeep[0]++;depthDeep[1]+=kept;ddLine+=line;
       if(kept){const s8=shotsAfter(S,frames[kr].t,Math.min(frames[kr].t+8,spellEnd(kr)));depthDeep[2]+=s8.length;depthDeep[3]+=s8.filter(x=>(x.ch??0)>=CLEAR).length;}}}}
    if(!kept)continue;
    const run=runBefore(e.g,S,kr);
-   if(run.gain<6)continue;
+   if(run.gain<RUN_GAIN)continue;
    const fr=frames[kr],rec=fr.p[e.g],after=shotsAfter(S,fr.t,Math.min(fr.t+8,spellEnd(kr))).filter(x=>(x.ch??0)>=CLEAR);
    runs6++;for(const x of after)allShots.add(x);
    if(depth(D,frames[run.k0].p[e.g].x)<DEEP_FROM||depth(D,rec.x)>=ARRIVE_IN)continue;
@@ -127,7 +165,7 @@ export function measure(n:Norm,debug?:any[]){
  const chanceRows=(S:number)=>{
   const D=1-S,rows:any[]=[];
   for(const e of shots){
-   if(e.s!==S||(e.ch??0)<CLEAR)continue;
+   if(e.s!==S)continue;// (pitch probe) every shot, not only W1-table clear chances
    const ks=frameAt(e.t),shooter=e.a;
    // the shooter's last reception by a team-mate's pass in the same spell
    let pass:NEvent|undefined;
@@ -140,7 +178,7 @@ export function measure(n:Norm,debug?:any[]){
    for(const x of events){
     if(x.t>=e.t)break;if(x.t<Math.max(frames[spellStart].t,e.t-10)-1e-6||x.k!=='pass'||x.s!==S||x.g<0)continue;
     const kx=receiveOf(x);if(kx<0||frames[kx].t>e.t+1e-6)continue;
-    const ru=runBefore(x.g,S,kx);if(ru.gain<6)continue;
+    const ru=runBefore(x.g,S,kx);if(ru.gain<RUN_GAIN)continue;
     const fx=frames[frameAt(x.t)],fk=frames[kx],f0=frames[ru.k0];
     const nr=out(D).map(i=>({i,d:dist(fk.p[i],fk.p[x.g])})).sort((a,b)=>a.d-b.d)[0];
     chain={_q:events.indexOf(x),_rt:fk.t,_g:x.g,ago:r1(e.t-x.t),role:roles[x.g],shooter:x.g===shooter?1:0,gain:r1(ru.gain),from:r1(depth(D,f0.p[x.g].x)),lastLine:r1(lastLine(fx,D)),

@@ -19,11 +19,11 @@
 //            pass to the receive) or stayed; his distance from the landing point at landing and from his goal line
 //  then      seconds from the receive to the shot, the shot's table rate, goal
 import {shotChance} from '../../../../lib/ballers/chances';
+import {L,DEEP_FROM,SL} from './measure';
 
-const L=48;
 const dist=(a:{x:number;y:number},b:{x:number;y:number})=>Math.hypot(a.x-b.x,a.y-b.y);
 const r1=(v:number)=>Math.round(v*10)/10,r2=(v:number)=>Math.round(v*100)/100;
-export const kindOf=(c:any)=>c.via==='restart'?'restart':c.via==='none'?'no pass':c.via==='loose'?'loose':c.chain?(c.chain.from>=20?(c.chain.shooter?'depth run: runner shot':'depth run: then a team-mate'):'short run'):c.ballDepth<4?'cut-back':'other pass';
+export const kindOf=(c:any)=>c.via==='restart'?'restart':c.via==='none'?'no pass':c.via==='loose'?'loose':c.chain?(c.chain.from>=DEEP_FROM?(c.chain.shooter?'depth run: runner shot':'depth run: then a team-mate'):'short run'):c.ballDepth<4*SL?'cut-back':'other pass';
 
 /** opts.all (recon round 3, styles): every clear chance, not only the depth-run ones (a chance with no clean reception
  * keeps only its type, table rate and goal); opts.noWins: keep no compact windows. */
