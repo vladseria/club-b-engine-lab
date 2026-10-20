@@ -111,7 +111,7 @@ export function teamShape(players:PracticePlayer[],ball:MovingBall,attacking:Sid
  let back:number,middle:number,front:number,shift:number;
  let phase:TeamShape['phase'];
  if(own){
-  middle=clamp(bd-1+(tactics.commit-3),X(20),X(80));
+  middle=clamp(bd-1+(tactics.commit-S.COMMIT.neutral.v),X(20),X(80));
   // Front/midfield should remain available to the actual supporting unit,
   // including during the seconds needed for the backs to join a recovery.
   middle=Math.min(middle,actualBack+X(25));

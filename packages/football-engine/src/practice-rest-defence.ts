@@ -1,3 +1,4 @@
+import * as S from './style.js';
 import {L} from './pitch.js';
 import {clamp} from './model.js';
 import type {Vec} from './movement.js';
@@ -98,8 +99,8 @@ export function turnoverPrice(p:Body&Reader,players:readonly Body[],at:Vec=p):nu
 export const REST_MARGIN=4;
 export interface CommitBounds {minRest:number;maxRest:number}
 export function commitBounds(commit:number):CommitBounds{
- const c=Math.round(clamp(commit,1,5));
- return c<3?{minRest:3-c,maxRest:3}:{minRest:0,maxRest:6-c};
+ const c=Math.round(clamp(commit,S.COMMIT.lowest.v,S.COMMIT.highest.v));
+ return c<S.COMMIT.neutral.v?{minRest:S.COMMIT.restFloorBase.v-c,maxRest:S.COMMIT.restCapFree.v}:{minRest:0,maxRest:S.COMMIT.restCapBase.v-c};
 }
 export const constrains=(b:CommitBounds)=>b.minRest>0||b.maxRest<3;
 export function establishedAttack(focus:Vec&{side:number;role:string}):boolean{
@@ -112,8 +113,8 @@ export const restMiss=(b:CommitBounds,rest:number)=>Math.max(0,b.minRest-rest)+M
  * units, for a player of this discipline (0..1): a fully disciplined player
  * holds it against about a strong alternative's worth of football value; an
  * undisciplined one a fraction of that. */
-export const COMMIT_PRICE=1.5;
-export const commitHold=(discipline:number)=>COMMIT_PRICE*(.2+.8*clamp(discipline,0,1));
+export const COMMIT_PRICE=S.COMMIT.price.v;
+export const commitHold=(discipline:number)=>COMMIT_PRICE*(S.COMMIT.holdFloor.v+S.COMMIT.holdPer.v*clamp(discipline,0,1));
 export interface Placed {rest:boolean;discipline:number}
 /** The price of an arrangement's rest defence against the committed bounds.
  * Each body short of or beyond them is charged to one player who could have

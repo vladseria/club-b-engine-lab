@@ -1,3 +1,4 @@
+import * as S from './style.js';
 import {clamp} from './model.js';
 import type {Tactics} from './model.js';
 import {L,W} from './pitch.js';
@@ -95,7 +96,7 @@ export function attackingSpaceReader(players:PracticePlayer[],carrier:PracticePl
    const setting=tactics.striker==='link'?.65:tactics.striker==='run'?1.15:1;
    const roleValue=p.role==='GK'?0:p.role==='ST'?setting:p.role==='W'||p.role==='AM'?.85:p.role==='CM'?.6:p.role==='FB'?(tactics.fullbacks==='hold'?.2:.5):.3;
    const attackingRole=p.role!=='ST'&&p.id===striker?roleValue*setting:roleValue;
-   const ambition=attackingRole*(.8+tactics.commit*.08)*weight;
+   const ambition=attackingRole*(S.COMMIT.ambitionBase.v+tactics.commit*S.COMMIT.ambitionPer.v)*weight;
    const connected=(v:Vec)=>Math.exp(-Math.max(0,distance(carrier,v)-12)/10);
    const initialConnection=connected(p),initialDepth=depth(p);
    const duration=Math.min(1.8,Math.max(0,job.until-time));

@@ -203,6 +203,30 @@ export const PRESS_COMMON={
  doubleSpread:{v:.6,unit:'trait',kind:'triggerWindow',at:['practice-defending.ts:1209 (DOUBLE_SPREAD)'],says:'how noisy the cover man\'s read of the double\'s trigger is'},
 } as const satisfies Record<string,Effect>;
 
+// ------------------------------------------------------------------ Bodies forward (commit)
+/** Bodies forward is a number (1-5), read through formulas: these are their coefficients, in the order the code uses
+ * them (rule 1.3.2). Per-value results are never tabulated: 1.4-clamp(commit,1,5)*.16 at 5 is 0.5999999999999999. */
+export const COMMIT={
+ lowest:{v:1,unit:'count',kind:'arrangementConstraint',at:['practice-exposure.ts:21','practice-rest-defence.ts:102'],says:'Bodies forward is clamped to 1..5 where it is a count'},
+ highest:{v:5,unit:'count',kind:'arrangementConstraint',at:['practice-exposure.ts:21','practice-rest-defence.ts:102'],says:'the top of that clamp'},
+ neutral:{v:3,unit:'count',kind:'arrangementConstraint',at:['practice-coordination.ts:225','practice-coordination.ts:719','practice-coordination.ts:985','practice-coordination.ts:991','practice-build-up.ts:42','practice-shape.ts:114','practice-rest-defence.ts:103'],says:'the free setting: offsets are counted from it, and below / from it jobs open or close'},
+ exposureBase:{v:1.4,unit:'x',kind:'multiplier',at:['practice-exposure.ts:21'],says:'rest-defence exposure weight: this minus Bodies forward times the step'},
+ exposurePer:{v:.16,unit:'x',kind:'multiplier',at:['practice-exposure.ts:21'],says:'the exposure weight\'s step per body forward'},
+ ambitionBase:{v:.8,unit:'x',kind:'multiplier',at:['practice-attacking-space.ts:99'],says:'attacking-space ambition: this plus Bodies forward times the step'},
+ ambitionPer:{v:.08,unit:'x',kind:'multiplier',at:['practice-attacking-space.ts:99'],says:'the ambition step per body forward'},
+ runCredit:{v:.08,unit:'B',kind:'jobCredit',at:['practice-coordination.ts:225'],says:'runs (not the give-and-go return) gain this per body forward above the free setting'},
+ holdCredit:{v:.15,unit:'B',kind:'jobCredit',at:['practice-coordination.ts:719'],says:'below the free setting, close support jobs gain this'},
+ guardsUpTo:{v:2,unit:'count',kind:'arrangementConstraint',at:['practice-coordination.ts:417 (REST_GUARDS)'],says:'up to this setting the side keeps the larger rest guard'},
+ guardsMany:{v:2,unit:'men',kind:'arrangementConstraint',at:['practice-coordination.ts:417 (REST_GUARDS)'],says:'rest guards at those settings'},
+ guardsFew:{v:1,unit:'men',kind:'arrangementConstraint',at:['practice-coordination.ts:417 (REST_GUARDS)'],says:'rest guards above them'},
+ restFloorBase:{v:3,unit:'men',kind:'arrangementConstraint',at:['practice-rest-defence.ts:103'],says:'below the free setting at least this minus the setting stay behind'},
+ restCapFree:{v:3,unit:'men',kind:'arrangementConstraint',at:['practice-rest-defence.ts:103'],says:'below the free setting at most this many stay behind (all three outfield team-mates)'},
+ restCapBase:{v:6,unit:'men',kind:'arrangementConstraint',at:['practice-rest-defence.ts:103'],says:'from the free setting at most this minus the setting stay behind'},
+ price:{v:1.5,unit:'B',kind:'arrangementConstraint',at:['practice-rest-defence.ts:116 (COMMIT_PRICE)'],says:'what one body out of the committed shape costs a fully disciplined player'},
+ holdFloor:{v:.2,unit:'x',kind:'multiplier',at:['practice-rest-defence.ts:117'],says:'share of that price an undisciplined player still pays'},
+ holdPer:{v:.8,unit:'x',kind:'multiplier',at:['practice-rest-defence.ts:117'],says:'the rest of it, by discipline'},
+} as const satisfies Record<string,Effect>;
+
 // ------------------------------------------------------------------ views (old names survive, rule 1.3.6)
 type Scalar<O>={[K in keyof O]:O[K] extends Effect<infer V>?K:never}[keyof O];
 /** {option: entry.v} for one scalar effect, keys in the table's own order. */

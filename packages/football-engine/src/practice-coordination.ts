@@ -222,7 +222,7 @@ const running=(purpose:JobPurpose)=>['break','give-and-go','depth','overlap','ne
 export function runStyle(t:Pick<Tactics,'progression'|'commit'|'transition'>,purpose:JobPurpose):number{
  const bypassing=purpose==='depth'||purpose==='break'&&t.transition!=='secure';
  const progression=t.progression==='direct'?.18:t.progression==='patient'?(bypassing?-.18:purpose==='give-and-go'?.15:0):0;
- return progression+(purpose==='give-and-go'?0:(t.commit-3)*.08);
+ return progression+(purpose==='give-and-go'?0:(t.commit-S.COMMIT.neutral.v)*S.COMMIT.runCredit.v);
 }
 
 /** The striker setting describes the team's most advanced forward, not a role
@@ -414,7 +414,7 @@ export function coordinateFlight(players:PracticePlayer[],ball:MovingBall,side:S
  * drops to a spot REST_CUSHION m (by the Line) goal-side of that forward,
  * tucked towards the middle. Each guard reads the forward as he sees him.
  * A man pressing our ball is not such a forward (onOurBall, r1-shape). */
-export const REST_GUARDS=(commit:number)=>commit<=2?2:1;
+export const REST_GUARDS=(commit:number)=>commit<=S.COMMIT.guardsUpTo.v?S.COMMIT.guardsMany.v:S.COMMIT.guardsFew.v;
 export const REST_CUSHION:Record<Tactics['line'],number>=S.view(S.LINE,'restCushion');
 const REST_FREE:ReadonlySet<JobPurpose>=new Set(['shape','build-up','counter-cover','outlet','width','link','second-ball','join','third-man']);
 export function restGuards(players:readonly PracticePlayer[],side:Side,focus:Vec,t:Tactics,jobs:Readonly<Record<string,FootballJob>>,mates:readonly PracticePlayer[],time:number):{player:string;aim:Vec;speed:number;reason:string;target:string}[]{
@@ -716,7 +716,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
    const p=mates.find(p=>p.id===move.player);if(!p||fixed.has(p.id)||p.id===pivotId||p.id===runnerId||p.id===nineId)continue;
    const read=readSupportLocation(p,move.aim,players,focus,laneRisk);
    // (r1-shape) priced like every other support spot: what it is worth to the carrier too
-   propose({...move,purpose:move.purpose as JobPurpose},1.05+(t.commit<3?.15:0)-read.risk*.45-read.travel*.06+supportWorth({...receiver,...focus},move.aim,read.risk,read.releaseRoom,players,p.id));
+   propose({...move,purpose:move.purpose as JobPurpose},1.05+(t.commit<S.COMMIT.neutral.v?S.COMMIT.holdCredit.v:0)-read.risk*.45-read.travel*.06+supportWorth({...receiver,...focus},move.aim,read.risk,read.releaseRoom,players,p.id));
   }
   type JobSpec={purpose:JobPurpose;kind:Duty;point:Vec;eligible:(p:PracticePlayer)=>boolean;fit:(p:PracticePlayer)=>number;reason:string;range?:number;target?:string;points?:(p:PracticePlayer)=>Vec[];lane?:boolean;shoulder?:boolean};
   // Width with the ball: a winger's support job pays for every metre it takes
@@ -982,13 +982,13 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
    // more: the same authored price the passer uses, as he reads it (a
    // centre-back arriving late should know he leaves one fewer behind).
    const rest=restDefence(focus,players),leaving=LOSS_SCALE*(lossDanger(rest.depth/L,rest.deficit+1)-lossDanger(rest.depth/L,rest.deficit));
-   if(t.commit>=3)offerJob({purpose:'cutback',kind:'run',point:{x:world(side,clamp(bd-3,X(78),X(88))),y:-flank*1},eligible:()=>true,fit:p=>.95+p.skills.reading*.03-(isRest(side,focus,p)?leaving*lossRead(p,focus):0),reason:'Vine în urma atacanților, disponibil pentru pasa întoarsă.'});
+   if(t.commit>=S.COMMIT.neutral.v)offerJob({purpose:'cutback',kind:'run',point:{x:world(side,clamp(bd-3,X(78),X(88))),y:-flank*1},eligible:()=>true,fit:p=>.95+p.skills.reading*.03-(isRest(side,focus,p)?leaving*lossRead(p,focus):0),reason:'Vine în urma atacanților, disponibil pentru pasa întoarsă.'});
   }else if(bd>X(32)||t.progression==='direct'){
    // No offside line in this small-sided game is not an instruction to run
    // straight to the end line. Stay within a usable next-pass distance.
    // (Drops deep's own link post and the run beyond it: LINK_*, above.)
    offerJob({purpose:'depth',kind:'run',point:{x:world(side,Math.min(X(96),bd+X(t.progression==='direct'?30:23))),y:0},points:()=>[-Y(18),0,Y(18)].map(y=>({x:world(side,Math.min(X(96),bd+X(t.progression==='direct'?30:23))),y})),eligible:p=>p.id!==runnerId,fit:p=>.8+p.traits.runs*.6+(p.id===striker&&t.striker==='run'?.3:0),reason:'Oferă profunzime la distanță de pasă, pe un alt culoar.',range:26});
-   if(wide&&bd<X(83)&&t.fullbacks!=='hold'&&(t.commit>=3||t.fullbacks==='overlap'))offerJob({purpose:'overlap',kind:'run',point:{x:focus.x+s*X(9),y:Math.sign(focus.y)*Y(30)},eligible:p=>p.role==='FB'&&p.y*focus.y>0,fit:p=>1+p.traits.runs*.3,reason:'Trece pe exterior și oferă o continuare pe flanc.'});
+   if(wide&&bd<X(83)&&t.fullbacks!=='hold'&&(t.commit>=S.COMMIT.neutral.v||t.fullbacks==='overlap'))offerJob({purpose:'overlap',kind:'run',point:{x:focus.x+s*X(9),y:Math.sign(focus.y)*Y(30)},eligible:p=>p.role==='FB'&&p.y*focus.y>0,fit:p=>1+p.traits.runs*.3,reason:'Trece pe exterior și oferă o continuare pe flanc.'});
   }
   // Two different passing angles, using the same lane assessment as the
   // carrier. Pressure makes these more useful, not a blanket veto on movement.

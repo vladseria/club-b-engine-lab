@@ -39,7 +39,7 @@ export function assignBuildUp(players:PracticePlayer[],receiver:PracticePlayer,t
  // the backs play around him instead of standing behind him.
  const ceilingFor=(p:PracticePlayer)=>Math.min(Math.max(LINE_BUILD_CAP[tactics.line],bd-11),lineHeight(p,players,tactics.line,owner.id,context.time,owner));
  const goalkeeper=owner.role==='GK',centreBack=owner.role==='CB';
- const connectedFor=(ceiling:number)=>goalkeeper?clamp(bd+X(12),X(12),X(27)):centreBack?clamp(bd-3,5,ceiling):clamp(bd-X(16)+(tactics.commit-3),X(6),ceiling);
+ const connectedFor=(ceiling:number)=>goalkeeper?clamp(bd+X(12),X(12),X(27)):centreBack?clamp(bd-3,5,ceiling):clamp(bd-X(16)+(tactics.commit-S.COMMIT.neutral.v),X(6),ceiling);
  // A player chasing the carrier from behind is not automatically an unmarked
  // counter-attacking outlet that should pin our last defender to his own goal.
  const threats=outfield.filter(p=>depth(side,p.x)<bd-X(7)&&Math.abs(p.y)<Y(22)&&distance(p,owner)>8)
