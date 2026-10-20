@@ -509,7 +509,7 @@ export const WORLD=freeze({
  /** player motion: pace, acceleration, turning, steering, separation, arrival */
  motion:{
   steer:{
-   arrivalRadius:p(0.2,'m','body',['movement.ts:29','practice-flight.ts:111'],'a player brakes to arrive within this of his target (steerMotion; previewGap writes the same out)'),
+   arrivalRadius:p(.2,'m','body',['movement.ts:29','practice-flight.ts:111'],'a player brakes to arrive within this of his target (steerMotion; previewGap writes the same out)'),
    separation:p(1.65,'m','body',['movement.ts:36'],'two players closer than this push apart (separation radius)'),
    separationGain:p(2.8,'1/s','body',['movement.ts:36'],'... at this much speed per metre inside it'),
    faceFrom:p(.2,'m/s','body',['movement.ts:43'],'a player moving faster than this turns to face where he runs'),

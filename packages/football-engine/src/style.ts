@@ -258,7 +258,7 @@ const progressionOption=(o:{runBypass:number;runReturn:number;runOther:number;su
 });
 /** Progression: how the team moves the ball forward. Values exactly as the code had them at b107e7b2. */
 export const PROGRESSION:Readonly<Record<Tactics['progression'],ProgressionOption>>={
- patient:progressionOption({runBypass:-0.18,runReturn:0.15,runOther:0,supportCredit:.15,forwardDiagonals:true,extraOutlet:true,depthRunAnywhere:false,depthRunAhead:23,frontAhead:16,attackValue:.7,clockStartsAfter:1,readsBlock:true,clockDeliveryTerms:false,delivery:'patient'}),
+ patient:progressionOption({runBypass:-.18,runReturn:.15,runOther:0,supportCredit:.15,forwardDiagonals:true,extraOutlet:true,depthRunAnywhere:false,depthRunAhead:23,frontAhead:16,attackValue:.7,clockStartsAfter:1,readsBlock:true,clockDeliveryTerms:false,delivery:'patient'}),
  mixed:progressionOption({runBypass:0,runReturn:0,runOther:0,supportCredit:0,forwardDiagonals:false,extraOutlet:false,depthRunAnywhere:false,depthRunAhead:23,frontAhead:16,attackValue:.9,clockStartsAfter:0,readsBlock:false,clockDeliveryTerms:true,delivery:'none'}),
  direct:progressionOption({runBypass:.18,runReturn:.18,runOther:.18,supportCredit:0,forwardDiagonals:false,extraOutlet:false,depthRunAnywhere:true,depthRunAhead:30,frontAhead:20,attackValue:1.1,clockStartsAfter:0,readsBlock:false,clockDeliveryTerms:true,delivery:'direct'}),
 };
@@ -284,7 +284,7 @@ export const PATIENT_DELIVERY={
  penetration:{v:.09,unit:'A',kind:'optionCreditByFeature',at:['team-approach.ts:237'],says:'credit for going through an open lane (times 1 + clock)'},
  switch:{v:.06,unit:'A',kind:'optionCreditByFeature',at:['team-approach.ts:237'],says:'credit for a switch to a free man'},
  switchClock:{v:.5,unit:'x',kind:'clockRule',at:['team-approach.ts:237'],says:'the clock grows the switch credit by up to this share'},
- runnerBonus:{v:0.035,unit:'A',kind:'optionCreditByFeature',at:['team-approach.ts:237'],says:'a pass leading a runner, within the range'},
+ runnerBonus:{v:.035,unit:'A',kind:'optionCreditByFeature',at:['team-approach.ts:237'],says:'a pass leading a runner, within the range'},
  runnerRange:{v:16,unit:'m',kind:'optionCreditByFeature',axis:'body',at:['team-approach.ts:237'],says:'the runner bonus applies to passes shorter than this'},
 } as const satisfies Record<string,Effect>;
 /** The direct delivery credit: clamp(gain/14,-.55,1)*.21*feasible plus a bonus for a long forward ball. */
