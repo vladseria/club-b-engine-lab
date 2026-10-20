@@ -1,3 +1,4 @@
+import * as S from './style.js';
 import {clamp} from './model.js';
 import {L} from './pitch.js';
 import {ARRIVAL_SPREAD,ARRIVAL_OPTIMISM} from './practice-passing.js';
@@ -90,10 +91,10 @@ export type SituationTactics=Tactics&{counter?:boolean;
  * credits fade the same way and its penetration and switch credits grow;
  * which pass it plays is still its own style's choice. 0 = the clock has not
  * started, 1 = fully on. */
-export const PURPOSE_AFTER=2,CLOCK_RELIEF=.6,CLOCK_SHOT=.05,CLOCK_PEN=.08,CLOCK_SWITCH=.05,CLOCK_BACK=.03;
+export const PURPOSE_AFTER=S.COMMON.purposeAfter.v,CLOCK_RELIEF=S.COMMON.clockRelief.v,CLOCK_SHOT=S.COMMON.clockShot.v,CLOCK_PEN=S.COMMON.clockPen.v,CLOCK_SWITCH=S.COMMON.clockSwitch.v,CLOCK_BACK=S.COMMON.clockBack.v;
 export function purposeClock(t:SituationTactics):number{
- const n=t.recycled??0,start=PURPOSE_AFTER+(t.progression==='patient'?1:0);
- return clamp((n-start+1)/2,0,1);
+ const n=t.recycled??0,start=PURPOSE_AFTER+S.PROGRESSION[t.progression].clockStartsAfter.v;
+ return clamp((n-start+1)/S.COMMON.clockRamp.v,0,1);
 }
 /** Let a visible recovery opportunity influence the first allocation too.
  * Requiring an already-selected counter run makes that first decision use the
@@ -175,7 +176,7 @@ export function patientPurpose(p:PracticePlayer,o:Option,block:BlockRead):{bypas
  * tenth of a goal, Opta's fast breaks). Kicking the ball away to nobody (a
  * long, touchline or corner clearance) throws it away, so under a counter
  * those clearances pay it; a clearance into a team-mate's path does not. */
-export const COUNTER_VALUE=.22;
+export const COUNTER_VALUE=S.COMMON.counterValue.v;
 /** Striker: Pivot (settings round, 2026-10-03). While the pivot is showing for
  * it (practice-coordination pivotPoint: his own read that the lane to his feet
  * is open), a ball into his feet is preferred among the deliveries, the more
@@ -203,13 +204,13 @@ export const PIVOT_PULL=.06,PIVOT_PRESSED=.4;
 export function approachOptions(p:PracticePlayer,options:Option[],t:SituationTactics,players:ReadonlyArray<PracticePlayer>=[],pivot?:string):Option[]{
  if(t.counter)options=options.map(o=>o.kind==='clear'&&o.clearance!=='mate'&&o.clearance!=='channel'?{...o,score:o.score-COUNTER_VALUE}:o);
  const clock=purposeClock(t),s=p.side===0?1:-1;
- const block=t.progression==='patient'||clock>0?readBlock(p,players):null;
+ const block=S.PROGRESSION[t.progression].readsBlock.v||clock>0?readBlock(p,players):null;
  if(clock>0)options=options.map(o=>{
   let score=o.score-CLOCK_RELIEF*clock*(o.relief??0);
   if(o.kind==='shoot')score+=CLOCK_SHOT*clock;
-  else if(t.progression!=='patient'&&(o.pass||o.loft)&&o.target){
+  else if(S.PROGRESSION[t.progression].clockDeliveryTerms.v&&(o.pass||o.loft)&&o.target){
    const purpose=patientPurpose(p,o,block!),gain=(o.aim.x-p.x)*s;
-   score+=clock*(CLOCK_PEN*purpose.penetration+CLOCK_SWITCH*purpose.shift-(gain< -2?CLOCK_BACK:0));
+   score+=clock*(CLOCK_PEN*purpose.penetration+CLOCK_SWITCH*purpose.shift-(gain<S.COMMON.clockBackGain.v?CLOCK_BACK:0));
   }
   return score===o.score?o:{...o,score};
  });
@@ -217,25 +218,25 @@ export function approachOptions(p:PracticePlayer,options:Option[],t:SituationTac
  const into=pivot&&pivot!==p.id?options.filter(o=>o.kind==='pass'&&o.target===pivot):[];
  const felt=into.length?feltPressure(p,possessionSafety(p,players as PracticePlayer[]).pressure):0;
  const pull=(o:Option)=>into.includes(o)?PIVOT_PULL+PIVOT_PRESSED*felt:0;
- if(t.progression==='mixed'&&!into.length)return options;
+ if(S.PROGRESSION[t.progression].delivery.v==='none'&&!into.length)return options;
  const style=(o:Option)=>{
-  if(t.progression==='mixed')return 0;
+  if(S.PROGRESSION[t.progression].delivery.v==='none')return 0;
   const gap=Math.hypot(o.aim.x-p.x,o.aim.y-p.y),gain=(o.aim.x-p.x)*s;
   const risk=o.pass?.risk??o.loft?.risk??0;
-  const feasible=1-clamp(risk,0,1)*.65;
-  if(t.progression==='patient'){
+  const feasible=1-clamp(risk,0,1)*S.COMMON.feasibleRisk.v;
+  if(S.PROGRESSION[t.progression].delivery.v==='patient'){
    const connection=o.delivery?.connectionGain??0;
    const purpose=patientPurpose(p,o,block!);
    // The purpose clock fades keeping and resetting and grows going through.
-   const keeps=Math.max(clamp(.5+gain/8+connection*1.5,0,1)*(1-.5*clock),purpose.reset*(1-clock));
-   const through=purpose.bypassed?.4+.6*purpose.open:1;
-   const purposeful=Math.max(purpose.penetration,purpose.shift,purpose.reset,clamp(connection*4,0,1));
-   const forcing=Math.max(clamp(purpose.bypassed/2,0,1)*(1-purpose.open),clamp((risk-.15)/.3,0,1));
+   const keeps=Math.max(clamp(S.PATIENT_DELIVERY.keepBase.v+gain/S.PATIENT_DELIVERY.keepGainPer.v+connection*S.PATIENT_DELIVERY.keepConnection.v,0,1)*(1-S.PATIENT_DELIVERY.clockFade.v*clock),purpose.reset*(1-clock));
+   const through=purpose.bypassed?S.PATIENT_DELIVERY.throughBase.v+S.PATIENT_DELIVERY.throughOpen.v*purpose.open:1;
+   const purposeful=Math.max(purpose.penetration,purpose.shift,purpose.reset,clamp(connection*S.PATIENT_DELIVERY.purposeConnection.v,0,1));
+   const forcing=Math.max(clamp(purpose.bypassed/S.PATIENT_DELIVERY.forcingLines.v,0,1)*(1-purpose.open),clamp((risk-S.PATIENT_DELIVERY.forcingRisk.v)/S.PATIENT_DELIVERY.forcingSpan.v,0,1));
    // The switch credit tops up what the receiver's prospects (o.next, every
    // style) already pay for the same free man; it is never paid twice.
-   return .19*feasible*keeps*through-(1-clamp(purposeful,0,1))*forcing*.05+purpose.penetration*.09*(1+clock)+Math.max(0,purpose.shift*.06*(1+.5*clock)-(o.next??0))+(o.run&&gap<16?.035:0);
+   return S.PATIENT_DELIVERY.keep.v*feasible*keeps*through-(1-clamp(purposeful,0,1))*forcing*S.PATIENT_DELIVERY.forcingCost.v+purpose.penetration*S.PATIENT_DELIVERY.penetration.v*(1+clock)+Math.max(0,purpose.shift*S.PATIENT_DELIVERY.switch.v*(1+S.PATIENT_DELIVERY.switchClock.v*clock)-(o.next??0))+(o.run&&gap<S.PATIENT_DELIVERY.runnerRange.v?S.PATIENT_DELIVERY.runnerBonus.v:0);
   }
-  return clamp(gain/14,-.55,1)*.21*feasible+(gap>13&&gain>7?.035:0);
+  return clamp(gain/S.DIRECT_DELIVERY.gainSpan.v,S.DIRECT_DELIVERY.gainFloor.v,1)*S.DIRECT_DELIVERY.weight.v*feasible+(gap>S.DIRECT_DELIVERY.longGap.v&&gain>S.DIRECT_DELIVERY.longGain.v?S.DIRECT_DELIVERY.longBonus.v:0);
  };
  const preference=(o:Option)=>into.length?style(o)+pull(o):style(o);
  const deliveries=options.filter(o=>o.pass||o.loft);

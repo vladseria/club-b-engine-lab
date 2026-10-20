@@ -232,13 +232,15 @@ export interface ProgressionOption{
  runBypass:Effect;runReturn:Effect;runOther:Effect;supportCredit:Effect;
  forwardDiagonals:Effect<boolean>;extraOutlet:Effect<boolean>;depthRunAnywhere:Effect<boolean>;
  depthRunAhead:Effect;frontAhead:Effect;attackValue:Effect;
+ /** on the ball (S7): team-approach.ts purposeClock and approachOptions */
+ clockStartsAfter:Effect;readsBlock:Effect<boolean>;clockDeliveryTerms:Effect<boolean>;delivery:Effect<'none'|'patient'|'direct'>;
 }
 const GAT={
  run:['practice-coordination.ts:224 (runStyle)'],support:['practice-coordination.ts:777'],diag:['practice-coordination.ts:690'],
  outlet:['practice-coordination.ts:888'],anywhere:['practice-coordination.ts:986'],ahead:['practice-coordination.ts:990'],
  front:['practice-shape.ts:122 (teamShape in possession)'],value:['practice-attacking-space.ts:78'],
 } as const;
-const progressionOption=(o:{runBypass:number;runReturn:number;runOther:number;supportCredit:number;forwardDiagonals:boolean;extraOutlet:boolean;depthRunAnywhere:boolean;depthRunAhead:number;frontAhead:number;attackValue:number}):ProgressionOption=>({
+const progressionOption=(o:{runBypass:number;runReturn:number;runOther:number;supportCredit:number;forwardDiagonals:boolean;extraOutlet:boolean;depthRunAnywhere:boolean;depthRunAhead:number;frontAhead:number;attackValue:number;clockStartsAfter:number;readsBlock:boolean;clockDeliveryTerms:boolean;delivery:'none'|'patient'|'direct'}):ProgressionOption=>({
  runBypass:{v:o.runBypass,unit:'B',kind:'jobCredit',at:GAT.run,says:'a run that bypasses (in behind, or a break not under Keep it)'},
  runReturn:{v:o.runReturn,unit:'B',kind:'jobCredit',at:GAT.run,says:'the give-and-go return run'},
  runOther:{v:o.runOther,unit:'B',kind:'jobCredit',at:GAT.run,says:'any other run'},
@@ -249,16 +251,64 @@ const progressionOption=(o:{runBypass:number;runReturn:number;runOther:number;su
  depthRunAhead:{v:o.depthRunAhead,unit:'ref',kind:'positionOffset',axis:'L',at:GAT.ahead,says:'the run in behind aims this far ahead of the ball'},
  frontAhead:{v:o.frontAhead,unit:'ref',kind:'positionOffset',axis:'L',at:GAT.front,says:'the front line stands this far ahead of midfield'},
  attackValue:{v:o.attackValue,unit:'x',kind:'multiplier',at:GAT.value,says:'value of a reception in attacking space'},
+ clockStartsAfter:{v:o.clockStartsAfter,unit:'count',kind:'clockRule',at:['team-approach.ts:96 (purposeClock)'],says:'the purpose clock starts this many recycled passes later'},
+ readsBlock:{v:o.readsBlock,unit:'flag',kind:'optionCreditByFeature',at:['team-approach.ts:207'],says:'the passer reads the defending block even before the purpose clock runs'},
+ clockDeliveryTerms:{v:o.clockDeliveryTerms,unit:'flag',kind:'clockRule',at:['team-approach.ts:211'],says:'once the clock runs, passes gain its penetration and switch credits here (a patient side has them in its own credit)'},
+ delivery:{v:o.delivery,unit:'flag',kind:'optionCreditByFeature',at:['team-approach.ts:221','team-approach.ts:223','team-approach.ts:227'],says:'which delivery credit applies: none (neutral), the patient one, the direct one'},
 });
 /** Progression: how the team moves the ball forward. Values exactly as the code had them at b107e7b2. */
 export const PROGRESSION:Readonly<Record<Tactics['progression'],ProgressionOption>>={
- patient:progressionOption({runBypass:-.18,runReturn:.15,runOther:0,supportCredit:.15,forwardDiagonals:true,extraOutlet:true,depthRunAnywhere:false,depthRunAhead:23,frontAhead:16,attackValue:.7}),
- mixed:progressionOption({runBypass:0,runReturn:0,runOther:0,supportCredit:0,forwardDiagonals:false,extraOutlet:false,depthRunAnywhere:false,depthRunAhead:23,frontAhead:16,attackValue:.9}),
- direct:progressionOption({runBypass:.18,runReturn:.18,runOther:.18,supportCredit:0,forwardDiagonals:false,extraOutlet:false,depthRunAnywhere:true,depthRunAhead:30,frontAhead:20,attackValue:1.1}),
+ patient:progressionOption({runBypass:-.18,runReturn:.15,runOther:0,supportCredit:.15,forwardDiagonals:true,extraOutlet:true,depthRunAnywhere:false,depthRunAhead:23,frontAhead:16,attackValue:.7,clockStartsAfter:1,readsBlock:true,clockDeliveryTerms:false,delivery:'patient'}),
+ mixed:progressionOption({runBypass:0,runReturn:0,runOther:0,supportCredit:0,forwardDiagonals:false,extraOutlet:false,depthRunAnywhere:false,depthRunAhead:23,frontAhead:16,attackValue:.9,clockStartsAfter:0,readsBlock:false,clockDeliveryTerms:true,delivery:'none'}),
+ direct:progressionOption({runBypass:.18,runReturn:.18,runOther:.18,supportCredit:0,forwardDiagonals:false,extraOutlet:false,depthRunAnywhere:true,depthRunAhead:30,frontAhead:20,attackValue:1.1,clockStartsAfter:0,readsBlock:false,clockDeliveryTerms:true,delivery:'direct'}),
 };
 /** Progression's off-ball coefficients shared by every option. */
 export const PROGRESSION_COMMON={
  depthRunFrom:{v:32,unit:'ref',kind:'jobOffered',axis:'L',at:['practice-coordination.ts:986'],says:'otherwise the run in behind is offered only with the ball past this'},
+} as const satisfies Record<string,Effect>;
+/** The patient delivery credit (team-approach.ts approachOptions): one formula, its coefficients in code order
+ * (rule 1.3.2). It stays a formula; naming them is what makes it readable. */
+export const PATIENT_DELIVERY={
+ keepBase:{v:.5,unit:'x',kind:'optionCreditByFeature',at:['team-approach.ts:231'],says:'keep-ball: base share before gain and connection'},
+ keepGainPer:{v:8,unit:'m',kind:'optionCreditByFeature',axis:'body',at:['team-approach.ts:231'],says:'keep-ball: metres of gain per full share'},
+ keepConnection:{v:1.5,unit:'x',kind:'optionCreditByFeature',at:['team-approach.ts:231'],says:'keep-ball: weight of the connection it opens'},
+ clockFade:{v:.5,unit:'x',kind:'clockRule',at:['team-approach.ts:231'],says:'the running clock fades keep-ball by up to this share'},
+ throughBase:{v:.4,unit:'x',kind:'optionCreditByFeature',at:['team-approach.ts:232'],says:'past defenders, keep-ball counts this much with no open lane'},
+ throughOpen:{v:.6,unit:'x',kind:'optionCreditByFeature',at:['team-approach.ts:232'],says:'... and this much more as the lane opens'},
+ purposeConnection:{v:4,unit:'x',kind:'optionCreditByFeature',at:['team-approach.ts:233'],says:'a connection counts as purpose at this weight'},
+ forcingLines:{v:2,unit:'count',kind:'situationalOptionCost',at:['team-approach.ts:234'],says:'forcing: defenders bypassed for a full share'},
+ forcingRisk:{v:.15,unit:'x',kind:'situationalOptionCost',at:['team-approach.ts:234'],says:'forcing: risk below this costs nothing'},
+ forcingSpan:{v:.3,unit:'x',kind:'situationalOptionCost',at:['team-approach.ts:234'],says:'forcing: risk span to a full share'},
+ keep:{v:.19,unit:'A',kind:'optionCreditByFeature',at:['team-approach.ts:237'],says:'keep-ball credit at full share'},
+ forcingCost:{v:.05,unit:'A',kind:'situationalOptionCost',at:['team-approach.ts:237'],says:'cost of a purposeless pass that forces'},
+ penetration:{v:.09,unit:'A',kind:'optionCreditByFeature',at:['team-approach.ts:237'],says:'credit for going through an open lane (times 1 + clock)'},
+ switch:{v:.06,unit:'A',kind:'optionCreditByFeature',at:['team-approach.ts:237'],says:'credit for a switch to a free man'},
+ switchClock:{v:.5,unit:'x',kind:'clockRule',at:['team-approach.ts:237'],says:'the clock grows the switch credit by up to this share'},
+ runnerBonus:{v:.035,unit:'A',kind:'optionCreditByFeature',at:['team-approach.ts:237'],says:'a pass leading a runner, within the range'},
+ runnerRange:{v:16,unit:'m',kind:'optionCreditByFeature',axis:'body',at:['team-approach.ts:237'],says:'the runner bonus applies to passes shorter than this'},
+} as const satisfies Record<string,Effect>;
+/** The direct delivery credit: clamp(gain/14,-.55,1)*.21*feasible plus a bonus for a long forward ball. */
+export const DIRECT_DELIVERY={
+ gainSpan:{v:14,unit:'m',kind:'optionCreditByFeature',axis:'L',at:['team-approach.ts:239'],says:'metres of forward gain for the full credit'},
+ gainFloor:{v:-.55,unit:'x',kind:'optionCreditByFeature',at:['team-approach.ts:239'],says:'the lowest share (a ball back)'},
+ weight:{v:.21,unit:'A',kind:'optionCreditByFeature',at:['team-approach.ts:239'],says:'the credit at full share'},
+ longGap:{v:13,unit:'m',kind:'optionCreditByFeature',axis:'body',at:['team-approach.ts:239'],says:'a long ball: longer than this ...'},
+ longGain:{v:7,unit:'m',kind:'optionCreditByFeature',axis:'L',at:['team-approach.ts:239'],says:'... and gaining more than this'},
+ longBonus:{v:.035,unit:'A',kind:'optionCreditByFeature',at:['team-approach.ts:239'],says:'its bonus'},
+} as const satisfies Record<string,Effect>;
+/** The style mechanics every option shares (team-approach.ts): the counter's clearance price, the purpose clock and the
+ * feasibility weight. Applied before the re-centring except where `says` notes it (plan 1.7). */
+export const COMMON={
+ counterValue:{v:.22,unit:'A',kind:'situationalOptionCost',at:['team-approach.ts:179 (COUNTER_VALUE)'],says:'under a counter that is on, a clearance to nobody pays this (not re-centred)'},
+ purposeAfter:{v:2,unit:'count',kind:'clockRule',at:['team-approach.ts:94 (PURPOSE_AFTER)'],says:'the purpose clock starts after this many recycled passes'},
+ clockRamp:{v:2,unit:'count',kind:'clockRule',at:['team-approach.ts:97'],says:'it is fully on this many passes later'},
+ clockRelief:{v:.6,unit:'x',kind:'clockRule',at:['team-approach.ts:94 (CLOCK_RELIEF)'],says:'share of a reset\'s pass-only pressure credits the running clock takes away (not re-centred)'},
+ clockShot:{v:.05,unit:'A',kind:'clockRule',at:['team-approach.ts:94 (CLOCK_SHOT)'],says:'a real shot gains this times the clock (not re-centred)'},
+ clockPen:{v:.08,unit:'A',kind:'clockRule',at:['team-approach.ts:94 (CLOCK_PEN)'],says:'penetration credit times the clock (not re-centred)'},
+ clockSwitch:{v:.05,unit:'A',kind:'clockRule',at:['team-approach.ts:94 (CLOCK_SWITCH)'],says:'switch credit times the clock (not re-centred)'},
+ clockBack:{v:.03,unit:'A',kind:'clockRule',at:['team-approach.ts:94 (CLOCK_BACK)'],says:'a ball back loses this times the clock (not re-centred)'},
+ clockBackGain:{v:-2,unit:'m',kind:'clockRule',axis:'L',at:['team-approach.ts:213'],says:'a ball back: gain below this'},
+ feasibleRisk:{v:.65,unit:'x',kind:'multiplier',at:['team-approach.ts:226'],says:'a style credit is scaled by 1 minus this times the pass risk'},
 } as const satisfies Record<string,Effect>;
 
 // ------------------------------------------------------------------ views (old names survive, rule 1.3.6)
