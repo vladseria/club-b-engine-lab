@@ -55,21 +55,21 @@ const inBox=(side:Side,v:Vec,margin=0)=>depth(side,v.x)<BOX_DEPTH+margin&&Math.a
 /** Restarts whose setup is live (kickoffs and penalties keep their formal lines). */
 export const liveRestart=(kind:RestartKind)=>kind==='throw'||kind==='goalKick'||kind==='corner'||kind==='freeKick'||kind==='indirect';
 /** Opponents' distance from the ball: Law 15 (2 m) at throws, the scaled 9.15 m (5 m) elsewhere. */
-export const THROW_DISTANCE=2;
+export const THROW_DISTANCE=WORLD.laws.restartLive.THROW_DISTANCE.v;
 /** A throw's cover (the rest defence): THROW_GUARD m goal-side of their most advanced forward, or THROW_COVER m behind the ball. */
-export const THROW_GUARD=2,THROW_COVER=WORLD.geometry.restartLive.THROW_COVER.v;
+export const THROW_GUARD=WORLD.laws.restartLive.THROW_GUARD.v,THROW_COVER=WORLD.geometry.restartLive.THROW_COVER.v;
 /** Live aims keep a margin beyond the legal distance: a marker tracking a
  * moving man otherwise brakes just inside the circle and holds the kick up. */
 export const restartRadius=(kind:RestartKind)=>kind==='throw'?THROW_DISTANCE+.8:kind==='freeKick'||kind==='indirect'?6.4:6.2;
 /** The taker's longest wait, after he is set, for an option to open. */
-export const RESTART_HOLD:Partial<Record<RestartKind,number>>={throw:2,goalKick:3,corner:2.5,freeKick:2.5,indirect:2.5};
+export const RESTART_HOLD:Partial<Record<RestartKind,number>>={throw:WORLD.laws.restartLive.RESTART_HOLD.throw.v,goalKick:WORLD.laws.restartLive.RESTART_HOLD.goalKick.v,corner:WORLD.laws.restartLive.RESTART_HOLD.corner.v,freeKick:WORLD.laws.restartLive.RESTART_HOLD.freeKick.v,indirect:WORLD.laws.restartLive.RESTART_HOLD.indirect.v};
 /** A chosen option this risky is worth one more look while team-mates are still moving. */
-export const RESTART_HOLD_RISK=.3;
+export const RESTART_HOLD_RISK=WORLD.laws.restartLive.RESTART_HOLD_RISK.v;
 /** A short goal kick is played only when clearly on: a keeper's pass cut out
  * at the edge of his own area is the costliest turnover there is. */
-export const RESTART_GOAL_KICK_RISK=.15;
+export const RESTART_GOAL_KICK_RISK=WORLD.laws.restartLive.RESTART_GOAL_KICK_RISK.v;
 /** A throw farther than this is not an "open option" worth taking without waiting. */
-export const THROW_OPEN_RANGE=16;
+export const THROW_OPEN_RANGE=WORLD.laws.restartLive.THROW_OPEN_RANGE.v;
 /** A goal kick beyond this distance is a long ball. */
 export const GOAL_KICK_LONG=WORLD.geometry.restartLive.GOAL_KICK_LONG.v;
 /** Defenders nearer their opponents' goal line than this are pressing the goal kick. */
@@ -79,7 +79,7 @@ export const GOAL_KICK_PRESS_DEPTH=WORLD.geometry.restartLive.GOAL_KICK_PRESS_DE
  * second, which is how 17–22 m ground kicks were cut out 7–9 m from goal
  * (evidence/2026-09-29-style-balance side check; the presser stood 1.1–2.7 m
  * off the lane in every own-third interception probed). */
-export const GOAL_KICK_CONTEST=3;
+export const GOAL_KICK_CONTEST=WORLD.laws.restartLive.GOAL_KICK_CONTEST.v;
 /** How far `q` stands from the straight lane from → to (Infinity when he is not alongside it). */
 function laneGap(from:Vec,to:Vec,q:Vec):number{
  const d=distance(from,to);if(d<.01)return Infinity;
@@ -181,7 +181,7 @@ export function restartRoutine(scene:Scene,players:PracticePlayer[],formula:Reco
  * room, a small preference for the slot itself and for the last pick. */
 /** Attackers keep this far from a free-kick wall of three or more (the Law's
  * 1 m, plus a margin so braking does not stop a man just inside it). */
-export const WALL_GAP=1.4;
+export const WALL_GAP=WORLD.laws.restartLive.WALL_GAP.v;
 function pickSpace(p:PracticePlayer,slot:RestartSlot,scene:Scene,virtual:PracticePlayer[],reference:PracticePlayer,laneRisk:LaneRisk,previous?:Vec,run=false):Vec{
  const candidates:Vec[]=[slot.aim];
  if(previous)candidates.push(previous);
@@ -254,9 +254,9 @@ export function settleRestart(scene:Scene&{routine?:RestartRoutine;positions?:Re
  * SET_PIECE_HOLD s, switching to a runner who enters them (ANCHOR_ZONE m), and
  * every marker keeps his man (CoordinationPlan.anchors). Authored routines are
  * the attackers'; the defending template applies to every side. */
-export const TEMPLATE_FK=WORLD.geometry.restartLive.TEMPLATE_FK.v,TEMPLATE_THROW=WORLD.geometry.restartLive.TEMPLATE_THROW.v,TEMPLATE_KEEP=.5,TEMPLATE_KEEP_MAN=1.2,SET_PIECE_HOLD=1.2;
+export const TEMPLATE_FK=WORLD.geometry.restartLive.TEMPLATE_FK.v,TEMPLATE_THROW=WORLD.geometry.restartLive.TEMPLATE_THROW.v,TEMPLATE_KEEP=WORLD.laws.restartLive.TEMPLATE_KEEP.v,TEMPLATE_KEEP_MAN=WORLD.laws.restartLive.TEMPLATE_KEEP_MAN.v,SET_PIECE_HOLD=WORLD.laws.restartLive.SET_PIECE_HOLD.v;
 /** Who an attacker is at our set piece: in or at the box (BOX_IN m of the goal), the outlet at its top (OUTLET_IN m, central), or the short option (SHORT_IN m of the ball). */
-export const SP_BOX_IN=WORLD.geometry.restartLive.SP_BOX_IN.v,SP_OUTLET_IN=WORLD.geometry.restartLive.SP_OUTLET_IN.v,SP_SHORT_IN=9,SP_ROUND=.6,SP_ZONE_CLEAR=2.5;
+export const SP_BOX_IN=WORLD.geometry.restartLive.SP_BOX_IN.v,SP_OUTLET_IN=WORLD.geometry.restartLive.SP_OUTLET_IN.v,SP_SHORT_IN=WORLD.laws.restartLive.SP_SHORT_IN.v,SP_ROUND=WORLD.laws.restartLive.SP_ROUND.v,SP_ZONE_CLEAR=WORLD.laws.restartLive.SP_ZONE_CLEAR.v;
 export type SetPieceTask='spot'|'mark'|'back-post'|'ball'|'edge'|'screen';
 export interface SetPieceDeal {task:SetPieceTask;aim:Vec;target?:string;
  /** Why he marks this man: in the box, the outlet at its top, the short option. */

@@ -93,7 +93,7 @@ export function passFlightTime(length:number,speed:number):number{
 export const RECEIVER_REACTION=WORLD.reaction.passing.RECEIVER_REACTION.v;
 /** Body-to-aim distance at which the reception movement counts a point on the
  * ball's path as reached (receptionTarget's own tolerance). */
-export const RECEIVING_REACH=.65;
+export const RECEIVING_REACH=WORLD.selection.passing.RECEIVING_REACH.v;
 /** Where a moving team-mate will actually be when a ball played to his feet
  * arrives: he keeps his momentum while he reacts, then brakes to meet it.
  * A lead of a fixed share of his motion let a firm ball arrive where he had
@@ -263,7 +263,7 @@ export function passAdvance(p:PracticePlayer,from:Vec,aim:Vec):number{
 /** A carrier's own shot counts as "on" from this value (quality x the lane
  * and finishing factors of readDelivery's value): below it a pass that
  * worsens the team's chance costs nothing, above it it does (R3 P2). */
-export const OWN_SHOT_ON=.2;
+export const OWN_SHOT_ON=WORLD.selection.passing.OWN_SHOT_ON.v;
 /** Value the next shooting opportunity, not just metres gained toward the end line. */
 export function readDelivery(p:PracticePlayer,q:PracticePlayer,aim:Vec,players:PracticePlayer[],risk:number,laneRisk:Risk,flight=0,context?:ConnectionContext):DeliveryRead{
  const pd=depth(p,p.x),qd=depth(p,aim.x),centralGain=Math.abs(p.y)-Math.abs(aim.y);
@@ -302,7 +302,7 @@ export function readDelivery(p:PracticePlayer,q:PracticePlayer,aim:Vec,players:P
  * full within OWN_ZONE m of our goal and fading out by OWN_ZONE_FAR (further
  * up the flat room terms already price it). The room is his read: off by up
  * to ROOM_SPREAD for a player who cannot read the game. */
-export const RECEIVER_CAUGHT=.5,OWN_ZONE=WORLD.geometry.passing.OWN_ZONE.v,OWN_ZONE_FAR=WORLD.geometry.passing.OWN_ZONE_FAR.v,ROOM_SPREAD=WORLD.perception.passing.ROOM_SPREAD.v;
+export const RECEIVER_CAUGHT=WORLD.selection.passing.RECEIVER_CAUGHT.v,OWN_ZONE=WORLD.geometry.passing.OWN_ZONE.v,OWN_ZONE_FAR=WORLD.geometry.passing.OWN_ZONE_FAR.v,ROOM_SPREAD=WORLD.perception.passing.ROOM_SPREAD.v;
 export function receiverCaught(p:PracticePlayer,q:PracticePlayer,aim:Vec,space:number,players:readonly PracticePlayer[]):number{
  const zone=clamp((OWN_ZONE_FAR-depth(p,aim.x))/(OWN_ZONE_FAR-OWN_ZONE),0,1);if(!zone)return 0;
  const room=clamp(perceive(p,'arrival',space,ROOM_SPREAD,aim,{salt:'room'+q.id}),0,1);

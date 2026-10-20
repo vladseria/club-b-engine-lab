@@ -20,13 +20,13 @@ export interface Restart extends RestartInfo {organized?:boolean;ready:number;le
 /** An authored routine may keep its players on their spots this long past the
  * normal setup; after that only the Laws' distances hold the kick. It applies
  * to every restart kind, at the set-up check and at the release. */
-export const ROUTINE_SETUP_GRACE=3;
+export const ROUTINE_SETUP_GRACE=WORLD.laws.routine.ROUTINE_SETUP_GRACE.v;
 /** The hard cap on an authored routine's set-up, past the normal setup: if the
  * Laws still hold the kick, the engine stops waiting on the routine's spots
  * and the live re-planning (see practice-restart-live settleRestart). */
-export const ROUTINE_SETUP_CAP=6;
+export const ROUTINE_SETUP_CAP=WORLD.laws.routine.ROUTINE_SETUP_CAP.v;
 /** How often the engine re-reads who still blocks the kick once capped. */
-export const ROUTINE_SETTLE_EVERY=2;
+export const ROUTINE_SETTLE_EVERY=WORLD.laws.routine.ROUTINE_SETTLE_EVERY.v;
 /** Past the grace, an authored routine waits only for the Laws. */
 export const routineRelaxed=(restart:{authored?:string;ready:number;call?:string},time:number)=>(!!restart.authored||!!restart.call)&&time>=restart.ready+ROUTINE_SETUP_GRACE;
 const depth=(side:Side,x:number)=>side===0?x:L-x;
@@ -295,7 +295,7 @@ type ReadyScene=Pick<RestartInfo,'kind'|'side'|'spot'|'taker'>&{organized?:boole
  * with three or more, attackers must keep 1 m from them. */
 export function freeKickWallNow(restart:Pick<RestartInfo,'kind'|'side'|'spot'>,players:readonly PracticePlayer[]):PracticePlayer[]{
  const {kind,side,spot}=restart;
- return kind==='freeKick'||kind==='indirect'?players.filter(p=>p.side!==side&&p.role!=='GK'&&distance(p,spot)>=5&&distance(p,spot)<7.35&&depth(side,p.x)>depth(side,spot.x)):[];
+ return kind==='freeKick'||kind==='indirect'?players.filter(p=>p.side!==side&&p.role!=='GK'&&distance(p,spot)>=WORLD.laws.restart.distance.v&&distance(p,spot)<7.35&&depth(side,p.x)>depth(side,spot.x)):[];
 }
 /** Check actual positions, not assigned destinations, and keep checking until the kick. */
 export function restartPlayersReady(restart:ReadyScene,players:PracticePlayer[],relaxed=false):boolean{
@@ -322,19 +322,19 @@ function readyCheck(restart:ReadyScene,players:PracticePlayer[],relaxed:boolean)
    const aim=restart.routine&&!restart.routine.slots[p.id]&&!restart.routine.posts[p.id]?undefined:restart.positions?.[p.id];
    // A slot player is set anywhere inside his leash around the slot.
    const reach=(restart.routine?.slots[p.id]?.leash??0)+2.5;
-   return (p.side===side||distance(p,spot)>=5)&&(relaxed||!aim||distance(p,aim)<reach);
+   return (p.side===side||distance(p,spot)>=WORLD.laws.restart.distance.v)&&(relaxed||!aim||distance(p,aim)<reach);
   }
-  if(kind==='kickoff')return depth(p.side,p.x)<=(L/2)&&(p.side===side||distance(p,spot)>=5);
+  if(kind==='kickoff')return depth(p.side,p.x)<=(L/2)&&(p.side===side||distance(p,spot)>=WORLD.laws.restart.distance.v);
   if(kind==='penalty'){
    if(p.role==='GK'&&p.side!==side)return depth(p.side,p.x)<=.55&&Math.abs(p.y)<=G(3.1);
    const behind=depth(side,p.x)<L-SPOT,box=depth(side,p.x)>(L-BOX_DEPTH)&&Math.abs(p.y)<BOX_HALF;
-   return behind&&!box&&distance(p,spot)>=5;
+   return behind&&!box&&distance(p,spot)>=WORLD.laws.restart.distance.v;
   }
   if(kind==='freeKick'||kind==='indirect'){
    if(p.side!==side&&depth(side,spot.x)<BOX_DEPTH&&Math.abs(spot.y)<BOX_HALF&&depth(side,p.x)<BOX_DEPTH&&Math.abs(p.y)<BOX_HALF)return false;
    // As at a penalty, a body centre within .55m permits a foot on the line.
-   if(p.side!==side)return distance(p,spot)>=5||(depth(p.side,p.x)<=.55&&Math.abs(p.y)<=GH);
-   if(wall.length>=3&&wall.some(q=>distance(p,q)<1))return false;
+   if(p.side!==side)return distance(p,spot)>=WORLD.laws.restart.distance.v||(depth(p.side,p.x)<=.55&&Math.abs(p.y)<=GH);
+   if(wall.length>=3&&wall.some(q=>distance(p,q)<WORLD.laws.restart.wallDistance.v))return false;
    // Into the box waits, like a live corner, for its men to be set inside
    // their leash (at most ROUTINE_SETUP_GRACE past the setup); a short
    // routine is played as soon as it is on.

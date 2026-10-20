@@ -90,7 +90,7 @@ export function shotRead(p:Pick<PracticePlayer,'skills'|'traits'|'id'|'side'>,op
  * A composed man has no lean of his own: he takes what his read says is best, a good chance himself, a clearly better
  * one a pass away. SHOT_BASE is the shot's own standing (the old 0.1 plus a typical man's old risk lean, 0.45 x
  * 0.09), so a typical man's free shot is worth what it was. */
-export const SHOT_BASE=.14,SHOT_WORTH=1.2,SHOT_DARE=.15,SHOT_NERVE=.2;
+export const SHOT_BASE=WORLD.selection.shotContest.SHOT_BASE.v,SHOT_WORTH=WORLD.selection.shotContest.SHOT_WORTH.v,SHOT_DARE=WORLD.selection.shotContest.SHOT_DARE.v,SHOT_NERVE=WORLD.selection.shotContest.SHOT_NERVE.v;
 export function shotTemper(p:Pick<PracticePlayer,'skills'|'traits'|'id'>,pressure:number):number{
  return SHOT_DARE*daring(p)-SHOT_NERVE*Math.max(0,nerve(p)-1)*clamp(pressure,0,1);
 }

@@ -58,7 +58,7 @@ export function feintReleaseOpening(originalScore:number,defender:string,availab
  const current=available.filter(o=>o.kind==='feint'&&o.target===defender).map(o=>o.score),carries=available.filter(o=>o.kind==='carry').map(o=>o.score);
  const commitment=TAKEON_PRICE.on?(current.length?Math.max(...current):carries.length?Math.max(...carries):originalScore)
   :Math.max(originalScore,...available.filter(o=>o.kind==='feint'&&o.target===defender).map(o=>o.score));
- return available.some(o=>['pass','through','loft','shoot','clear'].includes(o.kind)&&o.score>commitment+.18);
+ return available.some(o=>['pass','through','loft','shoot','clear'].includes(o.kind)&&o.score>commitment+WORLD.selection.choice.reconsider.v);
 }
 
 /** The fake's odds: the chance the man in front of him buys it (the carrier's control against his reading and
@@ -80,7 +80,7 @@ export const FOOLED_FOR=WORLD.contact.feints.FOOLED_FOR.v,WRONG_PACE=WORLD.conta
  * round 3, option B): a typical dribbler is neutral, a flashy one has a clear push (0.9: +0.21), a poor one leans
  * against it (0.1: -0.08). The live score's uncentred dribble x 0.36 gave every player a take-on bonus over the same
  * carry, a typical one +0.12. */
-export const TAKEON_FLAIR=.36;
+export const TAKEON_FLAIR=WORLD.selection.feints.TAKEON_FLAIR.v;
 type Risk=(from:Vec,to:Vec,defenders:PracticePlayer[],speed?:number)=>number;
 
 /** His read of a take-on on `marker` toward `aim`, from what he can see (where the men are, who they are). In the

@@ -51,17 +51,17 @@ export function misread(p:Reader,read:Read):number{return clamp(WORLD.perception
 /** Optimism, -0.5..1: how much a player underestimates what can go wrong.
  * Centred on the squad's typical risk trait (0.45); audacity ("tries the
  * audacious", "shoots on sight") adds to it. Missing audacity reads as none. */
-export function daring(p:Reader):number{return clamp((trait(p,'risk',.45)-.45)*.9+(p.traits?.audacity??0)*.6,-.5,1);}
+export function daring(p:Reader):number{return clamp((trait(p,'risk',WORLD.skills.traits.riskTypical.v)-WORLD.skills.traits.riskCentre.v)*WORLD.skills.traits.riskWeight.v+(p.traits?.audacity??0)*WORLD.skills.traits.audacityWeight.v,WORLD.skills.traits.daringMin.v,1);}
 /** Composure, 0..1: keeping his head (discipline and reading, the "Keeps his
  * head" tendency). */
-export function composure(p:Reader):number{return clamp(.55*trait(p,'discipline',.83)+.45*skill(p.skills?.reading??7),0,1);}
+export function composure(p:Reader):number{return clamp(WORLD.skills.traits.composureDiscipline.v*trait(p,'discipline',WORLD.skills.traits.disciplineTypical.v)+WORLD.skills.traits.composureReading.v*skill(p.skills?.reading??WORLD.skills.traits.readingTypical.v),0,1);}
 /** How strongly he feels the pressure he sees: below 1 for a daring or
  * composed player, above 1 for a nervous one; about 1 for a typical player. */
-export function nerve(p:Reader):number{return clamp(1-.3*daring(p)-.5*(composure(p)-.78),.6,1.4);}
+export function nerve(p:Reader):number{return clamp(1-WORLD.skills.traits.nerveDaring.v*daring(p)-WORLD.skills.traits.nerveComposure.v*(composure(p)-WORLD.skills.traits.composureTypical.v),WORLD.skills.traits.nerveMin.v,WORLD.skills.traits.nerveMax.v);}
 /** How strictly he follows a team job against his own read, 0..1. */
-export const followsTeam=(p:Reader)=>clamp(trait(p,'discipline',.83),0,1);
+export const followsTeam=(p:Reader)=>clamp(trait(p,'discipline',WORLD.skills.traits.disciplineTypical.v),0,1);
 /** His own appetite to engage, centred on the squad's typical engagement. */
-export const eagerness=(p:Reader)=>clamp(trait(p,'engagement',.55)-.55,-.5,.5);
+export const eagerness=(p:Reader)=>clamp(trait(p,'engagement',WORLD.skills.traits.engagementTypical.v)-WORLD.skills.traits.engagementCentre.v,WORLD.skills.traits.eagernessMin.v,WORLD.skills.traits.eagernessMax.v);
 
 // ---- deterministic smooth noise ------------------------------------------
 const hashes=new Map<string,number>();

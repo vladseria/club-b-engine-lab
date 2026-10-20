@@ -75,7 +75,7 @@ export const SET_STILL=WORLD.keeper.hands.SET_STILL.v,SET_FACING=WORLD.keeper.ha
  * straight into that man: evidence/2026-10-13-keeper-giveaway. Holding the presser 2.5 m off raised goals after keeper
  * losses, and releasing early to any clear lane fed interceptions next to goal: evidence/2026-10-13-keeper-fix;
  * evidence/2026-10-13-keeper-2.) */
-export const KEEPER_HOLD=4,KEEPER_TURN=WORLD.keeper.hands.KEEPER_TURN.v,KEEPER_JOG=WORLD.keeper.hands.KEEPER_JOG.v,KEEPER_STEP=WORLD.keeper.hands.KEEPER_STEP.v,KEEPER_RING=WORLD.keeper.hands.KEEPER_RING.v,KEEPER_EDGE=WORLD.keeper.hands.KEEPER_EDGE.v,KEEPER_DEEP=WORLD.keeper.hands.KEEPER_DEEP.v,KEEPER_BODY=WORLD.keeper.hands.KEEPER_BODY.v,KEEPER_BRAKE=WORLD.keeper.hands.KEEPER_BRAKE.v;
+export const KEEPER_HOLD=WORLD.laws.keeper.KEEPER_HOLD.v,KEEPER_TURN=WORLD.keeper.hands.KEEPER_TURN.v,KEEPER_JOG=WORLD.keeper.hands.KEEPER_JOG.v,KEEPER_STEP=WORLD.keeper.hands.KEEPER_STEP.v,KEEPER_RING=WORLD.keeper.hands.KEEPER_RING.v,KEEPER_EDGE=WORLD.keeper.hands.KEEPER_EDGE.v,KEEPER_DEEP=WORLD.keeper.hands.KEEPER_DEEP.v,KEEPER_BODY=WORLD.keeper.hands.KEEPER_BODY.v,KEEPER_BRAKE=WORLD.keeper.hands.KEEPER_BRAKE.v;
 /** keeperMove's read of a spot: a throw's lane is open from KEEPER_LANE m clear of every opponent (fully at
  * KEEPER_LANE + KEEPER_LANE_FULL m), one over the man ignores opponents within KEEPER_OVER m of him and is worth
  * KEEPER_LOFT of a ground one, and a spot within KEEPER_ROOM m of an opponent costs up to KEEPER_CROWDED; he moves
@@ -203,13 +203,13 @@ function plannedRisk(p:PracticePlayer,o:Option,opponents:PracticePlayer[],player
 }
 /** (receive round) A defender reads a ball coming into the area round his own goal, within CLEAR_READ m of its centre
  * (the "losses within 12 m" area of the watch notes), and wants CLEAR_SPARE s to spare there before he controls it. */
-export const CLEAR_READ=WORLD.geometry.practice.CLEAR_READ.v,CLEAR_SPARE=.3;
+export const CLEAR_READ=WORLD.geometry.practice.CLEAR_READ.v,CLEAR_SPARE=WORLD.selection.practice.CLEAR_SPARE.v;
 /** A man within ON_TOUCH m of the ball when the receiver meets it is on him: the touch protects it from him first,
  * whatever he meant to set it for (the first touch away from a man within 2.5 m, before). */
-export const ON_TOUCH=1.5;
+export const ON_TOUCH=WORLD.selection.practice.ON_TOUCH.v;
 /** A kick he is setting, or striking, whose first metres a man has stepped into (launch read above BLOCKED_KICK) is
  * re-read (closedRelease; a clearance at the strike too). */
-export const BLOCKED_KICK=.55;
+export const BLOCKED_KICK=WORLD.selection.practice.BLOCKED_KICK.v;
 export function kickBlocked(p:PracticePlayer,o:Option,players:PracticePlayer[],delay:number):boolean{
  return launchRisk(p,o.aim,players,delay,o.kind==='clear'?clearReach(o):4)>BLOCKED_KICK;
 }
@@ -217,17 +217,17 @@ export function kickBlocked(p:PracticePlayer,o:Option,players:PracticePlayer[],d
  * Steering only repels them softly inside 1.65 m (movement.ts), and pressers, challengers, interceptors and sweepers
  * steer past team-mates only: two players under 0.6 m apart in 6.6% of frames, team-mates 73 pair-frames a match
  * (evidence/2026-10-15-watch-notes). Opponents are untouched: contact there is a contest. */
-export const TEAM_GAP=.7;
+export const TEAM_GAP=WORLD.selection.practice.TEAM_GAP.v;
 /** How far a shooter who cannot read his chance misjudges it (a relative
  * error, R2): now with the rest of his read, practice-shot-contest shotRead. */
 export {SHOT_SPREAD} from './practice-shot-contest.js';
 /** A shot that does not score is a loss at the opponents' goal, but a slow
  * one: a save, a goal kick or a keeper's ball gives the side that shot about
  * this share of a loss's danger (time to turn and get back). */
-export const SHOT_RESTART=.6;
+export const SHOT_RESTART=WORLD.selection.practice.SHOT_RESTART.v;
 /** A reception this far beyond the deepest point a passing spell has reached
  * is progress and stops the purpose clock (R3 P4). */
-export const PROGRESS_METRES=3;
+export const PROGRESS_METRES=WORLD.selection.practice.PROGRESS_METRES.v;
 /** The same choices apply to either side; profile names are presentation only. */
 export function practiceOptions(p:PracticePlayer,players:PracticePlayer[],running:ReadonlySet<string>,lastFrom='',held=0,plan:CarryPlan|null=null,time=0,support:SupportPlan|null=null,planningLine?:number,lastFeint?:FeintMemory):Option[]{
  const defenders=players.filter(q=>q.side!==p.side),outfield=defenders.filter(q=>q.role!=='GK');
@@ -555,7 +555,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
      if(o.kind==='shoot'&&!firstTime&&!aerial&&!restart){
       const available=footballOptions(p,players,new Set(players.filter(q=>q.duty==='run').map(q=>q.id)),lastFrom,time-receivedAt,carryPlan,time,support,observedLine(p),feintMemory.get(p.id));
       const current=available.find(q=>q.kind==='shoot');
-      if(!current||Math.max(...available.map(q=>q.score))>current.score+.18){prepared=null;nextThink=time;return false;}
+      if(!current||Math.max(...available.map(q=>q.score))>current.score+WORLD.selection.choice.reconsider.v){prepared=null;nextThink=time;return false;}
       o=current;
      }
      // (receive round) A clearance is re-read at the strike as a prepared kick is while he sets it (closedRelease): a man
@@ -564,7 +564,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
      if(o.kind==='clear'&&!firstTime&&!aerial&&!restart&&kickBlocked(p,o,players,0)){
       const available=footballOptions(p,players,new Set(players.filter(q=>q.duty==='run').map(q=>q.id)),lastFrom,time-receivedAt,carryPlan,time,support,observedLine(p),feintMemory.get(p.id));
       const current=available.filter(q=>q.kind==='clear').sort((a,b)=>dist(a.aim,o.aim)-dist(b.aim,o.aim))[0];
-      if(!current||Math.max(...available.map(q=>q.score))>current.score+.18){prepared=null;nextThink=time;return false;}
+      if(!current||Math.max(...available.map(q=>q.score))>current.score+WORLD.selection.choice.reconsider.v){prepared=null;nextThink=time;return false;}
      }
      const takingRestart=restart;
      const shot=o.kind==='shoot',clear=o.kind==='clear',target=o.target?get(o.target):null,passer=restart&&(restart.kind==='freeKick'||restart.kind==='indirect')?setPiecePlayer(p):p;
@@ -715,7 +715,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
   const structure=teamShapes[p.side],slot=structure?.slots[p.id];
   let kind:Duty='hold',x=X(24),y=laneY,speed=p.pace*.64,reason='Ține poziția și protejează spațiul periculos.',refresh=0;
   if(p.role==='GK'){
-   const sweep=clamp(p.traits.keeperSweep??.2,0,1);
+   const sweep=clamp(p.traits.keeperSweep??WORLD.skills.keeper.sweepDefault.v,0,1);
    // A keeper facing an attack keeps setting himself against the ball he
    // sees (coordinated policy): he re-reads every assignment tick, and while
    // an opponent's pass travels he sets against where it is heading (its
@@ -1505,7 +1505,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
     else if(prepared&&!mustRelease&&!inHands&&(closedRelease||time>=nextThink)){
      const alternatives=footballOptions(p,players,new Set(players.filter(q=>q.duty==='run').map(q=>q.id)),lastFrom,time-receivedAt,carryPlan,time,support,observedLine(p),feintMemory.get(p.id));
      const current=alternatives.filter(o=>o.kind===prepared!.option.kind&&o.target===prepared!.option.target&&!!o.receivingSpace===!!prepared!.option.receivingSpace).sort((a,b)=>dist(a.aim,prepared!.option.aim)-dist(b.aim,prepared!.option.aim))[0];
-     if(!current||Math.max(...alternatives.map(o=>o.score))>current.score+.18)prepared=null;
+     if(!current||Math.max(...alternatives.map(o=>o.score))>current.score+WORLD.selection.choice.reconsider.v)prepared=null;
      else prepared.option=prepared.option.hurried?{...current,hurried:true}:current;
      nextThink=prepared?time+.2:time;
     }
@@ -1709,7 +1709,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
        const available=footballOptions(body,players,new Set(players.filter(q=>q.duty==='run').map(q=>q.id)),releaseBy,0,null,time,support);
        const option=available.filter(o=>o.kind===preparation.option?.kind&&o.target===preparation.option?.target).sort((a,b)=>b.score-a.score)[0];
        const plan=option?readAerialKick(body,ball,technique,option):null;
-       if(option&&plan&&option.score>=Math.max(...available.map(o=>o.score))-.18&&(!bookFor(body.side)||bookFor(body.side)!.canRelease(time,body,option,players,ball,support))){
+       if(option&&plan&&option.score>=Math.max(...available.map(o=>o.score))-WORLD.selection.choice.reconsider.v&&(!bookFor(body.side)||bookFor(body.side)!.canRelease(time,body,option,players,ball,support))){
         const arriving={...ball};own(p,same?'receive':'turnover');Object.assign(ball,arriving);
         released=releaseOption(body,option,true,{technique,plan});
        }

@@ -1,3 +1,4 @@
+import {WORLD} from './world.js';
 /** These are competing football choices, not priorities or success modifiers.
  * Delivery techniques to one recipient share an opportunity. Taking on a
  * particular opponent remains distinct from carrying into space. More sampled
@@ -23,8 +24,8 @@ export function actionWeights<T extends ScoredAction>(eligible:readonly T[]):{op
  const best=Math.max(...unique.map(option=>option.score));
  return [...groups.values()].flatMap(options=>{
   const groupBest=Math.max(...options.map(option=>option.score));
-  const intentionWeight=Math.exp((groupBest-best)/.04);
-  const variants=options.map(option=>({option,weight:Math.exp((option.score-groupBest)/.04)}));
+  const intentionWeight=Math.exp((groupBest-best)/WORLD.selection.choice.temperature.v);
+  const variants=options.map(option=>({option,weight:Math.exp((option.score-groupBest)/WORLD.selection.choice.temperature.v)}));
   const total=variants.reduce((sum,variant)=>sum+variant.weight,0);
   return variants.map(({option,weight})=>({option,weight:intentionWeight*weight/total}));
  });

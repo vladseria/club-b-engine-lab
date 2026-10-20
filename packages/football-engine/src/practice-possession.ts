@@ -72,7 +72,7 @@ export function releaseTime(p:PracticePlayer,aim:Vec,kind:Option['kind']):number
  * 0.22 s at control 3 and 0.11 s at control 9 (a good controller's ball is
  * playable sooner: touchGap, setTolerance). FOOT_BASE - FOOT_CONTROL x control
  * - FOOT_EDGE x controlEdge reproduces all three within 0.01 s. */
-export const FOOT_BASE=.26,FOOT_CONTROL=.01,FOOT_EDGE=.0625;
+export const FOOT_BASE=WORLD.selection.possession.FOOT_BASE.v,FOOT_CONTROL=WORLD.selection.possession.FOOT_CONTROL.v,FOOT_EDGE=WORLD.selection.possession.FOOT_EDGE.v;
 export const footToBall=(p:{skills:{control:number}})=>Math.max(.05,FOOT_BASE-FOOT_CONTROL*p.skills.control-FOOT_EDGE*controlEdge(p));
 export function kickHorizon(p:PracticePlayer,aim:Vec,kind:Option['kind']):number{return releaseTime(p,aim,kind)+footToBall(p);}
 /** His own read of that time (the release horizon his lane and launch reads
@@ -107,7 +107,7 @@ export function readKickHorizon(p:PracticePlayer,aim:Vec,kind:Option['kind']):nu
  * (PASS_POINT a point). It is offered beside the ordinary kick whenever the ordinary one would be caught, and wins
  * only when getting it away sooner is worth more than placing it well. (A laptop check without it: pricing the
  * presser alone sent pressed men into carries and feints, and kept the ball 0.14 s longer.) */
-export const CHALLENGE_LAND=.16,CAUGHT_SPAN=.3,HURRY_SHARE=.5,HURRY_POINTS=2;
+export const CHALLENGE_LAND=WORLD.selection.possession.CHALLENGE_LAND.v,CAUGHT_SPAN=WORLD.selection.possession.CAUGHT_SPAN.v,HURRY_SHARE=WORLD.selection.possession.HURRY_SHARE.v,HURRY_POINTS=WORLD.selection.possession.HURRY_POINTS.v;
 export function caughtOnBall(p:PracticePlayer,players:PracticePlayer[],horizon:number,time?:number):number{
  const {contactTime}=possessionSafety(p,players);
  if(!Number.isFinite(contactTime))return 0;
@@ -183,7 +183,7 @@ export const LAUNCH_REACT=WORLD.perception.possession.LAUNCH_REACT.v;
  * carrier for him would invent a block ahead of him).
  * Returns the time the carrier's forecast runs (`lead` when he meets nobody),
  * the id of the opponent met and where that opponent is at `lead`. */
-export const MEET_GAP=1;
+export const MEET_GAP=WORLD.selection.possession.MEET_GAP.v;
 type Mover={x:number;y:number;vx:number;vy:number;side:0|1};
 export function carrierMeets(p:Mover,players:(Mover&{id:string;pace:number;acceleration:number})[],lead:number):{t:number;met:string|null;at:Vec|null}{
  let t=lead,met:(typeof players)[number]|null=null;
@@ -259,7 +259,7 @@ export const PRESSURE_SPREAD=WORLD.perception.possession.PRESSURE_SPREAD.v;
  * better is "a real shot on" and cuts a pass's pressure credits by
  * RELIEF_CUT; a goal-side carry past the presser earns CARRY_RELIEF of a
  * pass's relief. */
-export const SHOT_ON_FROM=.25,SHOT_ON_SPAN=.2,RELIEF_CUT=.75,CARRY_RELIEF=.5;
+export const SHOT_ON_FROM=WORLD.selection.possession.SHOT_ON_FROM.v,SHOT_ON_SPAN=WORLD.selection.possession.SHOT_ON_SPAN.v,RELIEF_CUT=WORLD.selection.possession.RELIEF_CUT.v,CARRY_RELIEF=WORLD.selection.possession.CARRY_RELIEF.v;
 export function feltPressure(p:PracticePlayer,pressure:number,time?:number):number{
  return clamp(pressure*Math.max(0,perceive(p,'pressure',nerve(p),PRESSURE_SPREAD,p,{time,salt:'felt'})),0,1);
 }
@@ -270,7 +270,7 @@ export function feltPressure(p:PracticePlayer,pressure:number,time?:number):numb
  * the urgency credit paid every safe-laned pass the same, so centre-backs
  * pressed in their own six-yard area played two-metre passes to each other
  * instead of clearing, carrying out, or finding a pass that escapes. */
-export const ESCAPE_FROM=.3,ESCAPE_SPAN=1.1;
+export const ESCAPE_FROM=WORLD.selection.possession.ESCAPE_FROM.v,ESCAPE_SPAN=WORLD.selection.possession.ESCAPE_SPAN.v;
 export const escapeFrom=(receiverTime:number)=>clamp((receiverTime-ESCAPE_FROM)/ESCAPE_SPAN,0,1);
 export function securePossessionOptions(p:PracticePlayer,players:PracticePlayer[],options:Option[],laneRisk:LaneRisk):Option[]{
  const exact=possessionSafety(p,players),felt=feltPressure(p,exact.pressure);

@@ -31,7 +31,7 @@ export type FreeKickOption=Option&{freeKick?:DirectFreeKickPlan};
  * his own judgement under either call. */
 export const FK_LEAN=S.FREE_KICK_COMMON.lean.v,FK_CONTEST=S.FREE_KICK_COMMON.contest.v,FK_PLAN_B=S.FREE_KICK_COMMON.planB.v;
 /** Below this read a direct free kick is not offered as a shot at all. */
-const SHOT_OPTION_QUALITY=.015;
+const SHOT_OPTION_QUALITY=WORLD.selection.setPieces.SHOT_OPTION_QUALITY.v;
 
 /** An active nominated player takes precedence; otherwise technique selects the specialist.
  * A shooter is wanted only where a direct shot is genuinely on: a direct free

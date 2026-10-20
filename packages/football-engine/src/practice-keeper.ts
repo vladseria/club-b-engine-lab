@@ -101,7 +101,7 @@ export function keeperSweepNeed(sweep:number):number{
  * sweeper stands higher, a keeper who stays on his line deeper. Zero at the
  * engine's default trait (0.2), so untouched keepers stand where they did. */
 export function keeperSweepDepth(sweep:number,ballDepth:number,ownBall:boolean):number{
- const s=clamp(sweep,0,1)-.2;
+ const s=clamp(sweep,0,1)-WORLD.skills.keeper.sweepDefault.v;
  return ownBall?s*clamp((ballDepth-WORLD.geometry.keeper.homeOwnFrom.v)/WORLD.geometry.keeper.homeOwnSpan.v,0,1)*WORLD.geometry.keeper.homeOwnMax.v:s*clamp((ballDepth-WORLD.geometry.keeper.homeTheirsFrom.v)/WORLD.geometry.keeper.homeTheirsSpan.v,0,1)*WORLD.geometry.keeper.homeTheirsMax.v;
 }
 
@@ -125,7 +125,7 @@ export const KEEPER_BEHIND=WORLD.geometry.keeper.KEEPER_BEHIND.v,KEEPER_BEHIND_S
 export const KEEPER_HOME=WORLD.keeper.keeper.KEEPER_HOME.v;
 export function keeperLineDepth(sweep:number,lastLine:number,ballDepth:number):number{
  const s=clamp(sweep,0,1),far=clamp((ballDepth-KEEPER_FOLLOW_FROM)/(KEEPER_FOLLOW_FULL-KEEPER_FOLLOW_FROM),0,1);
- const follows=clamp((s-KEEPER_HOME)/(.2-KEEPER_HOME),0,1);
+ const follows=clamp((s-KEEPER_HOME)/(WORLD.skills.keeper.sweepDefault.v-KEEPER_HOME),0,1);
  return follows*far*clamp(lastLine-(KEEPER_BEHIND-KEEPER_BEHIND_SWEEP*s),0,BOX_DEPTH+1+WORLD.geometry.keeper.lineFollowPer.v*s);
 }
 

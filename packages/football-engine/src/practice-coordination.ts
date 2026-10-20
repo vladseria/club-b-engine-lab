@@ -194,7 +194,7 @@ export interface CoordinationContext extends SupportContext {
 }
 
 /** A set piece's zonal anchor takes over a runner within this many metres of his spot. */
-export const ANCHOR_ZONE=3;
+export const ANCHOR_ZONE=WORLD.selection.coordination.ANCHOR_ZONE.v;
 /** The side without the ball keeps no ball-anchored block (practice-defending
  * replaces it): its shape record carries only the time, so a change of
  * possession is still seen as one. */
@@ -311,7 +311,7 @@ export const RUN_ALSO:ReadonlySet<JobPurpose>=new Set(S.IN_BEHIND.alsoTakes.v as
  * an 8 m step, the waypoint JOIN_STEP m along the way and the connected
  * position itself, within the reach a run is allowed (5 s). Short steps alone
  * made a player left behind the play brake into each one and stroll. */
-export const JOIN_STEP=12;
+export const JOIN_STEP=WORLD.selection.coordination.JOIN_STEP.v;
 export interface Shoulder {post:Vec;run:Vec|null;last:number}
 /** Striker: Drops deep, a false nine (settings round, 2026-10-03). The lead
  * forward takes a standing post between their lines, LINK_GAP metres in front

@@ -164,7 +164,7 @@ function defensiveAllocationCost(players:PracticePlayer[],owner:PracticePlayer,t
  * COVER_NEAR m of the goal centre) the threat is the cut-back, not the post:
  * he covers on the line from the ball to the penalty spot, never deeper than
  * COVER_FLOOR m from the goal line (the keeper owns the goal line). */
-export const COVER_NEAR=WORLD.geometry.defense.COVER_NEAR.v,COVER_FLOOR=4,SHOT_LINE=3,COVER_CENTRAL=WORLD.geometry.defense.COVER_CENTRAL.v;
+export const COVER_NEAR=WORLD.geometry.defense.COVER_NEAR.v,COVER_FLOOR=WORLD.contact.defense.COVER_FLOOR.v,SHOT_LINE=WORLD.contact.defense.SHOT_LINE.v,COVER_CENTRAL=WORLD.geometry.defense.COVER_CENTRAL.v;
 export function coverPosition(presser:PracticePlayer,owner:PracticePlayer,seen:Vec=owner):Vec{
  const g=goal(presser),u=unit(g.x-seen.x,-seen.y);
  // Near the touchline the first defender already contains the outside.
@@ -193,7 +193,7 @@ export function coverPosition(presser:PracticePlayer,owner:PracticePlayer,seen:V
  * in front of the ball, goal-side, while the team drops into shape (Regroup);
  * 'engage' closes the ball down (a counter-press). A shot threat is always
  * closed down. */
-export const BLOCK_NEAR=WORLD.geometry.defense.BLOCK_NEAR.v,BLOCK_GAP=1;
+export const BLOCK_NEAR=WORLD.geometry.defense.BLOCK_NEAR.v,BLOCK_GAP=WORLD.contact.defense.BLOCK_GAP.v;
 export function containMovement(p:PracticePlayer,owner:PracticePlayer,players:PracticePlayer[],tactics:Tactics,seen:Vec=owner,intent?:'delay'|'engage'):DefensiveMovement{
  const u=unit(goal(p).x-seen.x,-seen.y);
  // A goalkeeper cannot count as the covering outfield defender.

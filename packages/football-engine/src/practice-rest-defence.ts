@@ -33,14 +33,14 @@ const depthOf=(side:number,x:number)=>side===0?x:L-x;
  *    ~0.13, inside the 0.10-0.18 extrapolated for 5v5. It bites from a
  *    quarter of the pitch and fully past 60%: deep in our half the ball is
  *    near our goal whoever stands behind it. */
-export const LOSS_OWN=.268,LOSS_FALL=2.45,LOSS_SHORT=1.55;
+export const LOSS_OWN=WORLD.selection.restDefence.LOSS_OWN.v,LOSS_FALL=WORLD.selection.restDefence.LOSS_FALL.v,LOSS_SHORT=WORLD.selection.restDefence.LOSS_SHORT.v;
 export function lossDanger(depthShare:number,deficit:number):number{
  const d=clamp(depthShare,0,1),k=clamp(deficit,-1,3),reach=clamp((d-.25)/.35,0,1);
  return LOSS_OWN*Math.exp(-LOSS_FALL*d)*LOSS_SHORT**(k*reach);
 }
 /** Goals to price units: the scale the passer's other terms use (the old
  * positional price, 0.55 at our goal line, was 2.2x these goals). */
-export const LOSS_SCALE=2.2;
+export const LOSS_SCALE=WORLD.selection.restDefence.LOSS_SCALE.v;
 
 export interface RestRead {depth:number;rest:number;threats:number;deficit:number}
 /** The rest defence behind a ball at `at` (default: where p stands): our
@@ -97,7 +97,7 @@ export function turnoverPrice(p:Body&Reader,players:readonly Body[],at:Vec=p):nu
  * worth it. Which players go, and to which job, is still the ordinary choice.
  * The old form, about a metre of midfield per step, left all three behind
  * the ball most of the time whatever the setting. */
-export const REST_MARGIN=4;
+export const REST_MARGIN=WORLD.selection.restDefence.REST_MARGIN.v;
 export interface CommitBounds {minRest:number;maxRest:number}
 export function commitBounds(commit:number):CommitBounds{
  const c=Math.round(clamp(commit,S.COMMIT.lowest.v,S.COMMIT.highest.v));
