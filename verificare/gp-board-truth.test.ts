@@ -325,7 +325,7 @@ describe('Without the ball',()=>{
   // tests run 39411136727) while the back line still ordered 16.00 · 17.30 · 19.03. The take-on price does not touch the
   // defensive line, so it is read as noise in a measure that was never the player's line. Bar 0.2, not 1: the back line
   // clears 1 only at z 0.6 (+1.31, se 0.54), and 0.2 is the bar both steps clear on this build at z ≥ 2 (deep → standard
-  // +1.31, se 0.54: z 2.1; standard → high +1.72, se 0.59: z 2.6).
+  // +1.31, se 0.54: z 2.0; standard → high +1.72, se 0.59: z 2.6).
   logs('centre-back x, their ball in their half',each(S,ms=>over(ms,theirHalf,f=>f.p[1][0])),['deep','standard','high'],1);
   rises('our last outfielder x (the back line), their ball in their half',each(S,ms=>over(ms,theirHalf,f=>Math.min(...OUT.map(i=>f.p[i][0])))),['deep','standard','high'],.2,[true,false]);
   logs('our outfielders’ mean x (the block), their ball in their half',each(S,ms=>over(ms,theirHalf,f=>mean(OUT.map(i=>f.p[i][0])))),['deep','standard','high'],.5);
