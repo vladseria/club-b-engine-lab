@@ -12,6 +12,7 @@ import {keeperReadyPosition} from './practice-keeper.js';
 import {steerMotion} from './movement.js';
 import {projectOpponents,ON_HIM,READ_AHEAD} from './practice-receive.js';
 import {arrivalTime} from './practice-arrival.js';
+import {WORLD} from './world.js';
 
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
 export interface FeintMemory {opponent:string;at:number;attacker:Vec;defender:Vec}
@@ -32,7 +33,7 @@ export function repeatFeintCost(p:PracticePlayer,d:PracticePlayer,memory:FeintMe
 }
 
 /** The fake itself takes FAKE_TIME s (practice.ts: the man is fooled or not at its end). */
-export const FAKE_TIME=.26;
+export const FAKE_TIME=WORLD.contact.feints.FAKE_TIME.v;
 export function feintDuration(p:PracticePlayer,aim:Vec):number {
  // The fake precedes the burst. Acceleration still governs every real movement tick.
  return FAKE_TIME+clamp(distance(p,aim)/Math.max(1,p.pace*.75)+.4,.85,1.8);
@@ -73,7 +74,7 @@ export function feintFoolChance(p:PracticePlayer,d:PracticePlayer):number{
 export const TAKEON_PRICE={on:true};
 /** How long a man who buys the fake is wrong-footed (practice.ts: his wrongfoot and his next duel wait this long),
  * jogging (WRONG_PACE of his pace) to the wrong side: WRONG_BACK m back and as far across as the take-on goes. */
-export const FOOLED_FOR=.65,WRONG_PACE=.65,WRONG_BACK=1.5;
+export const FOOLED_FOR=WORLD.contact.feints.FOOLED_FOR.v,WRONG_PACE=WORLD.contact.feints.WRONG_PACE.v,WRONG_BACK=WORLD.contact.feints.WRONG_BACK.v;
 /** A flashy player's liking for taking a man on, beyond what it gets him (his appetite, as shotTemper is the
  * shooter's): TAKEON_FLAIR per unit of dribble tendency away from the squad's typical DRIBBLE_TYPICAL (owner's decision,
  * round 3, option B): a typical dribbler is neutral, a flashy one has a clear push (0.9: +0.21), a poor one leans

@@ -3,6 +3,7 @@ import {L} from './pitch.js';
 import type {Vec} from './movement.js';
 import type {PracticePlayer} from './practice.js';
 import {perceive,eagerness,daring} from './practice-perception.js';
+import {WORLD} from './world.js';
 
 /** Contests in the air (2026-10-15). Before this a lofted ball went to whichever body touched it first: headers were
  * standing contacts, the marker stood a metre goal-side of where the ball was met, and a defender got the first touch
@@ -11,7 +12,7 @@ import {perceive,eagerness,daring} from './practice-perception.js';
  *
  * The jump. A header can be met above standing height: JUMP_BASE m plus JUMP_SKILL m a point of aerial ("in the
  * air": height and spring). A header met above standing reach is harder to direct (practice-aerial readAerialKick). */
-export const JUMP_BASE=.2,JUMP_SKILL=.04,STANDING_HEAD=1.95;
+export const JUMP_BASE=WORLD.contact.airDuel.JUMP_BASE.v,JUMP_SKILL=WORLD.contact.airDuel.JUMP_SKILL.v,STANDING_HEAD=WORLD.contact.airDuel.STANDING_HEAD.v;
 export const jumpReach=(p:{skills:{aerial:number}})=>JUMP_BASE+JUMP_SKILL*clamp(p.skills.aerial,0,10);
 /** How much later a poor reader starts setting himself for a ball in the air (s, at reading 0 vs 10, centred on 6). */
 export const AIR_READ=.015;
@@ -20,10 +21,10 @@ export const airReaction=(p:{skills:{reading:number}},base=.18)=>Math.max(.08,ba
 /** Who is in the contest. An opponent whose body is within AIR_REACH m of the ball (horizontally) when it is touched
  * at AIR_MIN m or higher, and who can get his head that high (standing head height plus his jump), challenges the
  * touch. Below AIR_MIN it is a reception at the feet or the thighs, not a duel in the air. */
-export const AIR_REACH=1.1,AIR_MIN=1.;
+export const AIR_REACH=WORLD.contact.airDuel.AIR_REACH.v,AIR_MIN=WORLD.contact.airDuel.AIR_MIN.v;
 /** After it, the man who lost it is still landing: no touch for AIR_LAND s, no tackle for AIR_LAND_CHALLENGE s. A
  * knock-down leaves at up to KNOCK_SPREAD radians off its line, with a fifth to a half of its pace, popped up. */
-export const AIR_LAND=.35,AIR_LAND_CHALLENGE=.5,KNOCK_SPREAD=1.9;
+export const AIR_LAND=WORLD.contact.airDuel.AIR_LAND.v,AIR_LAND_CHALLENGE=WORLD.contact.airDuel.AIR_LAND_CHALLENGE.v,KNOCK_SPREAD=WORLD.contact.airDuel.KNOCK_SPREAD.v;
 
 /** How each man contests it, in log-odds. Two ways, and each man takes the one his body suits:
  *  - UP: he attacks the ball and jumps. AIR_JUMP a point of aerial (height, spring, timing), AIR_BUMP a point of
@@ -36,8 +37,8 @@ export const AIR_LAND=.35,AIR_LAND_CHALLENGE=.5,KNOCK_SPREAD=1.9;
  * man and attacks it going forward), AIR_READING a point of reading (he read the flight first), and the man's nerve:
  * AIR_EAGER a unit of eagerness and AIR_DARE of daring. A brave, eager man attacks the ball at its highest; a hesitant
  * one waits for it to drop and is beaten to it. The price of attacking it is in the outcome (fouls, mistimed jumps). */
-export const AIR_JUMP=.2,AIR_BUMP=.09,AIR_RUN=.35,AIR_FRONT=.5,AIR_NIP_PACE=.08,AIR_NIP_READ=.04,AIR_NIP_HIGH=.8;
-export const AIR_CLOSE=1.2,AIR_FIRST=.3,AIR_INSIDE=.35,AIR_READING=.06,AIR_EAGER=.9,AIR_DARE=.35;
+export const AIR_JUMP=WORLD.contact.airDuel.AIR_JUMP.v,AIR_BUMP=WORLD.contact.airDuel.AIR_BUMP.v,AIR_RUN=WORLD.contact.airDuel.AIR_RUN.v,AIR_FRONT=WORLD.contact.airDuel.AIR_FRONT.v,AIR_NIP_PACE=WORLD.contact.airDuel.AIR_NIP_PACE.v,AIR_NIP_READ=WORLD.contact.airDuel.AIR_NIP_READ.v,AIR_NIP_HIGH=WORLD.contact.airDuel.AIR_NIP_HIGH.v;
+export const AIR_CLOSE=WORLD.contact.airDuel.AIR_CLOSE.v,AIR_FIRST=WORLD.contact.airDuel.AIR_FIRST.v,AIR_INSIDE=WORLD.contact.airDuel.AIR_INSIDE.v,AIR_READING=WORLD.contact.airDuel.AIR_READING.v,AIR_EAGER=WORLD.contact.airDuel.AIR_EAGER.v,AIR_DARE=WORLD.contact.airDuel.AIR_DARE.v;
 
 export interface AirMan {p:PracticePlayer;body:Vec;velocity:Vec;first:boolean}
 export interface AirRead {score:number;way:'up'|'nip';front:boolean;behind:boolean;commit:number}
@@ -69,8 +70,8 @@ export function airStrength(me:AirMan,them:AirMan,ball:Vec&{z:number;vx:number;v
  * nobody meant): a loose ball. A foul: someone went through the back or led with an arm. The man coming from behind,
  * the reckless (eager, daring, undisciplined, frustrated when losing) and the one who jumps into a stronger man foul
  * more. A mistimed jump: an eager man who cannot read the flight goes too early and wins it badly. */
-export const AIR_CLEAN=.3,AIR_CLEAN_MARGIN=1.2,AIR_CLEAN_SKILL=.03,AIR_MISTIME=.25;
-export const AIR_FOUL={base:.008,discipline:.07,commit:.035,behind:.02,frustration:.05,attacker:.6};
+export const AIR_CLEAN=WORLD.contact.airDuel.AIR_CLEAN.v,AIR_CLEAN_MARGIN=WORLD.contact.airDuel.AIR_CLEAN_MARGIN.v,AIR_CLEAN_SKILL=WORLD.contact.airDuel.AIR_CLEAN_SKILL.v,AIR_MISTIME=WORLD.contact.airDuel.AIR_MISTIME.v;
+export const AIR_FOUL={base:WORLD.contact.airDuel.AIR_FOUL.base.v,discipline:WORLD.contact.airDuel.AIR_FOUL.discipline.v,commit:WORLD.contact.airDuel.AIR_FOUL.commit.v,behind:WORLD.contact.airDuel.AIR_FOUL.behind.v,frustration:WORLD.contact.airDuel.AIR_FOUL.frustration.v,attacker:WORLD.contact.airDuel.AIR_FOUL.attacker.v};
 export interface AirDuel {winner:PracticePlayer;loser:PracticePlayer;chance:number;outcome:'clean'|'knock'|'foul';fouler?:PracticePlayer;way:'up'|'nip';reads:[AirRead,AirRead]}
 export function resolveAirDuel(a:AirMan,b:AirMan,ball:Vec&{z:number;vx:number;vy:number},attacking:number,deficit:(p:PracticePlayer)=>number,random:()=>number):AirDuel{
  const ra=airStrength(a,b,ball,a.p.side!==attacking),rb=airStrength(b,a,ball,b.p.side!==attacking);
@@ -105,13 +106,13 @@ export function attacksTheBall(d:PracticePlayer,man:PracticePlayer,at:Vec,time:n
  * challengeReach of him, between AIR_MIN and his jumping height, once he has had AIR_SET s to set himself. It is a
  * challenge, not a planned header: what he does with it is decided by the contest and by what his body can make of it
  * (practice.ts). */
-export const AIR_SET=.2,CHALLENGE_REACH=.5,CHALLENGE_SKILL=.03;
+export const AIR_SET=WORLD.contact.airDuel.AIR_SET.v,CHALLENGE_REACH=WORLD.contact.airDuel.CHALLENGE_REACH.v,CHALLENGE_SKILL=WORLD.contact.airDuel.CHALLENGE_SKILL.v;
 /** With nobody on him, his challenge is clean (a header he directs, or a cushion) this often at aerial 5, AIR_CLEAN_SKILL
  * more a point; otherwise it just comes off him. */
-export const AIR_UNCONTESTED=.6;
+export const AIR_UNCONTESTED=WORLD.contact.airDuel.AIR_UNCONTESTED.v;
 /** The receiver goes up with a defender who is attacking his ball once that defender is within AIR_REACH + AIR_UP_WITH m
  * of it: he challenges for it in the air rather than waiting for it to drop into the defender's header. */
-export const AIR_UP_WITH=.5;
+export const AIR_UP_WITH=WORLD.contact.airDuel.AIR_UP_WITH.v;
 export const challengeReach=(p:{skills:{aerial:number}})=>CHALLENGE_REACH+CHALLENGE_SKILL*clamp(p.skills.aerial,0,10);
 /** Where he goes for it: the first point of the visible flight, coming down, inside his jumping height that he can reach
  * in time (full pace, a step's reaction), else the one he comes closest to making; `need` is how late he would be (s). */
@@ -132,5 +133,5 @@ export function challengePoint(p:PracticePlayer,samples:readonly {x:number;y:num
  * if that man is at least AIR_LEAVE m from where the ball comes down. */
 export const AIR_EVERY=6,AIR_LATE=.08,AIR_DARE_LATE=.12,AIR_RACE_SPREAD=.4,AIR_LEAVE=6;
 /** Setting off costs AIR_STEP s; once on his way he keeps going unless he reads he is AIR_KEEP s later than that. */
-export const AIR_STEP=.15,AIR_KEEP=.3;
+export const AIR_STEP=WORLD.contact.airDuel.AIR_STEP.v,AIR_KEEP=WORLD.contact.airDuel.AIR_KEEP.v;
 export const airRace=(p:PracticePlayer,point:{aim:Vec;need:number},time:number)=>perceive(p,'race',point.need,AIR_RACE_SPREAD,point.aim,{time,salt:'airRace'});

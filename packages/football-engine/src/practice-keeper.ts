@@ -49,7 +49,7 @@ export function keeperReadyPosition(p:Pick<KeeperState,'side'|'skills'>,ball:Vec
  * against its visible flight a moment ahead (KEEPER_FLIGHT_LEAD seconds),
  * which is what a keeper shuffling across with a square ball does. He still
  * moves at his normal pace, so a quick switch across the box still beats him. */
-export const KEEPER_REREAD=.25,KEEPER_FLIGHT_LEAD=.3;
+export const KEEPER_REREAD=WORLD.keeper.keeper.KEEPER_REREAD.v,KEEPER_FLIGHT_LEAD=WORLD.keeper.keeper.KEEPER_FLIGHT_LEAD.v;
 /** How this keeper does it (R2): a keeper's read is his own, from keeping
  * (60%) and reading (40%). Calibrated on the squad's typical keeper (read
  * 0.84, e.g. keeping 8 and reading 9), who does exactly what B4 set: re-reads
@@ -60,7 +60,7 @@ export const KEEPER_REREAD=.25,KEEPER_FLIGHT_LEAD=.3;
  * ~0.25 m for a poor one, smoothly (the misjudgement belongs to where the
  * ball is and when, not to a dice roll every tick). No keeper is perfect on
  * every square ball, and the average one is not worse than before. */
-export const KEEPER_SPREAD=.55,KEEPER_TYPICAL=.84;
+export const KEEPER_SPREAD=WORLD.keeper.keeper.KEEPER_SPREAD.v,KEEPER_TYPICAL=WORLD.keeper.keeper.KEEPER_TYPICAL.v;
 export function keeperRead(p:Reader,ball:Vec,time:number):{reread:number;lead:number;offset:number}{
  const a=acuity(p,'keeper');
  return {reread:clamp(KEEPER_REREAD+.25*(KEEPER_TYPICAL-a),.18,.4),lead:KEEPER_FLIGHT_LEAD*clamp(1+(a-KEEPER_TYPICAL),.6,1.2),offset:perceive(p,'keeper',0,KEEPER_SPREAD,ball,{time,salt:'angle'})};
@@ -93,7 +93,7 @@ export function keeperSweepReach(sweep:number):{margin:number;range:number}{
  * both ways. His pace is already in his forecast, so a slow keeper reaches
  * fewer of these balls whatever his habit. He does not stand anywhere new:
  * where he stands is unchanged (keeperSweepDepth, keeperLineDepth). */
-export const SWEEP_NEED_HOME=.15,SWEEP_NEED_SWEEPER=-.3,SWEEP_READ_SPREAD=.5;
+export const SWEEP_NEED_HOME=WORLD.keeper.keeper.SWEEP_NEED_HOME.v,SWEEP_NEED_SWEEPER=WORLD.keeper.keeper.SWEEP_NEED_SWEEPER.v,SWEEP_READ_SPREAD=WORLD.keeper.keeper.SWEEP_READ_SPREAD.v;
 export function keeperSweepNeed(sweep:number):number{
  return SWEEP_NEED_HOME+(SWEEP_NEED_SWEEPER-SWEEP_NEED_HOME)*clamp(sweep,0,1);
 }
@@ -122,7 +122,7 @@ export const KEEPER_BEHIND=WORLD.geometry.keeper.KEEPER_BEHIND.v,KEEPER_BEHIND_S
  * (0.2) up, so the default keeper and the sweeper stand where they did. (It had
  * pulled every keeper up behind his line, so "Stay on line" came further out
  * than a keeper left to his own way: 12.75 m against 11.99 m at most.) */
-export const KEEPER_HOME=.1;
+export const KEEPER_HOME=WORLD.keeper.keeper.KEEPER_HOME.v;
 export function keeperLineDepth(sweep:number,lastLine:number,ballDepth:number):number{
  const s=clamp(sweep,0,1),far=clamp((ballDepth-KEEPER_FOLLOW_FROM)/(KEEPER_FOLLOW_FULL-KEEPER_FOLLOW_FROM),0,1);
  const follows=clamp((s-KEEPER_HOME)/(.2-KEEPER_HOME),0,1);
@@ -144,7 +144,7 @@ export function keeperLineDepth(sweep:number,lastLine:number,ballDepth:number):n
  *  - keeperBackTime: the same run the other way round, from a point to his set spot. It replaces the support job's
  *    standing-start arrival time (which ignored his reaction and his stop: 1.06 s modelled where about 1.5 s or more
  *    was observed). */
-export const SHOT_RANGE=WORLD.geometry.keeper.SHOT_RANGE.v,SHOT_SET=.6,ATTACK_SPEED=8,PASS_PREP=.3,PASS_SPEED=13,KEEPER_DROP=.6,KEEPER_SPRINT=.9;
+export const SHOT_RANGE=WORLD.geometry.keeper.SHOT_RANGE.v,SHOT_SET=WORLD.keeper.keeper.SHOT_SET.v,ATTACK_SPEED=WORLD.keeper.keeper.ATTACK_SPEED.v,PASS_PREP=WORLD.keeper.keeper.PASS_PREP.v,PASS_SPEED=WORLD.keeper.keeper.PASS_SPEED.v,KEEPER_DROP=WORLD.keeper.keeper.KEEPER_DROP.v,KEEPER_SPRINT=WORLD.keeper.keeper.KEEPER_SPRINT.v;
 type Runner=Pick<KeeperState,'pace'|'acceleration'>&{skills:{reading:number}};
 const keeperReaction=(p:{skills:{reading:number}})=>.2+(10-clamp(p.skills.reading,0,10))*.015;
 export function attackTime(side:0|1,ball:Vec&{vx?:number},attackers:readonly Vec[],carrier?:Vec|null):number{
@@ -205,7 +205,7 @@ export function readKeeperFlight(p:KeeperState,ball:MovingBall,shotAge:number,ed
    goalTime=time-STEP+fraction*STEP;goalHeight=oldZ+(state.z-oldZ)*fraction;break;
   }
   if(Math.hypot(state.vx,state.vy)<.05)return null;
-  if(tick%4!==0||time<remaining||depth>BOX_DEPTH-.15||Math.abs(state.y)>BOX_HALF||state.z>2.3)continue;
+  if(tick%4!==0||time<remaining||depth>BOX_DEPTH-.15||Math.abs(state.y)>BOX_HALF||state.z>WORLD.body.reach.handReach.height.v)continue;
   const point={x:state.x,y:state.y},available=Math.max(0,time-remaining);
   const afterReaction={...p,x:p.x+p.vx*remaining,y:p.y+p.vy*remaining};
   const gap=Math.hypot(point.x-afterReaction.x,point.y-afterReaction.y)-travel(afterReaction,point,available)-keeperReach(p,shotAge+time,edge);

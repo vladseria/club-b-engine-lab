@@ -38,7 +38,7 @@ export function planThrow(p:PracticePlayer,from:Vec,q:PracticePlayer,opponents:P
   const time=tick*STEP;
   for(const opponent of opponents){
    const depth=opponent.side===0?b.x:L-b.x,hands=opponent.role==='GK'&&depth<BOX_DEPTH&&Math.abs(b.y)<BOX_HALF;
-   if(b.z>(hands?2.3:1.1))continue;
+   if(b.z>(hands?WORLD.body.reach.handReach.height.v:WORLD.body.reach.torsoHeight.v))continue;
    risk=Math.max(risk,clamp((time+.2-arrivalTime(opponent,b))/.55,0,1));
   }
  }

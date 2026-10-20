@@ -4,6 +4,7 @@ import {clamp,Tactics} from './model.js';
 import type {PracticePlayer} from './practice.js';
 import {contact,Vec} from './movement.js';
 import {readShotDanger,ShotDanger} from './practice-shot-defense.js';
+import {WORLD} from './world.js';
 
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
 const unit=(x:number,y:number)=>{const d=Math.hypot(x,y)||1;return {x:x/d,y:y/d};};
@@ -73,7 +74,7 @@ export function duelChance(attacker:PracticePlayer,defender:PracticePlayer,cover
  * again or take a controlled touch, so the man who won it has a moment to move it away from him. How long now follows
  * what happened to him in the duel (practice-balance, duel recovery 2026-10-16); before, it was a fixed 0.6 s plus
  * 0.03 s a strength point under 10. Team-mates who were not in the duel can still counter-press at once. */
-export const BEATEN_WINDOW=1,BEATEN_NEAR=2;
+export const BEATEN_WINDOW=WORLD.contact.challenge.BEATEN_WINDOW.v,BEATEN_NEAR=WORLD.contact.challenge.BEATEN_NEAR.v;
 
 /** Access to the ball is not the same as proximity to the carrier. */
 export function bodyScreensBall(defender:Vec,attacker:Vec,ball:Vec):boolean{
@@ -112,7 +113,7 @@ export function readChallenge(d:PracticePlayer,a:PracticePlayer,ball:Vec,players
  }else if(screened){
   mode=goalSide<-.3?'recover':'contain';
   reason=mode==='recover'?'Adversarul protejează mingea; revine pe lângă el spre drumul porții.':'Mingea e protejată de corp; rămâne în față fără să intre prin adversar.';
- }else if(gap<=2.2&&opportunity>=threshold){
+ }else if(gap<=WORLD.contact.challenge.reach.v&&opportunity>=threshold){
   mode='challenge';emergency=opportunity<ordinaryThreshold+penaltyRisk;
   reason=emergency?'Poate șuta la poartă; riscă intrarea, deși nu are pasul bine așezat.':'Mingea e accesibilă; își așază pasul și încearcă s-o ia.';
  }

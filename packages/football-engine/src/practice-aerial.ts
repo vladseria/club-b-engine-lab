@@ -10,9 +10,9 @@ import {WORLD} from './world.js';
 
 export type AerialTechnique='chest'|'header'|'volley';
 export const aerialContactShape={
- chest:{min:1,max:1.42,offset:.26,radius:.23,prepare:.18},
- header:{min:1.5,max:1.95,offset:.2,radius:.22,prepare:.2},
- volley:{min:.28,max:.85,offset:.52,radius:.23,prepare:.24},
+ chest:{min:WORLD.body.aerial.aerialContactShape.chest.min.v,max:WORLD.body.aerial.aerialContactShape.chest.max.v,offset:WORLD.body.aerial.aerialContactShape.chest.offset.v,radius:WORLD.body.aerial.aerialContactShape.chest.radius.v,prepare:WORLD.body.aerial.aerialContactShape.chest.prepare.v},
+ header:{min:WORLD.body.aerial.aerialContactShape.header.min.v,max:WORLD.body.aerial.aerialContactShape.header.max.v,offset:WORLD.body.aerial.aerialContactShape.header.offset.v,radius:WORLD.body.aerial.aerialContactShape.header.radius.v,prepare:WORLD.body.aerial.aerialContactShape.header.prepare.v},
+ volley:{min:WORLD.body.aerial.aerialContactShape.volley.min.v,max:WORLD.body.aerial.aerialContactShape.volley.max.v,offset:WORLD.body.aerial.aerialContactShape.volley.offset.v,radius:WORLD.body.aerial.aerialContactShape.volley.radius.v,prepare:WORLD.body.aerial.aerialContactShape.volley.prepare.v},
 } as const;
 /** The heights this player can meet the ball at with this technique. A header can be met above standing height with
  * a jump (practice-air-duel jumpReach: contests in the air, 2026-10-15); before, every contact was a standing one. */
@@ -23,7 +23,7 @@ export function aerialBand(p:{skills:{aerial:number}},technique:AerialTechnique)
 export interface AerialMeeting {technique:AerialTechnique;aim:Vec;ball:FlightSample;angle:number}
 export interface AerialKick {aim:Vec;vx:number;vy:number;vz:number;flight:number;difficulty:number;ability:number}
 /** Added difficulty a metre of header above standing height. */
-export const JUMP_DIFFICULTY=.3;
+export const JUMP_DIFFICULTY=WORLD.body.aerial.JUMP_DIFFICULTY.v;
 const gap=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
 const difference=(a:number,b:number)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
 const pitch=(v:Vec,margin=0)=>v.x>=margin&&v.x<=L-margin&&Math.abs(v.y)<=W/2-margin;
@@ -136,9 +136,9 @@ export function strikeAerial(p:PracticePlayer,ball:MovingBall,technique:'header'
 /** Absorb a chest-high ball with a bounded impulse, letting it fall for a later
  * foot touch. Poor/heavy contacts retain momentum; no possession is granted here. */
 export function cushionChest(p:PracticePlayer,ball:MovingBall,pressure:number,random:()=>number):Pick<MovingBall,'vx'|'vy'|'vz'>{
- const skill=clamp((p.skills.control*.7+p.skills.aerial*.3)/10,0,1);
- const budget=(6+skill*8)*(1-pressure*.18),error=(random()-.5)*(.15+(1-skill)*.35+pressure*.25);
- const angle=p.angle+error,desired={x:p.vx*.45+Math.cos(angle)*.65,y:p.vy*.45+Math.sin(angle)*.65};
+ const skill=clamp((p.skills.control*WORLD.contact.chest.skillControl.v+p.skills.aerial*WORLD.contact.chest.skillAerial.v)/10,0,1);
+ const budget=(WORLD.contact.chest.budgetBase.v+skill*WORLD.contact.chest.budgetSkill.v)*(1-pressure*WORLD.contact.chest.budgetPressure.v),error=(random()-.5)*(WORLD.contact.chest.errorBase.v+(1-skill)*WORLD.contact.chest.errorSkill.v+pressure*WORLD.contact.chest.errorPressure.v);
+ const angle=p.angle+error,desired={x:p.vx*WORLD.contact.chest.carryShare.v+Math.cos(angle)*WORLD.contact.chest.dropSpeed.v,y:p.vy*WORLD.contact.chest.carryShare.v+Math.sin(angle)*WORLD.contact.chest.dropSpeed.v};
  const dx=desired.x-ball.vx,dy=desired.y-ball.vy,scale=Math.min(1,budget/Math.max(.001,Math.hypot(dx,dy)));
- return {vx:ball.vx+dx*scale,vy:ball.vy+dy*scale,vz:Math.min(-.65,ball.vz+Math.min(5,Math.max(0,-ball.vz-1.2)))};
+ return {vx:ball.vx+dx*scale,vy:ball.vy+dy*scale,vz:Math.min(WORLD.contact.chest.dropDown.v,ball.vz+Math.min(WORLD.contact.chest.liftCap.v,Math.max(0,-ball.vz-WORLD.contact.chest.liftFrom.v)))};
 }

@@ -61,7 +61,7 @@ export const RELEASE_RECHECK=.1;
  * (fully at rest, none at SET_STILL m/s), facing the ball (cos + SET_FACING) and at his ready spot (none SET_SPOT m off
  * it). Seeing a shooter shape to shoot (SET_READ + SET_READ_PER x reading s before the strike), he plants when he is
  * within SET_PLANT m of his spot. */
-export const SET_STILL=3,SET_FACING=.2,SET_SPOT=1.5,SET_PLANT=1.3,SET_READ=.15,SET_READ_PER=.03;
+export const SET_STILL=WORLD.keeper.hands.SET_STILL.v,SET_FACING=WORLD.keeper.hands.SET_FACING.v,SET_SPOT=WORLD.keeper.hands.SET_SPOT.v,SET_PLANT=WORLD.keeper.hands.SET_PLANT.v,SET_READ=WORLD.keeper.hands.SET_READ.v,SET_READ_PER=WORLD.keeper.hands.SET_READ_PER.v;
 /** (keeper with the ball in his hands, 2026-10-13) He may control it in his own half for KEEPER_HOLD s (futsal, Law 12)
  * and cannot be challenged while he holds it. He waits for a throw to open only while he can still set and release
  * one inside that (his preparation, or turning to the best throw at KEEPER_TURN rad/s, whichever is longer), and looks
@@ -75,12 +75,12 @@ export const SET_STILL=3,SET_FACING=.2,SET_SPOT=1.5,SET_PLANT=1.3,SET_READ=.15,S
  * straight into that man: evidence/2026-10-13-keeper-giveaway. Holding the presser 2.5 m off raised goals after keeper
  * losses, and releasing early to any clear lane fed interceptions next to goal: evidence/2026-10-13-keeper-fix;
  * evidence/2026-10-13-keeper-2.) */
-export const KEEPER_HOLD=4,KEEPER_TURN=4,KEEPER_JOG=.55,KEEPER_STEP=1.5,KEEPER_RING=1.6,KEEPER_EDGE=.8,KEEPER_DEEP=2,KEEPER_BODY=1,KEEPER_BRAKE=.7;
+export const KEEPER_HOLD=4,KEEPER_TURN=WORLD.keeper.hands.KEEPER_TURN.v,KEEPER_JOG=WORLD.keeper.hands.KEEPER_JOG.v,KEEPER_STEP=WORLD.keeper.hands.KEEPER_STEP.v,KEEPER_RING=WORLD.keeper.hands.KEEPER_RING.v,KEEPER_EDGE=WORLD.keeper.hands.KEEPER_EDGE.v,KEEPER_DEEP=WORLD.keeper.hands.KEEPER_DEEP.v,KEEPER_BODY=WORLD.keeper.hands.KEEPER_BODY.v,KEEPER_BRAKE=WORLD.keeper.hands.KEEPER_BRAKE.v;
 /** keeperMove's read of a spot: a throw's lane is open from KEEPER_LANE m clear of every opponent (fully at
  * KEEPER_LANE + KEEPER_LANE_FULL m), one over the man ignores opponents within KEEPER_OVER m of him and is worth
  * KEEPER_LOFT of a ground one, and a spot within KEEPER_ROOM m of an opponent costs up to KEEPER_CROWDED; he moves
  * only for a gain of KEEPER_GAIN. */
-export const KEEPER_LANE=.6,KEEPER_LANE_FULL=1.6,KEEPER_OVER=3.5,KEEPER_LOFT=.75,KEEPER_ROOM=3,KEEPER_CROWDED=.5,KEEPER_GAIN=.05;
+export const KEEPER_LANE=WORLD.keeper.hands.KEEPER_LANE.v,KEEPER_LANE_FULL=WORLD.keeper.hands.KEEPER_LANE_FULL.v,KEEPER_OVER=WORLD.keeper.hands.KEEPER_OVER.v,KEEPER_LOFT=WORLD.keeper.hands.KEEPER_LOFT.v,KEEPER_ROOM=WORLD.keeper.hands.KEEPER_ROOM.v,KEEPER_CROWDED=WORLD.keeper.hands.KEEPER_CROWDED.v,KEEPER_GAIN=WORLD.keeper.hands.KEEPER_GAIN.v;
 /** He does not throw the ball into a man next to him (throwIntoMan): a ball along the ground whose first KEEPER_INTO_LEN
  * m pass within KEEPER_INTO_W m of an opponent costs up to KEEPER_INTO (fully within KEEPER_INTO_W - KEEPER_INTO_FULL m);
  * a lofted one is still low over its first KEEPER_LOFT_LEN m, so a man within KEEPER_LOFT_W m of that stretch blocks it
@@ -88,17 +88,17 @@ export const KEEPER_LANE=.6,KEEPER_LANE_FULL=1.6,KEEPER_OVER=3.5,KEEPER_LOFT=.75
  * giveaway study every release into the man on him was a ball along the ground, read as a low lane risk because the man
  * stood beside the line rather than across it; with that priced, lofts into a man 1 m away were the next.) While any
  * throw clear of the men near him (throwIntoMan below KEEPER_LAST) is on, he takes none into them. */
-export const KEEPER_INTO=1.5,KEEPER_INTO_W=1.5,KEEPER_INTO_FULL=.9,KEEPER_INTO_LEN=3,KEEPER_LOFT_W=1.1,KEEPER_LOFT_FULL=.6,KEEPER_LOFT_LEN=2;
+export const KEEPER_INTO=WORLD.keeper.hands.KEEPER_INTO.v,KEEPER_INTO_W=WORLD.keeper.hands.KEEPER_INTO_W.v,KEEPER_INTO_FULL=WORLD.keeper.hands.KEEPER_INTO_FULL.v,KEEPER_INTO_LEN=WORLD.keeper.hands.KEEPER_INTO_LEN.v,KEEPER_LOFT_W=WORLD.keeper.hands.KEEPER_LOFT_W.v,KEEPER_LOFT_FULL=WORLD.keeper.hands.KEEPER_LOFT_FULL.v,KEEPER_LOFT_LEN=WORLD.keeper.hands.KEEPER_LOFT_LEN.v;
 /** A last look before he lets it go: if the man on him has stepped into the throw he set (throwIntoMan at least
  * KEEPER_LAST), he holds it and chooses again, once a spell; his last choice comes KEEPER_SPARE s before the four
  * seconds would leave no time for a throw, so that look still fits inside them. (Every pressed release into the man
  * left in the first measurement came right at the end of the four seconds, chosen before the man stepped across.) */
-export const KEEPER_LAST=.6,KEEPER_SPARE=.4;
+export const KEEPER_LAST=WORLD.keeper.hands.KEEPER_LAST.v,KEEPER_SPARE=WORLD.keeper.hands.KEEPER_SPARE.v;
 /** Both reads (choosing his throw and the last look) take each man where the keeper sees him (his own picture,
  * practice-perception) and where that man will be KEEPER_AHEAD s on at the speed he sees him moving, the worse of the
  * two: a presser arriving at a sprint is in the throw's way by the time it leaves. (Round 2's one release into the man
  * left was a loft chosen with the presser 1.9 m away and coming, 1.2 m at the release.) */
-export const KEEPER_AHEAD=.3;
+export const KEEPER_AHEAD=WORLD.keeper.hands.KEEPER_AHEAD.v;
 export type Duty='hold'|'support'|'run'|'show'|'width'|'press'|'jockey'|'challenge'|'block'|'track'|'cover'|'intercept'|'recover'|'carry'|'prepare'|'receive'|'feint'|'wrongfoot'|'keeper'|'dive'|'sweep'|'restart'|'down';
 export const dutyNames:Record<Duty,string>={hold:'Protejează spațiul',support:'Oferă o pasă',run:'Atacă spațiul',show:'Vine la picior',width:'Ține lățimea',press:'Închide purtătorul',jockey:'Îl ține în față',challenge:'Încearcă deposedarea',block:'Acoperă șutul',track:'Urmărește o cursă',cover:'Acoperă un coleg',intercept:'Atacă mingea',recover:'Revine în apărare',carry:'Conduce mingea',prepare:'Pregătește lovitura',receive:'Iese la primire',feint:'Încearcă o fentă',wrongfoot:'Își reface echilibrul',keeper:'Închide unghiul',dive:'Plonjează după minge',sweep:'Iese din poartă',restart:'Pregătește reluarea',down:'E la pământ'};
 export interface PracticePlayer extends MovingPlayer {role:Role;skills:Skills;traits:Traits;energy:number;archetype:string;temperament:string;lane:number;basePace:number;duty:Duty;/** (contest: pressure on the shooter) when he last rode a tackle and kept the ball (s): a moment off balance (practice-shot-contest DUEL_FADE). */duelAt?:number}
@@ -1436,7 +1436,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
     const trapping=(q:PracticePlayer)=>coordination?.trap?.side===q.side&&!coordination.trap.over&&coordination.jobs[q.id]?.purpose==='trap';
     const challengeTactics=(q:PracticePlayer)=>lossJob(q)==='counter-press'||trapping(q)?{...f.teams[q.side].tactics,press:'aggressive' as const}:f.teams[q.side].tactics;
     const delaying=(q:PracticePlayer)=>lossPlan?.mode==='delay'&&lossJob(q)==='press';
-    const candidates=sidePlayers(other(p.side)).filter(q=>q.role!=='GK'&&dist(q,ball)<2.2&&time>=(duelAfter.get(q.id)??0)&&time>=(recovering.get(q.id)?.until??0)&&q.duty!=='wrongfoot')
+    const candidates=sidePlayers(other(p.side)).filter(q=>q.role!=='GK'&&dist(q,ball)<WORLD.contact.challenge.reach.v&&time>=(duelAfter.get(q.id)??0)&&time>=(recovering.get(q.id)?.until??0)&&q.duty!=='wrongfoot')
      .map(q=>({p:q,read:readChallenge(q,p,ball,players,challengeTactics(q),score[p.side]-score[q.side])}))
      .filter(q=>q.read.mode==='challenge'&&!(delaying(q.p)&&q.read.shot.level<=.32)).sort((a,b)=>(b.read.opportunity-b.read.threshold)-(a.read.opportunity-a.read.threshold));
     const candidate=candidates[0];
@@ -1581,13 +1581,13 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
     const feet=meeting?.fraction??null;
     const previous=old.get(p.id)!,normal=unit(before.x-previous.x,before.y-previous.y);
     const separating=before.z<=1.1&&dist(before,previous)<=.310001&&(before.vx-p.vx)*normal.x+(before.vy-p.vy)*normal.y>=-1e-8;
-    const torso=separating?null:flightContact(before,ball,previous,p,.31,1.1);
+    const torso=separating?null:flightContact(before,ball,previous,p,WORLD.body.reach.torsoRadius.v,WORLD.body.reach.torsoHeight.v);
     // (box defending) a defender set to block puts a leg across a low shot (blockLeg)
     const leg=!separating&&ball.mode==='shot'&&p.duty==='block'&&p.role!=='GK'&&!!releaseBy&&get(releaseBy).side!==p.side?flightContact(before,ball,previous,p,blockLeg(p),BLOCK_LEG_HEIGHT):null;
     const body=torso===null?leg:leg===null?torso:Math.min(torso,leg);
     const area=p.side===0?{minX:0,maxX:BOX_DEPTH,minY:-BOX_HALF,maxY:BOX_HALF}:{minX:(L-BOX_DEPTH),maxX:L,minY:-BOX_HALF,maxY:BOX_HALF};
-    const handRadius=goalThreats.has(p.id)?keeperReach(p,time-releaseAt,edgeOf(p)):aerialDelivery?1.1:.72+(p.side===side?.15:0);
-    const catchAt=canUseHands(p)&&time>=(duelAfter.get('touch:'+p.id)??0)?flightContact(before,ball,previous,p,handRadius,2.3,area):null;
+    const handRadius=goalThreats.has(p.id)?keeperReach(p,time-releaseAt,edgeOf(p)):aerialDelivery?WORLD.body.reach.handReach.radius.v:WORLD.keeper.reach.catchGround.v+(p.side===side?WORLD.keeper.reach.catchGroundOwn.v:0);
+    const catchAt=canUseHands(p)&&time>=(duelAfter.get('touch:'+p.id)??0)?flightContact(before,ball,previous,p,handRadius,WORLD.body.reach.handReach.height.v,area):null;
     const preparation=aerialPreparations.get(p.id),aerialAt=preparation&&time>=(duelAfter.get('touch:'+p.id)??0)?aerialContact(p,previous,before,ball,preparation.meeting.technique,time-preparation.since):null;
     // (contests in the air) a defender attacking the ball gets his head or body to it if it passes within his reach
     // ... and the man he is attacking it against goes up with him when he is right there

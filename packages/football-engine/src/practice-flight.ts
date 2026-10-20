@@ -51,7 +51,7 @@ export function flightSamples(ball:MovingBall,horizon=WORLD.ball.flight.forecast
  let next=spacing;sample(0);
  for(let tick=1;tick<=ticks;tick++){
   const {x,y,z,vx,vy,vz}=state;advanceFlight(state);const time=tick*STEP;
-  const contactChange=[2.3,1.95,1.5,1.42,1.1,1,.85,.28,.25].some(height=>z>height&&state.z<=height)
+  const contactChange=[WORLD.body.reach.handReach.height.v,WORLD.body.aerial.aerialContactShape.header.max.v,WORLD.body.aerial.aerialContactShape.header.min.v,WORLD.body.aerial.aerialContactShape.chest.max.v,WORLD.body.reach.torsoHeight.v,WORLD.body.aerial.aerialContactShape.chest.min.v,WORLD.body.aerial.aerialContactShape.volley.max.v,WORLD.body.aerial.aerialContactShape.volley.min.v,WORLD.body.reach.footReach.height.v].some(height=>z>height&&state.z<=height)
    ||crosses(x,state.x,BOX_DEPTH)||crosses(x,state.x,(L-BOX_DEPTH))
    ||crosses(y,state.y,-BOX_HALF)||crosses(y,state.y,BOX_HALF);
   if(contactChange)sample((tick-1)*STEP,{x,y,z,vx,vy,vz});
@@ -62,10 +62,10 @@ export function flightSamples(ball:MovingBall,horizon=WORLD.ball.flight.forecast
 
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
 const handsAt=(p:FlightPlayer,point:Vec)=>p.role==='GK'&&p.side!==undefined&&point.x>=0&&point.x<=L&&(p.side===0?point.x:L-point.x)<=BOX_DEPTH&&Math.abs(point.y)<=BOX_HALF;
-const footReach={height:.25,radius:.75},handReach={height:2.3,radius:1.1};
+const footReach={height:WORLD.body.reach.footReach.height.v,radius:WORLD.body.reach.footReach.radius.v},handReach={height:WORLD.body.reach.handReach.height.v,radius:WORLD.body.reach.handReach.radius.v};
 const reachAt=(p:FlightPlayer,point:Vec,time=0,ball?:MovingBall)=>{
  if(!handsAt(p,point))return footReach;
- if(p.skills&&p.side!==undefined&&ball&&goalBoundFlight({x:p.x,y:p.y,side:p.side},{...ball,...point}))return {height:2.3,radius:keeperReach({skills:p.skills},time)};
+ if(p.skills&&p.side!==undefined&&ball&&goalBoundFlight({x:p.x,y:p.y,side:p.side},{...ball,...point}))return {height:WORLD.body.reach.handReach.height.v,radius:keeperReach({skills:p.skills},time)};
  return handReach;
 };
 const onPitch=(p:Vec)=>p.x>=0&&p.x<=L&&Math.abs(p.y)<=W/2;

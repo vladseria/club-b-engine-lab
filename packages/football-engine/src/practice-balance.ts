@@ -1,4 +1,5 @@
 import {clamp} from './model.js';
+import {WORLD} from './world.js';
 
 /** Recovery follows the duel (2026-10-16). Before, every close-quarters loss cost the same: the beaten man 0.6 s plus
  * 0.03 s a strength point under 10 (a touch ban of half that, except after a won tackle, where he had none and picked
@@ -24,45 +25,45 @@ import {clamp} from './model.js';
 
 /** The foot the ball was taken from must be put down again before he can go in or take a controlled touch: one step,
  * about 0.35 s for a strong man (a stride at match tempo is 0.3-0.4 s), STEP_STRENGTH s longer a point under 10. */
-export const STEP=.35,STEP_STRENGTH=.02;
+export const STEP=WORLD.contact.balance.FOOT_STEP.v,STEP_STRENGTH=WORLD.contact.balance.STEP_STRENGTH.v;
 /** How much of the tackler's closing speed goes into the man rather than the ball: none for a boot that meets only the
  * ball, LEG_AFTER_BALL when the boot goes through the ball into his shin (the ball took some of it), LEG_FIRST when his
  * leg is taken before the ball (his support goes: a trip), all of it in a body collision. */
-export const LEG_AFTER_BALL=.35,LEG_FIRST=.6,COLLISION=1;
+export const LEG_AFTER_BALL=WORLD.contact.balance.LEG_AFTER_BALL.v,LEG_FIRST=WORLD.contact.balance.LEG_FIRST.v,COLLISION=WORLD.contact.balance.COLLISION.v;
 /** A leg taken from under a running man is a trip: his own momentum carries him over the leg that is no longer there,
  * whoever was faster. TRIP_FIRST of his own speed when his leg goes before the ball, TRIP_AFTER_BALL when the boot came
  * through the ball into his shin (it takes less of his leg); a collision or a poke takes no leg. */
-export const TRIP_FIRST=.6,TRIP_AFTER_BALL=.3;
+export const TRIP_FIRST=WORLD.contact.balance.TRIP_FIRST.v,TRIP_AFTER_BALL=WORLD.contact.balance.TRIP_AFTER_BALL.v;
 /** Strength scales a hit both ways, STRENGTH_HIT a point from 6: the same closing speed lands harder from a strong man
  * and is ridden better by one (about +-25% across the scale). */
-export const STRENGTH_HIT=.06;
+export const STRENGTH_HIT=WORLD.contact.balance.STRENGTH_HIT.v;
 /** Off balance this much longer per m/s of the hit he takes (a 3 m/s collision on an even match-up: 0.66 s on top of
  * the step, about the 1-1.5 s of a lab jolt in all). */
-export const IMPACT_TIME=.22;
+export const IMPACT_TIME=WORLD.contact.balance.IMPACT_TIME.v;
 /** Past FALL_FROM m/s of hit his feet cannot get back under him in time and he may go down, surely at FALL_FROM +
  * FALL_SPAN: a man shoulder-charged at a jog stays up, one hit at a sprint goes over. */
-export const FALL_FROM=2.4,FALL_SPAN=3;
+export const FALL_FROM=WORLD.contact.balance.FALL_FROM.v,FALL_SPAN=WORLD.contact.balance.FALL_SPAN.v;
 /** On the floor: FLOOR s, up to FLOOR_SEVERE more for the hardest hits, FLOOR_STRENGTH s less a strength point above 6;
  * then RISE s getting up and steady before he can go in again (he moves, but cannot challenge). In all about 1-2 s. */
-export const FLOOR=.8,FLOOR_SEVERE=.5,FLOOR_STRENGTH=.04,RISE=.35;
+export const FLOOR=WORLD.contact.balance.FLOOR.v,FLOOR_SEVERE=WORLD.contact.balance.FLOOR_SEVERE.v,FLOOR_STRENGTH=WORLD.contact.balance.FLOOR_STRENGTH.v,RISE=WORLD.contact.balance.RISE.v;
 /** A body on the floor slides to a stop: the speed he keeps at the moment he goes down. */
-export const FALL_KEEP=.3;
+export const FALL_KEEP=WORLD.contact.balance.FALL_KEEP.v;
 
 /** The tackler: his planted foot has to come back under him even after a clean nick (PLANT s). A lunge adds: its reach
  * past a comfortable step (STRETCH_FROM m, at most 1.3 m: practice-challenge resolveChallengeContact) at STRETCH_TIME s
  * for a full stretch, his closing speed at MOMENTUM_TIME s per m/s, and the boot's follow-through at FOLLOW_TIME s per
  * metre. When the boot met the ball or the man, only RESISTED of that lunge is his to arrest; a miss is all his. */
-export const PLANT=.3,STRETCH_FROM=.6,STRETCH_SPAN=.7,STRETCH_TIME=.55,MOMENTUM_TIME=.12,FOLLOW_TIME=.8,RESISTED=.4;
+export const PLANT=WORLD.contact.balance.PLANT.v,STRETCH_FROM=WORLD.contact.balance.STRETCH_FROM.v,STRETCH_SPAN=WORLD.contact.balance.STRETCH_SPAN.v,STRETCH_TIME=WORLD.contact.balance.STRETCH_TIME.v,MOMENTUM_TIME=WORLD.contact.balance.MOMENTUM_TIME.v,FOLLOW_TIME=WORLD.contact.balance.FOLLOW_TIME.v,RESISTED=WORLD.contact.balance.RESISTED.v;
 /** A good defender's body stays over his tackle: the lunge costs DEFENDING_BALANCE less (more) a point above (below) 6. */
-export const DEFENDING_BALANCE=.04;
+export const DEFENDING_BALANCE=WORLD.contact.balance.DEFENDING_BALANCE.v;
 /** Braced for the contact he chose, the tackler takes BRACED of the hit he gives. */
-export const BRACED=.5;
+export const BRACED=WORLD.contact.balance.BRACED.v;
 /** A tackler whose boot met nothing spends the first TACKLER_STAGGER of his recovery getting his feet back under him:
  * he only recovers his position, and nobody counts on him for the ball; for the rest he moves normally but cannot go in
  * again (before: 0.45 s, or 0.4 s when the ball was gone before his foot arrived). */
-export const TACKLER_STAGGER=.5;
+export const TACKLER_STAGGER=WORLD.contact.balance.TACKLER_STAGGER.v;
 /** A kick blocked at his feet: his kicking leg is still swinging through, about this long, before it lands. */
-export const KICK_FOLLOW=.25;
+export const KICK_FOLLOW=WORLD.contact.balance.KICK_FOLLOW.v;
 
 type Body={skills:{strength:number;defending:number}};
 const s10=(n:number)=>clamp(n,0,10);

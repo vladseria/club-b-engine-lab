@@ -949,8 +949,8 @@ export const BOX_BLOCK_NEAR=7,BOX_BLOCK_DANGER=.32;
  * so a low shot (under BLOCK_LEG_HEIGHT m: the first metres of its flight) meets him wider than his body (0.31 m):
  * up to BLOCK_LEG m more, half of it for anyone and the rest by his defending. Measured before: a defender within
  * 0.3 m of the shot line blocked 78% of shots, 0.3-0.6 m 67%, 0.6-1 m 42%; a body alone was the whole block. */
-export const BLOCK_LEG=.35,BLOCK_LEG_HEIGHT=.5;
-export const blockLeg=(p:{skills:{defending:number}})=>.31+BLOCK_LEG*(.5+.5*clamp(p.skills.defending/10,0,1));
+export const BLOCK_LEG=WORLD.body.block.BLOCK_LEG.v,BLOCK_LEG_HEIGHT=WORLD.body.block.BLOCK_LEG_HEIGHT.v;
+export const blockLeg=(p:{skills:{defending:number}})=>WORLD.body.reach.torsoRadius.v+BLOCK_LEG*(.5+.5*clamp(p.skills.defending/10,0,1));
 /** (box defending) A marker may leave his man to block the shot only when his man would not have the better shot. */
 export function mayLeaveForBall(man:Vec,ball:Vec,defending:Side):boolean{
  const g={x:world(defending,0),y:0};return openShot(man,g)<=openShot(ball,g);

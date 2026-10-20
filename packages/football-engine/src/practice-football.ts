@@ -33,7 +33,7 @@ export interface ShotAssessment {aim:Vec;distance:number;angle:number;pressure:n
 export const shotZone=(p:PracticePlayer,at:Vec=p)=>(p.side===0?at.x:L-at.x)>X(73)-clamp(p.traits.audacity??0,0,1)*X(12)&&Math.abs(at.y)<Y(24);
 /** A keeper claiming the ball from a man who has it near him in his area: his keeping against the man's control
  * (practice.ts, the keeper's claim at a carrier within his reach). */
-export const keeperClaimChance=(keeper:{skills:{keeping:number}},p:{skills:{control:number}})=>clamp(.6+(keeper.skills.keeping-p.skills.control)*.035,.35,.85);
+export const keeperClaimChance=(keeper:{skills:{keeping:number}},p:{skills:{control:number}})=>clamp(WORLD.keeper.reach.claimBase.v+(keeper.skills.keeping-p.skills.control)*WORLD.keeper.reach.claimPer.v,WORLD.keeper.reach.claimMin.v,WORLD.keeper.reach.claimMax.v);
 export function assessShot(p:PracticePlayer,players:PracticePlayer[]):ShotAssessment{
  const goalX=p.side===0?L:0,distanceToGoal=Math.hypot(goalX-p.x,p.y),angle=goalAngle(p);
  const opponents=players.filter(q=>q.side!==p.side),keeper=opponents.find(q=>q.role==='GK');
@@ -85,8 +85,8 @@ export function strikeShot(p:PracticePlayer,ball:Vec,assessment:ShotAssessment,r
  * extension. */
 export function keeperReach(p:{skills:Pick<PracticePlayer['skills'],'reading'|'keeping'>},shotAge:number,edge:KeeperEdge=NO_EDGE):number{
  const reaction=.2+(10-p.skills.reading)*.015-edge.reactionCut;
- const extension=clamp((shotAge-reaction)/.3,0,1);
- return .85+edge.reachAdd+extension*(.65+p.skills.keeping*.06);
+ const extension=clamp((shotAge-reaction)/WORLD.keeper.reach.extensionTime.v,0,1);
+ return WORLD.keeper.reach.base.v+edge.reachAdd+extension*(WORLD.keeper.reach.extension.v+p.skills.keeping*WORLD.keeper.reach.extensionKeeping.v);
 }
 /** (keeper upgrade, 2026-10-13) A keeper's edge against one shot: a shorter reaction (s) and reach there at once (m).
  * Every keeper gets EDGE_BASE; one SET at the strike (still, facing the ball, at his ready spot) gets up to EDGE_SET
@@ -97,10 +97,10 @@ export function keeperReach(p:{skills:Pick<PracticePlayer['skills'],'reading'|'k
  * since 2026-10-15), so a carrier under a man with a better option passes. Calibrated towards futsal's keepers saving about three-quarters of shots on target and conversion in the low
  * to mid teens, without more shots missing the goal (evidence/2026-10-13-safety-check, 2026-10-13-keeper-2). */
 export interface KeeperEdge {reactionCut:number;reachAdd:number}
-export const NO_EDGE:KeeperEdge={reactionCut:0,reachAdd:0};
-export const EDGE_BASE:KeeperEdge={reactionCut:.03,reachAdd:.12},EDGE_SET:KeeperEdge={reactionCut:.06,reachAdd:.22},EDGE_HURRY:KeeperEdge={reactionCut:.05,reachAdd:.15};
-export const EDGE_KEEPING=6,EDGE_KEEPING_MAX=1.7;
-export const HURRIED_PLACE=.35,HURRIED_SOFT=.1,OFF_BALANCE_SOFT=.1;
+export const NO_EDGE:KeeperEdge={reactionCut:WORLD.keeper.edge.NO_EDGE.reactionCut.v,reachAdd:WORLD.keeper.edge.NO_EDGE.reachAdd.v};
+export const EDGE_BASE:KeeperEdge={reactionCut:WORLD.keeper.edge.EDGE_BASE.reactionCut.v,reachAdd:WORLD.keeper.edge.EDGE_BASE.reachAdd.v},EDGE_SET:KeeperEdge={reactionCut:WORLD.keeper.edge.EDGE_SET.reactionCut.v,reachAdd:WORLD.keeper.edge.EDGE_SET.reachAdd.v},EDGE_HURRY:KeeperEdge={reactionCut:WORLD.keeper.edge.EDGE_HURRY.reactionCut.v,reachAdd:WORLD.keeper.edge.EDGE_HURRY.reachAdd.v};
+export const EDGE_KEEPING=WORLD.keeper.edge.EDGE_KEEPING.v,EDGE_KEEPING_MAX=WORLD.keeper.edge.EDGE_KEEPING_MAX.v;
+export const HURRIED_PLACE=WORLD.keeper.edge.HURRIED_PLACE.v,HURRIED_SOFT=WORLD.keeper.edge.HURRIED_SOFT.v,OFF_BALANCE_SOFT=WORLD.keeper.edge.OFF_BALANCE_SOFT.v;
 /** `set` and `hurry` are 0..1. */
 export function keeperEdge(set:number,hurry:number,keeping:number):KeeperEdge{
  const k=clamp(keeping/EDGE_KEEPING,0,EDGE_KEEPING_MAX);
@@ -121,7 +121,7 @@ export function goalBoundFlight(keeper:Pick<PracticePlayer,'side'|'x'|'y'>,ball:
  if(discriminant<=0)return null;
  const time=(speed-Math.sqrt(discriminant))/WORLD.ball.flight.PASS_DRAG.v,y=ball.y+ball.vy/ball.vx*dx;
  const height=Math.max(0,ball.z+ball.vz*time-WORLD.ball.flight.halfGravity.v*time*time);
- if(Math.abs(y)>GH+1.34||height>HEIGHT+.66)return null;
+ if(Math.abs(y)>GH+WORLD.keeper.reach.goalBoundWide.v||height>HEIGHT+WORLD.keeper.reach.goalBoundHigh.v)return null;
  const ownDepth=keeper.side===0?keeper.x:L-keeper.x,ballDepth=keeper.side===0?ball.x:L-ball.x;
  const x=ownDepth<ballDepth-.3?keeper.x:goalX+(keeper.side===0?.3:-.3);
  return {time,crossing:{x:goalX,y},aim:{x,y:clamp(ball.y+(x-ball.x)/ball.vx*ball.vy,WORLD.geometry.football.crossingWide.v,WORLD.geometry.football.crossingWideMax.v)}};

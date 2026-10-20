@@ -3,6 +3,7 @@ import {clamp} from './model.js';
 import type {PracticePlayer} from './practice.js';
 import type {Vec} from './movement.js';
 import {composure,daring,nerve,perceive,misread} from './practice-perception.js';
+import {WORLD} from './world.js';
 
 /** (contest: pressure on the shooter, 2026-10-15) What the defence does to a shot, as football does it. Before, a man
  * on the shooter only counted by his distance (2.5 m or nearer) and a body in front of him only by whether the ball hit
@@ -23,12 +24,12 @@ import {composure,daring,nerve,perceive,misread} from './practice-perception.js'
  * run, or first time, as before) is the shot's hurry, and it acts as before, only now from all of this: a hurried shot
  * is placed nearer the keeper and struck softer (practice-football placeHurried, strikeShot), and the keeper's edge
  * against it grows (keeperEdge). Never a wilder miss: the striking error is untouched. A free shot is what it was. */
-export const RUSH_FAR=2.5,RUSH_NEAR=.7,SWING=.25,CLOSE_READ=.25;
-export const SHADOW_NEAR=5,SHADOW_BODY=.3,SHADOW_LEG=.035,SHADOW_FULL=1;
-export const CONTACT_FAR=1.2,CONTACT_NEAR=.6,DUEL_FADE=.8;
-export const RESIST=1,POISE_TYPICAL=.64,KEPT_MIN=.5,KEPT_MAX=1.3;
+export const RUSH_FAR=WORLD.contact.shotContest.RUSH_FAR.v,RUSH_NEAR=WORLD.contact.shotContest.RUSH_NEAR.v,SWING=WORLD.contact.shotContest.SWING.v,CLOSE_READ=WORLD.contact.shotContest.CLOSE_READ.v;
+export const SHADOW_NEAR=WORLD.contact.shotContest.SHADOW_NEAR.v,SHADOW_BODY=WORLD.contact.shotContest.SHADOW_BODY.v,SHADOW_LEG=WORLD.contact.shotContest.SHADOW_LEG.v,SHADOW_FULL=WORLD.contact.shotContest.SHADOW_FULL.v;
+export const CONTACT_FAR=WORLD.contact.shotContest.CONTACT_FAR.v,CONTACT_NEAR=WORLD.contact.shotContest.CONTACT_NEAR.v,DUEL_FADE=WORLD.contact.shotContest.DUEL_FADE.v;
+export const RESIST=WORLD.contact.shotContest.RESIST.v,POISE_TYPICAL=WORLD.contact.shotContest.POISE_TYPICAL.v,KEPT_MIN=WORLD.contact.shotContest.KEPT_MIN.v,KEPT_MAX=WORLD.contact.shotContest.KEPT_MAX.v;
 /** Striking across his own run (as shotHurry) and first time (HURRY_FIRST): what he does to himself. */
-export const FIRST_TIME=.3;
+export const FIRST_TIME=WORLD.contact.shotContest.FIRST_TIME.v;
 /** (2026-10-15, owner: "how well they read the game, rather than hardcoded") What the hurry costs his shot, as HE reads
  * it (practice-perception perceive, read 'shot': reading 0.6, finishing 0.4). Before, every shooter read it as the same
  * HURRIED_READ 0.3 x hurry.
