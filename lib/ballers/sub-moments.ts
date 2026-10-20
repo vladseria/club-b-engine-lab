@@ -64,7 +64,7 @@ export function subMoments(frames:readonly ReplayFrame[],events:readonly ReplayE
   const dead=!f.r?0:frames[j+1]?frames[j+1].t-e.t:null;
   out.push({t:e.t,side:(e.s??(e.a>=5&&e.a<10?1:0)) as 0|1,on:e.a,off:e.g,pos,dead,goal:goals.some(g=>Math.abs(g-e.t)<50),ball:[f.b[0]/100,f.b[1]/100]});
  }
- return out;
+ return out.slice(0,-1);
 }
 
 const smooth=(k:number)=>k*k*(3-2*k);

@@ -66,7 +66,7 @@ export function matchPlayerStats(header:Pick<ReplayHeader,'players'|'duration'|'
  }
  for(const x of buildIncidents({header,events,frames})){
   if(x.kind==='goal'){const l=line(x.actors[0]);if(l)l.g++;const a=line(x.facts.assist);if(a)a.a++;}
-  else if(x.kind==='own_goal'){const l=line(x.actors[0]);if(l)l.og++;}
+  else if(x.kind==='own_goal'){const l=line(x.actors[0]);if(l)l.g++;}
  }
  const detail=matchDetail(header,events,frames);
  for(const [i,l] of lines)Object.assign(l,detail.get(i)??emptyDetail());

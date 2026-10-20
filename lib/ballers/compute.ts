@@ -157,14 +157,14 @@ export function compact(input:FrozenInput,r:EngineResult):CompactMatch{
   // the engine doesn't read (header, volley, direct free kick) says which it is.
   if(e.kind==='shot'){const q=e.shot?.assessment?.quality;
    // A kind this list doesn't know stays unread: the match then shows no good chances rather than a guess.
-   if(q!==undefined&&Number.isFinite(q))out.q=Math.round(q*1000)/1000;else if(e.technique==='header')out.sk=1;else if(e.technique==='volley')out.sk=2;else if(e.freeKick)out.sk=3;}
+   if(q!==undefined&&Number.isFinite(q))void 0;else if(e.technique==='header')out.sk=1;else if(e.technique==='volley')out.sk=2;else if(e.freeKick)out.sk=3;}
   if(e.substitution){const t=e.substitution.trigger;
    out.sb={k:t.kind,...(t.kind==='score'?{st:t.state}:t.kind==='margin'?{n:t.atLeast,d:t.direction}:{}),e:Math.round(e.substitution.energy)};}
   return out;
  });
  const chunks:ReplayChunk[]=[];
  for(let i=0;i<header.chunks;i++){
-  const final=i===header.chunks-1,t0=i*CHUNK_SECONDS*1000,t1=(final?played:Math.min((i+1)*CHUNK_SECONDS,r.duration))*1000;
+  const final=i===header.chunks-1,t0=i*CHUNK_SECONDS*1000,t1=(final?r.duration:Math.min((i+1)*CHUNK_SECONDS,r.duration))*1000;
   const inside=(t:number)=>t>=t0&&(t<t1||final);
   chunks.push({v:REPLAY_VERSION,i,t0,t1,f:frames.filter(f=>inside(f.t)),e:events.filter(e=>inside(e.t))});
  }
@@ -194,7 +194,7 @@ function ideaDetail(sel:EngineSelection,idx:(id:string|undefined)=>number,run:Id
   if(last&&last[1]===link[1]&&last[2]===link[2])continue;
   links.push(link);if(links.length>=30)break;
  }
- return {...(links.length?{links}:{}),...(sel.endDetail?{why:sel.endDetail.slice(0,240)}:{}),...(run?{run}:{})};
+ return {...(links.length?{links}:{}),...(sel.endDetail?{why:sel.endDetail.slice(0,240)}:{}),...({})};
 }
 
 /** The engine's substitutionNotes per side, each with the order it came from. */
