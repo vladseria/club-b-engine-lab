@@ -197,7 +197,7 @@ export function carryOptions(p:PracticePlayer,players:PracticePlayer[],held:numb
   const {aim,continuing}=candidate,length=distance(p,aim);if(length<.8||options.some(o=>distance(o.aim,aim)<.2))continue;
   // Own-goal guard (as recoveryTouch): an outfielder never carries toward the
   // mouth of his own goal; the backward diagonals stay on offer elsewhere.
-  if(p.role!=='GK'&&depth(p,aim.x)<6&&Math.abs(aim.y)<6&&depth(p,aim.x)<depth(p,p.x))continue;
+  if(p.role!=='GK'&&depth(p,aim.x)<WORLD.geometry.carry.ownGoalDepth.v&&Math.abs(aim.y)<WORLD.geometry.carry.ownGoalWide.v&&depth(p,aim.x)<depth(p,p.x))continue;
   // (R1 keeper tune, 2026-10-15) the settings-truth round's hard guard (a keeper whose sweep trait was at most KEEPER_HOME never
   // carried past 9 m) is gone: the goal he leaves behind him (emptyNetDanger, weighed by keeperNetWeight) is the price
   // that keeps a stay-at-home keeper from carrying it up out of his area.

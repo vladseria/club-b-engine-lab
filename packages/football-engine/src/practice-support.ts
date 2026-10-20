@@ -15,6 +15,7 @@ import {expectedPassFlight} from './practice-flight.js';
 import {passAdvance} from './practice-passing.js';
 import {LOSS_SCALE,LOSS_OWN,lossDanger} from './practice-rest-defence.js';
 import {goalShot} from './practice-threat.js';
+import {WORLD} from './world.js';
 
 export type SupportPurpose='playbook'|'join'|'recovery-outlet'|'recycle'|'overlap'|'give-and-go'|'near-post'|'far-post'|'cutback'|'link'|'channel'|'build-up'|'counter-cover';
 export interface SupportMove {
@@ -178,9 +179,9 @@ export function ownGoalSupportPoints(p:Vec,owner:Vec&{side:Side}):Vec[]{
  const side=owner.side,bd=depth(side,owner.x),at=(d:number,y:number)=>inside({x:world(side,clamp(d,.8,L-.8)),y});
  return [
   at(depth(side,p.x)+3,p.y),at(depth(side,p.x)-3,p.y),
-  ...[-11,-8,-5,5,8,11].map(dy=>at(bd,owner.y+dy)),
+  ...[WORLD.geometry.support.levelWide3.v,WORLD.geometry.support.levelWide2.v,WORLD.geometry.support.levelWide1.v,WORLD.geometry.support.levelWide1r.v,WORLD.geometry.support.levelWide2r.v,WORLD.geometry.support.levelWide3r.v].map(dy=>at(bd,owner.y+dy)),
   ...[3,6,9].flatMap(dd=>[-8,-4,0,4,8].map(dy=>at(bd+dd,owner.y+dy))),
-  ...[BOX_DEPTH,BOX_DEPTH+4].flatMap(d=>[-10,-5,5,10].map(y=>at(d,y))),
+  ...[BOX_DEPTH,BOX_DEPTH+WORLD.geometry.support.boxBeyond.v].flatMap(d=>[WORLD.geometry.support.boxWide2.v,WORLD.geometry.support.boxWide1.v,WORLD.geometry.support.boxWide1r.v,WORLD.geometry.support.boxWide2r.v].map(y=>at(d,y))),
  ];
 }
 /** The same short return routes are considered before and after a pass. */

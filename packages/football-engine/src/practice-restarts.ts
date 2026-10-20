@@ -5,6 +5,7 @@ import type {PracticePlayer} from './practice.js';
 import type {Vec} from './movement.js';
 import {controlReleaseAvailable} from './practice-control.js';
 import type {RestartRoutine,RestartLive} from './practice-restart-live.js';
+import {WORLD} from './world.js';
 export type RestartKind='kickoff'|'throw'|'goalKick'|'corner'|'freeKick'|'indirect'|'penalty';
 export interface RestartInfo {kind:RestartKind;side:Side;spot:Vec;taker:string;phase:'gather'|'ready'}
 export interface Restart extends RestartInfo {organized?:boolean;ready:number;legalSince:number|null;positions:Record<string,Vec>;
@@ -95,11 +96,11 @@ export function freeKickCallAims(side:Side,spot:Vec,taker:string,players:Practic
  const take=(value:(p:PracticePlayer)=>number)=>{const p=remaining.slice().sort((a,b)=>value(b)-value(a)||a.id.localeCompare(b.id))[0];if(p)remaining.splice(remaining.indexOf(p),1);return p;};
  const header=(p:PracticePlayer)=>p.skills.aerial*.6+p.skills.strength*.3+p.skills.finishing*.1;
  const passer=(p:PracticePlayer)=>p.skills.passing*.7+p.skills.control*.3;
- const put=(p:PracticePlayer|undefined,d:number,y:number,inBox=false)=>{if(!p)return;aims[p.id]={x:world(side,d),y:clamp(y,-(W/2-2),W/2-2)};if(inBox)box.push(p.id);};
+ const put=(p:PracticePlayer|undefined,d:number,y:number,inBox=false)=>{if(!p)return;aims[p.id]={x:world(side,d),y:clamp(y,-(W/2-WORLD.geometry.restarts.fkInsideTouchline.v),W/2-WORLD.geometry.restarts.fkInsideTouchline.v)};if(inBox)box.push(p.id);};
  if(S.FREE_KICK[call].callsDelivery.v){
   put(take(header),FK_NEAR.depth,g*FK_NEAR.y,true);
   put(take(header),FK_FAR.depth,-g*FK_FAR.y,true);
-  put(take(header),Math.min(FK_EDGE.depth,Math.max(at+3,FK_EDGE.depth-4)),-g*FK_EDGE.y);
+  put(take(header),Math.min(FK_EDGE.depth,Math.max(at+WORLD.geometry.restarts.fkEdgeAhead.v,FK_EDGE.depth-WORLD.geometry.restarts.fkEdgeBack.v)),-g*FK_EDGE.y);
  }else{
   put(take(header),FK_BOX.depth,-g*FK_BOX.y,true);
   put(take(passer),at,spot.y-g*FK_SHORT_SQUARE);
@@ -134,7 +135,7 @@ function freeKickPositions(side:Side,spot:Vec,taker:string,players:PracticePlaye
    if(p.role==='GK')aim={x:world(side,X(6)),y:0};
    else if(p===support)aim={x:world(side,clamp(at-3,2,X(101))),y:clamp(spot.y+(spot.y>=0?-Y(8):Y(8)),-Y(30),Y(30))};
    else if(receivers.includes(p)){
-    const i=receivers.indexOf(p);aim={x:world(side,clamp(Math.max(X(84),at+X(6))-i*1.7,X(80),X(93))),y:[-Y(7),2,Y(11)][i]};
+    const i=receivers.indexOf(p);aim={x:world(side,clamp(Math.max(X(84),at+X(6))-i*1.7,X(80),X(93))),y:[-Y(7),WORLD.geometry.restarts.cornerMiddle.v,Y(11)][i]};
    }else if(attacking){
     const i=allies.filter(q=>q!==support&&!receivers.includes(q)).indexOf(p);
     aim={x:world(side,clamp(at-X(10)-(p.role==='CB'?X(12):0),X(12),X(78))),y:(i-2)*Y(8)};
@@ -154,7 +155,7 @@ function freeKickPositions(side:Side,spot:Vec,taker:string,players:PracticePlaye
    const i=opponents.filter(q=>!wall.includes(q)).indexOf(p);
    if(attacking&&i<receivers.length){
     const receiver=receivers[i],n=receivers.indexOf(receiver);
-    aim={x:world(side,clamp(Math.max(X(84),at+X(6))-n*1.7,X(80),X(93))+1.8),y:[-Y(7),2,Y(11)][n]+1.5};
+    aim={x:world(side,clamp(Math.max(X(84),at+X(6))-n*1.7,X(80),X(93))+1.8),y:[-Y(7),WORLD.geometry.restarts.cornerMiddle.v,Y(11)][n]+1.5};
    }else aim={x:world(side,clamp(at+(attacking?X(13):X(15))+(i%2)*3,X(20),X(96))),y:clamp((i-(attacking?4:4))*Y(6),-Y(29),Y(29))};
   }
   if(p.id!==taker&&p.side===side)aim=outsideBall(aim,spot,2.8);
@@ -224,7 +225,7 @@ function throwPositions(side:Side,spot:Vec,taker:string,players:PracticePlayer[]
  const opponents=players.filter(p=>p.side!==side&&p.role!=='GK');
  const cover=allies.slice().sort((a,b)=>
   Number(!['CB','DM'].includes(a.role))-Number(!['CB','DM'].includes(b.role))||depth(side,a.x)-depth(side,b.x)||a.id.localeCompare(b.id))[0];
- if(cover)positions[cover.id]=inside({x:world(side,Math.max(2,Math.min(depth(side,cover.x),at-4.5))),y:clamp(cover.y,-6,6)});
+ if(cover)positions[cover.id]=inside({x:world(side,Math.max(2,Math.min(depth(side,cover.x),at-WORLD.geometry.restarts.throwCoverBehind.v))),y:clamp(cover.y,WORLD.geometry.restarts.throwCoverWide.v,WORLD.geometry.restarts.throwCoverWideMax.v)});
  const candidates=allies.filter(p=>p!==cover).flatMap(p=>[-4,-2,2,4].flatMap(dx=>[3.5,5].map(dy=>{
   const aim=inside({x:world(side,clamp(at+dx,1,L-1)),y:spot.y+inward*dy});
   const room=Math.min(...opponents.map(q=>distance(q,aim))),gap=distance(spot,aim);

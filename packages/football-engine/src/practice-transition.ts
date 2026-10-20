@@ -9,6 +9,7 @@ import {groundPassCandidates} from './practice-passing.js';
 import {releaseTime} from './practice-possession.js';
 import {assessShot} from './practice-football.js';
 import {daring,perceive} from './practice-perception.js';
+import {WORLD} from './world.js';
 const depth=(side:number,x:number)=>side===0?x:L-x;
 export interface TransitionRun {player:string;aim:Vec;until:number}
 interface TransitionOption {player:string;aim:Vec;advantage:number}
@@ -25,7 +26,7 @@ export function readTransition(players:PracticePlayer[],owner:PracticePlayer,tac
  if(age<0||age>8)return empty;
  const bd=depth(owner.side,owner.x),mates=players.filter(p=>p.side===owner.side&&p.id!==owner.id&&p.role!=='GK'),opponents=players.filter(p=>p.side!==owner.side&&p.role!=='GK');
  const front=Math.max(bd,...mates.map(p=>depth(owner.side,p.x)));
- const committed=opponents.filter(p=>depth(owner.side,p.x)<Math.min(L-10,Math.max(bd+10,front+2))).length;
+ const committed=opponents.filter(p=>depth(owner.side,p.x)<Math.min(L-WORLD.geometry.transition.committedLimit.v,Math.max(bd+WORLD.geometry.transition.committedAhead.v,front+2))).length;
  const s=owner.side===0?1:-1,lanes:TransitionOption[]=[],outlets:TransitionOption[]=[];
  const defenders=players.filter(p=>p.side!==owner.side);
  // Only the new opportunities need this more expensive delivery check. Reuse
@@ -46,7 +47,7 @@ export function readTransition(players:PracticePlayer[],owner:PracticePlayer,tac
  for(const p of mates){
   if(p.energy<22)continue;
   const retained=continuing.find(r=>r.player===p.id&&r.until>time);
-  const points=[...(retained?[retained.aim]:[]),...[7,11].flatMap(advance=>[-W*.25,0,W*.25].map(y=>({x:depth(owner.side,clamp(Math.max(bd+8,depth(owner.side,p.x)+advance),3,L-4)),y})))];
+  const points=[...(retained?[retained.aim]:[]),...[7,11].flatMap(advance=>[-W*.25,0,W*.25].map(y=>({x:depth(owner.side,clamp(Math.max(bd+WORLD.geometry.transition.laneAhead.v,depth(owner.side,p.x)+advance),3,L-4)),y})))];
   const prospective:TransitionOption[]=[];
   for(const aim of points){
    const keeping=aim===retained?.aim;

@@ -19,6 +19,7 @@ import {turnoverPrice,deliveryLossWeight} from './practice-rest-defence.js';
 import {daring,perceive} from './practice-perception.js';
 import {feltPressure,possessionSafety,readerMargin,readKickHorizon,carrierMeets} from './practice-possession.js';
 import type {PasserRead} from './practice-possession.js';
+import {WORLD} from './world.js';
 export {PASS_DRAG} from './practice-flight.js';
 
 export interface PassRun {aim:Vec;speed:number}
@@ -71,7 +72,7 @@ export function receiverProspects(q:PracticePlayer,aim:Vec,players:readonly Prac
  * Deep in our half a free man is a safe reset, which the ordinary room and
  * risk reads already price; crediting it again made teams recycle instead of
  * progressing. */
-export const PROSPECT_BEHIND=8;
+export const PROSPECT_BEHIND=WORLD.geometry.passing.PROSPECT_BEHIND.v;
 export function passProspects(p:PracticePlayer,from:Vec,q:PracticePlayer,aim:Vec,players:readonly PracticePlayer[],flight:number,own=receiverProspects({...p,...from},from,players,0,p).value):number{
  // R3 P3: counted as far as the receiver is not behind the ball. The
  // freest team-mate is usually the deepest, and crediting his time on the
@@ -266,8 +267,8 @@ export const OWN_SHOT_ON=.2;
 /** Value the next shooting opportunity, not just metres gained toward the end line. */
 export function readDelivery(p:PracticePlayer,q:PracticePlayer,aim:Vec,players:PracticePlayer[],risk:number,laneRisk:Risk,flight=0,context?:ConnectionContext):DeliveryRead{
  const pd=depth(p,p.x),qd=depth(p,aim.x),centralGain=Math.abs(p.y)-Math.abs(aim.y);
- const kind:DeliveryRead['kind']=pd>X(88)&&qd>X(78)&&Math.abs(p.y)>Y(14)&&Math.abs(aim.y)<Y(14)&&centralGain>Y(7)&&pd-qd>2&&pd-qd<18?'cutback'
-  :pd>X(80)&&qd>X(84)&&Math.abs(p.y)>Y(12)&&Math.abs(aim.y)<Y(12)&&centralGain>Y(7)&&Math.abs(qd-pd)<10?'square':qd>pd+3?'forward':'link';
+ const kind:DeliveryRead['kind']=pd>X(88)&&qd>X(78)&&Math.abs(p.y)>Y(14)&&Math.abs(aim.y)<Y(14)&&centralGain>Y(7)&&pd-qd>2&&pd-qd<WORLD.geometry.passing.cutbackMax.v?'cutback'
+  :pd>X(80)&&qd>X(84)&&Math.abs(p.y)>Y(12)&&Math.abs(aim.y)<Y(12)&&centralGain>Y(7)&&Math.abs(qd-pd)<WORLD.geometry.passing.squareMax.v?'square':qd>pd+3?'forward':'link';
  const connection=readNextConnection(p,q,aim,players,flight,laneRisk,context);
  const next={connectionGain:connection.gain,connectionTarget:connection.target,continuation:connection.continuation};
  const opponents=players.filter(d=>d.side!==p.side&&d.role!=='GK');
@@ -301,7 +302,7 @@ export function readDelivery(p:PracticePlayer,q:PracticePlayer,aim:Vec,players:P
  * full within OWN_ZONE m of our goal and fading out by OWN_ZONE_FAR (further
  * up the flat room terms already price it). The room is his read: off by up
  * to ROOM_SPREAD for a player who cannot read the game. */
-export const RECEIVER_CAUGHT=.5,OWN_ZONE=16,OWN_ZONE_FAR=24,ROOM_SPREAD=.5;
+export const RECEIVER_CAUGHT=.5,OWN_ZONE=WORLD.geometry.passing.OWN_ZONE.v,OWN_ZONE_FAR=WORLD.geometry.passing.OWN_ZONE_FAR.v,ROOM_SPREAD=.5;
 export function receiverCaught(p:PracticePlayer,q:PracticePlayer,aim:Vec,space:number,players:readonly PracticePlayer[]):number{
  const zone=clamp((OWN_ZONE_FAR-depth(p,aim.x))/(OWN_ZONE_FAR-OWN_ZONE),0,1);if(!zone)return 0;
  const room=clamp(perceive(p,'arrival',space,ROOM_SPREAD,aim,{salt:'room'+q.id}),0,1);

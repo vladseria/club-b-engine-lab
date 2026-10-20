@@ -10,6 +10,7 @@ import {readTransition} from './practice-transition.js';
 import {REST_MARGIN} from './practice-rest-defence.js';
 import {daring,perceive} from './practice-perception.js';
 import type {TransitionRun} from './practice-transition.js';
+import {WORLD} from './world.js';
 
 /** The style fine-tune. `onLoss` ("On losing it") is optional everywhere:
  * missing means 'balanced', so inputs from before the field play as before. */
@@ -163,7 +164,7 @@ export function patientPurpose(p:PracticePlayer,o:Option,block:BlockRead):{bypas
  const room=clamp((perceive(p,'arrival',first,ARRIVAL_SPREAD,o.aim,{salt:`room${o.target}`,bias:ARRIVAL_OPTIMISM*daring(p)})-flight)/.8,0,1);
  const open=clamp((.3-risk)/.3,0,1)*clamp((room-.3)/.5,0,1);
  const penetration=bypassed?open*(1+.4*Math.min(1,bypassed-1))*(1+.6*block.sliding):0;
- const across=clamp((Math.abs(o.aim.y-p.y)-6)/6,0,1);
+ const across=clamp((Math.abs(o.aim.y-p.y)-WORLD.geometry.teamApproach.switchFrom.v)/WORLD.geometry.teamApproach.switchSpan.v,0,1);
  const near=(v:{x:number;y:number})=>block.opponents.filter(q=>Math.hypot(q.x-v.x,q.y-v.y)<7).length;
  const relief=clamp((near(p)-near(o.aim))/2,0,1);
  const free=clamp((room-.3)/.5,0,1);

@@ -9,6 +9,7 @@ import type {FootballJob} from './practice-coordination.js';
 import {arrivalTime,BACK_REACH,QUICK_RELEASE,QUICK_REACT} from './practice-defense.js';
 import {strikeTurnTime} from './practice-striking.js';
 import {expectedPassFlight} from './practice-flight.js';
+import {WORLD} from './world.js';
 
 type Risk=(from:Vec,to:Vec,defenders:PracticePlayer[],speed?:number)=>number;
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
@@ -78,7 +79,7 @@ export function attackingSpaceReader(players:PracticePlayer[],carrier:PracticePl
  const weight=S.PROGRESSION[tactics.progression].attackValue.v;
  const combination=Math.max(weight,.9);
  const worth=(point:Vec)=>{
-  const progress=clamp((depth(point)-depth(carrier))/12,0,1);
+  const progress=clamp((depth(point)-depth(carrier))/WORLD.geometry.attackingSpace.progressSpan.v,0,1);
   const beaten=outfield.filter(d=>depth(d)>depth(carrier)+1&&depth(d)<depth(point)-1).length/Math.max(1,outfield.length);
   const finishing=Math.max(0,threat(point)-threat(carrier));
   return progress*.5+beaten*.35+finishing*.55;
@@ -114,7 +115,7 @@ export function attackingSpaceReader(players:PracticePlayer[],carrier:PracticePl
     // for an actual reception. Do not reward running into a marker or becoming
     // detached from the ball; a better return angle can also earn value.
     const space=clamp((Math.min(...future.map(d=>distance(d,moving)))-1.5)/4,0,1);
-    const progress=clamp((depth(moving)-initialDepth)/8,-1,1);
+    const progress=clamp((depth(moving)-initialDepth)/WORLD.geometry.attackingSpace.moveProgressSpan.v,-1,1);
     const development=(ambition*progress*.8*connected(moving)+
      (connected(moving)-initialConnection)*.7)*space*Math.exp(-at*.18);
     // Keep a blocked but valuable reception available to pair evaluation.

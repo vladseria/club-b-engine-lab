@@ -3,6 +3,7 @@ import type {Vec} from './movement.js';
 import type {PracticePlayer} from './practice.js';
 import {perceive,daring,composure,nerve,eagerness,followsTeam} from './practice-perception.js';
 import {challengeFoulChance} from './practice-challenge.js';
+import {WORLD} from './world.js';
 
 /** The reception duel (contest round, 2026-10-15).
  *
@@ -190,4 +191,4 @@ export function stepInWillingness(d:PracticePlayer,danger:number,cover:number):n
  return clamp(.55+daring(d)*.5+eagerness(d)*.6+(s10(d.skills.reading)-.6)*.5-turnCost*caution*.6,0,1);
 }
 /** How near our goal (0..1) a point is, for the cost of being turned there. */
-export const dangerAt=(p:Vec,goal:Vec)=>clamp((22-distance(p,goal))/14,0,1);
+export const dangerAt=(p:Vec,goal:Vec)=>clamp((WORLD.geometry.duel.dangerFrom.v-distance(p,goal))/WORLD.geometry.duel.dangerSpan.v,0,1);

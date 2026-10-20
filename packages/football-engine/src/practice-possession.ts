@@ -10,6 +10,7 @@ import {turnoverPrice,deliveryLossWeight} from './practice-rest-defence.js';
 import {duelChance} from './practice-challenge.js';
 import {controlEdge} from './practice-reception.js';
 import {PASS_POINT} from './practice-receive.js';
+import {WORLD} from './world.js';
 
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
 const depth=(p:PracticePlayer,x=p.x)=>p.side===0?x:L-x;
@@ -242,7 +243,7 @@ export function recoveryTouch(p:PracticePlayer,players:PracticePlayer[]):Vec{
   const space=Math.min(...opponents.map(q=>distance(aim,{x:q.x+q.vx*.2,y:q.y+q.vy*.2})));
   const turn=Math.abs(difference(angle,p.angle));
   // Avoid turning across our own goal, while allowing a touch toward a safer flank.
-  const ownGoal=depth(p,aim.x)<6&&Math.abs(aim.y)<6?2:0;
+  const ownGoal=depth(p,aim.x)<WORLD.geometry.possession.ownGoalDepth.v&&Math.abs(aim.y)<WORLD.geometry.possession.ownGoalWide.v?2:0;
   return {aim,score:space-turn*.35-ownGoal};
  });
  return candidates.sort((a,b)=>b.score-a.score)[0].aim;
@@ -350,22 +351,22 @@ export function securePossessionOptions(p:PracticePlayer,players:PracticePlayer[
  // that flank he reads the one his side wins by the most (the touchline spot
  // 20 m up stays the read when no landing is better).
  const channel=(y:number)=>{
-  const spots=[20,12,16,24,28].flatMap(x=>[W/2-2.5,W/2-7].map(w=>({x:clamp(p.x+s*x,1,(L-1)),y:y*w})));
+  const spots=[WORLD.geometry.possession.clearSpot1.v,WORLD.geometry.possession.clearSpot2.v,WORLD.geometry.possession.clearSpot3.v,WORLD.geometry.possession.clearSpot4.v,WORLD.geometry.possession.clearSpot5.v].flatMap(x=>[W/2-2.5,W/2-WORLD.geometry.possession.clearInside.v].map(w=>({x:clamp(p.x+s*x,1,(L-1)),y:y*w})));
   let best=spots[0],edge=margin(best);
   for(const spot of spots.slice(1)){const m=margin(spot);if(m>edge+1e-9){best=spot;edge=m;}}
   return best;
  };
  const candidates:{aim:Vec;exit:ClearanceIntent}[]=[
-  ...[-1,1].map(y=>({aim:{x:p.x+s*35,y:clamp(p.y+y*Y(15),-Y(30),Y(30))},exit:'long' as const})),
-  ...[-1,1].flatMap(y=>[0,8].map(x=>({aim:{x:clamp(p.x+s*x,1,(L-1)),y:y*(W/2+4)},exit:'touchline' as const}))),
-  ...(depth(p)<12&&p.role!=='GK'?[-1,1].map(y=>({aim:{x:p.side===0?-3:L+3,y:y*Math.max(Y(18),Math.abs(p.y))},exit:'corner' as const})):[]),
+  ...[-1,1].map(y=>({aim:{x:p.x+s*WORLD.geometry.possession.longClear.v,y:clamp(p.y+y*Y(15),-Y(30),Y(30))},exit:'long' as const})),
+  ...[-1,1].flatMap(y=>[0,WORLD.geometry.possession.touchlineAhead.v].map(x=>({aim:{x:clamp(p.x+s*x,1,(L-1)),y:y*(W/2+4)},exit:'touchline' as const}))),
+  ...(depth(p)<WORLD.geometry.possession.cornerFrom.v&&p.role!=='GK'?[-1,1].map(y=>({aim:{x:p.side===0?-3:L+3,y:y*Math.max(Y(18),Math.abs(p.y))},exit:'corner' as const})):[]),
   // In play: up either touchline, or into the path of a team-mate further up.
   ...[-1,1].map(y=>({aim:channel(y),exit:'channel' as const})),
-  ...mates.filter(q=>depth(q)>depth(p)+6).map(q=>({aim:{x:clamp(q.x+q.vx*.8,1,(L-1)),y:clamp(q.y+q.vy*.8,-(W/2-1),(W/2-1))},exit:'mate' as const})),
+  ...mates.filter(q=>depth(q)>depth(p)+WORLD.geometry.possession.mateAhead.v).map(q=>({aim:{x:clamp(q.x+q.vx*.8,1,(L-1)),y:clamp(q.y+q.vy*.8,-(W/2-1),(W/2-1))},exit:'mate' as const})),
  ];
  // Never clear across the face of his own goal: the ball may not pass nearer
  // the goal's centre than it already is (within 4.5 m of it).
- const goal={x:p.side===0?0:L,y:0},near=Math.min(4.5,distance(p,goal));
+ const goal={x:p.side===0?0:L,y:0},near=Math.min(WORLD.geometry.possession.nearGoal.v,distance(p,goal));
  const across=(aim:Vec)=>{const dx=aim.x-p.x,dy=aim.y-p.y,t=clamp(((goal.x-p.x)*dx+(goal.y-p.y)*dy)/Math.max(1e-6,dx*dx+dy*dy),0,1);return distance({x:p.x+dx*t,y:p.y+dy*t},goal)<near-.25;};
  for(const {aim,exit} of candidates){
   if(across(aim))continue;

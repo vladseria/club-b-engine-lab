@@ -6,6 +6,7 @@ import type {Vec,MovingBall} from './movement.js';
 import type {PracticePlayer,Duty} from './practice.js';
 import {acuity,perceive} from './practice-perception.js';
 import {arrivalTime} from './practice-arrival.js';
+import {WORLD} from './world.js';
 /** A defender's view of an attacker who is not on the ball (M3): the man as
  * this defender last saw him. Absent, reads are exact (scenes and tests). */
 /** What `reader` sees of `target` (his own picture, a moment late); `before` s earlier still, when asked (the track-runner read of a run setting off compares the two). */
@@ -111,7 +112,7 @@ export function teamShape(players:PracticePlayer[],ball:MovingBall,attacking:Sid
  let back:number,middle:number,front:number,shift:number;
  let phase:TeamShape['phase'];
  if(own){
-  middle=clamp(bd-1+(tactics.commit-S.COMMIT.neutral.v),X(20),X(80));
+  middle=clamp(bd-WORLD.geometry.shape.middleBehind.v+(tactics.commit-S.COMMIT.neutral.v),X(20),X(80));
   // Front/midfield should remain available to the actual supporting unit,
   // including during the seconds needed for the backs to join a recovery.
   middle=Math.min(middle,actualBack+X(25));
@@ -159,9 +160,9 @@ export function teamShape(players:PracticePlayer[],ball:MovingBall,attacking:Sid
    else if(p.role==='DM'){x=middle-X(7);y=p.lane*Y(8)+shift*.8;kind='cover';}
    else if(p.role==='FB'){
     const near=p.lane*focus.y>=0;
-    x=S.FULLBACKS[tactics.fullbacks??'balanced'].staysBack.v?back+S.FULLBACKS_COMMON.holdBack.v:middle+(near?1:-5)+S.FULLBACKS[tactics.fullbacks??'balanced'].overlapStep.v;
+    x=S.FULLBACKS[tactics.fullbacks??'balanced'].staysBack.v?back+S.FULLBACKS_COMMON.holdBack.v:middle+(near?WORLD.geometry.shape.fbNearAhead.v:WORLD.geometry.shape.fbFarBehind.v)+S.FULLBACKS[tactics.fullbacks??'balanced'].overlapStep.v;
     y=p.lane*wide+shift*.4;kind=S.FULLBACKS[tactics.fullbacks??'balanced'].staysBack.v?'cover':'width';
-   }else if(p.role==='CM'||p.role==='AM'){x=middle+(p.role==='AM'?7:1)-p.traits.comesShort*3;y=p.lane*11+shift*spread.middle;}
+   }else if(p.role==='CM'||p.role==='AM'){x=middle+(p.role==='AM'?WORLD.geometry.shape.amAhead.v:WORLD.geometry.shape.cmAhead.v)-p.traits.comesShort*WORLD.geometry.shape.comesShortDrop.v;y=p.lane*WORLD.geometry.shape.midLane.v+shift*spread.middle;}
    // A winger holds his lane; narrow brings his resting position towards the
    // ball's side (closer support), wide keeps it on the touchline.
    else if(p.role==='W'){x=front-X(3);y=p.lane*wide+(focus.y-p.lane*wide)*WIDTH[tactics.width].pull;kind='width';}

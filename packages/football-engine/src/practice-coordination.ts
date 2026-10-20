@@ -25,6 +25,7 @@ import {eagerness,followsTeam,perceive} from './practice-perception.js';
 import {flightSamples,flightMeeting,expectedPassFlight} from './practice-flight.js';
 import {defendOutOfPossession,offGoalLine,REGROUP_BEHIND} from './practice-defending.js';
 import type {DefendMemory} from './practice-defending.js';
+import {WORLD} from './world.js';
 export {REGROUP_BEHIND};
 
 export type JobPurpose='break'|'playbook'|'shape'|'balance'|'zone'|'press'|'screen'|'counter-press'|'counter-screen'|'trap'|'trap-screen'|'cover'|'mark'|'receive'|'collect'|'second-ball'|'join'|'outlet'|'give-and-go'|'depth'|'link'|'overlap'|'near-post'|'far-post'|'cutback'|'build-up'|'counter-cover'|'last-man'|'width'|'drop'|'pivot'|'third-man'|'shoulder'|'wall'|'spot'|'back-post'|'edge'|'ball';
@@ -99,12 +100,12 @@ export function trapTrigger(owner:PracticePlayer,defending:Side,time:number,sinc
  const bd=depth(defending,owner.x);
  if(bd<TRAP_NEAR||bd>TRAP_FAR)return null;
  const fresh=clamp(1-(time-since)/TRAP_FRESH,0,1);
- const line=clamp((Math.abs(owner.y)-(W/2-4))/2.5,0,1);
+ const line=clamp((Math.abs(owner.y)-(W/2-WORLD.geometry.coordination.trapTouchlineFrom.v))/WORLD.geometry.coordination.trapTouchlineSpan.v,0,1);
  // Facing his own goal: the direction away from the goal he attacks.
  const away=defending===0?0:Math.PI,back=Math.cos(owner.angle-away);
  const turned=clamp((back-.2)/.5,0,1)*fresh;
  const gain=from?depth(defending,from.x)-bd:0;
- const entry=from&&bd<=L*.62?clamp((gain-2)/5,0,1)*clamp((9-Math.abs(owner.y))/3,0,1)*fresh:0;
+ const entry=from&&bd<=L*WORLD.geometry.coordination.trapEntryUpTo.v?clamp((gain-WORLD.geometry.coordination.trapEntryGainFrom.v)/WORLD.geometry.coordination.trapEntryGainSpan.v,0,1)*clamp((WORLD.geometry.coordination.trapEntryCentral.v-Math.abs(owner.y))/WORLD.geometry.coordination.trapEntryCentralSpan.v,0,1)*fresh:0;
  const best=Math.max(line,turned,entry);
  if(best<=0)return null;
  return {trigger:best===line?'touchline':best===entry?'entry':'back',strength:best};
@@ -521,7 +522,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
     const deepest=outfield.slice().sort((a,b)=>depth(defending,a.x)-depth(defending,b.x)||a.id.localeCompare(b.id))[0];
     const goer=outfield.filter(p=>!unavailable.has(p.id)&&!instructed.has(p.id)&&p.id!==deepest?.id&&depth(defending,p.x)>=bd-REST_MARGIN&&distance(p,ball)<COUNTER_PRESS_NEAR+S.ON_LOSS_COMMON.goerReach.v)
      .sort((a,b)=>arrivalTime(a,owner)-arrivalTime(b,owner)||a.id.localeCompare(b.id))[0];
-    if(goer?counterPressRead(onLoss,near(defending),near(attacking),Math.abs(ball.y)>W/2-3,goer,spot,lostAt):counterPressFires(onLoss,near(defending),near(attacking),Math.abs(ball.y)>W/2-3))mode='engage';
+    if(goer?counterPressRead(onLoss,near(defending),near(attacking),Math.abs(ball.y)>W/2-WORLD.geometry.coordination.touchlineFrom.v,goer,spot,lostAt):counterPressFires(onLoss,near(defending),near(attacking),Math.abs(ball.y)>W/2-WORLD.geometry.coordination.touchlineFrom.v))mode='engage';
    }
   }
   counterPress={side:defending,at:lostAt,spot,mode,over,...(S.ON_LOSS[onLoss].regroups.v&&!near?{drop:true}:{})};
@@ -863,7 +864,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   // endpoint before his movement can be considered.
   offerJob({purpose:'join',kind:'support',point:focus,range:26,eligible:p=>p.role!=='GK',
    points:p=>{
-    const lead=p.role==='CB'||p.role==='DM'?-6:p.role==='ST'?8:4;
+    const lead=p.role==='CB'||p.role==='DM'?WORLD.geometry.coordination.joinLeadBack.v:p.role==='ST'?WORLD.geometry.coordination.joinLeadStriker.v:WORLD.geometry.coordination.joinLeadOther.v;
     const targetDepth=clamp(bd+lead,3,L-3);
     if(targetDepth<=depth(side,p.x)+2)return [];
     return [-W*.25,0,W*.25].flatMap(y=>{
@@ -898,7 +899,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
     fit:p=>1+p.traits.comesShort*.3+p.skills.reading*.02,target:receiver.id,
     reason:'Rămâne disponibil în spațiul avansat înainte ca apărarea să se refacă.'});
    if(!hasPlannedExit())offerJob({purpose:'outlet',kind:'support',point:focus,points:p=>closeSupport(p),range:13,eligible:p=>p.role!=='CB'&&distance(p,focus)<20,fit:p=>1+p.traits.comesShort*.3,target:receiver.id,reason:'Oferă o primă legătură în timp ce colegii pleacă pe contraatac.'});
-   offerJob({purpose:'break',kind:'run',point:{x:focus.x+s*12,y:0},range:34,
+   offerJob({purpose:'break',kind:'run',point:{x:focus.x+s*WORLD.geometry.coordination.breakAhead.v,y:0},range:34,
     points:p=>transition.lanes.filter(l=>l.player===p.id).map(l=>l.aim),
     eligible:p=>p.id!==holding&&transition.lanes.some(l=>l.player===p.id),
     fit:p=>S.ON_WIN[t.transition??'balanced'].breakFit.v+p.traits.runs*.4+p.skills.reading*.02,

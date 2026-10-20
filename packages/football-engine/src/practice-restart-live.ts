@@ -13,6 +13,7 @@ import type {SupportMove,SupportPurpose} from './practice-support.js';
 import {keeperReadyPosition} from './practice-keeper.js';
 import {arrivalTime} from './practice-defense.js';
 import {offGoalLine} from './practice-defending.js';
+import {WORLD} from './world.js';
 
 /**
  * Live restarts: between the stoppage and the kick nobody waits on a fixed
@@ -56,7 +57,7 @@ export const liveRestart=(kind:RestartKind)=>kind==='throw'||kind==='goalKick'||
 /** Opponents' distance from the ball: Law 15 (2 m) at throws, the scaled 9.15 m (5 m) elsewhere. */
 export const THROW_DISTANCE=2;
 /** A throw's cover (the rest defence): THROW_GUARD m goal-side of their most advanced forward, or THROW_COVER m behind the ball. */
-export const THROW_GUARD=2,THROW_COVER=7;
+export const THROW_GUARD=2,THROW_COVER=WORLD.geometry.restartLive.THROW_COVER.v;
 /** Live aims keep a margin beyond the legal distance: a marker tracking a
  * moving man otherwise brakes just inside the circle and holds the kick up. */
 export const restartRadius=(kind:RestartKind)=>kind==='throw'?THROW_DISTANCE+.8:kind==='freeKick'||kind==='indirect'?6.4:6.2;
@@ -70,9 +71,9 @@ export const RESTART_GOAL_KICK_RISK=.15;
 /** A throw farther than this is not an "open option" worth taking without waiting. */
 export const THROW_OPEN_RANGE=16;
 /** A goal kick beyond this distance is a long ball. */
-export const GOAL_KICK_LONG=16;
+export const GOAL_KICK_LONG=WORLD.geometry.restartLive.GOAL_KICK_LONG.v;
 /** Defenders nearer their opponents' goal line than this are pressing the goal kick. */
-export const GOAL_KICK_PRESS_DEPTH=17;
+export const GOAL_KICK_PRESS_DEPTH=WORLD.geometry.restartLive.GOAL_KICK_PRESS_DEPTH.v;
 /** A ground goal kick passing this close to a presser is contested: he is
  * poised at the edge of the area and the ball reaches him in under half a
  * second, which is how 17–22 m ground kicks were cut out 7–9 m from goal
@@ -129,7 +130,7 @@ export function restartRoutine(scene:Scene,players:PracticePlayer[],formula:Reco
   // cover THROW_COVER m behind the ball, towards the middle, for the throw back.
   const forward=opponents.filter(q=>q.role!=='GK').sort((a,b)=>depth(side,a.x)-depth(side,b.x)||a.id.localeCompare(b.id))[0];
   const fd=forward?depth(side,forward.x):Infinity,guard=fd<at-1;
-  const coverAim:Vec={x:world(side,Math.max(2.5,guard?Math.min(at-4.5,fd-THROW_GUARD):at-THROW_COVER)),y:guard?clamp(forward!.y*.6,-6,6):clamp(spot.y*.35,-6,6)};
+  const coverAim:Vec={x:world(side,Math.max(2.5,guard?Math.min(at-WORLD.geometry.restartLive.throwCoverBehind.v,fd-THROW_GUARD):at-THROW_COVER)),y:guard?clamp(forward!.y*.6,WORLD.geometry.restartLive.throwCoverWide.v,WORLD.geometry.restartLive.throwCoverWideMax.v):clamp(spot.y*.35,WORLD.geometry.restartLive.throwCoverWide.v,WORLD.geometry.restartLive.throwCoverWideMax.v)};
   if(cover)slots[cover.id]={aim:inside(coverAim),leash:2.5,purpose:'counter-cover',reason:guard?'Rămâne între atacantul lor cel mai avansat și poarta noastră, spre mijloc, pentru cazul în care pierdem mingea.':'Rămâne în urma mingii, spre mijloc, gata pentru o aruncare înapoi și pentru acoperire.'};
   const short=mates.filter(p=>p!==cover).map(p=>({p,score:distance(p,spot)*.14-p.traits.comesShort*.25-p.skills.reading*.015})).sort((a,b)=>a.score-b.score||a.p.id.localeCompare(b.p.id))[0]?.p;
   if(short)slots[short.id]={aim:inside({x:world(side,clamp(at+(depth(side,short.x)>=at?2:-2),1,L-1)),y:spot.y+inward*4.5}),leash:3.5,purpose:'recycle',reason:'Vine scurt spre aruncare și își caută spațiul liber de marcaj.'};
@@ -169,7 +170,7 @@ export function restartRoutine(scene:Scene,players:PracticePlayer[],formula:Reco
    // A called routine (practice-restarts freeKickCallAims): the man on the
    // edge of the box waits for the knock-down; a short option further away
    // than the formula's keeps his angle.
-   else if(S.FREE_KICK[call].callsRoutine.v&&depth(side,aim.x)>=L-BOX_DEPTH-6&&Math.abs(aim.y)<BOX_HALF)slots[p.id]={aim,leash:3,purpose:'cutback',reason:'Pândește mingea respinsă la marginea careului.'};
+   else if(S.FREE_KICK[call].callsRoutine.v&&depth(side,aim.x)>=L-BOX_DEPTH-WORLD.geometry.restartLive.cutbackBeyondBox.v&&Math.abs(aim.y)<BOX_HALF)slots[p.id]={aim,leash:3,purpose:'cutback',reason:'Pândește mingea respinsă la marginea careului.'};
    else if(S.FREE_KICK[call].callsShort.v&&distance(aim,spot)<14)slots[p.id]={aim,leash:3,purpose:'recycle',reason:'Se oferă scurt, în alt unghi, pentru lovitura liberă jucată scurt.'};
   }
  }
@@ -253,9 +254,9 @@ export function settleRestart(scene:Scene&{routine?:RestartRoutine;positions?:Re
  * SET_PIECE_HOLD s, switching to a runner who enters them (ANCHOR_ZONE m), and
  * every marker keeps his man (CoordinationPlan.anchors). Authored routines are
  * the attackers'; the defending template applies to every side. */
-export const TEMPLATE_FK=20,TEMPLATE_THROW=14,TEMPLATE_KEEP=.5,TEMPLATE_KEEP_MAN=1.2,SET_PIECE_HOLD=1.2;
+export const TEMPLATE_FK=WORLD.geometry.restartLive.TEMPLATE_FK.v,TEMPLATE_THROW=WORLD.geometry.restartLive.TEMPLATE_THROW.v,TEMPLATE_KEEP=.5,TEMPLATE_KEEP_MAN=1.2,SET_PIECE_HOLD=1.2;
 /** Who an attacker is at our set piece: in or at the box (BOX_IN m of the goal), the outlet at its top (OUTLET_IN m, central), or the short option (SHORT_IN m of the ball). */
-export const SP_BOX_IN=9.5,SP_OUTLET_IN=16.5,SP_SHORT_IN=9,SP_ROUND=.6,SP_ZONE_CLEAR=2.5;
+export const SP_BOX_IN=WORLD.geometry.restartLive.SP_BOX_IN.v,SP_OUTLET_IN=WORLD.geometry.restartLive.SP_OUTLET_IN.v,SP_SHORT_IN=9,SP_ROUND=.6,SP_ZONE_CLEAR=2.5;
 export type SetPieceTask='spot'|'mark'|'back-post'|'ball'|'edge'|'screen';
 export interface SetPieceDeal {task:SetPieceTask;aim:Vec;target?:string;
  /** Why he marks this man: in the box, the outlet at its top, the short option. */
@@ -288,7 +289,7 @@ export function setPieceTemplate(scene:Scene,players:readonly PracticePlayer[],p
   const box=dd<BOX_DEPTH+.5&&Math.abs(v.y)<BOX_HALF+.5||d<SP_BOX_IN;
   const outlet=!box&&d<SP_OUTLET_IN&&Math.abs(v.y)<BOX_HALF+3.5;
   const short=!box&&!outlet&&distance(v,spot)<SP_SHORT_IN;
-  const danger=clamp((16-d)/10,0,1)*clamp(1-(Math.abs(v.y)-3)/10,.3,1);
+  const danger=clamp((WORLD.geometry.restartLive.dangerFrom.v-d)/WORLD.geometry.restartLive.dangerSpan.v,0,1)*clamp(1-(Math.abs(v.y)-WORLD.geometry.restartLive.dangerCentral.v)/WORLD.geometry.restartLive.dangerWideSpan.v,.3,1);
   return {a,v,d,box,outlet,short,danger};
  });
  const inBox=reads.filter(r=>r.box).sort((x,y)=>y.danger-x.danger||x.a.id.localeCompare(y.a.id));
@@ -437,8 +438,8 @@ function pressRun(scene:Scene,routine:RestartRoutine,players:PracticePlayer[],pr
  const line=Math.max(...pressers.map(q=>depth(side,q.x)));
  const candidates=players.filter(q=>q.side===side&&routine.slots[q.id]&&!routine.slots[q.id].authored&&!['GK','CB','DM'].includes(q.role));
  let best:{player:string;aim:Vec;score:number}|null=null;
- for(const q of candidates)for(const d of [line+7,line+13])for(const y of [-9,-4.5,0,4.5,9]){
-  const aim=inside({x:world(side,clamp(d,BOX_DEPTH+6,L-9)),y});
+ for(const q of candidates)for(const d of [line+WORLD.geometry.restartLive.zoneAhead1.v,line+WORLD.geometry.restartLive.zoneAhead2.v])for(const y of [WORLD.geometry.restartLive.zoneWide2.v,WORLD.geometry.restartLive.zoneWide1.v,0,WORLD.geometry.restartLive.zoneWide1r.v,WORLD.geometry.restartLive.zoneWide2r.v]){
+  const aim=inside({x:world(side,clamp(d,BOX_DEPTH+WORLD.geometry.restartLive.zoneMin.v,L-WORLD.geometry.restartLive.zoneMaxBack.v)),y});
   const room=Math.min(...opponents.map(o=>distance(o,aim)));
   if(room<3)continue;
   const kept=previous?.runner===q.id,old=kept?previous!.jobs[q.id]?.aim:undefined;
