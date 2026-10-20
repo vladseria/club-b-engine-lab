@@ -988,14 +988,14 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
    // straight to the end line. Stay within a usable next-pass distance.
    // (Drops deep's own link post and the run beyond it: LINK_*, above.)
    offerJob({purpose:'depth',kind:'run',point:{x:world(side,Math.min(X(96),bd+X(S.PROGRESSION[t.progression].depthRunAhead.v))),y:0},points:()=>[-Y(18),0,Y(18)].map(y=>({x:world(side,Math.min(X(96),bd+X(S.PROGRESSION[t.progression].depthRunAhead.v))),y})),eligible:p=>p.id!==runnerId,fit:p=>.8+p.traits.runs*.6+(p.id===striker&&S.STRIKER[t.striker??'mixed'].runsInBehind.v?S.IN_BEHIND.depthBonus.v:0),reason:'Oferă profunzime la distanță de pasă, pe un alt culoar.',range:26});
-   if(wide&&bd<X(83)&&t.fullbacks!=='hold'&&(t.commit>=S.COMMIT.neutral.v||t.fullbacks==='overlap'))offerJob({purpose:'overlap',kind:'run',point:{x:focus.x+s*X(9),y:Math.sign(focus.y)*Y(30)},eligible:p=>p.role==='FB'&&p.y*focus.y>0,fit:p=>1+p.traits.runs*.3,reason:'Trece pe exterior și oferă o continuare pe flanc.'});
+   if(wide&&bd<X(83)&&!S.FULLBACKS[t.fullbacks??'balanced'].staysBack.v&&(t.commit>=S.COMMIT.neutral.v||S.FULLBACKS[t.fullbacks??'balanced'].overlaps.v))offerJob({purpose:'overlap',kind:'run',point:{x:focus.x+s*X(9),y:Math.sign(focus.y)*Y(30)},eligible:p=>p.role==='FB'&&p.y*focus.y>0,fit:p=>1+p.traits.runs*.3,reason:'Trece pe exterior și oferă o continuare pe flanc.'});
   }
   // Two different passing angles, using the same lane assessment as the
   // carrier. Pressure makes these more useful, not a blanket veto on movement.
   // (r1-shape v5) near our own goal the reference angle is level with the
   // ball, not behind it (its candidates come from shortSupportPoints).
   const behindRef=X(5)*(1-ownGoalDanger({...focus,side}));
-  for(const flank of [-1,1])offerJob({purpose:'outlet',kind:'support',point:{x:focus.x-s*behindRef,y:focus.y+flank*Y(9)},points:p=>closeSupport(p).filter(v=>(v.y-focus.y)*flank>2),eligible:p=>distance(p,focus)<25&&!(p.role==='FB'&&t.fullbacks==='hold'&&depth(side,p.x)>bd-3),fit:p=>.8+p.traits.comesShort*.3+p.skills.reading*.02,reason:'Oferă un unghi diferit pentru următoarea pasă.'});
+  for(const flank of [-1,1])offerJob({purpose:'outlet',kind:'support',point:{x:focus.x-s*behindRef,y:focus.y+flank*Y(9)},points:p=>closeSupport(p).filter(v=>(v.y-focus.y)*flank>2),eligible:p=>distance(p,focus)<25&&!(p.role==='FB'&&S.FULLBACKS[t.fullbacks??'balanced'].staysBack.v&&depth(side,p.x)>bd-3),fit:p=>.8+p.traits.comesShort*.3+p.skills.reading*.02,reason:'Oferă un unghi diferit pentru următoarea pasă.'});
   // Hold width on the far side: pin a defender away from the ball, or be the
   // free man for a switch. Its base value is what the Width setting asks of
   // the wingers; it competes with every other job on the same reads.

@@ -1,3 +1,4 @@
+import * as S from './style.js';
 import {L,W,GH,HEIGHT,BOX_DEPTH,BOX_HALF,SPOT,X,Y,G} from './pitch.js';
 import {clamp} from './model.js';
 import type {PracticePlayer} from './practice.js';
@@ -128,7 +129,7 @@ export function goalBoundFlight(keeper:Pick<PracticePlayer,'side'|'x'|'y'>,ball:
 export function markPosition(marker:PracticePlayer,receiver:Vec,ball:Vec,style:'balanced'|'zonal'|'tight'='balanced'):Vec{
  const goal={x:marker.side===0?0:L,y:0},toGoal=normalize(goal.x-receiver.x,goal.y-receiver.y);
  const toBall=normalize(ball.x-receiver.x,ball.y-receiver.y);
- const gap=style==='tight'?.95:1.4,screen=style==='tight'?.4:.65;
+ const gap=S.MARKING[style].spotGap.v,screen=S.MARKING[style].spotScreen.v;
  return {x:receiver.x+toGoal.x*gap+toBall.x*screen,y:receiver.y+toGoal.y*gap+toBall.y*screen};
 }
 

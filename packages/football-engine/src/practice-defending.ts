@@ -109,7 +109,7 @@ export const UNOWNED={ball:8,danger:7};
 export const UNOWNED_WATCH:Record<Tactics['line'],number>=S.view(S.LINE,'stepOut');
 export const WATCH_PRESS:Record<Tactics['press'],number>=S.view(S.PRESS,'watchShift');
 /** Keeping a man (s of run credited to the current owner), by Marking. */
-export const KEEP:Record<NonNullable<Tactics['marking']>,number>={tight:2.5,balanced:1.5,zonal:.8};
+export const KEEP:Record<NonNullable<Tactics['marking']>,number>=S.view(S.MARKING,'keep');
 /** A run behind his marker: never handed on. Two runners crossing in front of their markers: an exchange. */
 export const KEEP_BALL=.5,KEEP_RUNNER=4,KEEP_BEATEN=.3,KEEP_CROSSING=.15,CROSS_GAP=3.5;
 const SHIFT=KEEP_RUNNER+2.5;
@@ -149,18 +149,18 @@ export const CLEAR_R=24,CLEAR_R_RUN=32,CLEAR_W=1.6,CLEAR_W_GROW=.12,CLEAR_SEE=.1
 /** Near our goal (the man on the ball within NEAR_BLOCK m) the presser must be the block: goal-side of him within BLOCK_REACH m, or a team-mate who is steps in. */
 export const NEAR_BLOCK=14,BLOCK_REACH=3;
 /** Marking distance off the man (one pass away or near goal), by Marking. */
-export const MARK_GAP:Record<NonNullable<Tactics['marking']>,number>={tight:.8,balanced:1,zonal:1.4};
+export const MARK_GAP:Record<NonNullable<Tactics['marking']>,number>=S.view(S.MARKING,'markGap');
 /** Tight: within ONE_PASS m of the ball, fully loose beyond ONE_PASS_FAR; or within NEAR_GOAL m of goal (to NEAR_GOAL_FAR). */
 export const ONE_PASS=13,ONE_PASS_FAR=19,NEAR_GOAL=16,NEAR_GOAL_FAR=20;
 /** Goal-side margin (m along the man-to-goal line) he never gives up. */
 export const GOALSIDE=.7;
 /** The marking distance grows with the man's distance from our goal: from `from` m, `rate` m per m, up to `max`. */
 export const FAR_CUSHION={from:15,rate:.35,max:3.5};
-export const CUSHION_MARKING:Record<NonNullable<Tactics['marking']>,number>={tight:.3,balanced:1,zonal:1.2};
+export const CUSHION_MARKING:Record<NonNullable<Tactics['marking']>,number>=S.view(S.MARKING,'cushion');
 /** The shade towards the ball of a tight marker (m). */
 export const SHADE=.5;
 /** Sagging off a far man: what he can afford (reach), by Marking, Press and Width. */
-export const SAG:Record<NonNullable<Tactics['marking']>,number>={tight:.4,balanced:1,zonal:1.25};
+export const SAG:Record<NonNullable<Tactics['marking']>,number>=S.view(S.MARKING,'sag');
 export const PRESS_SAG:Record<Tactics['press'],number>=S.view(S.PRESS,'sag');
 export const WIDTH_SAG:Record<Tactics['width'],number>=S.view(S.WIDTH,'sag');
 export const SAG_CAP=6.5;
@@ -387,7 +387,7 @@ export function readMan(d:PracticePlayer,a:PracticePlayer,input:Pick<DefendInput
  }
  const base=.3+.3*close+(.7+close)*danger+(running?.5*danger:0);
  // (Tight marking follows its men wherever they are: its weights are never scaled down for a harmless man)
- const scale=THREAT_MIX+THREAT_W*threat,weight=matter==='ball'?3:matter==='spare'?0:pic?base*(tactics.marking==='tight'?Math.max(1,scale):scale):base;
+ const scale=THREAT_MIX+THREAT_W*threat,weight=matter==='ball'?3:matter==='spare'?0:pic?base*(S.MARKING[tactics.marking??'balanced'].threatFloor.v?Math.max(1,scale):scale):base;
  return {id:a.id,v:run??v,matter,weight,dg,running,danger,threat,reach};
 }
 

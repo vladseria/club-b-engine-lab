@@ -94,7 +94,7 @@ export function attackingSpaceReader(players:PracticePlayer[],carrier:PracticePl
    // or in a formation without one (2-2) the leading winger, scaled from his
    // own role's value so "mixed" leaves him as he was.
    const setting=S.STRIKER[tactics.striker??'mixed'].attackValue.v;
-   const roleValue=p.role==='GK'?0:p.role==='ST'?setting:p.role==='W'||p.role==='AM'?.85:p.role==='CM'?.6:p.role==='FB'?(tactics.fullbacks==='hold'?.2:.5):.3;
+   const roleValue=p.role==='GK'?0:p.role==='ST'?setting:p.role==='W'||p.role==='AM'?.85:p.role==='CM'?.6:p.role==='FB'?(S.FULLBACKS[tactics.fullbacks??'balanced'].attackValue.v):.3;
    const attackingRole=p.role!=='ST'&&p.id===striker?roleValue*setting:roleValue;
    const ambition=attackingRole*(S.COMMIT.ambitionBase.v+tactics.commit*S.COMMIT.ambitionPer.v)*weight;
    const connected=(v:Vec)=>Math.exp(-Math.max(0,distance(carrier,v)-12)/10);

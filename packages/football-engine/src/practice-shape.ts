@@ -159,8 +159,8 @@ export function teamShape(players:PracticePlayer[],ball:MovingBall,attacking:Sid
    else if(p.role==='DM'){x=middle-X(7);y=p.lane*Y(8)+shift*.8;kind='cover';}
    else if(p.role==='FB'){
     const near=p.lane*focus.y>=0;
-    x=tactics.fullbacks==='hold'?back+5:middle+(near?1:-5)+(tactics.fullbacks==='overlap'?3:0);
-    y=p.lane*wide+shift*.4;kind=tactics.fullbacks==='hold'?'cover':'width';
+    x=S.FULLBACKS[tactics.fullbacks??'balanced'].staysBack.v?back+S.FULLBACKS_COMMON.holdBack.v:middle+(near?1:-5)+S.FULLBACKS[tactics.fullbacks??'balanced'].overlapStep.v;
+    y=p.lane*wide+shift*.4;kind=S.FULLBACKS[tactics.fullbacks??'balanced'].staysBack.v?'cover':'width';
    }else if(p.role==='CM'||p.role==='AM'){x=middle+(p.role==='AM'?7:1)-p.traits.comesShort*3;y=p.lane*11+shift*spread.middle;}
    // A winger holds his lane; narrow brings his resting position towards the
    // ball's side (closer support), wide keeps it on the touchline.

@@ -489,6 +489,43 @@ export const FREE_KICK_COMMON={
  boxY:{v:2,unit:'m',kind:'positionOffset',axis:'W',at:['practice-restarts.ts:88 (FK_BOX)'],says:'... this across'},
 } as const satisfies Record<string,Effect>;
 
+// ------------------------------------------------------------------ Marking and Fullbacks (S13: fields Ballers fixes)
+/** Marking and Fullbacks are not on the Ballers board: lib/ballers/compute.ts engineTeam always sends 'balanced'
+ * (plan 6.2), but the engine plays every option (and the standing 'mark' instruction calls the tight marking spot).
+ * Both fields are OPTIONAL; a missing value plays as Balanced at every read site. */
+export interface MarkingOption{keep:Effect;markGap:Effect;cushion:Effect;sag:Effect;threatFloor:Effect<boolean>;spotGap:Effect;spotScreen:Effect}
+const markingOption=(o:{keep:number;markGap:number;cushion:number;sag:number;threatFloor:boolean;spotGap:number;spotScreen:number}):MarkingOption=>({
+ keep:{v:o.keep,unit:'B',kind:'defendingThreshold',at:['practice-defending.ts:509 (KEEP)'],says:'how strongly a marker keeps his man'},
+ markGap:{v:o.markGap,unit:'m',kind:'positionOffset',axis:'body',at:['practice-defending.ts:807','practice-defending.ts:810 (MARK_GAP)'],says:'the marking distance'},
+ cushion:{v:o.cushion,unit:'x',kind:'multiplier',at:['practice-defending.ts:807 (CUSHION_MARKING)'],says:'how much that distance grows with a quicker or far man'},
+ sag:{v:o.sag,unit:'x',kind:'multiplier',at:['practice-defending.ts:726 (SAG)'],says:'how far a marker may sag off his man'},
+ threatFloor:{v:o.threatFloor,unit:'flag',kind:'defendingThreshold',at:['practice-defending.ts:390'],says:'a picked-up man\'s weight never drops below his base (tight marking)'},
+ spotGap:{v:o.spotGap,unit:'m',kind:'positionOffset',axis:'body',at:['practice-football.ts:132 (markPosition)'],says:'the marking spot: this far goal-side of the man'},
+ spotScreen:{v:o.spotScreen,unit:'m',kind:'positionOffset',axis:'body',at:['practice-football.ts:132 (markPosition)'],says:'... and this far toward the ball'},
+});
+/** Marking. Keys in practice-defending.ts's own order (tight, balanced, zonal). */
+export const MARKING:Readonly<Record<NonNullable<Tactics['marking']>,MarkingOption>>={
+ tight:markingOption({keep:2.5,markGap:.8,cushion:.3,sag:.4,threatFloor:true,spotGap:.95,spotScreen:.4}),
+ balanced:markingOption({keep:1.5,markGap:1,cushion:1,sag:1,threatFloor:false,spotGap:1.4,spotScreen:.65}),
+ zonal:markingOption({keep:.8,markGap:1.4,cushion:1.2,sag:1.25,threatFloor:false,spotGap:1.4,spotScreen:.65}),
+};
+export interface FullbacksOption{attackValue:Effect;staysBack:Effect<boolean>;overlaps:Effect<boolean>;overlapStep:Effect}
+const fullbacksOption=(o:{attackValue:number;staysBack:boolean;overlaps:boolean;overlapStep:number}):FullbacksOption=>({
+ attackValue:{v:o.attackValue,unit:'x',kind:'multiplier',at:['practice-attacking-space.ts:97'],says:'a fullback\'s attacking-space value'},
+ staysBack:{v:o.staysBack,unit:'flag',kind:'jobOffered',at:['practice-coordination.ts:991','practice-coordination.ts:998','practice-shape.ts:162','practice-shape.ts:163'],says:'fullbacks hold: no overlap, no outlet ahead of the ball, a covering shape slot'},
+ overlaps:{v:o.overlaps,unit:'flag',kind:'jobOffered',at:['practice-coordination.ts:991'],says:'the overlap is offered whatever Bodies forward says'},
+ overlapStep:{v:o.overlapStep,unit:'m',kind:'positionOffset',axis:'L',at:['practice-shape.ts:162'],says:'the fullback\'s shape slot steps this much higher'},
+});
+/** Fullbacks (only formations with FB roles have fullbacks; the five-a-side shapes have none: plan 6.3). */
+export const FULLBACKS:Readonly<Record<NonNullable<Tactics['fullbacks']>,FullbacksOption>>={
+ balanced:fullbacksOption({attackValue:.5,staysBack:false,overlaps:false,overlapStep:0}),
+ overlap:fullbacksOption({attackValue:.5,staysBack:false,overlaps:true,overlapStep:3}),
+ hold:fullbacksOption({attackValue:.2,staysBack:true,overlaps:false,overlapStep:0}),
+};
+export const FULLBACKS_COMMON={
+ holdBack:{v:5,unit:'m',kind:'positionOffset',axis:'L',at:['practice-shape.ts:162'],says:'a holding fullback\'s shape slot: this far above the back line'},
+} as const satisfies Record<string,Effect>;
+
 // ------------------------------------------------------------------ views (old names survive, rule 1.3.6)
 type Scalar<O>={[K in keyof O]:O[K] extends Effect<infer V>?K:never}[keyof O];
 /** {option: entry.v} for one scalar effect, keys in the table's own order. */
