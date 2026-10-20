@@ -35,6 +35,7 @@ export function runnerBehindShoulder(defender:Pick<PracticePlayer,'x'|'y'|'angle
  return Math.abs(Math.atan2(Math.sin(bearing-defender.angle),Math.cos(bearing-defender.angle)))>RUNNER_VIEW;
 }
 import {arrivalTime} from './practice-arrival.js';
+import {WORLD} from './world.js';
 export {arrivalTime};
 
 /** Who can close a receiver before his next ball leaves (the "defender first
@@ -163,7 +164,7 @@ function defensiveAllocationCost(players:PracticePlayer[],owner:PracticePlayer,t
  * COVER_NEAR m of the goal centre) the threat is the cut-back, not the post:
  * he covers on the line from the ball to the penalty spot, never deeper than
  * COVER_FLOOR m from the goal line (the keeper owns the goal line). */
-export const COVER_NEAR=14,COVER_FLOOR=4,SHOT_LINE=3,COVER_CENTRAL=5;
+export const COVER_NEAR=WORLD.geometry.defense.COVER_NEAR.v,COVER_FLOOR=4,SHOT_LINE=3,COVER_CENTRAL=WORLD.geometry.defense.COVER_CENTRAL.v;
 export function coverPosition(presser:PracticePlayer,owner:PracticePlayer,seen:Vec=owner):Vec{
  const g=goal(presser),u=unit(g.x-seen.x,-seen.y);
  // Near the touchline the first defender already contains the outside.
@@ -173,7 +174,7 @@ export function coverPosition(presser:PracticePlayer,owner:PracticePlayer,seen:V
  const gap=clamp(distance(presser,seen)*.5+2.5,3.5,6.5)+wide*2.5;
  const depthOf=(v:Vec)=>presser.side===0?v.x:L-v.x,atDepth=(v:Vec,d:number)=>({x:presser.side===0?d:L-d,y:v.y});
  const far={x:seen.x+u.x*gap,y:seen.y+u.y*gap};
- const near=clamp((COVER_NEAR+4-distance(seen,g))/4,0,1);
+ const near=clamp((COVER_NEAR+WORLD.geometry.defense.coverNearOut.v-distance(seen,g))/WORLD.geometry.defense.coverNearSpan.v,0,1);
  if(near<=0)return inside(depthOf(far)<COVER_FLOOR?atDepth(far,COVER_FLOOR):far);
  // Defending round (step 4): near goal the cover protects what the ball can
  // do next: from a central ball the shot, so he stands on the shot line,
@@ -182,7 +183,7 @@ export function coverPosition(presser:PracticePlayer,owner:PracticePlayer,seen:V
  const spot={x:presser.side===0?SPOT:L-SPOT,y:0},toSpot=distance(seen,spot),v=unit(spot.x-seen.x,spot.y-seen.y);
  const along=Math.min(gap,toSpot*.75),cut={x:seen.x+v.x*along,y:seen.y+v.y*along};
  const toGoal=distance(seen,g),shot={x:seen.x+u.x*Math.min(SHOT_LINE,toGoal*.45),y:seen.y+u.y*Math.min(SHOT_LINE,toGoal*.45)};
- const wideBall=clamp((Math.abs(seen.y)-COVER_CENTRAL)/5,0,1);
+ const wideBall=clamp((Math.abs(seen.y)-COVER_CENTRAL)/WORLD.geometry.defense.coverWideSpan.v,0,1);
  const close={x:shot.x+(cut.x-shot.x)*wideBall,y:shot.y+(cut.y-shot.y)*wideBall};
  const blend={x:far.x+(close.x-far.x)*near,y:far.y+(close.y-far.y)*near};
  return inside(depthOf(blend)<COVER_FLOOR?atDepth(blend,COVER_FLOOR):blend);
@@ -192,7 +193,7 @@ export function coverPosition(presser:PracticePlayer,owner:PracticePlayer,seen:V
  * in front of the ball, goal-side, while the team drops into shape (Regroup);
  * 'engage' closes the ball down (a counter-press). A shot threat is always
  * closed down. */
-export const BLOCK_NEAR=12,BLOCK_GAP=1;
+export const BLOCK_NEAR=WORLD.geometry.defense.BLOCK_NEAR.v,BLOCK_GAP=1;
 export function containMovement(p:PracticePlayer,owner:PracticePlayer,players:PracticePlayer[],tactics:Tactics,seen:Vec=owner,intent?:'delay'|'engage'):DefensiveMovement{
  const u=unit(goal(p).x-seen.x,-seen.y);
  // A goalkeeper cannot count as the covering outfield defender.
@@ -300,7 +301,7 @@ export function assignFlight(players:PracticePlayer[],ball:import('./movement.js
  if(defender){
   const point=result.meetings[defender.id],focus={...defender,...point,side:attacking},aim=coverPosition(defender,focus);
   const teammates=players.filter(p=>p.side===defender.side&&p.id!==defender.id&&p.role!=='GK'&&!unavailable.has(p.id));
-  const threats=players.filter(p=>p.side!==defender.side&&p.role!=='GK'&&distance(p,goal(defender))<16);
+  const threats=players.filter(p=>p.side!==defender.side&&p.role!=='GK'&&distance(p,goal(defender))<WORLD.geometry.defense.flightThreatRange.v);
   const eligible=teammates.filter(p=>distance(p,point)<20)
    .map(p=>({p,score:arrivalTime(p,aim)+(distance(p,goal(p))>distance(point,goal(p))?1:0)+
     (threats.some(q=>distance(p,q)<3&&!teammates.some(d=>d.id!==p.id&&arrivalTime(d,q)<.8))?1.8:0)})).sort((a,b)=>a.score-b.score||a.p.id.localeCompare(b.p.id));
