@@ -27,16 +27,20 @@ const r1=(v:number)=>Math.round(v*10)/10,r3=(v:number)=>Math.round(v*1000)/1000;
 const fnv=(s:string,h:number)=>{for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0;}return h>>>0;};
 const print=(c:any)=>{const s=JSON.stringify(c);return [s.length,fnv(s,2166136261),fnv(s,0x9747b28c)];};
 
+// (recon round 3) sty.<A>v<B>: the plain engine, eq squad both sides, our side style A, theirs style B, each preset as
+// shipped (its own Line), 1-2-1; A, B in di | ba | sh (Short = combinations) | co (Counter). No controller.
+const STY=/^sty\.(di|ba|sh|co)v(di|ba|sh|co)$/;
 export function parseArm(arm:string){
+ const y=STY.exec(arm);if(y)return {squad:'eq',style:y[1],line:'pre',el:new Set<string>(),vs:y[2]};
  const m=/^(eq|rp)\.(di|ba)\.(deep|std|high)\.(0|a?b?c?d?)$/.exec(arm);
  if(!m||m[4]==='')throw Error('bad arm '+arm);
  return {squad:m[1],style:m[2],line:m[3],el:new Set(m[4]==='0'?[]:m[4].split(''))};
 }
 export const armTreatment=(arm:string)=>(parseArm(arm),arm);
 export function inputOf(arm:string,seed:number):any{
- const {squad,style,line}=parseArm(arm),ours=seed%2,sides=[null,null] as any[];
+ const {squad,style,line,vs}=parseArm(arm) as any,ours=seed%2,sides=[null,null] as any[];
  sides[ours]=sqSide('PDS','#3fd38a',squad,style,line);
- sides[1-ours]=sqSide('OPP','#d33f6a',squad,'di','std');
+ sides[1-ours]=vs?sqSide('OPP','#d33f6a',squad,vs,'pre'):sqSide('OPP','#d33f6a',squad,'di','std');
  return {v:1,match:`dc-${seed}`,seed,kickoff:(seed>>1)%2,duration:900,sides};
 }
 
@@ -73,7 +77,8 @@ export function play(t:{label:string;arm:string;seed:number;rev:string;watch?:bo
   plat:`${process.platform}-${process.arch}-node${process.versions.node}`,build:run.engineBuild.slice(0,8),
   score:c.score,chances:chances?chances.map(r3):null,print:print(c),ms,st,m:m.side,ch:m.chances,pd:ctl?ctl.log:null};
  // (--recon) the box reception behind every clear chance after a depth run against our side (recon.ts), with a compact window
- if(t.recon)row.recon=boxRecon(R,rIdx,m.chances[1-ours],1-ours,frames,ev);
+ // (recon round 3, style arms) every clear chance of BOTH sides, each side's attack, no windows
+ if(t.recon)row.recon=STY.test(t.arm)?{sides:[0,1].map(s=>boxRecon(R,rIdx,m.chances[s],s,frames,ev,{all:true,noWins:true}).chances),styles:inp.sides.map((x:any)=>x.style)}:boxRecon(R,rIdx,m.chances[1-ours],1-ours,frames,ev);
  if(t.watch){row.header=c.header;row.frames=frames;row.events=ev;row.jobs=jobs;row.aims=aims;row.directSides=[0,1].filter(s=>inp.sides[s].style==='direct'&&!(el.size&&1-s===ours));}
  return row;
 }

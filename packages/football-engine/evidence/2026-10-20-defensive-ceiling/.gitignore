@@ -8,3 +8,5 @@ results/par.jsonl
 results/conf.jsonl
 results/rtest.jsonl
 results/recon2.jsonl
+results/stest.jsonl
+results/styles.jsonl

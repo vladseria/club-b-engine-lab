@@ -25,7 +25,9 @@ const dist=(a:{x:number;y:number},b:{x:number;y:number})=>Math.hypot(a.x-b.x,a.y
 const r1=(v:number)=>Math.round(v*10)/10,r2=(v:number)=>Math.round(v*100)/100;
 export const kindOf=(c:any)=>c.via==='restart'?'restart':c.via==='none'?'no pass':c.via==='loose'?'loose':c.chain?(c.chain.from>=20?(c.chain.shooter?'depth run: runner shot':'depth run: then a team-mate'):'short run'):c.ballDepth<4?'cut-back':'other pass';
 
-export function boxRecon(R:any,rIdx:Map<string,number>,ch:any[],A:number,compactFrames:any[],compactEvents:any[]){
+/** opts.all (recon round 3, styles): every clear chance, not only the depth-run ones (a chance with no clean reception
+ * keeps only its type, table rate and goal); opts.noWins: keep no compact windows. */
+export function boxRecon(R:any,rIdx:Map<string,number>,ch:any[],A:number,compactFrames:any[],compactEvents:any[],opts:{all?:boolean;noWins?:boolean}={}){
  const roster:any[]=R.players,F:any[]=R.frames,D=1-A,g={x:D===0?0:L,y:0};
  const rosterOfC=new Map<number,number>();roster.forEach((p,i)=>{const c=rIdx.get(p.id);if(c!==undefined)rosterOfC.set(c,i);});
  const fAt=(t:number)=>{let lo=0,hi=F.length-1;while(lo<hi){const m=(lo+hi+1)>>1;if(F[m].time<=t+1e-6)lo=m;else hi=m-1;}return lo;};
@@ -35,12 +37,16 @@ export function boxRecon(R:any,rIdx:Map<string,number>,ch:any[],A:number,compact
  const jobAt=(i:number,t:number)=>{let best:any=null;for(const c of byPlayer.get(i)??[]){if(c.time<=t+1e-6)best=c;else break;}return best;};
  const out:any[]=[],wins:any[]=[];
  for(const c of ch){
-  const kind=kindOf(c);if(!kind.startsWith('depth run'))continue;
-  const own=!!c.chain.shooter,q=own?c.chain._q:c._q,rc=own?c.chain._g:c._g;
-  const pass=R.events[q],shot=R.events[c._sq],rr=rosterOfC.get(rc)!,rid=roster[rr].id;
+  const kind=kindOf(c);if(!opts.all&&!kind.startsWith('depth run'))continue;
+  if(c._q===undefined&&kind!=='depth run: runner shot'){const shot=R.events[c._sq];
+   out.push({t:r1(shot?.time??0),kind,noReception:true,chance:r2(shotChance(compactEvents[c._sq])??0),goal:R.events.some((e:any)=>e.kind==='goal'&&e.side===A&&e.time>=shot.time&&e.time<=shot.time+4)});continue;}
+  const own=kind==='depth run: runner shot',q=own?c.chain._q:c._q,rc=own?c.chain._g:c._g;
+  const pass=R.events[q],shot=R.events[c._sq],rr=rosterOfC.get(rc)!,rid=roster[rr]?.id;
+  if(!pass||!shot||rr===undefined){out.push({t:r1(shot?.time??0),kind,error:'index'});continue;}
   // (a first-time finish: the receive is the shot itself)
   const rt=Math.min(own?c.chain._rt:c._rt,shot.time);
-  if(!pass||!shot||rr===undefined){out.push({t:r1(shot?.time??0),kind,error:'index'});continue;}
+  // (round 3) aimed beyond D's deepest outfielder at the pass: the shot-leading pass, and the depth run's pass
+  const behindOf=(e:any)=>{const aim=e?.pass?.aim??e?.aerial?.aim;if(!aim)return null;const f=F[fAt(e.time)],dd=(x:number)=>D===0?x:L-x;return dd(aim.x)<Math.min(...outD.map(i=>dd(f.players[i].x)))-.3;};
   // flight
   const k0=fAt(pass.time),k1=Math.max(k0,fAt(rt));
   let apex=0,ka=k0;for(let k=k0;k<=k1;k++)if(F[k].ball.z>apex){apex=F[k].ball.z;ka=k;}
@@ -69,13 +75,13 @@ export function boxRecon(R:any,rIdx:Map<string,number>,ch:any[],A:number,compact
   const keeper=gk<0?'none':came?'came':kStart-kRecv>=1?'stepped':'stayed';
   const goal=R.events.some((e:any)=>e.kind==='goal'&&e.side===A&&e.time>=shot.time&&e.time<=shot.time+4);
   const se=compactEvents[c._sq];
-  out.push({t:r1(shot.time),kind,recv:roster[rr].role,lofted,apex:r1(apex),landGoal:r1(dist(land,g)),
+  out.push({t:r1(shot.time),kind,recv:roster[rr].role,recvGoal:r1(dist(pos(fr,rr),g)),dMarkerRecv:marker!==undefined?r1(dist(pos(fr,marker),pos(fr,rr))):null,behind:behindOf(pass),chainBehind:c.chain?behindOf(R.events[c.chain._q]):null,lofted,apex:r1(apex),landGoal:r1(dist(land,g)),
    dRecv:r1(dR),dMarker:dM===null?null:r1(dM),dKeeper:dK===null?null:r1(dK),nearest:three[0]?.[0]??null,nearestBy:three[1]?r1(three[1][1]-three[0][1]):null,
    nearestD:allD?(allD.i===marker?'marker':allD.i===undefined?null:'other defender'):null,nearestDd:allD?r1(allD.d):null,
    markerGoalSide,markerGoalSideOfLanding,duel:duels.length?{n:duels.length,by:duels.map((d:any)=>d.defender===roster[marker??-1]?.id?'marker':'other'),outcome:duels.map((d:any)=>d.outcome)}:null,
    air:air.length?air.map((d:any)=>({winner:d.winner===rid?'receiver':'defender',outcome:d.outcome})):null,challengers:challengers.size,challengedByMarker:marker!==undefined&&challengers.has(roster[marker].id),tackles,
    markerDuties:[...duties],marker:summary,keeper,keeperDist:r1(kRecv),keeperLine:gk>=0?r1(Math.abs(pos(fr,gk).x-g.x)):null,recvToShot:r2(shot.time-rt),chance:r2(shotChance(se)??0),goal});
-  wins.push({t:r1(shot.time),from:Math.round((shot.time-12)*1000),frames:compactFrames.filter((f:any)=>f.t>=(shot.time-12)*1000&&f.t<=(shot.time+1)*1000)});
+  if(!opts.noWins)wins.push({t:r1(shot.time),from:Math.round((shot.time-12)*1000),frames:compactFrames.filter((f:any)=>f.t>=(shot.time-12)*1000&&f.t<=(shot.time+1)*1000)});
  }
  return {chances:out,wins};
 }

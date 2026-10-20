@@ -25,7 +25,9 @@ export function cells(squad){
   `${squad}.di.deep.0`,`${squad}.di.high.0`,`${squad}.di.std.0`,                            // controls (depth's price today, the mirror null)
  ];
 }
-const expand=a=>a==='@screen'?[...cells('eq'),...cells('rp')]:a==='@confirm'?['eq','rp'].flatMap(s=>[`${s}.di.deep.abcd`,`${s}.di.std.abcd`,`${s}.di.high.abcd`]):a==='@parity'?['eq.di.std.0','rp.ba.deep.0']:[a];
+const STYLES=['di','ba','sh','co'];
+// @styles (recon round 3): every ordered pairing of the four styles, mirrors included (16 arms)
+const expand=a=>a==='@styles'?STYLES.flatMap(x=>STYLES.map(y=>`sty.${x}v${y}`)):a==='@screen'?[...cells('eq'),...cells('rp')]:a==='@confirm'?['eq','rp'].flatMap(s=>[`${s}.di.deep.abcd`,`${s}.di.std.abcd`,`${s}.di.high.abcd`]):a==='@parity'?['eq.di.std.0','rp.ba.deep.0']:[a];
 
 if(!isMainThread){
  const hooked=await import(pathToFileURL(workerData.hooked).href);
