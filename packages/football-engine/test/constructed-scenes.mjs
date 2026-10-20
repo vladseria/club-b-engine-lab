@@ -30,5 +30,8 @@ export const mismatch=f=>{
 };
 /** Tackles that took the ball (a 'tackle' event naming the victim's balance; a ridden tackle names none, a foul is a 'foul'). */
 export const wonTackles=r=>r.events.filter(e=>e.kind==='tackle'&&e.balance?.victim);
+/** The same, but he has the ball with his back to goal: he turns before he can strike, so the shot is long enough in
+ * preparation for the release review to look at it. */
+export const turnShot=()=>constructed([[3,0],[14,0],[22,-8],[24,8],[38,0,Math.PI],[47,0],[26,2],[24,-4],[20,6],[18,-3]]);
 /** Side 0's #3 near the byline at (38, -7) facing across goal; #5 unmarked in front of goal at (39, 3). */
 export const squareBall=()=>constructed([[3,0],[16,0],[38,-7,Math.PI/2],[33,0],[39,3],[47,0],[30,4],[28,-6],[25,6],[22,-2]],[0,3]);

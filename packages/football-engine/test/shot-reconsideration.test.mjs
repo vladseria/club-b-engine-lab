@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {runMatch,teamApproaches,defensiveApproaches} from '../dist/index.js';
-import {play,clearShot,squareBall} from './constructed-scenes.mjs';
+import {play,clearShot,turnShot,squareBall} from './constructed-scenes.mjs';
 const base=JSON.parse(readFileSync(new URL('./feint-release-scene.json',import.meta.url))).fixture;
 function match(seed,opponent,durationSeconds,style='balanced'){const fixture=structuredClone(base);fixture.seed=seed;fixture.teams[0].lineup[1]='motanescu';Object.assign(fixture.teams[0].tactics,teamApproaches[style].settings);Object.assign(fixture.teams[1].tactics,defensiveApproaches[opponent].tactics);return runMatch({fixture,durationSeconds}).result;}
 
@@ -89,18 +89,24 @@ test.skip('a prepared shot yields to a better option and must prepare again if s
 });
 
 test('release review preserves an ordinary shot when its opportunity remains useful',()=>{
- // If this fails: an attacker alone 10 m out with the goal in front of him dawdles or passes instead of shooting, or a
- // strike leaves with no foot on it. Enough: nothing in the first scene argues against shooting, so a review that drops
- // this shot drops shots as a class; the square ball adds a first-time strike for the contact check.
+ // If this fails: an attacker alone 10 m out with the goal in front of him dawdles, sets himself again and again, or
+ // passes instead of shooting, or a strike leaves with no foot on it. Enough: nothing in either scene argues against
+ // shooting, so a review that drops these shots drops shots as a class; with his back to goal he turns first, so the
+ // review does look at that shot (a quick strike is committed before it can). The square ball adds a first-time strike.
  // (Lane C, 2026-10-21: replaces seed 13013's 75 s match, re-pinned ten times since 2026-09-29.)
- const r=play(clearShot()),shooter=r.players.findIndex(p=>p.side===0&&p.number===5),id=r.players[shooter].id;
- const shot=r.events.find(e=>e.kind==='shot');
- assert.equal(shot?.actor,id,'the man on the ball shoots');
- assert(!shot.firstTime&&!shot.technique&&!shot.freeKick,'an ordinary prepared foot shot');
- const preparation=r.choices.findLast(c=>c.player===shooter&&c.action&&c.time<shot.time);
- assert.equal(preparation?.action,'shoot','prepared as a shot');assert(shot.time-preparation.time<2,'and released, not reviewed away');
- assert(!r.events.some(e=>e.actor===id&&e.kind==='receive'&&e.time>preparation.time&&e.time<shot.time));
- for(const run of [r,play(squareBall())])for(const shot of run.events.filter(e=>e.kind==='shot')){
+ const runs=[clearShot(),turnShot()].map(s=>play(s));
+ for(const r of runs){
+  const shooter=r.players.findIndex(p=>p.side===0&&p.number===5),id=r.players[shooter].id;
+  const shot=r.events.find(e=>e.kind==='shot');
+  assert.equal(shot?.actor,id,'the man on the ball shoots');
+  assert(!shot.firstTime&&!shot.technique&&!shot.freeKick,'an ordinary prepared foot shot');
+  // the shot he prepares is the one he strikes: one preparation, released within 2 s, no touch between
+  const preparations=r.choices.filter(c=>c.player===shooter&&c.kind==='prepare'&&c.action&&c.time<shot.time);
+  assert.deepEqual(preparations.map(c=>c.action),['shoot'],`prepared once, as a shot (${preparations.map(c=>`${c.action}@${c.time.toFixed(2)}`)})`);
+  assert(shot.time-preparations[0].time<2,'and released, not reviewed away');
+  assert(!r.events.some(e=>e.actor===id&&e.kind==='receive'&&e.time>preparations[0].time&&e.time<shot.time));
+ }
+ for(const run of [...runs,play(squareBall())])for(const shot of run.events.filter(e=>e.kind==='shot')){
   assert(shot.shot);if(shot.freeKick)continue;
   // A first-time contact is swept within the tick; its event is emitted at
   // the tick boundary. Ordinary prepared strikes retain exact contact times.

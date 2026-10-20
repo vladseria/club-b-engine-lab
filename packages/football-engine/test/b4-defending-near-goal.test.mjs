@@ -7,6 +7,7 @@ import {runnerPickupDelay,runnerBehindShoulder,RUNNER_LAPSE_MAX} from '../dist/p
 import {PracticePlaybook} from '../dist/practice-playbook.js';
 import {runMatch} from '../dist/index.js';
 import {L,GH} from '../dist/pitch.js';
+import {KEEPER_SPREAD} from '../dist/practice-keeper.js';
 import {constructed,play} from './constructed-scenes.mjs';
 const fixture=JSON.parse(readFileSync(new URL('./fixture.json',import.meta.url)));
 const place=(players,at)=>players.forEach((p,i)=>Object.assign(p,{x:at[i][0],y:at[i][1],vx:0,vy:0}));
@@ -101,18 +102,22 @@ test('the defending keeper is set near the bisector of the posts when the shot c
  // half off his line and off-centre, so every strike tests whether he re-set himself as the ball moved.
  // (Lane C, 2026-10-21: replaces seed 2057's 300 s match, re-pinned about sixteen times since 2026-10-03; the old match
  // read 0.30-1.00 m by seed, a pooled 0.60 m on the lab. Shots from a standing start, struck before he can move,
- // are not the question; these all come after a carry.)
+ // are not the question; these all come after a carry, so only each run's first shot counts: a rebound comes while he is
+ // still getting up from the save.) The typical strike (the median) finds him within his own read spread of the angle
+ // (KEEPER_SPREAD: he finds the angle with an error drawn from it); a keeper may plant up to SET_PLANT off his spot, which
+ // is why single strikes are not judged. Mutation check: his ready spot moved 1 m sideways takes the median from 0.05 m
+ // to 0.74 m; the old mean bar alone missed that (0.63 -> 0.87 m).
  const facing=(x,y)=>Math.atan2(-y,48-x),miss=[];
  for(const [x,y] of [[28,0],[27,-6],[29,7],[30,-10],[25,-2]]){
   const r=play(constructed([[3,0],[8,0],[14,-8],[14,8],[x,y,facing(x,y)],[46,1.5],[16,2],[14,-4],[10,6],[9,-3]]));
-  for(const e of r.events.filter(e=>e.kind==='shot'&&e.actor)){
-   const s=r.players.find(p=>p.id===e.actor).side,d=1-s,g=r.players.findIndex(p=>p.side===d&&p.role==='GK');
-   const frame=r.frames.findLast(x=>x.time<=e.time-.02),from=frame.players[r.players.findIndex(p=>p.id===e.actor)],k=frame.players[g];
-   const dd=q=>d===0?q.x:L-q.x,bx=dd(from),a=(Math.atan2(GH-from.y,-bx)+Math.atan2(-GH-from.y,-bx))/2;
-   miss.push(Math.abs((dd(k)-bx)*Math.sin(a)-(k.y-from.y)*Math.cos(a)));
-  }
+  const e=r.events.find(e=>e.kind==='shot'&&e.actor);if(!e)continue;
+  const s=r.players.find(p=>p.id===e.actor).side,d=1-s,g=r.players.findIndex(p=>p.side===d&&p.role==='GK');
+  const frame=r.frames.findLast(x=>x.time<=e.time-.02),from=frame.players[r.players.findIndex(p=>p.id===e.actor)],k=frame.players[g];
+  const dd=q=>d===0?q.x:L-q.x,bx=dd(from),a=(Math.atan2(GH-from.y,-bx)+Math.atan2(-GH-from.y,-bx))/2;
+  miss.push(Math.abs((dd(k)-bx)*Math.sin(a)-(k.y-from.y)*Math.cos(a)));
  }
- assert(miss.length,'the runs at goal end in shots');
- const mean=miss.reduce((a,b)=>a+b,0)/miss.length;
+ assert(miss.length>=3,`the runs at goal end in shots (${miss.length})`);
+ const mean=miss.reduce((a,b)=>a+b,0)/miss.length,median=[...miss].sort((a,b)=>a-b)[Math.floor(miss.length/2)];
  assert(mean<.9,`mean lateral miss ${mean.toFixed(2)} m over ${miss.length} shots`);
+ assert(median<=KEEPER_SPREAD,`median lateral miss ${median.toFixed(2)} m (his read spread ${KEEPER_SPREAD} m)`);
 });

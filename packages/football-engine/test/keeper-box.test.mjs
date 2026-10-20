@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {runMatch,practicePlayers} from '../dist/index.js';
+import {runMatch,practicePlayers,createRestartSetup} from '../dist/index.js';
 import {keeperHandling} from '../dist/practice-keeper.js';
 import {advanceFlight} from '../dist/practice-flight.js';
 import {securePossessionOptions,strikeClearance,launchRisk} from '../dist/practice-possession.js';
@@ -64,11 +64,13 @@ test('a keeper dives only at the opponents\' ball: a team-mate\'s back-pass or t
  // On 07ffe814 a third of keeper dives (58 of 151 in six 900 s matches) were at
  // a ball his own side had just played (evidence/2026-09-30-keeper-box).
  // If this fails: a keeper throws himself at his own defender's back-pass, or at anything but the other side's ball.
- // Enough: a clear shot and a square ball struck first time beat him for position, so he dives in both; any ball his
- // own side plays in these runs is checked the same way. (Lane C, 2026-10-21: replaces the default fixture's 300 s match,
- // whose passage moved twice.)
+ // Enough: a clear shot and a square ball struck first time beat him for position, so he dives in both; a throw-in
+ // deep in our own half on the right puts a team-mate's ball in flight towards him (a keeper who dives at anything
+ // flying at his goal dives there). (Lane C, 2026-10-21: replaces the default fixture's 300 s match, whose passage
+ // moved twice.)
  let dived=0;
- for(const r of [play(clearShot()),play(squareBall())]){
+ const throwIn=createRestartSetup('throw',practicePlayers(structuredClone(fixture)),{side:'right',zone:'defensive'});
+ for(const r of [play(clearShot()),play(squareBall()),play(throwIn)]){
   // a ball an opponent won with a turnover and ran at goal is the opponents' even with no release event, so a turnover
   // counts as the last owner too (threat-defending round, 2026-10-10)
   const releases=r.events.filter(e=>['pass','clearance','shot','turnover'].includes(e.kind)&&e.actor);

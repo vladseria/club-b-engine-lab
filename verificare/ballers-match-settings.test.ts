@@ -3,7 +3,7 @@
 // what the players do. Real engine, real practice-fixture squads.
 import {describe,it,expect} from 'vitest';
 import {createHash} from 'node:crypto';
-import {runTraining,createTrainingSetup} from '../packages/football-engine/src/index';
+import {runTraining,createTrainingSetup,type TrainingSetup} from '../packages/football-engine/src/index';
 import {simulatePractice} from '../packages/football-engine/src/practice';
 import {ENGINE_BUILD} from '../packages/football-engine/src/build-info';
 import {computeMatch,engineTeam,validateInput,type FrozenInput,type FrozenSide} from '../lib/ballers/compute';
@@ -73,42 +73,64 @@ describe('match settings: defaults are byte-identical',()=>{
  },240000);
 });
 
-/** Metres the home keeper stands off his line while the opponents have the ball, pooled over every frame of three
- * constructed starts: the engine's training scenes mirrored, so the away side has just won the ball in its own half
- * (through the middle, down each side), 10 s each. */
-function keeperRead(settings?:unknown,lineup=LINEUP){
- const teams=sides(settings,lineup).map(engineTeam) as never,off:number[]=[];
- for(const scene of ['middle','left','right'] as const){
-  const s=createTrainingSetup(scene),away={...s,poses:s.poses.map(p=>({...p,side:(1-p.side) as 0|1,x:48-p.x,y:-p.y,angle:p.angle+Math.PI})),ball:{...s.ball,side:1 as const,x:48-s.ball.x,y:-s.ball.y}};
-  const r=runTraining({fixture:{teams,seed:1,kickoff:0},setup:away,durationSeconds:10,policy:'coordinated',substitutions:'none'}).result as unknown as {players:{id:string;side:number;role:string}[];frames:{players:{x:number}[];restart?:boolean;control?:{owner:string}}[]};
-  const gk=r.players.findIndex(p=>p.side===0&&p.role==='GK');
-  for(const f of r.frames)if(!f.restart&&f.control&&r.players.find(p=>p.id===f.control!.owner)?.side===1)off.push(f.players[gk].x);
- }
- return off.reduce((a,b)=>a+b,0)/Math.max(1,off.length);
+type Raw={frames:{players:{duty:string}[];restartInfo?:{taker:string}}[];players:{side:number;role:string}[];events:{kind:string;actor?:string;pass?:{aim:{x:number;y:number}};loft?:{aim:{x:number;y:number}}}[]};
+// (Lane C, 2026-10-21; owner's decision: no metre figure, an ordering) Where the home keeper stands while the opponents
+// have the ball, and how often he sweeps a ball in behind (frames on the engine's 'sweep' duty), from constructed starts
+// with the away side on the ball, 10 s each: the engine's three training scenes mirrored (they have just won it in their
+// own half), three with their runner level with our last defender and space behind him, three with the runner already
+// past him. Repeated runs of the same starts are four seeds. The spread is the standard deviation across those seeds of
+// the per-seed result (mean depth over the starts; total sweep frames over the starts); a setting differs from another
+// when the gap between their means is larger than the larger of their two spreads. Before: two seeds (4242, 4244) of a
+// 300 s match per setting, ten matches, against a 1.5 m bar that came from them.
+const KEEPER_SEEDS=[1,2,3,4];
+type P=[number,number,number,number,number];// side, number, x, y, angle
+const KEEPER_STARTS:(()=>TrainingSetup)[]=(()=>{
+ const setup=(poses:P[],cx:number,cy:number)=>({scene:'middle' as const,poses:poses.map(([side,number,x,y,angle])=>({side:side as 0|1,number,x,y,angle})),ball:{side:1 as const,number:4,x:cx-.62,y:cy}});
+ const mirrored=(scene:'middle'|'left'|'right')=>()=>{const s=createTrainingSetup(scene);return {...s,poses:s.poses.map(p=>({...p,side:(1-p.side) as 0|1,x:48-p.x,y:-p.y,angle:p.angle+Math.PI})),ball:{...s.ball,side:1 as const,x:48-s.ball.x,y:-s.ball.y}};};
+ const level=(ry:number,cy=0)=>()=>setup([[0,1,2,0,0],[0,2,15,ry>0?ry-2:ry+2,0],[0,3,24,-7,0],[0,4,24,7,0],[0,5,30,0,0],[1,1,46,0,Math.PI],[1,2,34,0,Math.PI],[1,3,28,-6,Math.PI],[1,4,24,cy,Math.PI],[1,5,16,ry,Math.PI]],24,cy);
+ const past=(rx:number,ry:number,cx:number,cy:number)=>()=>setup([[0,1,2,0,0],[0,2,15,ry/2,Math.PI],[0,3,26,-7,0],[0,4,26,7,0],[0,5,32,0,0],[1,1,46,0,Math.PI],[1,2,36,0,Math.PI],[1,3,30,-6,Math.PI],[1,4,cx,cy,Math.PI],[1,5,rx,ry,Math.PI]],cx,cy);
+ return [mirrored('middle'),mirrored('left'),mirrored('right'),level(.5),level(-5,-2),level(5,2),past(12,0,21,0),past(11,-4,20,2),past(12,5,22,-1)];
+})();
+function keeperRun(settings:unknown,lineup:string[],start:()=>TrainingSetup,seed:number){
+ const teams=sides(settings,lineup).map(engineTeam) as never;
+ const r=runTraining({fixture:{teams,seed,kickoff:0},setup:start(),durationSeconds:10,policy:'coordinated',substitutions:'none'}).result as unknown as {players:{id:string;side:number;role:string}[];frames:{players:{x:number;duty?:string}[];restart?:boolean;control?:{owner:string}}[]};
+ const gk=r.players.findIndex(p=>p.side===0&&p.role==='GK'),off:number[]=[];
+ for(const f of r.frames)if(!f.restart&&f.control&&r.players.find(p=>p.id===f.control!.owner)?.side===1)off.push(f.players[gk].x);
+ return {depth:off.reduce((a,b)=>a+b,0)/Math.max(1,off.length),sweeps:r.frames.filter(f=>f.players[gk]?.duty==='sweep').length};
 }
+/** Per seed: mean depth over the starts and total sweep frames; then each one's mean and spread (standard deviation). */
+function keeperRead(settings:unknown,lineup=LINEUP,starts=KEEPER_STARTS){
+ const per=KEEPER_SEEDS.map(seed=>{const v=starts.map(s=>keeperRun(settings,lineup,s,seed));return {depth:v.reduce((a,b)=>a+b.depth,0)/v.length,sweeps:v.reduce((a,b)=>a+b.sweeps,0)};});
+ const stat=(xs:number[])=>{const m=xs.reduce((a,b)=>a+b,0)/xs.length;return {mean:m,spread:Math.sqrt(xs.reduce((a,b)=>a+(b-m)**2,0)/(xs.length-1))};};
+ return {depth:stat(per.map(p=>p.depth)),sweeps:stat(per.map(p=>p.sweeps)),per};
+}
+/** a is above b by more than the run-to-run spread of either. */
+const clearlyAbove=(a:{mean:number;spread:number},b:{mean:number;spread:number})=>a.mean-b.mean>Math.max(a.spread,b.spread);
+const said=(x:{mean:number;spread:number})=>`${x.mean.toFixed(2)} (spread ${x.spread.toFixed(2)})`;
 // Since 2026-09-30 every keeper judges a ball in behind by forecast arrival, so
 // a keeper who stays on his line also comes for a ball he clearly gets first:
 // nobody swept before, and "Sweeper sweeps 3x as often" stopped being the
 // difference that matters. What the setting changes is how high he stands and
 // how far out he will go (keeperSweepDepth / keeperSweepReach): that is asserted.
-// (Lane C, 2026-10-21) If these fail: the keeper setting a manager picks makes no visible difference to where his keeper
-// stands. Enough: whatever the opponents then do, the setting's whole job is the keeper's depth while they have the
-// ball, read on every frame of it. Before, two seeds (4242, 4244) of 300 s per setting: ten matches.
+// If these fail: the keeper setting a manager picks makes no visible difference to where his keeper stands or to how
+// often he comes for a ball in behind. Enough: the setting's whole job is his depth while they have the ball and the
+// balls in behind he goes for, and the starts give them both (runners level with and past our last defender).
 describe('match settings: the keeper',()=>{
- it('Sweeper stands a stay-at-home keeper clearly higher; his own habit is what "As usual" plays',()=>{
-  const usual=keeperRead(),sweeper=keeperRead({keeper:'sweeper'}),line=keeperRead({keeper:'line'});
-  process.stdout.write(`\nstay-at-home keeper, metres off his line (usual / line / sweeper): ${usual.toFixed(2)} / ${line.toFixed(2)} / ${sweeper.toFixed(2)}\n`);
-  expect(line).toEqual(usual);// his own trait is already the "line" value
-  expect(sweeper).toBeGreaterThan(line+1.5);
- },120000);
+ it('Sweeper stands a stay-at-home keeper higher and sweeps more; his own habit is what "As usual" plays',()=>{
+  const line=keeperRead({keeper:'line'}),sweeper=keeperRead({keeper:'sweeper'});
+  // "As usual" is his own trait, which is already the Line value: the same runs, frame for frame (three starts, one seed)
+  for(const start of KEEPER_STARTS.slice(0,3))expect(keeperRun(undefined,LINEUP,start,1)).toEqual(keeperRun({keeper:'line'},LINEUP,start,1));
+  process.stdout.write(`\nstay-at-home keeper, metres off his line: line ${said(line.depth)}, sweeper ${said(sweeper.depth)}; sweep frames: line ${said(line.sweeps)}, sweeper ${said(sweeper.sweeps)}\n`);
+  expect(clearlyAbove(sweeper.depth,line.depth),'stands higher').toBe(true);
+  expect(clearlyAbove(sweeper.sweeps,line.sweeps),'sweeps more').toBe(true);
+ },300000);
  it('Stay on line keeps a born sweeper deeper',()=>{
-  const usual=keeperRead(undefined,LIBERO_LINEUP),line=keeperRead({keeper:'line'},LIBERO_LINEUP);
-  process.stdout.write(`\nlibero keeper, metres off his line (usual / line): ${usual.toFixed(2)} / ${line.toFixed(2)}\n`);
-  expect(usual).toBeGreaterThan(line+1.5);
- },120000);
+  const usual=keeperRead(undefined,LIBERO_LINEUP,KEEPER_STARTS.slice(0,3)),line=keeperRead({keeper:'line'},LIBERO_LINEUP,KEEPER_STARTS.slice(0,3));
+  process.stdout.write(`\nlibero keeper, metres off his line: usual ${said(usual.depth)}, line ${said(line.depth)}\n`);
+  expect(clearlyAbove(usual.depth,line.depth),'stands higher as usual').toBe(true);
+ },300000);
 });
 
-type Raw={frames:{players:{duty:string}[];restartInfo?:{taker:string}}[];players:{side:number;role:string}[];events:{kind:string;actor?:string;pass?:{aim:{x:number;y:number}};loft?:{aim:{x:number;y:number}}}[]};
 /** One opening free kick for the home side: who takes it and what he does first. */
 function kick(seed:number,settings:MatchSettings|undefined,spot:{x:number;y:number}){
  const r=simulatePractice({teams:sides(settings).map(engineTeam) as never,seed,kickoff:0},12,undefined,true,{policy:'coordinated',substitutions:'none',initialRestart:{kind:'freeKick',side:0,spot}}) as unknown as Raw;
