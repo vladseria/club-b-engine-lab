@@ -85,11 +85,7 @@ const inside=(p:Vec,lane=false)=>({x:clamp(p.x,1,(L-1)),y:clamp(p.y,-(W/2-(lane?
  * follows a man wherever he goes).
  * Narrow protects the centre and concedes the far man; wide follows him and
  * risks gaps inside; standard sits between. */
-export const WIDTH={
- narrow:{lane:Y(22),pull:.35,discipline:0,hold:.45,follow:.3,reach:1.5,allowance:.7,inward:1.15},
- standard:{lane:Y(26),pull:.12,discipline:.03,hold:.85,follow:.55,reach:3.5,allowance:1,inward:1},
- wide:{lane:Y(30),pull:0,discipline:.06,hold:1.1,follow:.8,reach:6,allowance:1.4,inward:1.4},
-} as const satisfies Record<Tactics['width'],{lane:number;pull:number;discipline:number;hold:number;follow:number;reach:number;allowance:number;inward:number}>;
+export const WIDTH:Record<Tactics['width'],{lane:number;pull:number;discipline:number;hold:number;follow:number;reach:number;allowance:number;inward:number}>=S.objView(S.WIDTH,['lane','pull','discipline','hold','follow','reach','allowance','inward']);
 /** Width in a formation without wingers (2-1-1): how far the centre-backs
  * split in possession (`backs`, a factor on their lane offset) and how much
  * the midfielder follows the ball's side (`middle`, a factor on the team's
@@ -97,8 +93,9 @@ export const WIDTH={
  * carry the setting. */
 export function buildUpSpread(players:readonly {side:Side;role:string}[],side:Side,width:Tactics['width']):{backs:number;middle:number}{
  if(players.some(p=>p.side===side&&(p.role==='W'||p.role==='FB')))return {backs:1,middle:1};
- return {narrow:{backs:.75,middle:1.7},standard:{backs:1,middle:1},wide:{backs:1.4,middle:.3}}[width];
+ return BUILDUP_SPREAD[width];
 }
+const BUILDUP_SPREAD:Record<Tactics['width'],{backs:number;middle:number}>=S.spreadView();
 /** A winger's lane in possession: how wide he holds, from the centre line. */
 export const laneY=(width:Tactics['width'])=>Math.min(W/2-1.5,WIDTH[width].lane);
 

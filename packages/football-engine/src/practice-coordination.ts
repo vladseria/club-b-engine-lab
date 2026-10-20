@@ -324,7 +324,7 @@ export interface Shoulder {post:Vec;run:Vec|null;last:number}
 export const LINK_GAP=5,LINK_SHOW=4.5,LINK_HOLD=1,LINK_BEYOND=6,LINK_WIDE=Y(8);
 export const LINK_ALSO:ReadonlySet<JobPurpose>=new Set(['give-and-go','break','cutback']);
 /** Width in 2-1-1, the midfielder's lean (laneCost). */
-export const MID_DISCIPLINE=.1,MID_SLACK=.5;
+export const MID_DISCIPLINE=S.WIDTH_COMMON.midDiscipline.v,MID_SLACK=S.WIDTH_COMMON.midSlack.v;
 /** Behaviour round C: in Counter's regain window the lead forward reads
  * whether the ball can reach him now: the ball-winner free (nobody within
  * ~3 m or arriving within ~0.75 s) and facing forward. His read (reading;
@@ -722,20 +722,20 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   // Width with the ball: a winger's support job pays for every metre it takes
   // him inside his lane band (nothing when narrow, more when wide). An urgent
   // release under pressure is exempt; runs keep their own geometry.
-  const band=laneY(t.width)-4,discipline=WIDTH[t.width].discipline;
+  const band=laneY(t.width)-S.WIDTH_COMMON.bandInside.v,discipline=WIDTH[t.width].discipline;
   // Without wingers (2-1-1) the centre-backs carry it: wide keeps them split
   // (a cost for coming inside their lane), narrow keeps them close (a cost for
   // drifting outside it). Standard leaves them free.
-  const {backs:spread,middle}=buildUpSpread(players,side,t.width),backLane=Y(11)*spread;
+  const {backs:spread,middle}=buildUpSpread(players,side,t.width),backLane=Y(S.WIDTH_COMMON.backLane.v)*spread;
   // ... and the midfielder carries it in the middle (settings round,
   // 2026-10-03): his support jobs pay MID_DISCIPLINE per metre beyond
   // MID_SLACK from his Width target, the team's lateral shift x middle
   // (narrow 1.3: towards the ball's side, close support; wide 0.55: holding
   // the far half-space for a switch). Standard leaves him free.
-  const midTarget=(p:PracticePlayer)=>p.lane*11+shapes[side].shift*middle;
+  const midTarget=(p:PracticePlayer)=>p.lane*S.WIDTH_COMMON.midLane.v+shapes[side].shift*middle;
   const laneCost=(p:PracticePlayer,aim:Vec)=>{
    if(discipline&&(p.role==='W'||p.role==='FB'))return discipline*Math.max(0,band-p.lane*aim.y);
-   if(p.role==='CB'&&p.lane&&spread!==1)return .06*(spread>1?Math.max(0,backLane-1-p.lane*aim.y):Math.max(0,p.lane*aim.y-backLane-1));
+   if(p.role==='CB'&&p.lane&&spread!==1)return S.WIDTH_COMMON.backCost.v*(spread>1?Math.max(0,backLane-1-p.lane*aim.y):Math.max(0,p.lane*aim.y-backLane-1));
    if((p.role==='CM'||p.role==='AM')&&middle!==1)return MID_DISCIPLINE*Math.max(0,Math.abs(aim.y-midTarget(p))-MID_SLACK);
    return 0;
   };
@@ -782,7 +782,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
      const destinationCost=spec.points?(develop?0:Math.abs(gap-7)*.035):distance(aim,spec.point)*.045;
      // Runs that go past the build-up (depth, break) pay half: a winger may
      // still cut inside; box arrivals and the return after a pass are exempt.
-     const lane=spec.lane===false||spec.purpose==='width'||spec.purpose==='link'?0:run?(spec.purpose==='depth'||spec.purpose==='break'?laneCost(p,aim)*.5:0):laneCost(p,aim);
+     const lane=spec.lane===false||spec.purpose==='width'||spec.purpose==='link'?0:run?(spec.purpose==='depth'||spec.purpose==='break'?laneCost(p,aim)*S.WIDTH_COMMON.runShare.v:0):laneCost(p,aim);
      // (r1-shape) A support spot is also worth what the pass there is worth
      // to the carrier (ground gained, where a loss would leave us): near our
      // own goal a spot on the goal line beside the keeper is worth little.
@@ -1004,13 +1004,13 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   offerJob({purpose:'width',kind:'width',point:focus,range:34,
    // Any winger whose lane lies well outside the ball: the far side, or the
    // near touchline while the ball is inside it.
-   eligible:p=>(p.role==='W'||p.role==='FB')&&p.lane!==0&&laneY(t.width)-p.lane*focus.y>=6,
+   eligible:p=>(p.role==='W'||p.role==='FB')&&p.lane!==0&&laneY(t.width)-p.lane*focus.y>=S.WIDTH_COMMON.holdEligible.v,
    points:p=>{const at=holdLane(p);return [-3,0,3].map(dx=>inside({x:at.x+s*dx,y:at.y}));},
    fit:p=>{
     const at=holdLane(p);
     const pinned=outfieldOpponents.some(q=>distance(q,at)<8&&distance(q,focus)>9);
     const free=outfieldOpponents.length?clamp((Math.min(...outfieldOpponents.map(q=>arrivalTime(q,at)))-1)/1.5,0,1):0;
-    return WIDTH[t.width].hold+(pinned?.15:0)+free*.15;
+    return WIDTH[t.width].hold+(pinned?S.WIDTH_COMMON.holdPinned.v:0)+free*S.WIDTH_COMMON.holdFree.v;
    },
    reason:'Ține lățimea pe culoarul lui: fixează un apărător departe de minge sau rămâne omul liber pentru schimbarea de joc.'});
   const keeper=players.find(p=>p.side===side&&p.role==='GK'&&p.id!==receiver.id&&!reserved.has(p.id));

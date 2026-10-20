@@ -162,12 +162,12 @@ export const SHADE=.5;
 /** Sagging off a far man: what he can afford (reach), by Marking, Press and Width. */
 export const SAG:Record<NonNullable<Tactics['marking']>,number>={tight:.4,balanced:1,zonal:1.25};
 export const PRESS_SAG:Record<Tactics['press'],number>={selective:1.15,balanced:1,aggressive:.8};
-export const WIDTH_SAG:Record<Tactics['width'],number>={narrow:1.25,standard:1,wide:.75};
+export const WIDTH_SAG:Record<Tactics['width'],number>=S.view(S.WIDTH,'sag');
 export const SAG_CAP=6.5;
 /** The block's height (m from our goal): the ball's depth minus `gap`, between `floor` and `ceiling`; it squeezes up `squeeze` m when the ball is pressed or played back. */
 export const BLOCK:Record<Tactics['line'],{gap:number;floor:number;ceiling:number;squeeze:number}>=S.blockView();
 /** The balance: how far across from the centre, on the far side (Width). */
-export const BALANCE_Y:Record<Tactics['width'],number>={narrow:1,standard:2.5,wide:4.5};
+export const BALANCE_Y:Record<Tactics['width'],number>=S.view(S.WIDTH,'balance');
 /** The balance and the screen never stand in the goal area (BALANCE_FLOOR m from the line) and keep a man left in front of them BALANCE_CUSHION m ahead. */
 export const BALANCE_FLOOR=4,BALANCE_CUSHION=1;
 /** (cover-defender round, 2026-10-10) The free man's first duty is a man ahead of the ball within COVER_DROP_R m of

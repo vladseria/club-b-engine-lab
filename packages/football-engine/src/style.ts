@@ -5,7 +5,7 @@
  * `X(57)`, computed at load); a formula stays a formula with its coefficients named here; old exported tables survive
  * as views with the same keys in the same order. Engine files import this module as a namespace (`import * as S`).
  * Runtime imports: pitch.ts only (a leaf), so this module can never sit in an import cycle. */
-import {X} from './pitch.js';
+import {X,Y} from './pitch.js';
 import type {Tactics} from './model.js';
 
 /** The unit an entry is in, as the code uses it today. Never converted. */
@@ -99,6 +99,58 @@ export const LINE:Readonly<Record<Tactics['line'],LineOption>>={
  high:lineOption({whoMatters:21,stepOut:1.5,engageShift:5,block:{gap:4,floor:7,ceiling:26,squeeze:5},protectRange:13,protectShare:.3,coverDrop:24,backCap:Infinity,buildCap:Infinity,cushion:null,coverPrice:.75,restCushion:1,keeperStep:5}),
 };
 
+// ------------------------------------------------------------------ Width
+/** One entry per Width option; keys in practice-shape.ts WIDTH's own order (narrow, standard, wide). Several of these
+ * are read only by the defending block in teamShape, which no Ballers match runs (plan 6.1): pull, follow, reach,
+ * allowance, inward; they are mirrored exactly, still dead. */
+export interface WidthOption{
+ lane:Effect;pull:Effect;discipline:Effect;hold:Effect;follow:Effect;reach:Effect;allowance:Effect;inward:Effect;
+ sag:Effect;balance:Effect;spread:{backs:Effect;middle:Effect};
+}
+const WAT={
+ lane:['practice-shape.ts:100 (laneY)','practice-shape.ts:160 (teamShape)','practice-coordination.ts:725','practice-coordination.ts:1002','practice-coordination.ts:1007'],
+ pull:['practice-shape.ts:171 (teamShape, dead)'],discipline:['practice-coordination.ts:725'],hold:['practice-coordination.ts:1013'],
+ follow:['practice-shape.ts:310 (blockPulls, dead)'],reach:['practice-shape.ts:310 (blockPulls, dead)'],
+ allowance:['practice-shape.ts:381 (markingDeparture, dead)'],inward:['practice-shape.ts:381 (markingDeparture, dead)'],
+ sag:['practice-defending.ts:728'],balance:['practice-defending.ts:477','practice-defending.ts:1400','practice-defending.ts:1410'],
+ spread:['practice-shape.ts:96 (buildUpSpread, 2-1-1 only)'],
+} as const;
+const widthOption=(o:{lane:number;pull:number;discipline:number;hold:number;follow:number;reach:number;allowance:number;inward:number;sag:number;balance:number;spread:{backs:number;middle:number}}):WidthOption=>({
+ lane:{v:o.lane,unit:'m',kind:'positionOffset',axis:'W',at:WAT.lane,says:'a winger holds this far from the centre line in possession (capped at W/2-1.5)'},
+ pull:{v:o.pull,unit:'x',kind:'multiplier',at:WAT.pull,says:'(dead) share of the way a winger is pulled toward the ball side in teamShape'},
+ discipline:{v:o.discipline,unit:'B',kind:'jobCredit',at:WAT.discipline,says:'a winger support job pays this per metre it takes him inside his lane band'},
+ hold:{v:o.hold,unit:'B',kind:'jobCredit',at:WAT.hold,says:'base score of the hold-width job on the far side'},
+ follow:{v:o.follow,unit:'x',kind:'multiplier',at:WAT.follow,says:'(dead) how far the teamShape block follows a man'},
+ reach:{v:o.reach,unit:'m',kind:'positionOffset',axis:'W',at:WAT.reach,says:'(dead) how far the teamShape block reaches for a man'},
+ allowance:{v:o.allowance,unit:'x',kind:'multiplier',at:WAT.allowance,says:'(dead) price of an outward marking trip in teamShape'},
+ inward:{v:o.inward,unit:'x',kind:'multiplier',at:WAT.inward,says:'(dead) price of an inward marking trip in teamShape'},
+ sag:{v:o.sag,unit:'x',kind:'multiplier',at:WAT.sag,says:'how far a marker may sag off a far man (more than 8 m across)'},
+ balance:{v:o.balance,unit:'m',kind:'positionOffset',axis:'W',at:WAT.balance,says:'the balance man tucks this far across on the far side'},
+ spread:{
+  backs:{v:o.spread.backs,unit:'x',kind:'positionOffset',axis:'W',at:WAT.spread,says:'2-1-1: factor on the centre-backs\' lane split in possession'},
+  middle:{v:o.spread.middle,unit:'x',kind:'positionOffset',axis:'W',at:WAT.spread,says:'2-1-1: factor on how much the midfielder follows the ball side'},
+ },
+});
+/** Width: how wide the team holds and defends. Values exactly as the tables had them at b107e7b2. */
+export const WIDTH:Readonly<Record<'narrow'|'standard'|'wide',WidthOption>>={
+ narrow:widthOption({lane:Y(22),pull:.35,discipline:0,hold:.45,follow:.3,reach:1.5,allowance:.7,inward:1.15,sag:1.25,balance:1,spread:{backs:.75,middle:1.7}}),
+ standard:widthOption({lane:Y(26),pull:.12,discipline:.03,hold:.85,follow:.55,reach:3.5,allowance:1,inward:1,sag:1,balance:2.5,spread:{backs:1,middle:1}}),
+ wide:widthOption({lane:Y(30),pull:0,discipline:.06,hold:1.1,follow:.8,reach:6,allowance:1.4,inward:1.4,sag:.75,balance:4.5,spread:{backs:1.4,middle:.3}}),
+};
+/** The Width mechanism's coefficients, the same for every option (practice-coordination.ts laneCost and the hold-width job). */
+export const WIDTH_COMMON={
+ bandInside:{v:4,unit:'m',kind:'positionOffset',axis:'W',at:['practice-coordination.ts:725'],says:'a winger\'s lane band starts this far inside his lane'},
+ backLane:{v:11,unit:'ref',kind:'positionOffset',axis:'W',at:['practice-coordination.ts:729'],says:'2-1-1: a centre-back\'s lane, times the Width spread'},
+ backCost:{v:.06,unit:'B',kind:'jobCredit',at:['practice-coordination.ts:738'],says:'2-1-1: a centre-back support job pays this per metre outside his band'},
+ midLane:{v:11,unit:'m',kind:'positionOffset',axis:'W',at:['practice-coordination.ts:735'],says:'the midfielder\'s Width target: his lane times this, plus the shift times the spread'},
+ midDiscipline:{v:.1,unit:'B',kind:'jobCredit',at:['practice-coordination.ts:327 (MID_DISCIPLINE)'],says:'the midfielder pays this per metre beyond the slack from his Width target'},
+ midSlack:{v:.5,unit:'m',kind:'positionOffset',at:['practice-coordination.ts:327 (MID_SLACK)'],says:'free metres around the midfielder\'s Width target'},
+ runShare:{v:.5,unit:'x',kind:'multiplier',at:['practice-coordination.ts:785'],says:'a depth or break run pays this share of the lane cost'},
+ holdPinned:{v:.15,unit:'B',kind:'jobCredit',at:['practice-coordination.ts:1013'],says:'hold-width job: extra when he pins a defender away from the ball'},
+ holdFree:{v:.15,unit:'B',kind:'jobCredit',at:['practice-coordination.ts:1013'],says:'hold-width job: extra times how free he is'},
+ holdEligible:{v:6,unit:'m',kind:'jobOffered',axis:'W',at:['practice-coordination.ts:1007'],says:'hold-width job: offered when his lane lies at least this far outside the ball'},
+} as const satisfies Record<string,Effect>;
+
 // ------------------------------------------------------------------ views (old names survive, rule 1.3.6)
 type Scalar<O>={[K in keyof O]:O[K] extends Effect<infer V>?K:never}[keyof O];
 /** {option: entry.v} for one scalar effect, keys in the table's own order. */
@@ -111,5 +163,17 @@ export function view<O,K extends Scalar<O>,T extends string>(table:Readonly<Reco
 export function blockView():Record<Tactics['line'],{gap:number;floor:number;ceiling:number;squeeze:number}>{
  const out={} as Record<Tactics['line'],{gap:number;floor:number;ceiling:number;squeeze:number}>;
  for(const k of Object.keys(LINE) as Tactics['line'][]){const b=LINE[k].block;out[k]={gap:b.gap.v,floor:b.floor.v,ceiling:b.ceiling.v,squeeze:b.squeeze.v};}
+ return out;
+}
+/** {option: {key: entry.v, ...}} for several scalar effects at once, keys in the order given (e.g. practice-shape.ts WIDTH). */
+export function objView<O,K extends Scalar<O>,T extends string>(table:Readonly<Record<T,O>>,keys:readonly K[]):Record<T,{[P in K]:O[P] extends Effect<infer V>?V:never}>{
+ const out={} as Record<T,{[P in K]:O[P] extends Effect<infer V>?V:never}>;
+ for(const k of Object.keys(table) as T[]){const o:any={};for(const key of keys)o[key]=((table[k] as any)[key] as Effect<unknown>).v;(out as any)[k]=o;}
+ return out;
+}
+/** Width's 2-1-1 spread as buildUpSpread has always returned it: {backs, middle} per option. */
+export function spreadView():Record<'narrow'|'standard'|'wide',{backs:number;middle:number}>{
+ const out={} as Record<'narrow'|'standard'|'wide',{backs:number;middle:number}>;
+ for(const k of Object.keys(WIDTH) as ('narrow'|'standard'|'wide')[])out[k]={backs:WIDTH[k].spread.backs.v,middle:WIDTH[k].spread.middle.v};
  return out;
 }
