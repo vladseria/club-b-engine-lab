@@ -93,7 +93,7 @@ export function attackingSpaceReader(players:PracticePlayer[],carrier:PracticePl
    // The striker setting belongs to the team's most advanced forward: the ST,
    // or in a formation without one (2-2) the leading winger, scaled from his
    // own role's value so "mixed" leaves him as he was.
-   const setting=tactics.striker==='link'?.65:tactics.striker==='run'?1.15:1;
+   const setting=S.STRIKER[tactics.striker??'mixed'].attackValue.v;
    const roleValue=p.role==='GK'?0:p.role==='ST'?setting:p.role==='W'||p.role==='AM'?.85:p.role==='CM'?.6:p.role==='FB'?(tactics.fullbacks==='hold'?.2:.5):.3;
    const attackingRole=p.role!=='ST'&&p.id===striker?roleValue*setting:roleValue;
    const ambition=attackingRole*(S.COMMIT.ambitionBase.v+tactics.commit*S.COMMIT.ambitionPer.v)*weight;

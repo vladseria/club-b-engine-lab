@@ -233,7 +233,7 @@ export function runStyle(t:Pick<Tactics,'progression'|'commit'|'transition'>,pur
  * for a sustained moment (1.5 s). The caller starts afresh after a restart or
  * a change of possession. */
 export interface LeadForward {id:string|undefined;challenger?:string;since?:number}
-export const LEAD_FORWARD_MARGIN=2,LEAD_FORWARD_HOLD=1.5;
+export const LEAD_FORWARD_MARGIN=S.STRIKER_COMMON.leadMargin.v,LEAD_FORWARD_HOLD=S.STRIKER_COMMON.leadHold.v;
 export function leadForward(players:readonly PracticePlayer[],side:Side,time:number,previous?:LeadForward):LeadForward{
  const strikers=players.filter(p=>p.side===side&&p.role==='ST');
  const pool=strikers.length?strikers:players.filter(p=>p.side===side&&(p.role==='W'||p.role==='AM'));
@@ -263,7 +263,7 @@ export function leadForward(players:readonly PracticePlayer[],side:Side,time:num
  * setting asks is only where he stands: he does not drop into the build-up
  * or run in behind (PIVOT_ALSO lists the jobs he still takes: the return
  * after his own lay-off, box arrivals, a break on a regain). */
-export const PIVOT_GAP=1,PIVOT_CONTACT=3,PIVOT_WIDTH=4.5,PIVOT_GOAL=5,PIVOT_SHOW=2.5,PIVOT_REACH=26,PIVOT_ON=.3,PIVOT_LANE_SPREAD=.15,PIVOT_HOLD=1;
+export const PIVOT_GAP=S.PIVOT.gap.v,PIVOT_CONTACT=S.PIVOT.contact.v,PIVOT_WIDTH=S.PIVOT.width.v,PIVOT_GOAL=S.PIVOT.goal.v,PIVOT_SHOW=S.PIVOT.show.v,PIVOT_REACH=S.PIVOT.reach.v,PIVOT_ON=S.PIVOT.on.v,PIVOT_LANE_SPREAD=S.PIVOT.laneSpread.v,PIVOT_HOLD=S.PIVOT.hold.v;
 /** A pivot needs a third man (style-identity step 1b). While the pivot is a
  * live option (showing: a pass to his feet is on), the ball is on its way to
  * him or he holds it, the others are offered lay-off spots: THIRD_BACK
@@ -274,12 +274,12 @@ export const PIVOT_GAP=1,PIVOT_CONTACT=3,PIVOT_WIDTH=4.5,PIVOT_GOAL=5,PIVOT_SHOW
  * he reads he can reach by the time a lay-off could come are offered: his
  * own arrival read (R2, 'arrival', THIRD_SPREAD s for a player who cannot
  * read at all). */
-export const THIRD_BACK=[4,6],THIRD_WIDE=[3.5,5.5],THIRD_SPREAD=.6,THIRD_SLACK=.6;
+export const THIRD_BACK=S.PIVOT.thirdBack.v,THIRD_WIDE=S.PIVOT.thirdWide.v,THIRD_SPREAD=S.PIVOT.thirdSpread.v,THIRD_SLACK=S.PIVOT.thirdSlack.v;
 export function thirdManSpots(pivot:Vec,side:Side):Vec[]{
  const s=side===0?1:-1;
  return THIRD_BACK.flatMap(dx=>THIRD_WIDE.flatMap(dy=>[-dy,dy].map(y=>inside({x:pivot.x-s*dx,y:pivot.y+y}))));
 }
-export const PIVOT_ALSO:ReadonlySet<JobPurpose>=new Set(['give-and-go','near-post','far-post','break','link']);
+export const PIVOT_ALSO:ReadonlySet<JobPurpose>=new Set(S.PIVOT.alsoTakes.v as JobPurpose[]);
 export interface PivotAnchor {id:string;depth:number}
 export function pivotAnchor(players:readonly PracticePlayer[],pivot:PracticePlayer,previous?:PivotAnchor,gap=PIVOT_GAP):PivotAnchor|null{
  const side=pivot.side,opponents=players.filter(q=>q.side!==side&&q.role!=='GK');
@@ -304,8 +304,8 @@ export function pivotAnchor(players:readonly PracticePlayer[],pivot:PracticePlay
  * ball and takes none of the short jobs (outlets, joining, third-man spots):
  * no ball into his feet when the team is pressed, nothing against a deep
  * block. RUN_ALSO lists the jobs he still takes. */
-export const RUN_GAP=.5,RUN_PAST=3,RUN_CHANNEL=2.5,RUN_WIDTH=6.5,RUN_ROOM=9,RUN_HOLD=.8,RUN_FIT=.5,RUN_LINE=4;
-export const RUN_ALSO:ReadonlySet<JobPurpose>=new Set(['give-and-go','near-post','far-post','break','link']);
+export const RUN_GAP=S.IN_BEHIND.gap.v,RUN_PAST=S.IN_BEHIND.past.v,RUN_CHANNEL=S.IN_BEHIND.channel.v,RUN_WIDTH=S.IN_BEHIND.width.v,RUN_ROOM=S.IN_BEHIND.room.v,RUN_HOLD=S.IN_BEHIND.hold.v,RUN_FIT=S.IN_BEHIND.fit.v,RUN_LINE=S.IN_BEHIND.line.v;
+export const RUN_ALSO:ReadonlySet<JobPurpose>=new Set(S.IN_BEHIND.alsoTakes.v as JobPurpose[]);
 /** (striker outlet, 2026-10-17) Joining the attack from behind it: besides
  * an 8 m step, the waypoint JOIN_STEP m along the way and the connected
  * position itself, within the reach a run is allowed (5 s). Short steps alone
@@ -321,8 +321,8 @@ export interface Shoulder {post:Vec;run:Vec|null;last:number}
  * beyond him into the space he left: LINK_BEYOND metres past him, at least a
  * metre past their last line, LINK_WIDE either side of him. The price is
  * fewer bodies in the box: he takes no post arrivals (LINK_ALSO). */
-export const LINK_GAP=5,LINK_SHOW=4.5,LINK_HOLD=1,LINK_BEYOND=6,LINK_WIDE=Y(8);
-export const LINK_ALSO:ReadonlySet<JobPurpose>=new Set(['give-and-go','break','cutback']);
+export const LINK_GAP=S.DROPS_DEEP.gap.v,LINK_SHOW=S.DROPS_DEEP.show.v,LINK_HOLD=S.DROPS_DEEP.hold.v,LINK_BEYOND=S.DROPS_DEEP.beyond.v,LINK_WIDE=S.DROPS_DEEP.wide.v;
+export const LINK_ALSO:ReadonlySet<JobPurpose>=new Set(S.DROPS_DEEP.alsoTakes.v as JobPurpose[]);
 /** Width in 2-1-1, the midfielder's lean (laneCost). */
 export const MID_DISCIPLINE=S.WIDTH_COMMON.midDiscipline.v,MID_SLACK=S.WIDTH_COMMON.midSlack.v;
 /** Behaviour round C: in Counter's regain window the lead forward reads
@@ -668,12 +668,12 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   const focus=owner??{...receiver,...flight.meetings[receiver.id]},side=receiver.side,t=tactics[side],s=side===0?1:-1,bd=depth(side,focus.x);
   const striker=strikers[side].id;
   // Striker: Pivot (pivotAnchor): the lead forward holds the last line.
-  const pivot=t.striker==='pivot'?players.find(p=>p.id===striker&&p.side===side&&p.id!==receiver.id&&!unavailable.has(p.id)&&!reserved.has(p.id)):undefined;
+  const pivot=S.STRIKER[t.striker??'mixed'].holdsLastLine.v?players.find(p=>p.id===striker&&p.side===side&&p.id!==receiver.id&&!unavailable.has(p.id)&&!reserved.has(p.id)):undefined;
   const anchor=pivot?pivotAnchor(players,pivot,previous?.attacking===side?previous.pivots?.[side]:undefined)??undefined:undefined;
   const pivotId=anchor&&anchor.depth>bd+3?pivot!.id:undefined;
   if(anchor)pivots[side]=anchor;
   // Striker: In behind (shoulderPost): the lead forward lives on their last line.
-  const runner=t.striker==='run'?players.find(p=>p.id===striker&&p.side===side&&p.id!==receiver.id&&!unavailable.has(p.id)&&!reserved.has(p.id)):undefined;
+  const runner=S.STRIKER[t.striker??'mixed'].runsInBehind.v?players.find(p=>p.id===striker&&p.side===side&&p.id!==receiver.id&&!unavailable.has(p.id)&&!reserved.has(p.id)):undefined;
   const runAnchor=runner?pivotAnchor(players,runner,previous?.attacking===side?previous.pivots?.[side]:undefined,RUN_GAP)??undefined:undefined;
   const shoulder=runAnchor&&runAnchor.depth>bd+3?shoulderPost(players,runner!,runAnchor,focus):undefined;
   const runnerId=shoulder?runner!.id:undefined;
@@ -681,7 +681,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   const holding=runnerId&&(t as SituationTactics).regainWindow&&owner&&owner.id!==runnerId&&!winnerFree(runner!,owner,players,time)?runnerId:undefined;
   if(runAnchor)pivots[side]=runAnchor;
   // Striker: Drops deep (LINK_*): a false nine between their lines.
-  const nine=t.striker==='link'?players.find(p=>p.id===striker&&p.side===side&&p.id!==receiver.id&&!unavailable.has(p.id)&&!reserved.has(p.id)):undefined;
+  const nine=S.STRIKER[t.striker??'mixed'].dropsDeep.v?players.find(p=>p.id===striker&&p.side===side&&p.id!==receiver.id&&!unavailable.has(p.id)&&!reserved.has(p.id)):undefined;
   const nineAnchor=nine&&bd<L-BOX_DEPTH?pivotAnchor(players,nine,previous?.attacking===side?previous.pivots?.[side]:undefined,LINK_GAP)??undefined:undefined;
   const nineId=nineAnchor?nine!.id:undefined;
   if(nineAnchor)pivots[side]=nineAnchor;
@@ -819,7 +819,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   }
   // The run beyond the false nine, into the space he left: while he shows or has the ball.
   {
-   const onNine=t.striker==='link'&&receiver.id===striker;
+   const onNine=S.STRIKER[t.striker??'mixed'].dropsDeep.v&&receiver.id===striker;
    const shown=nineId?proposals.get(nineId)?.[0]?.job:undefined;
    const at=onNine?focus:shown?.kind==='show'?shown.aim:undefined;
    if(at){
@@ -843,7 +843,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   // The third man (thirdManSpots): around a pivot who is a live option, or
   // who has or is about to have the ball.
   {
-   const onPivot=t.striker==='pivot'&&receiver.id===striker;
+   const onPivot=S.STRIKER[t.striker??'mixed'].holdsLastLine.v&&receiver.id===striker;
    const shown=pivotId?proposals.get(pivotId)?.[0]?.job:undefined;
    const at=onPivot?focus:shown?.kind==='show'?shown.aim:undefined;
    if(at){
@@ -987,7 +987,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
    // No offside line in this small-sided game is not an instruction to run
    // straight to the end line. Stay within a usable next-pass distance.
    // (Drops deep's own link post and the run beyond it: LINK_*, above.)
-   offerJob({purpose:'depth',kind:'run',point:{x:world(side,Math.min(X(96),bd+X(S.PROGRESSION[t.progression].depthRunAhead.v))),y:0},points:()=>[-Y(18),0,Y(18)].map(y=>({x:world(side,Math.min(X(96),bd+X(S.PROGRESSION[t.progression].depthRunAhead.v))),y})),eligible:p=>p.id!==runnerId,fit:p=>.8+p.traits.runs*.6+(p.id===striker&&t.striker==='run'?.3:0),reason:'Oferă profunzime la distanță de pasă, pe un alt culoar.',range:26});
+   offerJob({purpose:'depth',kind:'run',point:{x:world(side,Math.min(X(96),bd+X(S.PROGRESSION[t.progression].depthRunAhead.v))),y:0},points:()=>[-Y(18),0,Y(18)].map(y=>({x:world(side,Math.min(X(96),bd+X(S.PROGRESSION[t.progression].depthRunAhead.v))),y})),eligible:p=>p.id!==runnerId,fit:p=>.8+p.traits.runs*.6+(p.id===striker&&S.STRIKER[t.striker??'mixed'].runsInBehind.v?S.IN_BEHIND.depthBonus.v:0),reason:'Oferă profunzime la distanță de pasă, pe un alt culoar.',range:26});
    if(wide&&bd<X(83)&&t.fullbacks!=='hold'&&(t.commit>=S.COMMIT.neutral.v||t.fullbacks==='overlap'))offerJob({purpose:'overlap',kind:'run',point:{x:focus.x+s*X(9),y:Math.sign(focus.y)*Y(30)},eligible:p=>p.role==='FB'&&p.y*focus.y>0,fit:p=>1+p.traits.runs*.3,reason:'Trece pe exterior și oferă o continuare pe flanc.'});
   }
   // Two different passing angles, using the same lane assessment as the

@@ -184,7 +184,7 @@ export const COUNTER_VALUE=S.COMMON.counterValue.v;
  * full pressure. It is a delivery preference like a style's (which pass, not
  * whether to pass): it is re-centred with them, so it never turns a better
  * shot, carry or feint into a pass. */
-export const PIVOT_PULL=.06,PIVOT_PRESSED=.4;
+export const PIVOT_PULL=S.PIVOT.pull.v,PIVOT_PRESSED=S.PIVOT.pullPressed.v;
 /** A style chooses WHICH delivery, not WHETHER to deliver. The preference
  * reorders passes and lofts among themselves, then the whole delivery set is
  * re-centred so its best member keeps the neutral best delivery's value: a

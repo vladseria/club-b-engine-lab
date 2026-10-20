@@ -309,6 +309,73 @@ export const COMMON={
  clockBack:{v:.03,unit:'A',kind:'clockRule',at:['team-approach.ts:94 (CLOCK_BACK)'],says:'a ball back loses this times the clock (not re-centred)'},
  clockBackGain:{v:-2,unit:'m',kind:'clockRule',axis:'L',at:['team-approach.ts:213'],says:'a ball back: gain below this'},
  feasibleRisk:{v:.65,unit:'x',kind:'multiplier',at:['team-approach.ts:226'],says:'a style credit is scaled by 1 minus this times the pass risk'},
+ /** descriptive: the re-centring is code with no coefficient (approachOptions' last lines). The delivery credits and the
+  * Pivot pull are re-centred; the counter clearance price and the purpose clock terms come before it and are not. */
+ recentring:{v:true,unit:'flag',kind:'recentring',at:['team-approach.ts:242-246'],says:'the best styled delivery is shifted to equal the best neutral one: a style chooses which pass, not whether to pass'},
+} as const satisfies Record<string,Effect<number|boolean>>;
+
+// ------------------------------------------------------------------ Striker (S8: all four options)
+/** Which mechanism each Striker option runs, and its attacking value. `striker` is OPTIONAL in Tactics: a missing value
+ * plays as Mixed at every read site (the census's missing-value column), so sites read S.STRIKER[t.striker??'mixed']. */
+export interface StrikerOption{holdsLastLine:Effect<boolean>;runsInBehind:Effect<boolean>;dropsDeep:Effect<boolean>;attackValue:Effect}
+const strikerOption=(o:{holdsLastLine:boolean;runsInBehind:boolean;dropsDeep:boolean;attackValue:number}):StrikerOption=>({
+ holdsLastLine:{v:o.holdsLastLine,unit:'flag',kind:'fixedPost',at:['practice-coordination.ts:671','practice-coordination.ts:846'],says:'the lead forward holds their last line as a pivot (PIVOT)'},
+ runsInBehind:{v:o.runsInBehind,unit:'flag',kind:'fixedPost',at:['practice-coordination.ts:676','practice-coordination.ts:990'],says:'the lead forward lives on their last defender\'s shoulder and runs in behind (IN_BEHIND)'},
+ dropsDeep:{v:o.dropsDeep,unit:'flag',kind:'fixedPost',at:['practice-coordination.ts:684','practice-coordination.ts:822'],says:'the lead forward drops between their lines as a false nine (DROPS_DEEP)'},
+ attackValue:{v:o.attackValue,unit:'x',kind:'multiplier',at:['practice-attacking-space.ts:96'],says:'the lead forward\'s attacking-space value'},
+});
+/** Striker. 'link' is Drops deep (renamed on screen only); 'run' is In behind. */
+export const STRIKER:Readonly<Record<NonNullable<Tactics['striker']>,StrikerOption>>={
+ mixed:strikerOption({holdsLastLine:false,runsInBehind:false,dropsDeep:false,attackValue:1}),
+ link:strikerOption({holdsLastLine:false,runsInBehind:false,dropsDeep:true,attackValue:.65}),
+ pivot:strikerOption({holdsLastLine:true,runsInBehind:false,dropsDeep:false,attackValue:1}),
+ run:strikerOption({holdsLastLine:false,runsInBehind:true,dropsDeep:false,attackValue:1.15}),
+};
+/** Pivot: the post on their last line, the show, the jobs he still takes, the third man, the pull to his feet. */
+export const PIVOT={
+ gap:{v:1,unit:'m',kind:'fixedPost',axis:'L',at:['practice-coordination.ts:266 (PIVOT_GAP)'],says:'he stands this far in front of their deepest outfielder'},
+ contact:{v:3,unit:'m',kind:'fixedPost',axis:'body',at:['practice-coordination.ts:266 (PIVOT_CONTACT)'],says:'he is on the last defender when that defender is within this'},
+ width:{v:4.5,unit:'m',kind:'fixedPost',axis:'W',at:['practice-coordination.ts:266 (PIVOT_WIDTH)'],says:'central: never further across than this'},
+ goal:{v:5,unit:'m',kind:'fixedPost',axis:'L',at:['practice-coordination.ts:266 (PIVOT_GOAL)'],says:'never inside this of the goal line (Drops deep\'s run beyond reads it too)'},
+ show:{v:2.5,unit:'m',kind:'fixedPost',axis:'body',at:['practice-coordination.ts:266 (PIVOT_SHOW)'],says:'he shows this far toward the ball when the lane to his feet is open'},
+ reach:{v:26,unit:'m',kind:'fixedPost',axis:'body',at:['practice-coordination.ts:266 (PIVOT_REACH)'],says:'he shows only for a passer within this'},
+ on:{v:.3,unit:'x',kind:'fixedPost',at:['practice-coordination.ts:266 (PIVOT_ON)'],says:'he shows when his read of the lane\'s risk is below this'},
+ laneSpread:{v:.15,unit:'trait',kind:'fixedPost',at:['practice-coordination.ts:266 (PIVOT_LANE_SPREAD)'],says:'how noisy that read is for a player who cannot read the game'},
+ hold:{v:1,unit:'B',kind:'fixedPost',at:['practice-coordination.ts:266 (PIVOT_HOLD)'],says:'his post\'s job score: it beats any other job'},
+ alsoTakes:{v:['give-and-go','near-post','far-post','break','link'] as string[],unit:'flag',kind:'jobOffered',at:['practice-coordination.ts:282 (PIVOT_ALSO)'],says:'the only other jobs he still takes'},
+ thirdBack:{v:[4,6] as number[],unit:'m',kind:'jobOffered',axis:'body',at:['practice-coordination.ts:277 (THIRD_BACK)'],says:'third-man spots: this far on the ball side of him'},
+ thirdWide:{v:[3.5,5.5] as number[],unit:'m',kind:'jobOffered',axis:'body',at:['practice-coordination.ts:277 (THIRD_WIDE)'],says:'... and this far off his shoulder'},
+ thirdSpread:{v:.6,unit:'trait',kind:'jobOffered',at:['practice-coordination.ts:277 (THIRD_SPREAD)'],says:'how noisy a team-mate\'s arrival read for the third man is'},
+ thirdSlack:{v:.6,unit:'s',kind:'jobOffered',at:['practice-coordination.ts:277 (THIRD_SLACK)'],says:'he may arrive this much after the lay-off could come'},
+ pull:{v:.06,unit:'A',kind:'optionCreditByTarget',at:['team-approach.ts:187 (PIVOT_PULL)'],says:'a pass to his feet while he shows (re-centred with the style credits: which pass, not whether)'},
+ pullPressed:{v:.4,unit:'A',kind:'optionCreditByTarget',at:['team-approach.ts:187 (PIVOT_PRESSED)'],says:'... plus this times the passer\'s felt pressure (re-centred too)'},
+} satisfies Record<string,Effect<unknown>>;
+/** In behind: the post on the last defender's shoulder and the run beyond him. */
+export const IN_BEHIND={
+ gap:{v:.5,unit:'m',kind:'fixedPost',axis:'L',at:['practice-coordination.ts:307 (RUN_GAP)'],says:'between runs he waits this far in front of their deepest outfielder'},
+ past:{v:3,unit:'m',kind:'fixedPost',axis:'L',at:['practice-coordination.ts:307 (RUN_PAST)'],says:'his run aims this far beyond that defender'},
+ channel:{v:2.5,unit:'m',kind:'fixedPost',axis:'W',at:['practice-coordination.ts:307 (RUN_CHANNEL)'],says:'the channel off the nearest back-line defender\'s shoulder'},
+ width:{v:6.5,unit:'m',kind:'fixedPost',axis:'W',at:['practice-coordination.ts:307 (RUN_WIDTH)'],says:'within this of the centre'},
+ room:{v:9,unit:'m',kind:'fixedPost',axis:'L',at:['practice-coordination.ts:307 (RUN_ROOM)'],says:'no run when their line is less than this from their goal'},
+ hold:{v:.8,unit:'B',kind:'fixedPost',at:['practice-coordination.ts:307 (RUN_HOLD)'],says:'his shoulder post\'s job score'},
+ fit:{v:.5,unit:'B',kind:'jobCredit',at:['practice-coordination.ts:307 (RUN_FIT)'],says:'his run\'s fit per unit of the runs trait'},
+ line:{v:4,unit:'m',kind:'fixedPost',axis:'L',at:['practice-coordination.ts:307 (RUN_LINE)'],says:'back-line defenders: within this of the deepest'},
+ alsoTakes:{v:['give-and-go','near-post','far-post','break','link'] as string[],unit:'flag',kind:'jobOffered',at:['practice-coordination.ts:308 (RUN_ALSO)'],says:'the only other jobs he still takes'},
+ depthBonus:{v:.3,unit:'B',kind:'jobCredit',at:['practice-coordination.ts:990'],says:'the team\'s run in behind: extra fit for him'},
+} satisfies Record<string,Effect<unknown>>;
+/** Drops deep: the false nine's post between their lines and the run beyond him. */
+export const DROPS_DEEP={
+ gap:{v:5,unit:'m',kind:'fixedPost',axis:'L',at:['practice-coordination.ts:324 (LINK_GAP)'],says:'he stands this far in front of their deepest outfielder'},
+ show:{v:4.5,unit:'m',kind:'fixedPost',axis:'body',at:['practice-coordination.ts:324 (LINK_SHOW)'],says:'he comes this far toward the ball when the lane is open'},
+ hold:{v:1,unit:'B',kind:'fixedPost',at:['practice-coordination.ts:324 (LINK_HOLD)'],says:'his post\'s job score'},
+ beyond:{v:6,unit:'m',kind:'jobOffered',axis:'L',at:['practice-coordination.ts:324 (LINK_BEYOND)'],says:'the run beyond him aims this far past him'},
+ wide:{v:Y(8),unit:'m',kind:'jobOffered',axis:'W',at:['practice-coordination.ts:324 (LINK_WIDE)'],says:'... either side of him'},
+ alsoTakes:{v:['give-and-go','break','cutback'] as string[],unit:'flag',kind:'jobOffered',at:['practice-coordination.ts:325 (LINK_ALSO)'],says:'the only other jobs he takes (no post arrivals)'},
+} satisfies Record<string,Effect<unknown>>;
+/** Who carries the Striker setting: the lead forward, and when he changes. */
+export const STRIKER_COMMON={
+ leadMargin:{v:2,unit:'m',kind:'fixedPost',axis:'L',at:['practice-coordination.ts:236 (LEAD_FORWARD_MARGIN)'],says:'a challenger takes the role only this far further forward ...'},
+ leadHold:{v:1.5,unit:'s',kind:'fixedPost',at:['practice-coordination.ts:236 (LEAD_FORWARD_HOLD)'],says:'... for this long'},
 } as const satisfies Record<string,Effect>;
 
 // ------------------------------------------------------------------ views (old names survive, rule 1.3.6)
