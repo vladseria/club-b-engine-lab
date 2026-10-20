@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {runMatch,createSimulationRequest,validateSubstitutionOrders,MAX_TRIGGERED_SUBSTITUTIONS} from '../dist/index.js';
+import {runMatch,createSimulationRequest,validateSubstitutionOrders,createTrainingSetup,MAX_TRIGGERED_SUBSTITUTIONS} from '../dist/index.js';
 import {triggerHolds,resolveOrder,halfTime} from '../dist/practice-substitutions.js';
-import {practicePlayers} from '../dist/practice.js';
-import {defaultPlans} from '../dist/practice-playbook.js';
+import {practicePlayers,laneRisk} from '../dist/practice.js';
+import {defaultPlans,PracticePlaybook} from '../dist/practice-playbook.js';
 
 const base=JSON.parse(await readFile(new URL('./fixture.json',import.meta.url),'utf8'));
 // The shared fixture has no bench. Add a keeper and two outfield players per side.
@@ -91,110 +91,105 @@ test('each trigger kind reads score, margin, clock and energy as specified',()=>
  assert.match(resolveOrder({id:'w',side:0,in:'r20',out:'r10',trigger:{kind:'half'}},f,players,new Set()).wait,/nu este pe teren/,'waits for a substitute who has not come on yet');
 });
 
+// (Lane C, 2026-10-21) The rule every trigger obeys, read back from any run instead of from seeded passages (2028 for
+// the tired order, 2032 for score, margin, half and chain, 2028 for slot plans, about ten re-pins between them): at each
+// stoppage before full time, in list order, a waiting order is made exactly when its notBefore has passed, its trigger
+// holds on the score, clock and energies of that moment, its side has room, and the change is possible; otherwise it
+// keeps waiting or becomes impossible. Energies are read from the last frame before the stoppage, so a tired trigger
+// within 0.05 of its threshold there is not judged.
+function checkOrders(r,fixture,orders,duration){
+ const status=new Map(orders.map(o=>[o.id,'waiting'])),made=[0,0],gone=new Set(),score=[0,0];
+ const subAt=new Map(subs(r).map(e=>[e.substitution.order,e]));
+ r.events.forEach((e,i)=>{
+  if(e.kind==='goal')score[e.side]++;
+  if(!STOPPAGES.includes(e.kind)||e.time<=0||e.time>duration+1e-9)return;
+  const before=r.frames.findLast(f=>f.time<e.time);
+  const on=before.players.map((pose,k)=>({...r.players[before.lineup?.[k]??k],energy:pose.energy}));
+  const swap=sub=>{status.set(sub.substitution.order,'made');made[sub.side]++;gone.add(sub.outgoing);
+   on[on.findIndex(p=>p.id===sub.outgoing)]={...r.players.find(p=>p.id===sub.incoming)};};
+  for(const o of orders){
+   if(status.get(o.id)!=='waiting'||(o.notBefore??0)>e.time)continue;
+   const sub=subAt.get(o.id),here=!!sub&&sub.time===e.time&&r.events.indexOf(sub)>i;
+   const tired=o.trigger.kind==='tired'&&on.find(p=>p.id===`${o.side}:${o.trigger.player}`);
+   if(tired&&Math.abs(tired.energy-o.trigger.threshold)<.05){if(here)swap(sub);continue;}
+   const holds=triggerHolds(o.trigger,o.side,e.time,duration,score,on);
+   const decision=!holds?null:made[o.side]>=MAX_TRIGGERED_SUBSTITUTIONS?{impossible:true}:resolveOrder(o,fixture,on,gone);
+   assert.equal(here,!!decision?.outgoing,`order ${o.id} at the ${e.kind} at ${e.time.toFixed(2)} s: trigger ${holds?'holds':'does not hold'}`);
+   if(here){assert.equal(sub.outgoing,decision.outgoing.id,`order ${o.id} takes off the right man`);
+    assert.deepEqual(sub.substitution.score,[score[o.side],score[1-o.side]],'the score it was made at');swap(sub);}
+   else if(decision&&'impossible' in decision)status.set(o.id,'impossible');
+  }
+ });
+ for(const [id,e] of subAt)assert.equal(status.get(id),'made',`order ${id} was made at a stoppage at ${e.time.toFixed(2)} s`);
+ assert.deepEqual(r.substitutionNotes.map(n=>n.status),orders.map(o=>status.get(o.id)));
+ return status;
+}
+
+// One set of orders covers every trigger kind; the 120 s runs below play it.
+const ORDERS=[
+ {id:'h',side:0,in:'r10',trigger:{kind:'half'}},
+ {id:'chain',side:0,in:'r20',out:'r10',trigger:{kind:'tired',player:'r10',threshold:99.9}},
+ {id:'k',side:0,in:'rgk0',trigger:{kind:'score',state:'winning'}},
+ {id:'t',side:1,in:'r11',trigger:{kind:'tired',player:'van',threshold:99.5}},
+ {id:'m',side:1,in:'r21',trigger:{kind:'margin',atLeast:1,direction:'down'},notBefore:30},
+ {id:'d',side:1,in:'rgk1',trigger:{kind:'score',state:'drawing'}},
+];
+const RUN={fixture:withBench(13009),durationSeconds:120};
+const played=runMatch({...RUN,substitutionOrders:ORDERS});
+
 test('a tired trigger replaces that player at the next stoppage; the newcomer inherits slot and role',()=>{
- // A seeded passage (evidence/2026-10-14-r1/repin.mjs tired): seed 2026 until the decide round (2026-10-15: plans
- // carried through the reception) moved its stoppages; 2027 is the next. The take-on price (2026-10-20, round 5) lost it;
- // 2028 is the next (evidence/2026-10-19-takeon-price/repin.mjs tired 2027-2086, public lab).
- const f=withBench(2028);
- const r=runMatch({fixture:f,durationSeconds:300,substitutionOrders:[{id:'t',side:0,in:'r10',trigger:{kind:'tired',player:'van',threshold:98}}]}).result;
- const [e]=subs(r);assert(e,'the order fired');
- assert.equal(e.outgoing,'0:van');assert.equal(e.incoming,'0:r10');assert.equal(e.side,0);
- assert.deepEqual(e.substitution.trigger,{kind:'tired',player:'van',threshold:98});
- assert(e.substitution.energy<98,'the player was below the threshold when he went off');
+ // If this fails: a tired player stays on past a stoppage his manager asked to take him off at, goes off before he
+ // tired, or his replacement plays somewhere else. Enough: the rule check judges the order at every stoppage of the run.
+ const r=played.result,status=checkOrders(r,RUN.fixture,ORDERS,120);
  assertAtStoppage(r);
- // The previous stoppage found him still above the threshold (else he would have gone then).
- const outIndex=r.players.findIndex(p=>p.id==='0:van'),prior=r.events.filter(x=>STOPPAGES.includes(x.kind)&&x.time<e.time).at(-1);
- const priorFrame=r.frames.filter(fr=>fr.time<=prior.time).at(-1);
- assert(priorFrame.players[outIndex].energy>=98-0.05,'not yet tired at the previous stoppage');
- const incoming=r.players.find(p=>p.id==='0:r10'),outgoing=r.players[outIndex];
+ const e=subs(r).find(x=>x.substitution.order==='t');
+ assert.equal(!!e,status.get('t')==='made');if(!e)return;
+ assert.equal(e.outgoing,'1:van');assert.equal(e.incoming,'1:r11');assert.equal(e.side,1);
+ assert(e.substitution.energy<99.5,'the player was below the threshold when he went off');
+ const incoming=r.players.find(p=>p.id==='1:r11'),outIndex=r.players.findIndex(p=>p.id==='1:van'),outgoing=r.players[outIndex];
  assert.equal(incoming.number,outgoing.number);assert.equal(incoming.role,outgoing.role);assert.equal(incoming.lane,outgoing.lane);
  assert.equal(incoming.energy,100,'comes on fresh');
- assert.deepEqual(r.substitutionNotes,[{order:'t',side:0,status:'made',in:'r10',out:'van',detail:r.substitutionNotes[0].detail,time:e.time}]);
  const last=r.frames.at(-1);assert(last.lineup.includes(r.players.indexOf(incoming))&&!last.lineup.includes(outIndex));
 });
 
 test('score, margin and half-time triggers fire at stoppages when true; three per side at most; no re-entry',()=>{
- // A seeded passage: seed 2026's 300 s had all three triggers fire; wingers
- // holding the lane Width asks for (2026-10-01, B2) changed it, and 2027 was
- // the next seed that did; pricing a loss by the rest defence (B3) changed
- // that, and 2028 is the next (evidence/2026-09-30-balance-v3/repin.mjs subs).
- // The settings-truth round (2026-10-04: line keepers stay home, Counter-press
- // goes whatever the numbers) changed it; 2029 is the next
- // (evidence/2026-10-04-settings-truth/repin.mjs subs). The matchups-combined
- // build (2026-10-10) changed it; 2030 is the next
- // (evidence/2026-10-10-matchups-combined/repin.mjs subs). Still 2030 on the
- // combined build with stamina as lasting and box defending (b0174c30,
- // evidence/2026-10-12-box-defending/repin.mjs subs).
- // The keeper fix (2026-10-19) changed it; 2031 is the next (evidence/2026-10-19-keeper-fix/repin.mjs subs).
- // The take-on price (2026-10-19) moved seed 2031's passage; 2032 holds it (evidence/2026-10-19-takeon-price/repin.mjs
- // subs 2031-2090, public lab).
- const f=withBench(2032);
- const orders=[
-  {id:'h',side:0,in:'r10',trigger:{kind:'half'}},
-  {id:'chain',side:0,in:'r20',out:'r10',trigger:{kind:'tired',player:'r10',threshold:99.9},notBefore:200},
-  {id:'k',side:0,in:'rgk0',trigger:{kind:'score',state:'winning'}},
-  {id:'w',side:1,in:'r11',trigger:{kind:'score',state:'losing'}},
-  {id:'m',side:1,in:'r21',trigger:{kind:'margin',atLeast:1,direction:'down'},notBefore:100},
-  {id:'d',side:1,in:'rgk1',trigger:{kind:'score',state:'drawing'}},
- ];
- const r=runMatch({fixture:f,durationSeconds:300,substitutionOrders:orders}).result;
- assertAtStoppage(r);
+ // If this fails: a change the manager tied to the score, the margin or half-time comes when it should not, or never
+ // comes when it should; or a player who went off comes back. Enough: every order is judged at every stoppage.
+ const r=played.result;
+ checkOrders(r,RUN.fixture,ORDERS,120);assertAtStoppage(r);
  const made=subs(r);
  for(const side of [0,1])assert(made.filter(e=>e.side===side).length<=3);
- for(const e of made){
-  const [own,opp]=e.substitution.score,t=e.substitution.trigger;
-  if(t.kind==='score')assert(t.state==='winning'?own>opp:t.state==='losing'?own<opp:own===opp,`${t.state} held`);
-  // (recon 2026-10-16, finding 16) no margin order is met in this passage ('m' stays waiting, the notes check below), so
-  // this line never runs here; the margin rule itself is checked directly in 'each trigger kind reads ...' above
-  if(t.kind==='margin')assert((t.direction==='up'?own-opp:opp-own)>=t.atLeast);
-  if(t.kind==='half')assert(e.time>=150);
-  const order=orders.find(o=>o.id===e.substitution.order);if(order.notBefore)assert(e.time>=order.notBefore);
- }
- // Half-time: the first stoppage from 2:30 of a 5-minute match.
- const half=made.find(e=>e.substitution.order==='h'),firstAfter=r.events.find(e=>STOPPAGES.includes(e.kind)&&e.time>=150);
- assert.equal(half.time,firstAfter.time);
- // A drawing trigger does not act at the opening kickoff; it waits for the first stoppage.
- const draw=made.find(e=>e.substitution.order==='d');assert(draw.time>0);
- assert.equal(draw.outgoing,'1:mircea','keeper incoming replaces the keeper');
- // The chain: r10 comes on, then goes off for r20; nobody who went off returns.
- const chain=made.find(e=>e.substitution.order==='chain');
- assert(chain,'the substitute tired and was replaced');assert.equal(chain.outgoing,'0:r10');assert(chain.time>half.time);
  const wentOff=new Set();
  for(const e of made){assert(!wentOff.has(e.incoming),'no re-entry');wentOff.add(e.outgoing);}
  const last=r.frames.at(-1);
  for(const id of wentOff)assert(!last.lineup.includes(r.players.findIndex(p=>p.id===id)),`${id} stays off`);
  assert.equal(new Set(last.lineup).size,10);
- assert.deepEqual(r.substitutionNotes.map(n=>n.status),orders.map(o=>made.some(e=>e.substitution.order===o.id)?'made':'waiting'));
 });
 
 test('an order whose trigger never fires changes nothing; identical inputs reproduce exactly',()=>{
- const f=withBench(13009),common={fixture:f,durationSeconds:120};
- const plain=runMatch(common).result;
- const idle=runMatch({...common,substitutionOrders:[{id:'never',side:0,in:'r10',trigger:{kind:'margin',atLeast:20,direction:'up'}},{id:'late',side:1,in:'r11',trigger:{kind:'half'},notBefore:5000}]}).result;
+ const plain=runMatch(RUN).result;
+ const idle=runMatch({...RUN,substitutionOrders:[{id:'never',side:0,in:'r10',trigger:{kind:'margin',atLeast:20,direction:'up'}},{id:'late',side:1,in:'r11',trigger:{kind:'half'},notBefore:5000}]}).result;
  for(const k of COMPARED)assert.deepEqual(idle[k],plain[k],k);
  assert.deepEqual(idle.substitutionNotes.map(n=>n.status),['waiting','waiting']);
  assert(!('substitutionNotes' in plain));
- const orders=[{id:'t',side:1,in:'r11',trigger:{kind:'tired',player:'van',threshold:99.5}},{id:'k',side:0,in:'rgk0',trigger:{kind:'half'}}];
- const a=runMatch({...common,substitutionOrders:orders}),b=runMatch({...common,substitutionOrders:structuredClone(orders)});
- assert.equal(subs(a.result).length,2);
- assert.deepEqual(a,b);
+ // (Lane C: "exactly two substitutions" was this seed's count; the rule check is the property.)
+ assert.deepEqual(runMatch({...RUN,substitutionOrders:structuredClone(ORDERS)}),played);
 });
 
 test('slot-addressed plans pass to the newcomer when he inherits the slot',()=>{
- // A seeded passage: seed 2026's side 0 selected plans after the half-time
- // change until the counter-press after a loss (2026-10-01, B3); 2027 is the
- // next seed that does (evidence/2026-10-01-b3-losing-the-ball/repin.mjs slot). Track the runner's wider skill
- // range (2026-10-11: a run read 0.1-0.8 s ahead by reading) changed 2027; 2028 is the next
- // (evidence/2026-10-11-track-runner/repin.mjs slot).
- const f=withBench(2028),playbooks=[0,1].map(side=>({side,adaptive:true,plans:defaultPlans().map(p=>({...p,id:`team-${side}-${p.id}`,name:`Team ${side} ${p.name}`}))}));
- const r=runMatch({fixture:f,durationSeconds:240,playbooks,substitutionOrders:[{id:'h',side:0,in:'r10',out:'van',trigger:{kind:'half'}}]}).result;
- const [e]=subs(r);assert(e);assertAtStoppage(r);
- const incoming=r.players.find(p=>p.id==='0:r10');
- assert.equal(incoming.number,r.players.find(p=>p.id==='0:van').number);
- // After the change the newcomer takes part in his team's plays, and the departed player takes none.
- const afterSel=r.playbookSelections.filter(s=>s.side===0&&s.time>e.time&&s.planId);
- assert(afterSel.length,'side 0 keeps selecting plans');
- const index=r.players.indexOf(incoming),vanIndex=r.players.findIndex(p=>p.id==='0:van');
- assert(r.choices.some(c=>c.player===index&&c.time>e.time&&c.assignment?.purpose==='playbook'),'newcomer carries out slot #4 plan jobs');
- assert(!r.choices.some(c=>c.player===vanIndex&&c.time>e.time),'departed player makes none');
+ // If this fails: after a change the manager's drawn moves still wait for the man who went off, and the newcomer in his
+ // shirt number ignores them. Enough: every default plan gives #4 a job, so whichever is chosen must address the man
+ // now wearing 4. The match path's own swap (same number, role and lane) is checked in the tired-trigger test above.
+ // (Lane C, 2026-10-21: replaces seed 2028's 240 s match with two adaptive playbooks.)
+ const f=withBench(),players=practicePlayers(f),setup=createTrainingSetup('middle');
+ for(const pose of setup.poses)Object.assign(players.find(p=>p.side===pose.side&&p.number===pose.number),{x:pose.x,y:pose.y,angle:pose.angle});
+ const van=players.find(p=>p.id==='0:van'),source=structuredClone(f.teams[0].squad.find(p=>p.id==='r10'));
+ players[players.indexOf(van)]={...van,...source,id:'0:r10',side:0,number:van.number,role:van.role,lane:van.lane,energy:100};
+ const owner=players.find(p=>p.side===0&&p.number===setup.ball.number),ball={x:setup.ball.x,y:setup.ball.y,vx:0,vy:0,z:0,vz:0,owner:owner.id,mode:'control'};
+ const book=new PracticePlaybook({side:0,adaptive:true,plans:defaultPlans()},2026);
+ book.recover(10,owner,players,laneRisk,ball);
+ assert(book.selections.some(s=>s.planId),'a plan is chosen');
+ const moves=book.apply(10.5,players,ball,null,null)?.moves??[];
+ assert(moves.some(m=>m.player==='0:r10'&&m.purpose==='playbook'),'the newcomer carries out the #4 job');
+ assert(!moves.some(m=>m.player==='0:van'),'the departed player has none');
 });

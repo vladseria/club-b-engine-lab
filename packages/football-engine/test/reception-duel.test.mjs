@@ -61,16 +61,21 @@ test('a forced receiver: the nervous one lays it off first time, the composed on
  assert.equal(nervous.layoff,true);assert.equal(calm.layoff,false);
 });
 
-test('a match records reception duels, each with a defender within reach of the ball',async()=>{
- const {runMatch}=await import('../dist/index.js');
- const run=runMatch({fixture:structuredClone(fixture),durationSeconds:240,record:true});
- const duels=run.result.receptionDuels;
- assert.ok(duels.length>0,'no duel in four minutes');
- for(const d of duels){
-  // (keeper fix, 2026-10-19) the engine picks defenders within 2.8 m of the ball's contact point; the record's `at` is
-  // the receiver's body, up to about a metre from that point (the passage moved and has a winger 3.13 m from the body,
-  // within reach of the ball), so the body-to-defender check allows that metre
-  assert.ok(Math.hypot(d.at.x-d.defenderAt.x,d.at.y-d.defenderAt.y)<2.8+1);
+test('a pass to a marked man is recorded as a reception duel, with the defender within reach of the ball',async()=>{
+ // If this fails: a defender standing right behind the receiver never contests the touch, or one out of reach does.
+ // Enough: #5 checks short to the carrier with his marker a metre behind him, the textbook contested reception.
+ // (Lane C, 2026-10-21: replaces the default fixture's 240 s match, whose check from the receiver's body had been widened
+ // to 3.8 m to fit its passage; the engine's rule is 2.8 m from the point where the ball is met, the contact recorded
+ // for the receiver in that same tick.)
+ const {play,constructed}=await import('./constructed-scenes.mjs');
+ const r=play(constructed([[3,0],[8,0],[14,0],[18,10],[22,2,Math.PI],[46,0],[30,-4],[23.2,2.2],[26,9],[20,-7]],[0,3]));
+ assert.ok(r.receptionDuels.some(d=>d.receiver===r.players.find(p=>p.side===0&&p.number===5).id),'his touch is contested');
+ let checked=0;
+ for(const d of r.receptionDuels){
   assert.ok(['clean','forced','loose','nicked','turned','foul'].includes(d.outcome));
+  // (a nick or a foul stops the receiver's own touch, so only a touch he made records the point)
+  const met=r.controlContacts.find(c=>c.actor===d.receiver&&c.time>d.time-1/60-1e-9&&c.time<=d.time+1e-9);if(!met)continue;
+  assert.ok(Math.hypot(met.x-d.defenderAt.x,met.y-d.defenderAt.y)<=2.8+1e-9,'the defender could reach the ball');checked++;
  }
+ assert.ok(checked,'the reach is checked against a recorded touch');
 });

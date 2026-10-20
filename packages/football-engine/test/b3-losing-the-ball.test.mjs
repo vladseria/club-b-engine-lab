@@ -157,19 +157,19 @@ test('a standing mark order survives a counter-press window',()=>{
 // untouched by the rule; how often they counter-press is measured, evidence/2026-10-11-regain-fixes.) (Duel recovery,
 // 2026-10-16: how long now follows the duel, practice-balance; the least it can be is STEP, his foot put down again.)
 test('a player who has just been tackled cannot go straight back in',async()=>{
- const {runMatch}=await import('../dist/index.js');
- const {STEP:BEATEN_BALANCE}=await import('../dist/practice-balance.js');
- // (track the runner, 2026-10-11: runs read from their start) 2026 now has 3 tackles won in its 240 s; 2027 is the next
- // seed with five or more, every one unanswered inside BEATEN_BALANCE (evidence/2026-10-11-track-runner/repin.mjs tackled)
- const f=structuredClone(fixture);f.seed=2027;
- const r=runMatch({fixture:f,durationSeconds:240}).result;
- const id=i=>r.players[i].id;
- const challenges=r.choices.filter(c=>c.kind==='challenge'&&c.challenge);
- const won=challenges.filter(c=>r.events.some(e=>e.kind==='tackle'&&e.actor===id(c.player)&&Math.abs(e.time-c.challenge.resolvesAt)<.05));
- assert(won.length>=5,`tackles won (${won.length})`);
- for(const c of won){
-  const loser=c.challenge.opponent,t=c.challenge.resolvesAt;
-  const again=challenges.find(x=>id(x.player)===loser&&x.time>t+1e-6&&x.time<t+BEATEN_BALANCE-1e-6);
-  assert(!again,`${loser} tackled at ${t.toFixed(2)} s went in again at ${again?.time.toFixed(2)} s`);
+ // If this fails: tackle ping-pong, the man who just lost the ball lunging straight back in before he has his feet.
+ // Enough: a top tackler squared up to a poor carrier takes the ball off him in each of these duels, and the beaten man
+ // wants it back (in the front duel he goes in again 0.01 s after his ban ends). (Lane C, 2026-10-21: replaces seed 2027's 240 s match and its "five or more tackles";
+ // the ban checked is the one the duel gave him, which is at least STEP.)
+ const {STEP}=await import('../dist/practice-balance.js');
+ const {play,tackle,mismatch,wonTackles}=await import('./constructed-scenes.mjs');
+ for(const where of ['front','side']){
+  const r=play(tackle(where),{edit:mismatch}),won=wonTackles(r);
+  assert(won.length,`${where}: the top tackler takes the ball`);
+  for(const e of won){
+   const ban=e.balance.victim.challenge;assert(ban>=STEP-.01,`his foot must come down first (${ban} s)`);
+   const again=r.choices.find(c=>r.players[c.player].id===e.target&&c.kind==='challenge'&&c.time>e.time+1e-6&&c.time<e.time+ban-.01);
+   assert(!again,`${where}: ${e.target} tackled at ${e.time.toFixed(2)} s went in again at ${again?.time.toFixed(2)} s`);
+  }
  }
 });
