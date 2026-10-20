@@ -1,3 +1,4 @@
+import * as S from './style.js';
 import {L,W,GH} from './pitch.js';
 import {clamp} from './model.js';
 import type {Side,Tactics} from './model.js';
@@ -73,7 +74,7 @@ export function offGoalLine(side:Side,aim:Vec,ball:Pick<MovingBall,'x'|'mode'>&{
 // ---- settings --------------------------------------------------------------
 /** Who matters: a man this close to our goal centre (m), by the Line (a high
  * block marks men further out); Aggressive marks further out still. */
-export const DANGER_R:Record<Tactics['line'],number>={deep:17,standard:18.5,high:21};
+export const DANGER_R:Record<Tactics['line'],number>=S.view(S.LINE,'whoMatters');
 export const DANGER_PRESS:Record<Tactics['press'],number>={selective:-1,balanced:0,aggressive:3};
 /** ... and CENTRAL m further for a central man (|y| under 3 m, fading out by 9 m): the middle is where goals come from. */
 export const CENTRAL=3;
@@ -105,7 +106,7 @@ export const KEEP_MATTER=3;
  * block, or an aggressive press, steps out to men in midfield; a deep one
  * leaves them in front of it. */
 export const UNOWNED={ball:8,danger:7};
-export const UNOWNED_WATCH:Record<Tactics['line'],number>={deep:.5,standard:.9,high:1.5};
+export const UNOWNED_WATCH:Record<Tactics['line'],number>=S.view(S.LINE,'stepOut');
 export const WATCH_PRESS:Record<Tactics['press'],number>={selective:-.3,balanced:0,aggressive:.8};
 /** Keeping a man (s of run credited to the current owner), by Marking. */
 export const KEEP:Record<NonNullable<Tactics['marking']>,number>={tight:2.5,balanced:1.5,zonal:.8};
@@ -137,7 +138,7 @@ export function commitFor(p:PracticePlayer):number{return COMMIT.slow-(COMMIT.sl
  * goal, by Press, plus the Line's shift); beyond it he waits HOLD m off him,
  * goal-side. A man running at our goal is met wherever he is. */
 export const ENGAGE:Record<Tactics['press'],number>={selective:22,balanced:31,aggressive:L};
-export const ENGAGE_LINE:Record<Tactics['line'],number>={deep:-4,standard:0,high:5};
+export const ENGAGE_LINE:Record<Tactics['line'],number>=S.view(S.LINE,'engageShift');
 /** (threat round) ... and a carrier whose own threat (practice-threat carrierThreat: his shot, or his drive at goal) the presser reads at ENGAGE_THREAT or more is engaged wherever he is (misread by up to THREAT_SPREAD_C). */
 export const ENGAGE_THREAT=.3,THREAT_SPREAD_C=.1;
 export const HOLD:Record<Tactics['press'],number>={selective:5.5,balanced:4,aggressive:2.5};
@@ -164,11 +165,7 @@ export const PRESS_SAG:Record<Tactics['press'],number>={selective:1.15,balanced:
 export const WIDTH_SAG:Record<Tactics['width'],number>={narrow:1.25,standard:1,wide:.75};
 export const SAG_CAP=6.5;
 /** The block's height (m from our goal): the ball's depth minus `gap`, between `floor` and `ceiling`; it squeezes up `squeeze` m when the ball is pressed or played back. */
-export const BLOCK:Record<Tactics['line'],{gap:number;floor:number;ceiling:number;squeeze:number}>={
- deep:{gap:8,floor:5,ceiling:15,squeeze:0},
- standard:{gap:6,floor:6,ceiling:20,squeeze:2.5},
- high:{gap:4,floor:7,ceiling:26,squeeze:5},
-};
+export const BLOCK:Record<Tactics['line'],{gap:number;floor:number;ceiling:number;squeeze:number}>=S.blockView();
 /** The balance: how far across from the centre, on the far side (Width). */
 export const BALANCE_Y:Record<Tactics['width'],number>={narrow:1,standard:2.5,wide:4.5};
 /** The balance and the screen never stand in the goal area (BALANCE_FLOOR m from the line) and keep a man left in front of them BALANCE_CUSHION m ahead. */
@@ -183,7 +180,7 @@ export const BALANCE_FLOOR=4,BALANCE_CUSHION=1;
  * COVER_DROP_NEAR m as he reads it, with COVER_DROP_SPREAD of error, or a run going past the one who is: worth
  * COVER_DROP_FREE m), then the nearest our goal; he keeps his man (COVER_DROP_KEEP m) until it is gone (behind the
  * ball, out of range), and gives it up for a loose far man COVER_DROP_FAR m nearer our goal. */
-export const COVER_DROP_R:Record<Tactics['line'],number>={deep:20,standard:22,high:24};
+export const COVER_DROP_R:Record<Tactics['line'],number>=S.view(S.LINE,'coverDrop');
 export const COVER_DROP_NEAR=4,COVER_DROP_DEEP=2.5,COVER_DROP_BELOW=1,COVER_DROP_MAX=4.5,COVER_DROP_ACROSS=1.5,COVER_DROP_OFF=1.5,COVER_DROP_WIDE=4;
 export const COVER_DROP_SEE=.15,COVER_DROP_SLOW=.45,COVER_DROP_SPREAD=.15,COVER_DROP_FAR=1,COVER_DROP_FREE=3,COVER_DROP_KEEP=1.5;
 /** (threat round) The cover's man: the most threatening of those he could cover, COVER_DROP_THREAT m nearer per unit of threat. */
@@ -895,8 +892,8 @@ export function holdFrontCushion(q:PracticePlayer,man:PracticePlayer,threat:numb
  * Only the marker's spot moves: his pace, his tackle, the shooter and the keeper are unchanged. (Measured on 4,000
  * base shots: a defender within 0.6 m of the shot line at the strike blocks 70-78% of shots and 3-5% score; 1-2 m
  * off it, 10% blocked and 19% score; nobody between, 39% score.) */
-export const PROTECT_R:Record<Tactics['line'],number>={deep:19,standard:16,high:13};
-export const PROTECT:Record<Tactics['line'],number>={deep:1,standard:.6,high:.3};
+export const PROTECT_R:Record<Tactics['line'],number>=S.view(S.LINE,'protectRange');
+export const PROTECT:Record<Tactics['line'],number>=S.view(S.LINE,'protectShare');
 export const PROTECT_FADE=4,PROTECT_OFF=1.5,PROTECT_NEAR=3.5,PROTECT_FRONT=.35,PROTECT_BETTER=1.6,PROTECT_READ=.6,PROTECT_SPREAD=1.2,PROTECT_ON=.3;
 /** How good a shot from here looks: goal angle times nearness (the shooter's assessShot terms, without the people). */
 const openShot=(v:Vec,g:Vec)=>{const d=distance(v,g),x=Math.max(.01,Math.abs(g.x-v.x));return Math.abs(Math.atan2(GH-v.y,x)-Math.atan2(-GH-v.y,x))*clamp(1-d/45,.05,1);};

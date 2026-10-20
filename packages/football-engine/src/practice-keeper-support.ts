@@ -1,3 +1,4 @@
+import * as S from './style.js';
 import {clamp} from './model.js';
 import type {Tactics} from './model.js';
 import {L,W,BOX_DEPTH} from './pitch.js';
@@ -46,7 +47,7 @@ export function keeperSupportCandidates(p:PracticePlayer,focus:PracticePlayer,pl
  // (keeper fix, 2026-10-19) ... inside it: "he stays in his area when you have the ball" (the setting's words). His far
  // point was a metre outside it, and he stood 8 m+ out in 16% of his side's possession with the ball 24-32 m out.
  const home=clamp((sweep-KEEPER_HOME)/(.2-KEEPER_HOME),0,1),reachOut=BOX_DEPTH-1+home*(L*.42-BOX_DEPTH+1);
- const step=clamp(bd-12,{deep:3,standard:4,high:5}[tactics.line],reachOut);
+ const step=clamp(bd-12,S.LINE[tactics.line].keeperStep.v,reachOut);
  // (keeper fix, 2026-10-19) ... and with the ball in our third (where a loss is a shot) staying set on his ready spot is
  // one of his options: with a team-mate on the ball right in front of goal the baseline and the middle points are on the
  // carrier's own spot, and the only points left were 5 m to either side of the goal, so he went wide however the price

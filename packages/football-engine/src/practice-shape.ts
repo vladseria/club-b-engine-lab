@@ -1,3 +1,4 @@
+import * as S from './style.js';
 import {L,W,GH,HEIGHT,BOX_DEPTH,BOX_HALF,SPOT,X,Y,G} from './pitch.js';
 import {clamp} from './model.js';
 import type {Side,Tactics} from './model.js';
@@ -242,14 +243,14 @@ export function teamShape(players:PracticePlayer[],ball:MovingBall,attacking:Sid
  * up to LINE_SPREAD m for a non-reader, and how quickly he adjusts depends on
  * his reading, his legs (a tired player reacts slower) and whether the man
  * is in front of him or running from behind his shoulder. */
-export const LINE_CUSHION:Record<Tactics['line'],number|null>={deep:2,standard:0,high:null};
+export const LINE_CUSHION:Record<Tactics['line'],number|null>=S.view(S.LINE,'cushion');
 export const LINE_SPREAD=3,LINE_LEAD=.5,LINE_VIEW=100*Math.PI/180;
 /** In possession, how high the back line may support the attack regardless
  * of the opponents (m from own goal): a deep line keeps its old cap; standard
  * and high are held back only by their cushion (the shape's unit, and each
  * back's build-up ceiling). */
-export const LINE_SHAPE_CAP:Record<Tactics['line'],number>={deep:X(57),standard:Infinity,high:Infinity};
-export const LINE_BUILD_CAP:Record<Tactics['line'],number>={deep:X(56),standard:Infinity,high:Infinity};
+export const LINE_SHAPE_CAP:Record<Tactics['line'],number>=S.view(S.LINE,'backCap');
+export const LINE_BUILD_CAP:Record<Tactics['line'],number>=S.view(S.LINE,'buildCap');
 /** The highest this back will stand for the Line's cushion to the deepest
  * attacker he reads (m from his own goal; Infinity for high or nobody).
  * `ball`: our ball, when we have it (see lineThreat). */

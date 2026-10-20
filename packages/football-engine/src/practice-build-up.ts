@@ -1,3 +1,4 @@
+import * as S from './style.js';
 import {L,W,GH,HEIGHT,BOX_DEPTH,BOX_HALF,SPOT,X,Y,G} from './pitch.js';
 import {clamp} from './model.js';
 import type {Tactics} from './model.js';
@@ -11,7 +12,7 @@ import {ownGoalDanger} from './practice-possession.js';
 import {LOSS_SCALE} from './practice-rest-defence.js';
 import {supportWorth,releaseRoomAt,lossThreat,ownGoalSupportPoints,RECEIVE_LOSS} from './practice-support.js';
 /** r1-shape v5: how much of the cover price each Line keeps in possession near our goal. */
-export const LINE_CAUTION:Record<Tactics['line'],number>={deep:1.3,standard:1,high:.75};
+export const LINE_CAUTION:Record<Tactics['line'],number>=S.view(S.LINE,'coverPrice');
 
 type LaneRisk=(from:Vec,to:Vec,defenders:PracticePlayer[],speed?:number)=>number;
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);

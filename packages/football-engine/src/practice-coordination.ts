@@ -1,3 +1,4 @@
+import * as S from './style.js';
 import {keeperSupportCandidates} from './practice-keeper-support.js';
 import {selectPossessionJobs} from './practice-job-selection.js';
 import type {JobCandidate} from './practice-job-selection.js';
@@ -414,7 +415,7 @@ export function coordinateFlight(players:PracticePlayer[],ball:MovingBall,side:S
  * tucked towards the middle. Each guard reads the forward as he sees him.
  * A man pressing our ball is not such a forward (onOurBall, r1-shape). */
 export const REST_GUARDS=(commit:number)=>commit<=2?2:1;
-export const REST_CUSHION:Record<Tactics['line'],number>={deep:2.5,standard:1.5,high:1};
+export const REST_CUSHION:Record<Tactics['line'],number>=S.view(S.LINE,'restCushion');
 const REST_FREE:ReadonlySet<JobPurpose>=new Set(['shape','build-up','counter-cover','outlet','width','link','second-ball','join','third-man']);
 export function restGuards(players:readonly PracticePlayer[],side:Side,focus:Vec,t:Tactics,jobs:Readonly<Record<string,FootballJob>>,mates:readonly PracticePlayer[],time:number):{player:string;aim:Vec;speed:number;reason:string;target:string}[]{
  const bd=depth(side,focus.x);
