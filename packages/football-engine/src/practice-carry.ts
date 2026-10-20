@@ -10,6 +10,7 @@ import {turnoverPrice,deliveryLossWeight,LOSS_SCALE} from './practice-rest-defen
 import {arrivalTime} from './practice-defense.js';
 import {duelChance} from './practice-challenge.js';
 import {perceive,daring} from './practice-perception.js';
+import {WORLD} from './world.js';
 
 export type CarryPurpose='advance'|'shooting-angle'|'passing-lane'|'escape'|'protect';
 export interface CarryAssessment {
@@ -27,7 +28,7 @@ const depth=(p:PracticePlayer,x:number)=>p.side===0?x:L-x;
 const bound=(p:Vec):Vec=>({x:clamp(p.x,.8,(L-.8)),y:clamp(p.y,-(W/2-1),(W/2-1))});
 const nearest=(point:Vec,opponents:PracticePlayer[])=>Math.min(...opponents.map(p=>distance(point,p)));
 const goalDistance=(p:PracticePlayer,point:Vec)=>Math.hypot((p.side===0?L:0)-point.x,point.y);
-const shotPotential=(p:PracticePlayer,point:Vec)=>clamp(goalAngle({...p,...point})/.6,0,1)*clamp(1-goalDistance(p,point)/45,0,1);
+const shotPotential=(p:PracticePlayer,point:Vec)=>clamp(goalAngle({...p,...point})/WORLD.geometry.carry.shotAngle.v,0,1)*clamp(1-goalDistance(p,point)/WORLD.geometry.carry.shotReach.v,0,1);
 
 /** A carry into a contested route loses the ball about a third of the time
  * (B4b: ~19% for carries under pressure, passes 22-27%): the share of the

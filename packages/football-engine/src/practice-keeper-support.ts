@@ -9,6 +9,7 @@ import {readSupportLocation,lossThreat} from './practice-support.js';
 import {arrivalTime} from './practice-defense.js';
 import {keeperReadyPosition,KEEPER_HOME,attackTime,keeperGiveBack,KEEPER_SPRINT} from './practice-keeper.js';
 import {LOSS_SCALE,LOSS_OWN,lossDanger,restDefence} from './practice-rest-defence.js';
+import {WORLD} from './world.js';
 
 type Risk=(from:Vec,to:Vec,defenders:PracticePlayer[],speed?:number)=>number;
 /** Keeper fix (2026-10-19): what a loss with him at a point would give away. "If we lose the ball now, how out of
@@ -41,18 +42,18 @@ export function keeperSupportCandidates(p:PracticePlayer,focus:PracticePlayer,pl
  const attackers=players.filter(q=>q.side!==p.side&&q.role!=='GK');
  const nearest=Math.min(...attackers.map(q=>Math.hypot(q.x-focus.x,q.y-focus.y)));
  const danger=clamp((7-nearest)/6,0,1),sweep=clamp(p.traits.keeperSweep??.2,0,1);
- const baseline={x:world(3+bd*.035),y:clamp(focus.y*.15,-2,2)};
+ const baseline={x:world(3+bd*.035),y:clamp(focus.y*.15,WORLD.geometry.keeperSupport.baselineWide.v,WORLD.geometry.keeperSupport.baselineWideMax.v)};
  // (settings-truth round) a keeper who stays on his line offers the angle from his own area, not 15-20 m
  // out as a sweeper-keeper does (the default trait, 0.2, and up: unchanged)
  // (keeper fix, 2026-10-19) ... inside it: "he stays in his area when you have the ball" (the setting's words). His far
  // point was a metre outside it, and he stood 8 m+ out in 16% of his side's possession with the ball 24-32 m out.
  const home=clamp((sweep-KEEPER_HOME)/(.2-KEEPER_HOME),0,1),reachOut=BOX_DEPTH-1+home*(L*.42-BOX_DEPTH+1);
- const step=clamp(bd-12,S.LINE[tactics.line].keeperStep.v,reachOut);
+ const step=clamp(bd-WORLD.geometry.keeperSupport.stepBehind.v,S.LINE[tactics.line].keeperStep.v,reachOut);
  // (keeper fix, 2026-10-19) ... and with the ball in our third (where a loss is a shot) staying set on his ready spot is
  // one of his options: with a team-mate on the ball right in front of goal the baseline and the middle points are on the
  // carrier's own spot, and the only points left were 5 m to either side of the goal, so he went wide however the price
  // read them. (Further out it is not offered: it took the sweeper's height in his side's possession away, 8.0 to 5.8 m.)
- const points=[baseline,...[Math.max(2,step-4),step].flatMap(x=>[-5,0,5].map(y=>({x:world(x),y:clamp(focus.y*.4+y,-W*.3,W*.3)}))),...(bd<16?[ready]:[])];
+ const points=[baseline,...[Math.max(2,step-WORLD.geometry.keeperSupport.stepNear.v),step].flatMap(x=>[WORLD.geometry.keeperSupport.pointWide.v,0,WORLD.geometry.keeperSupport.pointWideMax.v].map(y=>({x:world(x),y:clamp(focus.y*.4+y,-W*.3,W*.3)}))),...(bd<WORLD.geometry.keeperSupport.readyFrom.v?[ready]:[])];
  const given=Math.min(1,Math.max(lossThreat(p.side,focus,players,focus.id),lossDanger(bd/L,restDefence(focus,players).deficit))/LOSS_OWN);
  const back=keeperGiveBack(p,attackTime(p.side,focus,attackers),KEEPER_SPRINT);
  return points.map(aim=>{

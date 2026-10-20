@@ -4,6 +4,7 @@ import type {PracticePlayer} from './practice.js';
 import type {Vec} from './movement.js';
 import {goalAngle} from './practice-football.js';
 import {arrivalTime} from './practice-defense.js';
+import {WORLD} from './world.js';
 
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
 /** The lanes a defender reads across the goal mouth: the centre and the two corners the shooter himself aims at
@@ -15,7 +16,7 @@ export interface ShotDanger {level:number;openness:number;angle:number;blockAim:
 export function readShotDanger(d:PracticePlayer,a:PracticePlayer,ball:Vec,players:PracticePlayer[]):ShotDanger{
  const goal={x:a.side===0?L:0,y:0},length=distance(a,goal),angle=goalAngle(a);
  const dx=goal.x-a.x,dy=-a.y,alignment=Math.max(0,(Math.cos(a.angle)*dx+Math.sin(a.angle)*dy)/Math.max(.01,length));
- const geometry=clamp(angle/.55,0,1)*clamp((38-length)/24,0,1);
+ const geometry=clamp(angle/WORLD.geometry.shotDefense.blockAngle.v,0,1)*clamp((WORLD.geometry.shotDefense.blockReach.v-length)/WORLD.geometry.shotDefense.blockSpan.v,0,1);
  const defenders=players.filter(q=>q.side===d.side&&q.id!==d.id&&q.role!=='GK');
  // Check several shooting lanes. One teammate in the centre need not cover both corners.
  const lanes=SHOT_LANES.map(y=>{
@@ -31,7 +32,7 @@ export function readShotDanger(d:PracticePlayer,a:PracticePlayer,ball:Vec,player
  });
  const openness=lanes.reduce((n,l)=>n+l.open,0)/lanes.length;
  const keeper=players.find(p=>p.side===d.side&&p.role==='GK');
- const keeperSet=keeper&&distance(keeper,goal)<9&&Math.abs(keeper.y)<5;
+ const keeperSet=keeper&&distance(keeper,goal)<WORLD.geometry.shotDefense.keeperSetNear.v&&Math.abs(keeper.y)<WORLD.geometry.shotDefense.keeperSetWide.v;
  const level=clamp(geometry*(.15+.85*alignment)*openness*(keeperSet?.85:1),0,1);
  // Prefer the clearest lane, retaining the centre when openness is comparable.
  const lane=lanes.reduce((best,l)=>l.open>best.open+.1?l:best,lanes[0]);

@@ -8,6 +8,7 @@ import {groundPassRisk,passFlightTime} from './practice-passing.js';
 import {kickHorizon} from './practice-possession.js';
 import {PASS_DRAG} from './practice-flight.js';
 import {perceive,acuity} from './practice-perception.js';
+import {WORLD} from './world.js';
 
 /** Threat round (2026-10-10, evidence/2026-10-10-threat-defending).
  *
@@ -69,7 +70,7 @@ const inside=(p:Vec):Vec=>({x:clamp(p.x,.5,L-.5),y:clamp(p.y,-(W/2-.5),W/2-.5)})
 export function goalShot(at:Vec,defending:Side):number{
  const gx=world(defending,0),dx=Math.max(.01,Math.abs(at.x-gx));
  const angle=Math.abs(Math.atan2(GH-at.y,dx)-Math.atan2(-GH-at.y,dx));
- return clamp(angle/.6,0,1)*clamp(1-Math.hypot(at.x-gx,at.y)/45,.05,1);
+ return clamp(angle/WORLD.geometry.threat.shotAngle.v,0,1)*clamp(1-Math.hypot(at.x-gx,at.y)/WORLD.geometry.threat.shotReach.v,.05,1);
 }
 /** A ground pass's launch speed for this length: arriving firmly (the passer's firm weight, practice-passing). */
 const launch=(length:number)=>{const arrive=Math.min(19,clamp(5.5+length*.24,6,14)+3);return Math.sqrt(arrive*arrive+2*PASS_DRAG*length);};

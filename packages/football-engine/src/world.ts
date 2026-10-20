@@ -10,7 +10,7 @@
  * entry, with the step that moved it). */
 
 /** The unit of an entry, as the code uses it. Never converted. */
-export type Unit='Hz'|'m'|'min'|'ref m'|'s';
+export type Unit='Hz'|'m'|'min'|'rad'|'ref m'|'s';
 /** body: never scales with the pitch; geometry: tied to the pitch or the goal; free: a share, weight, odds or score. */
 export type Kind='body'|'geometry'|'free';
 /** The pitch probe's axis (L along the pitch or a radius from a goal, W across, G the goal mouth, A the goal angle). Recorded only. */
@@ -132,6 +132,69 @@ export const WORLD=freeze({
    coverWideSpan:p(5,'m','geometry',['practice-defense.ts:186'],'near goal the cover moves from the shot line to the cut-back line as the ball goes wide: over this span beyond COVER_CENTRAL','G'),
    BLOCK_NEAR:p(12,'m','geometry',['practice-defense.ts:196'],'`intent` (after a loss, "On losing it"): \'delay\' keeps the first defender in front of the ball, goal-side, while the team drops into shape (Regroup); \'engage\' closes the ball down (a counter-press). A shot threat is always closed down.','L'),
    flightThreatRange:p(16,'m','geometry',['practice-defense.ts:304'],'assignFlight: an attacker within this of the defending goal is a threat the hunters must not leave','L'),
+  },
+  keeper:{
+   ONE_ON_ONE:p(14,'m','geometry',['practice-keeper.ts:23'],'(keeper upgrade) How far out (m from his line) a carrier through on goal is met (keeperReadyPosition `oneOnOne`).','L'),
+   closeFrom:p(12,'m','geometry',['practice-keeper.ts:35'],'keeper ready position: with an opponent carrying within this of his line he advances to meet him (the probe scales the whole advance with the goal, axis G)','L'),
+   sweepRangePer:p(9,'m','geometry',['practice-keeper.ts:78'],'a sweep\'s range: the box edge plus 1 m plus this times keeperSweep','L'),
+   homeOwnFrom:p(16,'m','geometry',['practice-keeper.ts:105'],'extra height off his line (keeperSweepDepth), our ball: starts with the ball this far out','L'),
+   homeOwnSpan:p(16,'m','geometry',['practice-keeper.ts:105'],'... full this much further','L'),
+   homeOwnMax:p(5,'m','geometry',['practice-keeper.ts:105'],'... at most this, times (keeperSweep - 0.2)','L'),
+   homeTheirsFrom:p(12,'m','geometry',['practice-keeper.ts:105'],'... their ball: starts with the ball this far out','L'),
+   homeTheirsSpan:p(12,'m','geometry',['practice-keeper.ts:105'],'... full this much further','L'),
+   homeTheirsMax:p(4.5,'m','geometry',['practice-keeper.ts:105'],'... at most this, times (keeperSweep - 0.2)','L'),
+   KEEPER_BEHIND:p(13,'m','geometry',['practice-keeper.ts:118'],'Behaviour round A (2026-10-03): a keeper plays off his back line, not off his goal line. While the ball is out of shooting range (from KEEPER_FOLLOW_FROM m out, fully from KEEPER_FOLLOW_FULL) he stands no more than KEEPER_BEHIND metres ...','L'),
+   KEEPER_BEHIND_SWEEP:p(5,'m','geometry',['practice-keeper.ts:118'],'Behaviour round A (2026-10-03): a keeper plays off his back line, not off his goal line. While the ball is out of shooting range (from KEEPER_FOLLOW_FROM m out, fully from KEEPER_FOLLOW_FULL) he stands no more than KEEPER_BEHIND metres ...','L'),
+   KEEPER_FOLLOW_FROM:p(24,'m','geometry',['practice-keeper.ts:118'],'Behaviour round A (2026-10-03): a keeper plays off his back line, not off his goal line. While the ball is out of shooting range (from KEEPER_FOLLOW_FROM m out, fully from KEEPER_FOLLOW_FULL) he stands no more than KEEPER_BEHIND metres ...','L'),
+   KEEPER_FOLLOW_FULL:p(32,'m','geometry',['practice-keeper.ts:118'],'Behaviour round A (2026-10-03): a keeper plays off his back line, not off his goal line. While the ball is out of shooting range (from KEEPER_FOLLOW_FROM m out, fully from KEEPER_FOLLOW_FULL) he stands no more than KEEPER_BEHIND metres ...','L'),
+   lineFollowPer:p(4,'m','geometry',['practice-keeper.ts:129'],'keeper off his back line: never further out than the box edge plus 1 m plus this times keeperSweep','L'),
+   SHOT_RANGE:p(12,'m','geometry',['practice-keeper.ts:147'],'(keeper) a shot is in range within this of his goal: he sets himself (SHOT_SET s before it can come)','L'),
+  },
+  keeperSupport:{
+   baselineWide:p(-2,'m','geometry',['practice-keeper-support.ts:45'],'his support baseline follows the ball across, never more than this either side of the centre (the negative bound)','G'),
+   baselineWideMax:p(2,'m','geometry',['practice-keeper-support.ts:45'],'... (the positive bound)','G'),
+   stepBehind:p(12,'m','geometry',['practice-keeper-support.ts:51'],'his support step: this far behind the ball, between the Line\'s floor and his reach','L'),
+   stepNear:p(4,'m','geometry',['practice-keeper-support.ts:56'],'he offers a second, nearer point this much short of his step','L'),
+   pointWide:p(-5,'m','geometry',['practice-keeper-support.ts:56'],'... each at the ball\'s line and this far either side (the negative offset)','W'),
+   pointWideMax:p(5,'m','geometry',['practice-keeper-support.ts:56'],'... (the positive offset)','W'),
+   readyFrom:p(16,'m','geometry',['practice-keeper-support.ts:56'],'with the ball within this of our goal his ready spot is one of his support points','L'),
+  },
+  football:{
+   shotAngle:p(.6,'rad','geometry',['practice-football.ts:70','practice-football.ts:71'],'the shooter\'s read: the goal angle that counts as wide open (quality and openness, one formula)','A'),
+   shotReach:p(45,'m','geometry',['practice-football.ts:70','practice-football.ts:71'],'... and nearness, nothing left at this distance (floor 0.05)','L'),
+   crossingWide:p(-7,'m','geometry',['practice-football.ts:127'],'where a shot crosses the goal line, clamped this far either side of the centre (the negative bound)','G'),
+   crossingWideMax:p(7,'m','geometry',['practice-football.ts:127'],'... (the positive bound)','G'),
+  },
+  carry:{
+   shotAngle:p(.6,'rad','geometry',['practice-carry.ts:31'],'a carry\'s shot potential: the goal angle that counts as wide open (same value as the shooter\'s read, a separate copy)','A'),
+   shotReach:p(45,'m','geometry',['practice-carry.ts:31'],'... and nearness, nothing at this distance (floor 0, not the shooter\'s 0.05)','L'),
+  },
+  threat:{
+   shotAngle:p(.6,'rad','geometry',['practice-threat.ts:73'],'the threat read of a shot: the goal angle that counts as wide open (same value as the shooter\'s, a separate copy)','A'),
+   shotReach:p(45,'m','geometry',['practice-threat.ts:73'],'... and nearness, nothing at this distance (floor 0.05)','L'),
+  },
+  shotDefense:{
+   blockAngle:p(.55,'rad','geometry',['practice-shot-defense.ts:19'],'a shot worth blocking: the goal angle that counts as wide open','A'),
+   blockReach:p(38,'m','geometry',['practice-shot-defense.ts:19'],'... and its length: nothing from this far','L'),
+   blockSpan:p(24,'m','geometry',['practice-shot-defense.ts:19'],'... whole within this much less','L'),
+   keeperSetNear:p(9,'m','geometry',['practice-shot-defense.ts:35'],'the keeper counts as set within this of his goal','L'),
+   keeperSetWide:p(5,'m','geometry',['practice-shot-defense.ts:35'],'... and within this of the centre line','G'),
+  },
+  intensity:{
+   LEFT_BEHIND:{
+    from:p(6,'m','geometry',['practice-intensity.ts:55'],'(striker outlet) Attacking, moving up: the ball this far ahead of him (m) starts to hurry him, this far is everything he has.','L'),
+    full:p(14,'m','geometry',['practice-intensity.ts:55'],'(striker outlet) Attacking, moving up: the ball this far ahead of him (m) starts to hurry him, this far is everything he has.','L'),
+   },
+   nearGoal:p(15,'m','geometry',['practice-intensity.ts:95'],'urgency: a run whose aim is within this of a goal (and still more than 2 m away) is urgent','L'),
+  },
+  practice:{
+   CLEAR_READ:p(12,'m','geometry',['practice.ts:206'],'(receive round) A defender reads a ball coming into the area round his own goal, within CLEAR_READ m of its centre (the "losses within 12 m" area of the watch notes), and wants CLEAR_SPARE s to spare there before he controls it.','L'),
+   groundBackMax:p(-25,'m','geometry',['practice.ts:238'],'the carrier\'s ground passes: none to a mate more than this far behind him (negative: backwards)','L'),
+   loftBackMax:p(-20,'m','geometry',['practice.ts:245'],'the carrier\'s lofted passes: none to a mate more than this far behind him','L'),
+   indirectLine:p(3,'m','geometry',['practice.ts:680'],'an indirect free kick awarded inside the goal area is moved out to this far from the goal line','L'),
+   indirectWide:p(4.5,'m','geometry',['practice.ts:680'],'... when within this of the centre line','G'),
+   goalKickSpot:p(3,'m','geometry',['practice.ts:704'],'a goal kick is taken this far from the goal line','L'),
+   sweepGroundFrom:p(40,'m','geometry',['practice.ts:788'],'the keeper reads a loose ball for a sweep only with it within this of his goal','L'),
   },
  },
 });

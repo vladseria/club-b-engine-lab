@@ -7,6 +7,7 @@ import {keeperReach,NO_EDGE} from './practice-football.js';
 import type {KeeperEdge} from './practice-football.js';
 import {acuity,perceive} from './practice-perception.js';
 import type {Reader} from './practice-perception.js';
+import {WORLD} from './world.js';
 
 /** All lengths are metres, times seconds, and attributes use the existing 0–10 scale. */
 export interface KeeperState extends Vec {
@@ -19,7 +20,7 @@ const reactionTime=(p:KeeperState,edge:KeeperEdge=NO_EDGE)=>.2+(10-clamp(p.skill
 const unit=(x:number,y:number)=>{const d=Math.hypot(x,y)||1;return {x:x/d,y:y/d};};
 
 /** (keeper upgrade) How far out (m from his line) a carrier through on goal is met (keeperReadyPosition `oneOnOne`). */
-export const ONE_ON_ONE=14;
+export const ONE_ON_ONE=WORLD.geometry.keeper.ONE_ON_ONE.v;
 /**
  * A movement target only. Anticipate a carrier's next short touch, bisect the two
  * post directions, and stay shallow for a wide ball. `closing` means an opponent
@@ -31,7 +32,7 @@ export function keeperReadyPosition(p:Pick<KeeperState,'side'|'skills'>,ball:Vec
  const lead=ball.owner ? .1+clamp(p.skills.reading/10,0,1)*.12 : 0;
  const bx=clamp(ownDepth(p.side,ball.x+(ball.vx??0)*lead),.1,L);
  const by=ball.y+(ball.vy??0)*lead;
- const advance=closing&&oneOnOne&&bx<ONE_ON_ONE?clamp(5.2-bx*.13+(clamp(p.skills.keeping,0,10)-6)*.12,1.6,4.6):closing&&bx<12?clamp(3.8-bx*.11,1.2,3.2):clamp(bx*.12,.65,2.8);
+ const advance=closing&&oneOnOne&&bx<ONE_ON_ONE?clamp(5.2-bx*.13+(clamp(p.skills.keeping,0,10)-6)*.12,1.6,4.6):closing&&bx<WORLD.geometry.keeper.closeFrom.v?clamp(3.8-bx*.11,1.2,3.2):clamp(bx*.12,.65,2.8);
  const depth=Math.max(.3,Math.min(advance,Math.max(.3,bx-1.25),2.1*bx/Math.max(1,Math.abs(by))));
  const upper=unit(-bx,GH-by),lower=unit(-bx,-GH-by);
  const direction=unit(upper.x+lower.x,upper.y+lower.y);
@@ -74,7 +75,7 @@ export function keeperRead(p:Reader,ball:Vec,time:number):{reread:number;lead:nu
  */
 export function keeperSweepReach(sweep:number):{margin:number;range:number}{
  const s=clamp(sweep,0,1);
- return {margin:-.5+s*.8,range:BOX_DEPTH+1+s*9};
+ return {margin:-.5+s*.8,range:BOX_DEPTH+1+s*WORLD.geometry.keeper.sweepRangePer.v};
 }
 /** B3 (2026-10-09), answering the long ball. A pass whose receiver will meet
  * it behind the keeper's last outfielder (the space a deep line leaves in
@@ -101,7 +102,7 @@ export function keeperSweepNeed(sweep:number):number{
  * engine's default trait (0.2), so untouched keepers stand where they did. */
 export function keeperSweepDepth(sweep:number,ballDepth:number,ownBall:boolean):number{
  const s=clamp(sweep,0,1)-.2;
- return ownBall?s*clamp((ballDepth-16)/16,0,1)*5:s*clamp((ballDepth-12)/12,0,1)*4.5;
+ return ownBall?s*clamp((ballDepth-WORLD.geometry.keeper.homeOwnFrom.v)/WORLD.geometry.keeper.homeOwnSpan.v,0,1)*WORLD.geometry.keeper.homeOwnMax.v:s*clamp((ballDepth-WORLD.geometry.keeper.homeTheirsFrom.v)/WORLD.geometry.keeper.homeTheirsSpan.v,0,1)*WORLD.geometry.keeper.homeTheirsMax.v;
 }
 
 /** Behaviour round A (2026-10-03): a keeper plays off his back line, not off
@@ -114,7 +115,7 @@ export function keeperSweepDepth(sweep:number,ballDepth:number,ownBall:boolean):
  * himself, at a sprint (practice.ts). Whether he comes for a ball is still his
  * own forecast of getting there first. (The first screen had him follow from
  * 14 m out: shots from 15 m+ rose from 0.4 to 2.1 a side and scored 24%.) */
-export const KEEPER_BEHIND=13,KEEPER_BEHIND_SWEEP=5,KEEPER_FOLLOW_FROM=24,KEEPER_FOLLOW_FULL=32;
+export const KEEPER_BEHIND=WORLD.geometry.keeper.KEEPER_BEHIND.v,KEEPER_BEHIND_SWEEP=WORLD.geometry.keeper.KEEPER_BEHIND_SWEEP.v,KEEPER_FOLLOW_FROM=WORLD.geometry.keeper.KEEPER_FOLLOW_FROM.v,KEEPER_FOLLOW_FULL=WORLD.geometry.keeper.KEEPER_FOLLOW_FULL.v;
 /** Settings-truth round (2026-10-04): a keeper who stays on his line does not
  * play off his back line at all. Following it is a sweeper-keeper's habit: none
  * at keeperSweep KEEPER_HOME (and below), fully from the engine's default trait
@@ -125,7 +126,7 @@ export const KEEPER_HOME=.1;
 export function keeperLineDepth(sweep:number,lastLine:number,ballDepth:number):number{
  const s=clamp(sweep,0,1),far=clamp((ballDepth-KEEPER_FOLLOW_FROM)/(KEEPER_FOLLOW_FULL-KEEPER_FOLLOW_FROM),0,1);
  const follows=clamp((s-KEEPER_HOME)/(.2-KEEPER_HOME),0,1);
- return follows*far*clamp(lastLine-(KEEPER_BEHIND-KEEPER_BEHIND_SWEEP*s),0,BOX_DEPTH+1+4*s);
+ return follows*far*clamp(lastLine-(KEEPER_BEHIND-KEEPER_BEHIND_SWEEP*s),0,BOX_DEPTH+1+WORLD.geometry.keeper.lineFollowPer.v*s);
 }
 
 /** Keeper fix (2026-10-19): "if we lose the ball now, how out of position am I". The keeper position study
@@ -143,7 +144,7 @@ export function keeperLineDepth(sweep:number,lastLine:number,ballDepth:number):n
  *  - keeperBackTime: the same run the other way round, from a point to his set spot. It replaces the support job's
  *    standing-start arrival time (which ignored his reaction and his stop: 1.06 s modelled where about 1.5 s or more
  *    was observed). */
-export const SHOT_RANGE=12,SHOT_SET=.6,ATTACK_SPEED=8,PASS_PREP=.3,PASS_SPEED=13,KEEPER_DROP=.6,KEEPER_SPRINT=.9;
+export const SHOT_RANGE=WORLD.geometry.keeper.SHOT_RANGE.v,SHOT_SET=.6,ATTACK_SPEED=8,PASS_PREP=.3,PASS_SPEED=13,KEEPER_DROP=.6,KEEPER_SPRINT=.9;
 type Runner=Pick<KeeperState,'pace'|'acceleration'>&{skills:{reading:number}};
 const keeperReaction=(p:{skills:{reading:number}})=>.2+(10-clamp(p.skills.reading,0,10))*.015;
 export function attackTime(side:0|1,ball:Vec&{vx?:number},attackers:readonly Vec[],carrier?:Vec|null):number{

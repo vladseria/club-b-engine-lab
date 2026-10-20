@@ -1,6 +1,7 @@
 import {clamp} from './model.js';
 import type {Vec} from './movement.js';
 import {misread,readNoise} from './practice-perception.js';
+import {WORLD} from './world.js';
 
 /** How hard to move (movement-intensity round, 2026-10-10).
  *
@@ -51,7 +52,7 @@ export const INTENSITY_EVERY=.1;
 /** (threat round) A marker whose man he reads as a threat of THREAT_HURRY[0] goes as before; of THREAT_HURRY[1] or more, at full urgency while more than 1.5 m from his spot or while his man is moving. */
 export const THREAT_HURRY:readonly [number,number]=[.12,.3];
 /** (striker outlet) Attacking, moving up: the ball this far ahead of him (m) starts to hurry him, this far is everything he has. */
-export const LEFT_BEHIND:readonly [number,number]=[6,14];
+export const LEFT_BEHIND:readonly [number,number]=[WORLD.geometry.intensity.LEFT_BEHIND.from.v,WORLD.geometry.intensity.LEFT_BEHIND.full.v];
 
 export interface IntensityMover extends Vec {id:string;side:number;vx:number;vy:number;pace:number;skills:{reading:number;defending:number}}
 export interface IntensityMan extends Vec {id:string;vx:number;vy:number}
@@ -91,7 +92,7 @@ export function offBallIntensity(r:IntensityRead):Intensity{
  if(r.defending){
   const me=depth(p.x),deeper=me-depth(aim.x);
   up(clamp((deeper-1.5)/4.5,0,1),'drop');
-  if(dist(aim,goal)<15&&far>2)up(.5,'near goal');
+  if(dist(aim,goal)<WORLD.geometry.intensity.nearGoal.v&&far>2)up(.5,'near goal');
   if(depth(r.ball.x)<me-2)up(clamp((deeper+1)/3,0,1),'ball past');
   if(r.man)up(clamp((runRead(r.man)-2.5)/1.5,0,1),'man runs');
   // (threat round) his man is a threat to our goal: he gets to his tight spot with everything he has (THREAT_HURRY)

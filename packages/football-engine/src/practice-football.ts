@@ -3,6 +3,7 @@ import {L,W,GH,HEIGHT,BOX_DEPTH,BOX_HALF,SPOT,X,Y,G} from './pitch.js';
 import {clamp} from './model.js';
 import type {PracticePlayer} from './practice.js';
 import type {Vec,MovingBall} from './movement.js';
+import {WORLD} from './world.js';
 
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
 const relative=(p:PracticePlayer,x:number)=>p.side===0?L-x:x;
@@ -66,8 +67,8 @@ export function assessShot(p:PracticePlayer,players:PracticePlayer[]):ShotAssess
   if(value>best){best=value;aim={x:goalX,y};keeperCoverage=coverage;}
  }
  // This values the opportunity; it never decides whether the ball becomes a goal.
- const quality=clamp(angle/.6,0,1)*clamp(1-distanceToGoal/45,.05,1)*(1-pressure*.24)*(1-keeperCoverage*.75);
- const open=clamp(angle/.6,0,1)*clamp(1-distanceToGoal/45,.05,1)*(1-keeperCoverage*.75);
+ const quality=clamp(angle/WORLD.geometry.football.shotAngle.v,0,1)*clamp(1-distanceToGoal/WORLD.geometry.football.shotReach.v,.05,1)*(1-pressure*.24)*(1-keeperCoverage*.75);
+ const open=clamp(angle/WORLD.geometry.football.shotAngle.v,0,1)*clamp(1-distanceToGoal/WORLD.geometry.football.shotReach.v,.05,1)*(1-keeperCoverage*.75);
  return {aim,distance:distanceToGoal,angle,pressure,deviation,quality,open,keeperCoverage};
 }
 const gaussian=(random:()=>number)=>Math.sqrt(-2*Math.log(Math.max(1e-9,random())))*Math.cos(2*Math.PI*random());
@@ -123,7 +124,7 @@ export function goalBoundFlight(keeper:Pick<PracticePlayer,'side'|'x'|'y'>,ball:
  if(Math.abs(y)>GH+1.34||height>HEIGHT+.66)return null;
  const ownDepth=keeper.side===0?keeper.x:L-keeper.x,ballDepth=keeper.side===0?ball.x:L-ball.x;
  const x=ownDepth<ballDepth-.3?keeper.x:goalX+(keeper.side===0?.3:-.3);
- return {time,crossing:{x:goalX,y},aim:{x,y:clamp(ball.y+(x-ball.x)/ball.vx*ball.vy,-7,7)}};
+ return {time,crossing:{x:goalX,y},aim:{x,y:clamp(ball.y+(x-ball.x)/ball.vx*ball.vy,WORLD.geometry.football.crossingWide.v,WORLD.geometry.football.crossingWideMax.v)}};
 }
 /** Stand goal-side of the receiver while keeping a route to the ball. */
 export function markPosition(marker:PracticePlayer,receiver:Vec,ball:Vec,style:'balanced'|'zonal'|'tight'='balanced'):Vec{

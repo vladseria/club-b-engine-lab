@@ -51,6 +51,7 @@ import {strikeStance} from './practice-striking.js';
 import {duelGeometry,readDuel,resolveDuel,shieldTouch,turnTouch,dangerAt,TURNED_TIME,DuelResult} from './practice-duel.js';
 import {carryPace,captureControl,faceControl,steerControl,advanceControl,receivingContact,cushionControl,controlReleaseAvailable,controlStrikeReady,strikeControl,rollControlRemainder,deflectBodyBall,TouchControl,ControlContact} from './practice-control.js';
 import {READ_EVERY,READ_MARGIN,LATE_MARGIN,readHorizon,ballArrival,meetingSpeed,projectOpponents,receptionRoom,roomLate,touchTime,touchCost,firstTimeCost,projectMates,sameIntention,lateStrike,strikeLoad,READ_KEEP,ROOM_DROP,SWITCH_DEADLINE,SHAPE_MIN,LATE_POINTS,FT_PASSING,FT_FINISHING,PLAN_KEEP,COMMIT_GRACE,LANE_CLOSED,type MateJob} from './practice-receive.js';
+import {WORLD} from './world.js';
 
 export const PRACTICE_VERSION='five-shared-1';
 /** The least time between two closing-lane rechecks of a prepared kick (honest-reads round): a minimum hold, so a
@@ -202,7 +203,7 @@ function plannedRisk(p:PracticePlayer,o:Option,opponents:PracticePlayer[],player
 }
 /** (receive round) A defender reads a ball coming into the area round his own goal, within CLEAR_READ m of its centre
  * (the "losses within 12 m" area of the watch notes), and wants CLEAR_SPARE s to spare there before he controls it. */
-export const CLEAR_READ=12,CLEAR_SPARE=.3;
+export const CLEAR_READ=WORLD.geometry.practice.CLEAR_READ.v,CLEAR_SPARE=.3;
 /** A man within ON_TOUCH m of the ball when the receiver meets it is on him: the touch protects it from him first,
  * whatever he meant to set it for (the first touch away from a man within 2.5 m, before). */
 export const ON_TOUCH=1.5;
@@ -234,14 +235,14 @@ export function practiceOptions(p:PracticePlayer,players:PracticePlayer[],runnin
  const options:Option[]=[],offsides=new Set(planningLine===undefined?offsidePlayers(players,p.side,p):players.filter(q=>q.side===p.side&&perceivedOffside(p,q,planningLine)).map(q=>q.id));
  options.push(...carryOptions(p,players,held,laneRisk,plan,time));
  for(const q of players.filter(q=>q.side===p.side&&q.id!==p.id)){
-  const d=dist(p,q),progress=depth(p.side,q.x)-forward;if(d<2.8||d>40||progress< -25||offsides.has(q.id))continue;
+  const d=dist(p,q),progress=depth(p.side,q.x)-forward;if(d<2.8||d>40||progress< WORLD.geometry.practice.groundBackMax.v||offsides.has(q.id))continue;
   const run=activePassRun(support,p,q,time);
   for(const through of running.has(q.id)||run?[false,true]:[false]){
    options.push(groundOptions(p,q,players,through,run,p,laneRisk,lastFrom,held,undefined,{support,time})[0]);
   }
  }
  for(const q of players.filter(q=>q.side===p.side&&q.id!==p.id&&q.role!=='GK')){
-  const d=dist(p,q),progress=depth(p.side,q.x)-forward;if(d<8||d>55||progress< -20||offsides.has(q.id))continue;
+  const d=dist(p,q),progress=depth(p.side,q.x)-forward;if(d<8||d>55||progress< WORLD.geometry.practice.loftBackMax.v||offsides.has(q.id))continue;
   const run=activePassRun(support,p,q,time),ground=options.filter(o=>o.target===q.id&&o.pass).sort((a,b)=>b.score-a.score)[0];
   // A clear short ground route needs no aerial alternative. Runs, distance and
   // blocked lanes are reasons to compare height with the existing pass choices.
@@ -676,7 +677,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
   feintMemory.clear();
   challenge=null;firstTouch=null;recovering.clear();blocks.clear();wrongfoot.clear();dives.clear();controls.clear();noHandsSide=null;noHandsKeeper='';
   if(kind==='penalty')spot={x:world(team,L-SPOT),y:0};
-  if(kind==='indirect'&&depth(team,spot.x)>(L-3)&&Math.abs(spot.y)<=4.5)spot={x:world(team,(L-3)),y:spot.y};
+  if(kind==='indirect'&&depth(team,spot.x)>(L-WORLD.geometry.practice.indirectLine.v)&&Math.abs(spot.y)<=WORLD.geometry.practice.indirectWide.v)spot={x:world(team,(L-WORLD.geometry.practice.indirectLine.v)),y:spot.y};
   spot={x:clamp(spot.x,1,(L-1)),y:clamp(spot.y,-(W/2-0.3),(W/2-0.3))};
   // A manager's routine for this restart names its own taker and spots.
   // Clubs without one never reach this draw (byte parity).
@@ -700,7 +701,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
   }else if(exit.endLine){
    const defending:Side=exit.x<(L/2)?0:1,corner=last.side===defending;
    say('out',corner?'Mingea iese dintr-un apărător. Corner.':'Mingea trece de linia porții. Repunere pentru portar.');
-   startRestart(corner?'corner':'goalKick',corner?other(defending):defending,{x:exit.x<(L/2)?corner?1:3:corner?(L-1):(L-3),y:corner?(crossY<0?-(W/2-.5):(W/2-.5)):0});
+   startRestart(corner?'corner':'goalKick',corner?other(defending):defending,{x:exit.x<(L/2)?corner?1:WORLD.geometry.practice.goalKickSpot.v:corner?(L-1):(L-WORLD.geometry.practice.goalKickSpot.v),y:corner?(crossY<0?-(W/2-.5):(W/2-.5)):0});
   }else {say('out','Mingea iese în lateral. Se pregătește repunerea.');startRestart('throw',other(last.side),{x:clamp(exit.x,1,(L-1)),y:crossY<0?-(W/2-.5):(W/2-.5)});}
   return true;
  };
@@ -784,7 +785,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
       kind='sweep';x=depth(p.side,meeting.aim.x);y=meeting.aim.y;speed=p.pace;reason='Citește unde ajunge mingea în spatele apărării și iese să o ia înaintea atacantului.';
      }
     }
-   }else if(!ownTeam&&!ball.owner&&ball.mode!=='shot'&&bd<40){
+   }else if(!ownTeam&&!ball.owner&&ball.mode!=='shot'&&bd<WORLD.geometry.practice.sweepGroundFrom.v){
     if(aerialDelivery){
      const samples=flightSamples(ball),meeting=flightMeeting(p,ball,.2,samples,time-releaseAt),nearest=sidePlayers(other(p.side)).sort((a,b)=>dist(a,meeting.aim)-dist(b,meeting.aim)).slice(0,2);
      const opponent=Math.min(...nearest.map(q=>{const m=flightMeeting(q,ball,.12,samples);return m.reachable?m.time:Infinity;}));
