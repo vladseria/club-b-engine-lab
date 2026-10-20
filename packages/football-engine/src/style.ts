@@ -378,6 +378,50 @@ export const STRIKER_COMMON={
  leadHold:{v:1.5,unit:'s',kind:'fixedPost',at:['practice-coordination.ts:236 (LEAD_FORWARD_HOLD)'],says:'... for this long'},
 } as const satisfies Record<string,Effect>;
 
+// ------------------------------------------------------------------ On winning it (transition: S10)
+/** One entry per option. `transition` is OPTIONAL in Tactics: a missing value plays as Balanced at every read site,
+ * so sites read S.ON_WIN[t.transition??'balanced']. */
+export interface OnWinOption{
+ counterRewrite:Effect<boolean>;secureRewrite:Effect<boolean>;counterNeed:Effect;counterRestMax:Effect;
+ breakTaxed:Effect<boolean>;breakFit:Effect;breakOpenness:Effect;
+}
+const onWinOption=(o:{counterRewrite:boolean;secureRewrite:boolean;counterNeed:number;counterRestMax:number;breakTaxed:boolean;breakFit:number;breakOpenness:number}):OnWinOption=>({
+ counterRewrite:{v:o.counterRewrite,unit:'flag',kind:'triggerWindow',at:['team-approach.ts:41 (approachInPossession)','team-approach.ts:115 (approachForSituation)'],says:'after a regain the team plays the Counter rewrite (REWRITES.counter)'},
+ secureRewrite:{v:o.secureRewrite,unit:'flag',kind:'triggerWindow',at:['team-approach.ts:42'],says:'after every regain the team plays the Keep it rewrite (REWRITES.secure)'},
+ counterNeed:{v:o.counterNeed,unit:'men',kind:'triggerWindow',at:['team-approach.ts:73'],says:'a counter is on with at least this many more of ours than theirs (-1: even one short)'},
+ counterRestMax:{v:o.counterRestMax,unit:'men',kind:'triggerWindow',at:['team-approach.ts:74'],says:'... and at most this many in their rest defence'},
+ breakTaxed:{v:o.breakTaxed,unit:'flag',kind:'jobCredit',at:['practice-coordination.ts:223'],says:'a break counts as bypassing for Patient\'s run tax (Keep it waives it: plan 6.2)'},
+ breakFit:{v:o.breakFit,unit:'B',kind:'jobCredit',at:['practice-coordination.ts:904'],says:'the break job\'s base fit'},
+ breakOpenness:{v:o.breakOpenness,unit:'trait',kind:'jobOffered',at:['practice-transition.ts:65'],says:'the race read a break needs before it is offered'},
+});
+/** On winning it. Values exactly as the code had them at b107e7b2. */
+export const ON_WIN:Readonly<Record<NonNullable<Tactics['transition']>,OnWinOption>>={
+ balanced:onWinOption({counterRewrite:false,secureRewrite:false,counterNeed:0,counterRestMax:2,breakTaxed:true,breakFit:.9,breakOpenness:.65}),
+ secure:onWinOption({counterRewrite:false,secureRewrite:true,counterNeed:1,counterRestMax:2,breakTaxed:false,breakFit:.9,breakOpenness:.85}),
+ counter:onWinOption({counterRewrite:true,secureRewrite:false,counterNeed:-1,counterRestMax:3,breakTaxed:true,breakFit:1.25,breakOpenness:.42}),
+};
+/** The two situation rewrites of approachInPossession, in the order the code tries them (Counter first, then Keep it).
+ * Hidden from the board (plan 6.2); mirrored exactly. */
+export const REWRITES={
+ counter:{
+  window:{v:8,unit:'s',kind:'triggerWindow',at:['team-approach.ts:41'],says:'for this long after a regain'},
+  progression:{v:'direct' as const,unit:'flag',kind:'triggerWindow',at:['team-approach.ts:41'],says:'plays Direct'},
+  keepStriker:{v:['pivot','link'] as string[],unit:'flag',kind:'triggerWindow',at:['team-approach.ts:41'],says:'a Pivot or Drops deep striker keeps his own job ...'},
+  striker:{v:'run' as const,unit:'flag',kind:'triggerWindow',at:['team-approach.ts:41'],says:'... any other plays In behind'},
+  commitAtLeast:{v:4,unit:'count',kind:'triggerWindow',at:['team-approach.ts:41'],says:'Bodies forward at least this'},
+ },
+ secure:{
+  window:{v:3,unit:'s',kind:'triggerWindow',at:['team-approach.ts:42'],says:'for this long after every regain'},
+  progression:{v:'patient' as const,unit:'flag',kind:'triggerWindow',at:['team-approach.ts:42'],says:'plays Patient'},
+ },
+};
+/** On winning it's shared clock and reads. */
+export const ON_WIN_COMMON={
+ counterWindow:{v:10,unit:'s',kind:'triggerWindow',at:['team-approach.ts:69 (COUNTER_WINDOW)'],says:'a counter can be on this long after a recovery'},
+ counterFlip:{v:8,unit:'s',kind:'triggerWindow',at:['team-approach.ts:112 (COUNTER_FLIP)'],says:'Counter\'s situation rewrite applies this long (same value as REWRITES.counter.window, a separate read)'},
+ winnerSpread:{v:.5,unit:'trait',kind:'triggerWindow',at:['practice-coordination.ts:332 (WINNER_SPREAD)'],says:'how noisy the lead forward\'s read of a free ball-winner is in Counter\'s window'},
+} as const satisfies Record<string,Effect>;
+
 // ------------------------------------------------------------------ views (old names survive, rule 1.3.6)
 type Scalar<O>={[K in keyof O]:O[K] extends Effect<infer V>?K:never}[keyof O];
 /** {option: entry.v} for one scalar effect, keys in the table's own order. */

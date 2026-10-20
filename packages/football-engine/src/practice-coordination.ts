@@ -220,7 +220,7 @@ const running=(purpose:JobPurpose)=>['break','give-and-go','depth','overlap','ne
  * (readTransition). A break that clears it is a genuinely free run on goal,
  * so patience does not tax it again. */
 export function runStyle(t:Pick<Tactics,'progression'|'commit'|'transition'>,purpose:JobPurpose):number{
- const bypassing=purpose==='depth'||purpose==='break'&&t.transition!=='secure';
+ const bypassing=purpose==='depth'||purpose==='break'&&S.ON_WIN[t.transition??'balanced'].breakTaxed.v;
  const progression=bypassing?S.PROGRESSION[t.progression].runBypass.v:purpose==='give-and-go'?S.PROGRESSION[t.progression].runReturn.v:S.PROGRESSION[t.progression].runOther.v;
  return progression+(purpose==='give-and-go'?0:(t.commit-S.COMMIT.neutral.v)*S.COMMIT.runCredit.v);
 }
@@ -329,7 +329,7 @@ export const MID_DISCIPLINE=S.WIDTH_COMMON.midDiscipline.v,MID_SLACK=S.WIDTH_COM
  * whether the ball can reach him now: the ball-winner free (nobody within
  * ~3 m or arriving within ~0.75 s) and facing forward. His read (reading;
  * WINNER_SPREAD for a player who cannot read at all). */
-export const WINNER_SPREAD=.5;
+export const WINNER_SPREAD=S.ON_WIN_COMMON.winnerSpread.v;
 export function winnerFree(p:PracticePlayer,owner:PracticePlayer,players:readonly PracticePlayer[],time:number):boolean{
  const opponents=players.filter(q=>q.side!==owner.side&&q.role!=='GK');
  if(!opponents.length)return true;
@@ -901,7 +901,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
    offerJob({purpose:'break',kind:'run',point:{x:focus.x+s*12,y:0},range:34,
     points:p=>transition.lanes.filter(l=>l.player===p.id).map(l=>l.aim),
     eligible:p=>p.id!==holding&&transition.lanes.some(l=>l.player===p.id),
-    fit:p=>(t.transition==='counter'?1.25:.9)+p.traits.runs*.4+p.skills.reading*.02,
+    fit:p=>S.ON_WIN[t.transition??'balanced'].breakFit.v+p.traits.runs*.4+p.skills.reading*.02,
     reason:'La recuperare, atacă spațiul înainte ca adversarii să se reașeze.'});
   }
   // A pass changes the focus, not every teammate's job. Retain useful runs

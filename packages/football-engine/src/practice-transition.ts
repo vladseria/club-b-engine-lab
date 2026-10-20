@@ -1,3 +1,4 @@
+import * as S from './style.js';
 import {L,W} from './pitch.js';
 import {clamp} from './model.js';
 import type {Tactics} from './model.js';
@@ -61,7 +62,7 @@ export function readTransition(players:PracticePlayer[],owner:PracticePlayer,tac
    // The race is the runner's own read (R2): his error by reading, and a
    // daring runner believes a little more that he gets there first.
    const advantage=perceive(p,'race',clamp((nearestArrival-travel+.8)/2,0,1)+behind*.16,RACE_SPREAD,aim,{time,salt:'race',bias:RACE_OPTIMISM*daring(p)});
-   const threshold=tactics.transition==='counter'?.42:tactics.transition==='secure'?.85:.65;
+   const threshold=S.ON_WIN[tactics.transition??'balanced'].breakOpenness.v;
    // A break already under way is a sprint judged as a race still being won
    // (he gets there first, with room, past at least one man), not re-opened
    // from scratch: no fresh two-man count, and no pass needed right now.

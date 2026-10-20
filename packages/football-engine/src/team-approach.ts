@@ -38,8 +38,8 @@ export function validateApproach(value:unknown):ApproachSettings{
  * is pressed or turned (`regainWindow`). */
 export function approachInPossession(t:Tactics,recoveryAge:number):SituationTactics{
  if(recoveryAge<0)return t;
- if(t.transition==='counter'&&recoveryAge<8)return {...t,progression:'direct',striker:t.striker==='pivot'||t.striker==='link'?t.striker:'run',commit:Math.max(4,t.commit),regainWindow:true};
- if(t.transition==='secure'&&recoveryAge<3)return {...t,progression:'patient'};
+ if(S.ON_WIN[t.transition??'balanced'].counterRewrite.v&&recoveryAge<S.REWRITES.counter.window.v)return {...t,progression:S.REWRITES.counter.progression.v,striker:S.REWRITES.counter.keepStriker.v.includes(t.striker as string)?t.striker:S.REWRITES.counter.striker.v,commit:Math.max(S.REWRITES.counter.commitAtLeast.v,t.commit),regainWindow:true};
+ if(S.ON_WIN[t.transition??'balanced'].secureRewrite.v&&recoveryAge<S.REWRITES.secure.window.v)return {...t,progression:S.REWRITES.secure.progression.v};
  return t;
 }
 /** The numbers of a transition, from visible positions: our outfielders level
@@ -66,12 +66,12 @@ export function counterNumbers(players:ReadonlyArray<PracticePlayer>,carrier:Pra
  * most two in their rest defence (three for Counter). It is the carrier's
  * read (he does not kick a counter away to nobody); only Counter's team
  * changes how it plays because of it (approachForSituation). */
-export const COUNTER_WINDOW=10;
+export const COUNTER_WINDOW=S.ON_WIN_COMMON.counterWindow.v;
 export function counterOn(t:Tactics,players:ReadonlyArray<PracticePlayer>,carrier:PracticePlayer|undefined,recoveryAge:number):boolean{
  if(!carrier||carrier.role==='GK'||recoveryAge<0||recoveryAge>=COUNTER_WINDOW)return false;
  const {ours,theirs}=counterNumbers(players,carrier);
- const need=t.transition==='counter'?-1:t.transition==='secure'?1:0;
- return theirs<=(t.transition==='counter'?3:2)&&ours-theirs>=need;
+ const need=S.ON_WIN[t.transition??'balanced'].counterNeed.v;
+ return theirs<=S.ON_WIN[t.transition??'balanced'].counterRestMax.v&&ours-theirs>=need;
 }
 /** The situation's tactics; `counter` marks a counter that is on (counterOn),
  * an internal read, never a manager's input. */
@@ -109,10 +109,10 @@ export function purposeClock(t:SituationTactics):number{
  * runs, readTransition at the side's own bar), run with the ball into open
  * ground, and do not kick a counter that is on away to nobody (`counter`,
  * the carrier's read, which changes no setting). */
-export const COUNTER_FLIP=8;
+export const COUNTER_FLIP=S.ON_WIN_COMMON.counterFlip.v;
 export function approachForSituation(t:Tactics,players:PracticePlayer[],carrier:PracticePlayer|undefined,recoveryAge:number,continuing:ReadonlyArray<TransitionRun>=[],time=0):SituationTactics{
  const on=counterOn(t,players,carrier,recoveryAge);
- if(t.transition==='counter'){
+ if(S.ON_WIN[t.transition??'balanced'].counterRewrite.v){
   if(recoveryAge<0||recoveryAge>=COUNTER_FLIP||!carrier)return on?{...t,counter:true}:t;
   if(on)return {...approachInPossession(t,recoveryAge),counter:true};
   if(!readTransition(players,carrier,t,recoveryAge,continuing,time).open)return t;
