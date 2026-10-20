@@ -21,6 +21,7 @@ import {matchChances} from '../../../../lib/ballers/chances';
 import {side as sqSide} from './squads';
 import {normalize,measure,type NJob} from './measure';
 import {controller,uninstall} from './control';
+import {boxRecon} from './recon';
 
 const r1=(v:number)=>Math.round(v*10)/10,r3=(v:number)=>Math.round(v*1000)/1000;
 const fnv=(s:string,h:number)=>{for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0;}return h>>>0;};
@@ -54,7 +55,7 @@ export function plain(t:{arm:string;seed:number}){
  return {arm:t.arm,seed:t.seed,score:c.compact.score,print:print(c.compact)};
 }
 
-export function play(t:{label:string;arm:string;seed:number;rev:string;watch?:boolean}){
+export function play(t:{label:string;arm:string;seed:number;rev:string;watch?:boolean;recon?:boolean}){
  const inp=inputOf(t.arm,t.seed),ours=(t.seed%2) as 0|1,{el}=parseArm(t.arm);
  const ctl=el.size?controller(ours,el):null;let out:any;const t0=performance.now();
  try{ctl?.install();out=runIt(inp);}finally{uninstall();}
@@ -71,6 +72,8 @@ export function play(t:{label:string;arm:string;seed:number;rev:string;watch?:bo
  const row:any={label:t.label,kind:'dc',arm:t.arm,seed:t.seed,rev:t.rev,ours,kickoff:inp.kickoff,
   plat:`${process.platform}-${process.arch}-node${process.versions.node}`,build:run.engineBuild.slice(0,8),
   score:c.score,chances:chances?chances.map(r3):null,print:print(c),ms,st,m:m.side,ch:m.chances,pd:ctl?ctl.log:null};
+ // (--recon) the box reception behind every clear chance after a depth run against our side (recon.ts), with a compact window
+ if(t.recon)row.recon=boxRecon(R,rIdx,m.chances[1-ours],1-ours,frames,ev);
  if(t.watch){row.header=c.header;row.frames=frames;row.events=ev;row.jobs=jobs;row.aims=aims;row.directSides=[0,1].filter(s=>inp.sides[s].style==='direct'&&!(el.size&&1-s===ours));}
  return row;
 }

@@ -43,7 +43,7 @@ if(!isMainThread){
  const arg=(k,d)=>{const i=argv.indexOf(`--${k}`);return i>=0?argv[i+1]:d;};
  const range=s=>s.split(',').flatMap(p=>{const [a,b]=p.split('-').map(Number);return b===undefined?[a]:Array.from({length:b-a+1},(_,i)=>a+i);});
  const label=arg('label');if(!label)throw Error('--label is required');
- const parity=argv.includes('--parity'),watch=argv.includes('--watch');
+ const parity=argv.includes('--parity'),watch=argv.includes('--watch'),recon=argv.includes('--recon');
  const flagVals=new Set(['label','revs','workers'].map(k=>arg(k)).filter(Boolean));
  const blocks=argv.filter(a=>a.includes(':')&&!a.startsWith('--')&&!flagVals.has(a)).map(b=>{const i=b.lastIndexOf(':');return {arms:[...new Set(b.slice(0,i).split(',').flatMap(expand))],seeds:range(b.slice(i+1))};});
  if(!blocks.length)throw Error('give at least one <arm,arm>:<seeds> block');
@@ -58,7 +58,7 @@ if(!isMainThread){
  if(parity)for(const b of blocks)for(const a of b.arms)if(!a.endsWith('.0'))throw Error('--parity takes plain arms only');
 
  const every=[];
- for(const b of blocks)for(const seed of b.seeds)for(const arm of b.arms)every.push({label,arm,seed,rev,parity,...(watch?{watch:true}:{})});
+ for(const b of blocks)for(const seed of b.seeds)for(const arm of b.arms)every.push({label,arm,seed,rev,parity,...(watch?{watch:true}:{}),...(recon?{recon:true}:{})});
  const uniq=new Map(every.map(t=>[`${t.arm}:${t.seed}`,t]));every.length=0;every.push(...uniq.values());
  const key=j=>`${j.arm}:${j.seed}:${j.rev}`;
  const out=path.join(outDir,watch?`watch-${label}.jsonl`:`${label}.jsonl`);

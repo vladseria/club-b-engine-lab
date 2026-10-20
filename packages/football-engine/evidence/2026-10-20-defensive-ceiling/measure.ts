@@ -143,14 +143,14 @@ export function measure(n:Norm,debug?:any[]){
     const ru=runBefore(x.g,S,kx);if(ru.gain<6)continue;
     const fx=frames[frameAt(x.t)],fk=frames[kx],f0=frames[ru.k0];
     const nr=out(D).map(i=>({i,d:dist(fk.p[i],fk.p[x.g])})).sort((a,b)=>a.d-b.d)[0];
-    chain={ago:r1(e.t-x.t),role:roles[x.g],shooter:x.g===shooter?1:0,gain:r1(ru.gain),from:r1(depth(D,f0.p[x.g].x)),lastLine:r1(lastLine(fx,D)),
+    chain={_q:events.indexOf(x),_rt:fk.t,_g:x.g,ago:r1(e.t-x.t),role:roles[x.g],shooter:x.g===shooter?1:0,gain:r1(ru.gain),from:r1(depth(D,f0.p[x.g].x)),lastLine:r1(lastLine(fx,D)),
      nearAtStart:r1(dist(f0.p[nr.i],f0.p[x.g])),nearAtRecv:r1(nr.d),lead:r1(depth(D,fk.p[nr.i].x)-depth(D,fk.p[x.g].x))};
     if(n.jobs){const tr=out(D).find(i=>jobAt(i,x.t)?.target===x.g),pu=pickupAt(x.g,D,f0.t,x.t);chain.tracker=tr===undefined?null:r1(depth(D,fk.p[tr].x)-depth(D,fk.p[x.g].x));chain.pickup=pu===null?null:r1(pu);}
     break;
    }
-   if(!pass||pass.t<frames[spellStart].t-1e-6){rows.push({t:r1(e.t),ch:r2(e.ch!),via:'none',role:roles[shooter],chain});continue;}
+   if(!pass||pass.t<frames[spellStart].t-1e-6){rows.push({t:r1(e.t),ch:r2(e.ch!),via:'none',role:roles[shooter],chain,_sq:events.indexOf(e),_g:shooter});continue;}
    const kp=frameAt(pass.t),kr=receiveOf(pass);
-   if(kr<0){rows.push({t:r1(e.t),ch:r2(e.ch!),via:'loose',role:roles[shooter],chain});continue;}
+   if(kr<0){rows.push({t:r1(e.t),ch:r2(e.ch!),via:'loose',role:roles[shooter],chain,_sq:events.indexOf(e),_g:shooter});continue;}
    const fp=frames[kp],fr=frames[kr],run=runBefore(shooter,S,kr);
    const defs=out(D).map(i=>({i,d:dist(fr.p[i],fr.p[shooter])})).sort((a,b)=>a.d-b.d),near=defs[0];
    const f0=frames[run.k0];
@@ -158,7 +158,7 @@ export function measure(n:Norm,debug?:any[]){
     lastLine:r1(lastLine(fp,D)),ballDepth:r1(depth(D,fp.b.x)),recvDepthAtPass:r1(depth(D,fp.p[shooter].x)),recvDepth:r1(depth(D,fr.p[shooter].x)),
     run:r1(run.gain),runSecs:r1(fr.t-f0.t),startDepth:r1(depth(D,f0.p[shooter].x)),startBehindBall:depth(D,f0.p[shooter].x)>=depth(D,f0.b.x)-2?1:0,
     nearAtRecv:r1(near.d),lead:r1(depth(D,fr.p[near.i].x)-depth(D,fr.p[shooter].x)),nearAtStart:r1(dist(f0.p[near.i],f0.p[shooter])),
-    toShot:r1(e.t-fr.t),chain};
+    toShot:r1(e.t-fr.t),chain,_q:events.indexOf(pass),_rt:fr.t,_sq:events.indexOf(e),_g:shooter};
    if(n.jobs){const tr=out(D).find(i=>jobAt(i,pass!.t)?.target===shooter);row.tracker=tr===undefined?null:{since:(()=>{const s=heldSince(tr,shooter,pass!.t);return s===null?null:r1(s-f0.t);})(),dAtRecv:r1(dist(fr.p[tr],fr.p[shooter])),lead:r1(depth(D,fr.p[tr].x)-depth(D,fr.p[shooter].x))};
     const rj=jobAt(shooter,pass.t);row.recvJob=rj?`${rj.kind}/${rj.purpose??''}`:null;}
    rows.push(row);
