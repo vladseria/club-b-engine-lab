@@ -1,11 +1,9 @@
-import * as S from './style.js';
 import {L,W,GH,HEIGHT,BOX_DEPTH,BOX_HALF,SPOT,X,Y,G} from './pitch.js';
 import {clamp,Side} from './model.js';
 import type {PracticePlayer} from './practice.js';
 import type {Vec} from './movement.js';
 import {controlReleaseAvailable} from './practice-control.js';
 import type {RestartRoutine,RestartLive} from './practice-restart-live.js';
-import {WORLD} from './world.js';
 export type RestartKind='kickoff'|'throw'|'goalKick'|'corner'|'freeKick'|'indirect'|'penalty';
 export interface RestartInfo {kind:RestartKind;side:Side;spot:Vec;taker:string;phase:'gather'|'ready'}
 export interface Restart extends RestartInfo {organized?:boolean;ready:number;legalSince:number|null;positions:Record<string,Vec>;
@@ -20,13 +18,13 @@ export interface Restart extends RestartInfo {organized?:boolean;ready:number;le
 /** An authored routine may keep its players on their spots this long past the
  * normal setup; after that only the Laws' distances hold the kick. It applies
  * to every restart kind, at the set-up check and at the release. */
-export const ROUTINE_SETUP_GRACE=WORLD.laws.routine.ROUTINE_SETUP_GRACE.v;
+export const ROUTINE_SETUP_GRACE=3;
 /** The hard cap on an authored routine's set-up, past the normal setup: if the
  * Laws still hold the kick, the engine stops waiting on the routine's spots
  * and the live re-planning (see practice-restart-live settleRestart). */
-export const ROUTINE_SETUP_CAP=WORLD.laws.routine.ROUTINE_SETUP_CAP.v;
+export const ROUTINE_SETUP_CAP=6;
 /** How often the engine re-reads who still blocks the kick once capped. */
-export const ROUTINE_SETTLE_EVERY=WORLD.laws.routine.ROUTINE_SETTLE_EVERY.v;
+export const ROUTINE_SETTLE_EVERY=2;
 /** Past the grace, an authored routine waits only for the Laws. */
 export const routineRelaxed=(restart:{authored?:string;ready:number;call?:string},time:number)=>(!!restart.authored||!!restart.call)&&time>=restart.ready+ROUTINE_SETUP_GRACE;
 const depth=(side:Side,x:number)=>side===0?x:L-x;
@@ -86,21 +84,21 @@ export function freeKickWall(side:Side,spot:Vec,players:PracticePlayer[]):Practi
  *    square and inside, one behind and outside), the best in the air in the box.
  * The defending side's free outfielders pick up our men in the box first. */
 export type FreeKickCall='mixed'|'short'|'delivery';
-export const FK_NEAR={depth:L-S.FREE_KICK_COMMON.nearDepth.v,y:S.FREE_KICK_COMMON.nearY.v},FK_FAR={depth:L-S.FREE_KICK_COMMON.farDepth.v,y:S.FREE_KICK_COMMON.farY.v},FK_EDGE={depth:L-BOX_DEPTH-S.FREE_KICK_COMMON.edgeDepth.v,y:S.FREE_KICK_COMMON.edgeY.v},FK_SHORT_SQUARE=S.FREE_KICK_COMMON.shortSquare.v,FK_SHORT_BACK={depth:S.FREE_KICK_COMMON.shortBackDepth.v,y:S.FREE_KICK_COMMON.shortBackY.v},FK_BOX={depth:L-S.FREE_KICK_COMMON.boxDepth.v,y:S.FREE_KICK_COMMON.boxY.v};
+export const FK_NEAR={depth:L-2.5,y:2},FK_FAR={depth:L-3.5,y:4},FK_EDGE={depth:L-BOX_DEPTH-1.5,y:2},FK_SHORT_SQUARE=6,FK_SHORT_BACK={depth:7,y:3},FK_BOX={depth:L-3,y:2};
 export function freeKickCallAims(side:Side,spot:Vec,taker:string,players:PracticePlayer[],call:FreeKickCall):{aims:Record<string,Vec>;box:string[]}|null{
  const at=depth(side,spot.x);
- if(!S.FREE_KICK[call].callsRoutine.v||at<L/2)return null;
+ if(call==='mixed'||at<L/2)return null;
  const allies=players.filter(p=>p.side===side&&p.id!==taker&&p.role!=='GK');
  const g=spot.y>=0?1:-1,aims:Record<string,Vec>={},box:string[]=[];
  const remaining=[...allies];
  const take=(value:(p:PracticePlayer)=>number)=>{const p=remaining.slice().sort((a,b)=>value(b)-value(a)||a.id.localeCompare(b.id))[0];if(p)remaining.splice(remaining.indexOf(p),1);return p;};
  const header=(p:PracticePlayer)=>p.skills.aerial*.6+p.skills.strength*.3+p.skills.finishing*.1;
  const passer=(p:PracticePlayer)=>p.skills.passing*.7+p.skills.control*.3;
- const put=(p:PracticePlayer|undefined,d:number,y:number,inBox=false)=>{if(!p)return;aims[p.id]={x:world(side,d),y:clamp(y,-(W/2-WORLD.geometry.restarts.fkInsideTouchline.v),W/2-WORLD.geometry.restarts.fkInsideTouchline.v)};if(inBox)box.push(p.id);};
- if(S.FREE_KICK[call].callsDelivery.v){
+ const put=(p:PracticePlayer|undefined,d:number,y:number,inBox=false)=>{if(!p)return;aims[p.id]={x:world(side,d),y:clamp(y,-(W/2-2),W/2-2)};if(inBox)box.push(p.id);};
+ if(call==='delivery'){
   put(take(header),FK_NEAR.depth,g*FK_NEAR.y,true);
   put(take(header),FK_FAR.depth,-g*FK_FAR.y,true);
-  put(take(header),Math.min(FK_EDGE.depth,Math.max(at+WORLD.geometry.restarts.fkEdgeAhead.v,FK_EDGE.depth-WORLD.geometry.restarts.fkEdgeBack.v)),-g*FK_EDGE.y);
+  put(take(header),Math.min(FK_EDGE.depth,Math.max(at+3,FK_EDGE.depth-4)),-g*FK_EDGE.y);
  }else{
   put(take(header),FK_BOX.depth,-g*FK_BOX.y,true);
   put(take(passer),at,spot.y-g*FK_SHORT_SQUARE);
@@ -135,7 +133,7 @@ function freeKickPositions(side:Side,spot:Vec,taker:string,players:PracticePlaye
    if(p.role==='GK')aim={x:world(side,X(6)),y:0};
    else if(p===support)aim={x:world(side,clamp(at-3,2,X(101))),y:clamp(spot.y+(spot.y>=0?-Y(8):Y(8)),-Y(30),Y(30))};
    else if(receivers.includes(p)){
-    const i=receivers.indexOf(p);aim={x:world(side,clamp(Math.max(X(84),at+X(6))-i*1.7,X(80),X(93))),y:[-Y(7),WORLD.geometry.restarts.cornerMiddle.v,Y(11)][i]};
+    const i=receivers.indexOf(p);aim={x:world(side,clamp(Math.max(X(84),at+X(6))-i*1.7,X(80),X(93))),y:[-Y(7),2,Y(11)][i]};
    }else if(attacking){
     const i=allies.filter(q=>q!==support&&!receivers.includes(q)).indexOf(p);
     aim={x:world(side,clamp(at-X(10)-(p.role==='CB'?X(12):0),X(12),X(78))),y:(i-2)*Y(8)};
@@ -155,7 +153,7 @@ function freeKickPositions(side:Side,spot:Vec,taker:string,players:PracticePlaye
    const i=opponents.filter(q=>!wall.includes(q)).indexOf(p);
    if(attacking&&i<receivers.length){
     const receiver=receivers[i],n=receivers.indexOf(receiver);
-    aim={x:world(side,clamp(Math.max(X(84),at+X(6))-n*1.7,X(80),X(93))+1.8),y:[-Y(7),WORLD.geometry.restarts.cornerMiddle.v,Y(11)][n]+1.5};
+    aim={x:world(side,clamp(Math.max(X(84),at+X(6))-n*1.7,X(80),X(93))+1.8),y:[-Y(7),2,Y(11)][n]+1.5};
    }else aim={x:world(side,clamp(at+(attacking?X(13):X(15))+(i%2)*3,X(20),X(96))),y:clamp((i-(attacking?4:4))*Y(6),-Y(29),Y(29))};
   }
   if(p.id!==taker&&p.side===side)aim=outsideBall(aim,spot,2.8);
@@ -225,7 +223,7 @@ function throwPositions(side:Side,spot:Vec,taker:string,players:PracticePlayer[]
  const opponents=players.filter(p=>p.side!==side&&p.role!=='GK');
  const cover=allies.slice().sort((a,b)=>
   Number(!['CB','DM'].includes(a.role))-Number(!['CB','DM'].includes(b.role))||depth(side,a.x)-depth(side,b.x)||a.id.localeCompare(b.id))[0];
- if(cover)positions[cover.id]=inside({x:world(side,Math.max(2,Math.min(depth(side,cover.x),at-WORLD.geometry.restarts.throwCoverBehind.v))),y:clamp(cover.y,WORLD.geometry.restarts.throwCoverWide.v,WORLD.geometry.restarts.throwCoverWideMax.v)});
+ if(cover)positions[cover.id]=inside({x:world(side,Math.max(2,Math.min(depth(side,cover.x),at-4.5))),y:clamp(cover.y,-6,6)});
  const candidates=allies.filter(p=>p!==cover).flatMap(p=>[-4,-2,2,4].flatMap(dx=>[3.5,5].map(dy=>{
   const aim=inside({x:world(side,clamp(at+dx,1,L-1)),y:spot.y+inward*dy});
   const room=Math.min(...opponents.map(q=>distance(q,aim))),gap=distance(spot,aim);
@@ -295,7 +293,7 @@ type ReadyScene=Pick<RestartInfo,'kind'|'side'|'spot'|'taker'>&{organized?:boole
  * with three or more, attackers must keep 1 m from them. */
 export function freeKickWallNow(restart:Pick<RestartInfo,'kind'|'side'|'spot'>,players:readonly PracticePlayer[]):PracticePlayer[]{
  const {kind,side,spot}=restart;
- return kind==='freeKick'||kind==='indirect'?players.filter(p=>p.side!==side&&p.role!=='GK'&&distance(p,spot)>=WORLD.laws.restart.distance.v&&distance(p,spot)<7.35&&depth(side,p.x)>depth(side,spot.x)):[];
+ return kind==='freeKick'||kind==='indirect'?players.filter(p=>p.side!==side&&p.role!=='GK'&&distance(p,spot)>=5&&distance(p,spot)<7.35&&depth(side,p.x)>depth(side,spot.x)):[];
 }
 /** Check actual positions, not assigned destinations, and keep checking until the kick. */
 export function restartPlayersReady(restart:ReadyScene,players:PracticePlayer[],relaxed=false):boolean{
@@ -322,23 +320,23 @@ function readyCheck(restart:ReadyScene,players:PracticePlayer[],relaxed:boolean)
    const aim=restart.routine&&!restart.routine.slots[p.id]&&!restart.routine.posts[p.id]?undefined:restart.positions?.[p.id];
    // A slot player is set anywhere inside his leash around the slot.
    const reach=(restart.routine?.slots[p.id]?.leash??0)+2.5;
-   return (p.side===side||distance(p,spot)>=WORLD.laws.restart.distance.v)&&(relaxed||!aim||distance(p,aim)<reach);
+   return (p.side===side||distance(p,spot)>=5)&&(relaxed||!aim||distance(p,aim)<reach);
   }
-  if(kind==='kickoff')return depth(p.side,p.x)<=(L/2)&&(p.side===side||distance(p,spot)>=WORLD.laws.restart.distance.v);
+  if(kind==='kickoff')return depth(p.side,p.x)<=(L/2)&&(p.side===side||distance(p,spot)>=5);
   if(kind==='penalty'){
    if(p.role==='GK'&&p.side!==side)return depth(p.side,p.x)<=.55&&Math.abs(p.y)<=G(3.1);
    const behind=depth(side,p.x)<L-SPOT,box=depth(side,p.x)>(L-BOX_DEPTH)&&Math.abs(p.y)<BOX_HALF;
-   return behind&&!box&&distance(p,spot)>=WORLD.laws.restart.distance.v;
+   return behind&&!box&&distance(p,spot)>=5;
   }
   if(kind==='freeKick'||kind==='indirect'){
    if(p.side!==side&&depth(side,spot.x)<BOX_DEPTH&&Math.abs(spot.y)<BOX_HALF&&depth(side,p.x)<BOX_DEPTH&&Math.abs(p.y)<BOX_HALF)return false;
    // As at a penalty, a body centre within .55m permits a foot on the line.
-   if(p.side!==side)return distance(p,spot)>=WORLD.laws.restart.distance.v||(depth(p.side,p.x)<=.55&&Math.abs(p.y)<=GH);
-   if(wall.length>=3&&wall.some(q=>distance(p,q)<WORLD.laws.restart.wallDistance.v))return false;
+   if(p.side!==side)return distance(p,spot)>=5||(depth(p.side,p.x)<=.55&&Math.abs(p.y)<=GH);
+   if(wall.length>=3&&wall.some(q=>distance(p,q)<1))return false;
    // Into the box waits, like a live corner, for its men to be set inside
    // their leash (at most ROUTINE_SETUP_GRACE past the setup); a short
    // routine is played as soon as it is on.
-   if(S.FREE_KICK[restart.call??'mixed'].callsDelivery.v&&p.side===side){
+   if(restart.call==='delivery'&&p.side===side){
     const slot=restart.routine?.slots[p.id],aim=restart.positions?.[p.id];
     if(slot&&aim&&!slot.authored&&!relaxed&&distance(p,aim)>=slot.leash+2.5)return false;
    }

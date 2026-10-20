@@ -12,7 +12,6 @@ import {keeperReadyPosition} from './practice-keeper.js';
 import {steerMotion} from './movement.js';
 import {projectOpponents,ON_HIM,READ_AHEAD} from './practice-receive.js';
 import {arrivalTime} from './practice-arrival.js';
-import {WORLD} from './world.js';
 
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
 export interface FeintMemory {opponent:string;at:number;attacker:Vec;defender:Vec}
@@ -33,7 +32,7 @@ export function repeatFeintCost(p:PracticePlayer,d:PracticePlayer,memory:FeintMe
 }
 
 /** The fake itself takes FAKE_TIME s (practice.ts: the man is fooled or not at its end). */
-export const FAKE_TIME=WORLD.contact.feints.FAKE_TIME.v;
+export const FAKE_TIME=.26;
 export function feintDuration(p:PracticePlayer,aim:Vec):number {
  // The fake precedes the burst. Acceleration still governs every real movement tick.
  return FAKE_TIME+clamp(distance(p,aim)/Math.max(1,p.pace*.75)+.4,.85,1.8);
@@ -58,7 +57,7 @@ export function feintReleaseOpening(originalScore:number,defender:string,availab
  const current=available.filter(o=>o.kind==='feint'&&o.target===defender).map(o=>o.score),carries=available.filter(o=>o.kind==='carry').map(o=>o.score);
  const commitment=TAKEON_PRICE.on?(current.length?Math.max(...current):carries.length?Math.max(...carries):originalScore)
   :Math.max(originalScore,...available.filter(o=>o.kind==='feint'&&o.target===defender).map(o=>o.score));
- return available.some(o=>['pass','through','loft','shoot','clear'].includes(o.kind)&&o.score>commitment+WORLD.selection.choice.reconsider.v);
+ return available.some(o=>['pass','through','loft','shoot','clear'].includes(o.kind)&&o.score>commitment+.18);
 }
 
 /** The fake's odds: the chance the man in front of him buys it (the carrier's control against his reading and
@@ -74,13 +73,13 @@ export function feintFoolChance(p:PracticePlayer,d:PracticePlayer):number{
 export const TAKEON_PRICE={on:true};
 /** How long a man who buys the fake is wrong-footed (practice.ts: his wrongfoot and his next duel wait this long),
  * jogging (WRONG_PACE of his pace) to the wrong side: WRONG_BACK m back and as far across as the take-on goes. */
-export const FOOLED_FOR=WORLD.contact.feints.FOOLED_FOR.v,WRONG_PACE=WORLD.contact.feints.WRONG_PACE.v,WRONG_BACK=WORLD.contact.feints.WRONG_BACK.v;
+export const FOOLED_FOR=.65,WRONG_PACE=.65,WRONG_BACK=1.5;
 /** A flashy player's liking for taking a man on, beyond what it gets him (his appetite, as shotTemper is the
  * shooter's): TAKEON_FLAIR per unit of dribble tendency away from the squad's typical DRIBBLE_TYPICAL (owner's decision,
  * round 3, option B): a typical dribbler is neutral, a flashy one has a clear push (0.9: +0.21), a poor one leans
  * against it (0.1: -0.08). The live score's uncentred dribble x 0.36 gave every player a take-on bonus over the same
  * carry, a typical one +0.12. */
-export const TAKEON_FLAIR=WORLD.selection.feints.TAKEON_FLAIR.v;
+export const TAKEON_FLAIR=.36;
 type Risk=(from:Vec,to:Vec,defenders:PracticePlayer[],speed?:number)=>number;
 
 /** His read of a take-on on `marker` toward `aim`, from what he can see (where the men are, who they are). In the

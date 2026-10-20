@@ -1,10 +1,8 @@
-import * as S from './style.js';
 import {L,W,GH,HEIGHT,BOX_DEPTH,BOX_HALF,SPOT,X,Y,G} from './pitch.js';
 import {clamp,Tactics} from './model.js';
 import type {PracticePlayer} from './practice.js';
 import {contact,Vec} from './movement.js';
 import {readShotDanger,ShotDanger} from './practice-shot-defense.js';
-import {WORLD} from './world.js';
 
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
 const unit=(x:number,y:number)=>{const d=Math.hypot(x,y)||1;return {x:x/d,y:y/d};};
@@ -74,7 +72,7 @@ export function duelChance(attacker:PracticePlayer,defender:PracticePlayer,cover
  * again or take a controlled touch, so the man who won it has a moment to move it away from him. How long now follows
  * what happened to him in the duel (practice-balance, duel recovery 2026-10-16); before, it was a fixed 0.6 s plus
  * 0.03 s a strength point under 10. Team-mates who were not in the duel can still counter-press at once. */
-export const BEATEN_WINDOW=WORLD.contact.challenge.BEATEN_WINDOW.v,BEATEN_NEAR=WORLD.contact.challenge.BEATEN_NEAR.v;
+export const BEATEN_WINDOW=1,BEATEN_NEAR=2;
 
 /** Access to the ball is not the same as proximity to the carrier. */
 export function bodyScreensBall(defender:Vec,attacker:Vec,ball:Vec):boolean{
@@ -97,7 +95,7 @@ export function readChallenge(d:PracticePlayer,a:PracticePlayer,ball:Vec,players
  const opportunity=reach*.3+exposed*.3+balance*.18+clamp(d.skills.defending/10,0,1)*.1+clamp(d.skills.reading/10,0,1)*.06+urgency*.06;
  const frustration=(d.traits.frustration??0)*Math.min(3,Math.max(0,deficit))/3;
  const ordinaryThreshold=.66-d.traits.engagement*.1+(d.traits.discipline-.5)*.08-(cover?.035:0)
-  -S.PRESS[tactics.press].tackleNerve.v-frustration*.06;
+  -(tactics.press==='aggressive'?.025:0)-frustration*.06;
  const inBox=Math.abs(goal.x-a.x)<BOX_DEPTH&&Math.abs(a.y)<BOX_HALF;
  // A foul can turn a harmless box possession into a penalty even if the
  // defender is balanced. Imminent shooting danger can justify accepting it.
@@ -113,7 +111,7 @@ export function readChallenge(d:PracticePlayer,a:PracticePlayer,ball:Vec,players
  }else if(screened){
   mode=goalSide<-.3?'recover':'contain';
   reason=mode==='recover'?'Adversarul protejează mingea; revine pe lângă el spre drumul porții.':'Mingea e protejată de corp; rămâne în față fără să intre prin adversar.';
- }else if(gap<=WORLD.contact.challenge.reach.v&&opportunity>=threshold){
+ }else if(gap<=2.2&&opportunity>=threshold){
   mode='challenge';emergency=opportunity<ordinaryThreshold+penaltyRisk;
   reason=emergency?'Poate șuta la poartă; riscă intrarea, deși nu are pasul bine așezat.':'Mingea e accesibilă; își așază pasul și încearcă s-o ia.';
  }

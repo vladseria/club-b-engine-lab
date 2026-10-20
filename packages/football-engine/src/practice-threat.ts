@@ -8,10 +8,6 @@ import {groundPassRisk,passFlightTime} from './practice-passing.js';
 import {kickHorizon} from './practice-possession.js';
 import {PASS_DRAG} from './practice-flight.js';
 import {perceive,acuity} from './practice-perception.js';
-import {WORLD} from './world.js';
-/** Hot-path aliases (engine as data W9b): world reads used inside this file's functions, read once at load. */
-const GEOMETRY_THREAT_SHOT_ANGLE=WORLD.geometry.threat.shotAngle.v;
-const GEOMETRY_THREAT_SHOT_REACH=WORLD.geometry.threat.shotReach.v;
 
 /** Threat round (2026-10-10, evidence/2026-10-10-threat-defending).
  *
@@ -57,14 +53,14 @@ const GEOMETRY_THREAT_SHOT_REACH=WORLD.geometry.threat.shotReach.v;
  * (the positions he saw, a moment late) and misjudges it by up to THREAT_SPREAD
  * of its size for a player who cannot read the game (the 'threat' read:
  * reading and defending). It never touches the ball. */
-export const THREAT_FLOOR=WORLD.perception.threat.THREAT_FLOOR.v,LOFT_REACH=WORLD.perception.threat.LOFT_REACH.v,LOFT_MIN=WORLD.perception.threat.LOFT_MIN.v,LOFT_MAX=WORLD.perception.threat.LOFT_MAX.v,PRESSED=WORLD.perception.threat.PRESSED.v,LATER=WORLD.perception.threat.LATER.v;
-export const ARRIVE_SOON=WORLD.perception.threat.ARRIVE_SOON.v,ARRIVE_LATE=WORLD.perception.threat.ARRIVE_LATE.v,ARRIVE_FLOOR=WORLD.perception.threat.ARRIVE_FLOOR.v,LEAD_CAP=WORLD.perception.threat.LEAD_CAP.v;
-export const CLOSE_WINDOW=WORLD.perception.threat.CLOSE_WINDOW.v,CLOSE_CUT=WORLD.perception.threat.CLOSE_CUT.v,THREAT_SPREAD=WORLD.perception.threat.THREAT_SPREAD.v;
-export const LAYOFF=WORLD.perception.threat.LAYOFF.v,SECOND_TOP=WORLD.perception.threat.SECOND_TOP.v,SECOND_STEP=WORLD.perception.threat.SECOND_STEP.v,SECOND_READ:readonly [number,number]=[WORLD.perception.threat.SECOND_READ.low.v,WORLD.perception.threat.SECOND_READ.high.v];
+export const THREAT_FLOOR=.3,LOFT_REACH=.5,LOFT_MIN=10,LOFT_MAX=40,PRESSED=3,LATER=.6;
+export const ARRIVE_SOON=1,ARRIVE_LATE=2.5,ARRIVE_FLOOR=.35,LEAD_CAP=1.2;
+export const CLOSE_WINDOW=.8,CLOSE_CUT=.25,THREAT_SPREAD=.3;
+export const LAYOFF=.35,SECOND_TOP=2,SECOND_STEP=.8,SECOND_READ:readonly [number,number]=[.45,.85];
 /** The lane is read up to RECEIVE_REACH m short of him (where he takes it). */
-export const RECEIVE_REACH=WORLD.perception.threat.RECEIVE_REACH.v;
+export const RECEIVE_REACH=1.2;
 /** The carrier: a drive DRIVE m on towards goal counts when nobody of ours is within DRIVE_W m of his path; a shooting line is shut by a defender within SHOT_W m of it. */
-export const DRIVE=WORLD.perception.threat.DRIVE.v,DRIVE_W=WORLD.perception.threat.DRIVE_W.v,SHOT_W=WORLD.perception.threat.SHOT_W.v;
+export const DRIVE=3,DRIVE_W=1.5,SHOT_W=1;
 
 const dist=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
 const world=(side:Side,x:number)=>side===0?x:L-x;
@@ -73,7 +69,7 @@ const inside=(p:Vec):Vec=>({x:clamp(p.x,.5,L-.5),y:clamp(p.y,-(W/2-.5),W/2-.5)})
 export function goalShot(at:Vec,defending:Side):number{
  const gx=world(defending,0),dx=Math.max(.01,Math.abs(at.x-gx));
  const angle=Math.abs(Math.atan2(GH-at.y,dx)-Math.atan2(-GH-at.y,dx));
- return clamp(angle/GEOMETRY_THREAT_SHOT_ANGLE,0,1)*clamp(1-Math.hypot(at.x-gx,at.y)/GEOMETRY_THREAT_SHOT_REACH,.05,1);
+ return clamp(angle/.6,0,1)*clamp(1-Math.hypot(at.x-gx,at.y)/45,.05,1);
 }
 /** A ground pass's launch speed for this length: arriving firmly (the passer's firm weight, practice-passing). */
 const launch=(length:number)=>{const arrive=Math.min(19,clamp(5.5+length*.24,6,14)+3);return Math.sqrt(arrive*arrive+2*PASS_DRAG*length);};

@@ -3,7 +3,6 @@ import type {Vec} from './movement.js';
 import type {PracticePlayer} from './practice.js';
 import {perceive,daring,composure,nerve,eagerness,followsTeam} from './practice-perception.js';
 import {challengeFoulChance} from './practice-challenge.js';
-import {WORLD} from './world.js';
 
 /** The reception duel (contest round, 2026-10-15).
  *
@@ -34,29 +33,29 @@ import {WORLD} from './world.js';
 
 /** How far from the ball (m) a defender's foot gets to it with a step as it
  * is met: a leg (about 0.9 m) and a short lunge. */
-export const DUEL_REACH=WORLD.contact.duel.DUEL_REACH.v,DUEL_FULL=WORLD.contact.duel.DUEL_FULL.v;
+export const DUEL_REACH=1.25,DUEL_FULL=.65;
 /** A defender running in who is within reach this soon after the touch
  * (s, at his closing speed) contests it too: he arrives with the ball. */
-export const DUEL_ARRIVE=WORLD.contact.duel.DUEL_ARRIVE.v;
+export const DUEL_ARRIVE=.2;
 /** A man on the receiver's back (goal-side, his body within TIGHT_BODY m of
  * him, fully tight inside TIGHT_BODY - TIGHT_SPAN) contests the touch with
  * his body even when his foot cannot get to the ball: TIGHT_PRESS of a foot
  * on it for making the touch go loose. */
-export const TIGHT_BODY=WORLD.contact.duel.TIGHT_BODY.v,TIGHT_SPAN=WORLD.contact.duel.TIGHT_SPAN.v,TIGHT_PRESS=WORLD.contact.duel.TIGHT_PRESS.v;
+export const TIGHT_BODY=1.4,TIGHT_SPAN=.7,TIGHT_PRESS=.7;
 /** The nick: his chance when he commits, well within reach, unscreened and
  * level (NICK_BASE); stepping across from the side the ball comes from adds
  * up to NICK_FRONT; the receiver's body between him and the ball takes up to
  * NICK_SCREEN of it away. Per skill point: defending against control
  * NICK_SKILL, strength NICK_STRENGTH, reading (timing) NICK_READ from 5. */
-export const NICK_BASE=WORLD.contact.duel.NICK_BASE.v,NICK_FRONT=WORLD.contact.duel.NICK_FRONT.v,NICK_SCREEN=WORLD.contact.duel.NICK_SCREEN.v,NICK_SKILL=WORLD.contact.duel.NICK_SKILL.v,NICK_STRENGTH=WORLD.contact.duel.NICK_STRENGTH.v,NICK_READ=WORLD.contact.duel.NICK_READ.v,NICK_CLOSING=WORLD.contact.duel.NICK_CLOSING.v;
+export const NICK_BASE=.3,NICK_FRONT=.16,NICK_SCREEN=.8,NICK_SKILL=.035,NICK_STRENGTH=.012,NICK_READ=.015,NICK_CLOSING=.08;
 /** How wrong his read of that chance can be (one who cannot read at all),
  * and how much a daring / eager defender adds to what he sees. */
-export const NICK_SPREAD=WORLD.perception.duel.NICK_SPREAD.v,NICK_DARING=WORLD.perception.duel.NICK_DARING.v,NICK_EAGER=WORLD.perception.duel.NICK_EAGER.v;
+export const NICK_SPREAD=.25,NICK_DARING=.15,NICK_EAGER=.2;
 /** What holding is worth to him, in the units of the nick (a ball won): a
  * touch he makes go loose is half a ball won (LOOSE_WORTH), a man forced to
  * play back or shield with his back to goal is worth FORCED_WORTH. He reads
  * those chances as he reads the nick. */
-export const LOOSE_WORTH=WORLD.contact.duel.LOOSE_WORTH.v,FORCED_WORTH=WORLD.contact.duel.FORCED_WORTH.v;
+export const LOOSE_WORTH=.5,FORCED_WORTH=.2;
 /** Being turned: the cost (0..1) of being beaten here, from TURN_COST_BASE,
  * up by TURN_COST_DANGER near our goal, down by TURN_COST_COVER per team-mate
  * goal-side of the receiver; and the chance a miss turns him: TURN_BASE, up
@@ -64,20 +63,20 @@ export const LOOSE_WORTH=WORLD.contact.duel.LOOSE_WORTH.v,FORCED_WORTH=WORLD.con
  * stretch for it (TURN_STRETCH at the edge of his reach: a lunge from a
  * metre away that misses leaves him nowhere) and the receiver's control and
  * strength over his defending and strength. */
-export const TURN_COST_BASE=WORLD.contact.duel.TURN_COST_BASE.v,TURN_COST_DANGER=WORLD.contact.duel.TURN_COST_DANGER.v,TURN_COST_COVER=WORLD.contact.duel.TURN_COST_COVER.v,TURN_BASE=WORLD.contact.duel.TURN_BASE.v,TURN_CLOSING=WORLD.contact.duel.TURN_CLOSING.v,TURN_STRETCH=WORLD.contact.duel.TURN_STRETCH.v;
+export const TURN_COST_BASE=.35,TURN_COST_DANGER=.5,TURN_COST_COVER=.15,TURN_BASE=.38,TURN_CLOSING=.05,TURN_STRETCH=.3;
 /** A nick he keeps (his foot on it) rather than poking it loose. */
-export const NICK_CLEAN=WORLD.contact.duel.NICK_CLEAN.v;
+export const NICK_CLEAN=.25;
 /** The touch under a man who holds: it goes loose (LOOSE_BASE well within
  * reach; a firm ball, LOOSE_FIRM at full; per point of defending+strength
  * against control+strength LOOSE_SKILL; composure saves LOOSE_COMPOSED); and
  * kept but forced (he cannot turn) when the man is tight goal-side, unless
  * the receiver is strong and composed enough to roll him. */
-export const LOOSE_BASE=WORLD.contact.duel.LOOSE_BASE.v,LOOSE_FIRM=WORLD.contact.duel.LOOSE_FIRM.v,LOOSE_SKILL=WORLD.contact.duel.LOOSE_SKILL.v,LOOSE_COMPOSED=WORLD.contact.duel.LOOSE_COMPOSED.v,ROLL_BASE=WORLD.contact.duel.ROLL_BASE.v,ROLL_STRENGTH=WORLD.contact.duel.ROLL_STRENGTH.v,ROLL_CONTROL=WORLD.contact.duel.ROLL_CONTROL.v,ROLL_COMPOSED=WORLD.contact.duel.ROLL_COMPOSED.v;
+export const LOOSE_BASE=.1,LOOSE_FIRM=.15,LOOSE_SKILL=.012,LOOSE_COMPOSED=.06,ROLL_BASE=.25,ROLL_STRENGTH=.05,ROLL_CONTROL=.03,ROLL_COMPOSED=.25;
 /** A forced receiver lays it off first time when the pressure he feels (his
  * own read, scaled by his nerve) reaches LAYOFF_FELT; otherwise he shields. */
-export const LAYOFF_FELT=WORLD.contact.duel.LAYOFF_FELT.v,LAYOFF_SPREAD=WORLD.perception.duel.LAYOFF_SPREAD.v;
+export const LAYOFF_FELT=.7,LAYOFF_SPREAD=.3;
 /** How long a defender who was turned needs to plant and come back (s). */
-export const TURNED_TIME=WORLD.contact.duel.TURNED_TIME.v;
+export const TURNED_TIME=.55;
 
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
 const unit=(x:number,y:number)=>{const d=Math.hypot(x,y)||1;return {x:x/d,y:y/d};};
@@ -191,4 +190,4 @@ export function stepInWillingness(d:PracticePlayer,danger:number,cover:number):n
  return clamp(.55+daring(d)*.5+eagerness(d)*.6+(s10(d.skills.reading)-.6)*.5-turnCost*caution*.6,0,1);
 }
 /** How near our goal (0..1) a point is, for the cost of being turned there. */
-export const dangerAt=(p:Vec,goal:Vec)=>clamp((WORLD.geometry.duel.dangerFrom.v-distance(p,goal))/WORLD.geometry.duel.dangerSpan.v,0,1);
+export const dangerAt=(p:Vec,goal:Vec)=>clamp((22-distance(p,goal))/14,0,1);

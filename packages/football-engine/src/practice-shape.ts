@@ -1,4 +1,3 @@
-import * as S from './style.js';
 import {L,W,GH,HEIGHT,BOX_DEPTH,BOX_HALF,SPOT,X,Y,G} from './pitch.js';
 import {clamp} from './model.js';
 import type {Side,Tactics} from './model.js';
@@ -6,7 +5,6 @@ import type {Vec,MovingBall} from './movement.js';
 import type {PracticePlayer,Duty} from './practice.js';
 import {acuity,perceive} from './practice-perception.js';
 import {arrivalTime} from './practice-arrival.js';
-import {WORLD} from './world.js';
 /** A defender's view of an attacker who is not on the ball (M3): the man as
  * this defender last saw him. Absent, reads are exact (scenes and tests). */
 /** What `reader` sees of `target` (his own picture, a moment late); `before` s earlier still, when asked (the track-runner read of a run setting off compares the two). */
@@ -43,7 +41,11 @@ const toward=(old:number,next:number,limit:number)=>old+clamp(next-old,-limit,li
  * Aggressive leans hard (0.7, up to 9.3 m): it crowds the ball's side and
  * leaves the far side and the switch open. Balanced keeps today's lean.
  * `effort` is how hard the shape players slide to get there. */
-export const PRESS_LEAN:Record<Tactics['press'],{lean:number;cap:number;effort:number}>=S.objView(S.PRESS,['lean','cap','effort']);
+export const PRESS_LEAN={
+ selective:{lean:.35,cap:Y(14),effort:1},
+ balanced:{lean:.5,cap:Y(14),effort:1},
+ aggressive:{lean:.7,cap:Y(21),effort:1.15},
+} as const satisfies Record<Tactics['press'],{lean:number;cap:number;effort:number}>;
 /** The lean reaches the markers too (M2). A man-marker's aim is his man's
  * position; before, every press setting marked the same way, so the block's
  * lean only moved the one or two players holding a shape slot and the block as
@@ -82,7 +84,11 @@ const inside=(p:Vec,lane=false)=>({x:clamp(p.x,1,(L-1)),y:clamp(p.y,-(W/2-(lane?
  * follows a man wherever he goes).
  * Narrow protects the centre and concedes the far man; wide follows him and
  * risks gaps inside; standard sits between. */
-export const WIDTH:Record<Tactics['width'],{lane:number;pull:number;discipline:number;hold:number;follow:number;reach:number;allowance:number;inward:number}>=S.objView(S.WIDTH,['lane','pull','discipline','hold','follow','reach','allowance','inward']);
+export const WIDTH={
+ narrow:{lane:Y(22),pull:.35,discipline:0,hold:.45,follow:.3,reach:1.5,allowance:.7,inward:1.15},
+ standard:{lane:Y(26),pull:.12,discipline:.03,hold:.85,follow:.55,reach:3.5,allowance:1,inward:1},
+ wide:{lane:Y(30),pull:0,discipline:.06,hold:1.1,follow:.8,reach:6,allowance:1.4,inward:1.4},
+} as const satisfies Record<Tactics['width'],{lane:number;pull:number;discipline:number;hold:number;follow:number;reach:number;allowance:number;inward:number}>;
 /** Width in a formation without wingers (2-1-1): how far the centre-backs
  * split in possession (`backs`, a factor on their lane offset) and how much
  * the midfielder follows the ball's side (`middle`, a factor on the team's
@@ -90,9 +96,8 @@ export const WIDTH:Record<Tactics['width'],{lane:number;pull:number;discipline:n
  * carry the setting. */
 export function buildUpSpread(players:readonly {side:Side;role:string}[],side:Side,width:Tactics['width']):{backs:number;middle:number}{
  if(players.some(p=>p.side===side&&(p.role==='W'||p.role==='FB')))return {backs:1,middle:1};
- return BUILDUP_SPREAD[width];
+ return {narrow:{backs:.75,middle:1.7},standard:{backs:1,middle:1},wide:{backs:1.4,middle:.3}}[width];
 }
-const BUILDUP_SPREAD:Record<Tactics['width'],{backs:number;middle:number}>=S.spreadView();
 /** A winger's lane in possession: how wide he holds, from the centre line. */
 export const laneY=(width:Tactics['width'])=>Math.min(W/2-1.5,WIDTH[width].lane);
 
@@ -112,7 +117,7 @@ export function teamShape(players:PracticePlayer[],ball:MovingBall,attacking:Sid
  let back:number,middle:number,front:number,shift:number;
  let phase:TeamShape['phase'];
  if(own){
-  middle=clamp(bd-WORLD.geometry.shape.middleBehind.v+(tactics.commit-S.COMMIT.neutral.v),X(20),X(80));
+  middle=clamp(bd-1+(tactics.commit-3),X(20),X(80));
   // Front/midfield should remain available to the actual supporting unit,
   // including during the seconds needed for the backs to join a recovery.
   middle=Math.min(middle,actualBack+X(25));
@@ -120,7 +125,7 @@ export function teamShape(players:PracticePlayer[],ball:MovingBall,attacking:Sid
   // and high support the attack from behind the ball, held back only by
   // their cushion to the opponents' deepest forward (drops, below).
   back=clamp(middle-X(15),X(6),LINE_SHAPE_CAP[tactics.line]);
-  front=Math.min(X(96),middle+X(S.PROGRESSION[tactics.progression].frontAhead.v),actualMiddle+X(26));
+  front=Math.min(X(96),middle+(tactics.progression==='direct'?X(20):X(16)),actualMiddle+X(26));
   shift=clamp(focus.y*.38,-Y(11),Y(11));
   const progressing=previous&&bd-depth(side,previous.focus.x)>1;
   phase=bd<X(35)?'build':progressing||transition?'advance':'circulate';
@@ -160,9 +165,9 @@ export function teamShape(players:PracticePlayer[],ball:MovingBall,attacking:Sid
    else if(p.role==='DM'){x=middle-X(7);y=p.lane*Y(8)+shift*.8;kind='cover';}
    else if(p.role==='FB'){
     const near=p.lane*focus.y>=0;
-    x=S.FULLBACKS[tactics.fullbacks??'balanced'].staysBack.v?back+S.FULLBACKS_COMMON.holdBack.v:middle+(near?WORLD.geometry.shape.fbNearAhead.v:WORLD.geometry.shape.fbFarBehind.v)+S.FULLBACKS[tactics.fullbacks??'balanced'].overlapStep.v;
-    y=p.lane*wide+shift*.4;kind=S.FULLBACKS[tactics.fullbacks??'balanced'].staysBack.v?'cover':'width';
-   }else if(p.role==='CM'||p.role==='AM'){x=middle+(p.role==='AM'?WORLD.geometry.shape.amAhead.v:WORLD.geometry.shape.cmAhead.v)-p.traits.comesShort*WORLD.geometry.shape.comesShortDrop.v;y=p.lane*WORLD.geometry.shape.midLane.v+shift*spread.middle;}
+    x=tactics.fullbacks==='hold'?back+5:middle+(near?1:-5)+(tactics.fullbacks==='overlap'?3:0);
+    y=p.lane*wide+shift*.4;kind=tactics.fullbacks==='hold'?'cover':'width';
+   }else if(p.role==='CM'||p.role==='AM'){x=middle+(p.role==='AM'?7:1)-p.traits.comesShort*3;y=p.lane*11+shift*spread.middle;}
    // A winger holds his lane; narrow brings his resting position towards the
    // ball's side (closer support), wide keeps it on the touchline.
    else if(p.role==='W'){x=front-X(3);y=p.lane*wide+(focus.y-p.lane*wide)*WIDTH[tactics.width].pull;kind='width';}
@@ -237,14 +242,14 @@ export function teamShape(players:PracticePlayer[],ball:MovingBall,attacking:Sid
  * up to LINE_SPREAD m for a non-reader, and how quickly he adjusts depends on
  * his reading, his legs (a tired player reacts slower) and whether the man
  * is in front of him or running from behind his shoulder. */
-export const LINE_CUSHION:Record<Tactics['line'],number|null>=S.view(S.LINE,'cushion');
-export const LINE_SPREAD=WORLD.perception.shape.LINE_SPREAD.v,LINE_LEAD=WORLD.perception.shape.LINE_LEAD.v,LINE_VIEW=WORLD.perception.shape.LINE_VIEW.v*Math.PI/180;
+export const LINE_CUSHION:Record<Tactics['line'],number|null>={deep:2,standard:0,high:null};
+export const LINE_SPREAD=3,LINE_LEAD=.5,LINE_VIEW=100*Math.PI/180;
 /** In possession, how high the back line may support the attack regardless
  * of the opponents (m from own goal): a deep line keeps its old cap; standard
  * and high are held back only by their cushion (the shape's unit, and each
  * back's build-up ceiling). */
-export const LINE_SHAPE_CAP:Record<Tactics['line'],number>=S.view(S.LINE,'backCap');
-export const LINE_BUILD_CAP:Record<Tactics['line'],number>=S.view(S.LINE,'buildCap');
+export const LINE_SHAPE_CAP:Record<Tactics['line'],number>={deep:X(57),standard:Infinity,high:Infinity};
+export const LINE_BUILD_CAP:Record<Tactics['line'],number>={deep:X(56),standard:Infinity,high:Infinity};
 /** The highest this back will stand for the Line's cushion to the deepest
  * attacker he reads (m from his own goal; Infinity for high or nobody).
  * `ball`: our ball, when we have it (see lineThreat). */
@@ -302,7 +307,7 @@ export function lineReaction(p:PracticePlayer,seen:{behind:boolean}|null,droppin
  * offset plus the setting's reach. The single front screen (ST) keeps his
  * place. Players under an explicit instruction, and the attackers they are
  * told to mark, are left to that instruction (`ignore`). */
-export const THREAT_SPREAD=WORLD.perception.shape.THREAT_SPREAD.v,MAN_SPREAD=WORLD.perception.shape.MAN_SPREAD.v;
+export const THREAT_SPREAD=.5,MAN_SPREAD=2;
 export function blockPulls(players:readonly PracticePlayer[],side:Side,base:readonly {p:PracticePlayer;x:number;y:number}[],shift:number,focus:Vec,bd:number,width:Tactics['width'],carrier:string|undefined,ignore:ReadonlySet<string>=new Set(),time?:number,sight?:Sight):Record<string,number>{
  const {follow,reach}=WIDTH[width];
  const zone=base.filter(b=>b.p.role!=='ST'&&!ignore.has(b.p.id));

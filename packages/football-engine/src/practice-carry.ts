@@ -10,14 +10,6 @@ import {turnoverPrice,deliveryLossWeight,LOSS_SCALE} from './practice-rest-defen
 import {arrivalTime} from './practice-defense.js';
 import {duelChance} from './practice-challenge.js';
 import {perceive,daring} from './practice-perception.js';
-import {WORLD} from './world.js';
-/** Hot-path aliases (engine as data W9b): world reads used inside this file's functions, read once at load. */
-const GEOMETRY_CARRY_OWN_GOAL_DEPTH=WORLD.geometry.carry.ownGoalDepth.v;
-const GEOMETRY_CARRY_OWN_GOAL_WIDE=WORLD.geometry.carry.ownGoalWide.v;
-const GEOMETRY_CARRY_SHOT_ANGLE=WORLD.geometry.carry.shotAngle.v;
-const GEOMETRY_CARRY_SHOT_REACH=WORLD.geometry.carry.shotReach.v;
-const SELECTION_CHOICE_SHORTLIST=WORLD.selection.choice.shortlist.v;
-const SKILLS_KEEPER_SWEEP_DEFAULT=WORLD.skills.keeper.sweepDefault.v;
 
 export type CarryPurpose='advance'|'shooting-angle'|'passing-lane'|'escape'|'protect';
 export interface CarryAssessment {
@@ -35,14 +27,14 @@ const depth=(p:PracticePlayer,x:number)=>p.side===0?x:L-x;
 const bound=(p:Vec):Vec=>({x:clamp(p.x,.8,(L-.8)),y:clamp(p.y,-(W/2-1),(W/2-1))});
 const nearest=(point:Vec,opponents:PracticePlayer[])=>Math.min(...opponents.map(p=>distance(point,p)));
 const goalDistance=(p:PracticePlayer,point:Vec)=>Math.hypot((p.side===0?L:0)-point.x,point.y);
-const shotPotential=(p:PracticePlayer,point:Vec)=>clamp(goalAngle({...p,...point})/GEOMETRY_CARRY_SHOT_ANGLE,0,1)*clamp(1-goalDistance(p,point)/GEOMETRY_CARRY_SHOT_REACH,0,1);
+const shotPotential=(p:PracticePlayer,point:Vec)=>clamp(goalAngle({...p,...point})/.6,0,1)*clamp(1-goalDistance(p,point)/45,0,1);
 
 /** A carry into a contested route loses the ball about a third of the time
  * (B4b: ~19% for carries under pressure, passes 22-27%): the share of the
  * loss price a carry into an obstructed lane (a man further along it) pays,
  * less for a confident dribbler. Since B2 the man he meets on the route is
  * priced by carryLossRead instead. */
-export const CARRY_LOSS=WORLD.selection.carry.CARRY_LOSS.v;
+export const CARRY_LOSS=.35;
 /** B2, the pressed carrier (2026-10-09): "I take him on only when I read
  * that I beat him." His read of being tackled on a route: the chance the man
  * he meets on it gets a foot to the ball (the route's contactRisk) times the
@@ -58,7 +50,7 @@ export const CARRY_LOSS=WORLD.selection.carry.CARRY_LOSS.v;
  * how they move, who they are. It replaces the flat contact cost a pressed
  * carry used to pay whoever was on the ball or pressing him (B2 card: a
  * playmaker and a heavy touch lost it as often as each other). */
-export const BEAT_SPREAD=WORLD.perception.carry.BEAT_SPREAD.v,BEAT_OPTIMISM=WORLD.perception.carry.BEAT_OPTIMISM.v,BEAT_NATURE=WORLD.perception.carry.BEAT_NATURE.v,DRIBBLE_TYPICAL=WORLD.perception.carry.DRIBBLE_TYPICAL.v;
+export const BEAT_SPREAD=.4,BEAT_OPTIMISM=.25,BEAT_NATURE=.4,DRIBBLE_TYPICAL=.33;
 export function carryLossRead(p:PracticePlayer,players:PracticePlayer[],contactRisk:number,opponent?:string,winOdds?:number):number{
  const d=opponent?players.find(q=>q.id===opponent):undefined;
  if(!d||contactRisk<=0)return 0;
@@ -85,7 +77,7 @@ export const beatNature=(p:PracticePlayer)=>clamp(1-BEAT_OPTIMISM*daring(p)-BEAT
  * distance limit: a step to the side of his goal leaves nothing open, the
  * touchline 15 m out leaves all of it. Where the men are, not where the rules
  * say he may go. */
-export const NET_SET=WORLD.selection.carry.NET_SET.v,NET_SPEED=WORLD.selection.carry.NET_SPEED.v,NET_REACT=WORLD.selection.carry.NET_REACT.v,NET_COVERED=WORLD.selection.carry.NET_COVERED.v;
+export const NET_SET=.45,NET_SPEED=16,NET_REACT=.25,NET_COVERED=.45;
 export function emptyNetDanger(p:PracticePlayer,players:readonly PracticePlayer[],at:Vec):number{
  const goal={x:p.side===0?0:L,y:0},guard={x:p.side===0?1:L-1,y:0};
  const shot=NET_SET+distance(at,goal)/NET_SPEED,back=NET_REACT+Math.max(0,distance(at,guard)-.5)/(p.pace*.94);
@@ -101,15 +93,15 @@ export function emptyNetDanger(p:PracticePlayer,players:readonly PracticePlayer[
  * stake; it never forbids a carry. (R1 keeper tune, 2026-10-15: NET_SWEEPER
  * 0.3 -> 0, a sweeper at 0.8 weighs it 0.30 instead of 0.54, so he carries
  * about half as often again; a keeper at home, 1.40 instead of 1.42.) */
-export const NET_HOME=WORLD.selection.carry.NET_HOME.v,NET_SWEEPER=WORLD.selection.carry.NET_SWEEPER.v;
-export const keeperNetWeight=(p:{traits:{keeperSweep?:number}})=>NET_HOME+(NET_SWEEPER-NET_HOME)*clamp(p.traits.keeperSweep??SKILLS_KEEPER_SWEEP_DEFAULT,0,1);
+export const NET_HOME=1.5,NET_SWEEPER=0;
+export const keeperNetWeight=(p:{traits:{keeperSweep?:number}})=>NET_HOME+(NET_SWEEPER-NET_HOME)*clamp(p.traits.keeperSweep??.2,0,1);
 /** Keeping the ball away from his goal (what a route's tackle read does not
  * see): the chance the ball is lost while he is out there with it. The
  * ball he plays on from there is lost about one time in eight whoever is
  * near (NET_NEXT: an interception, a heavy touch; a real side completes
  * 80-90% of its passes); a man who can close him there within NET_HOLD
  * seconds adds up to a contested carry's share (CARRY_LOSS). */
-export const NET_HOLD=WORLD.selection.carry.NET_HOLD.v,NET_NEXT=WORLD.selection.carry.NET_NEXT.v;
+export const NET_HOLD=3,NET_NEXT=.12;
 export function keeperCaught(p:PracticePlayer,players:readonly PracticePlayer[],aim:Vec):number{
  const reach=Math.min(Infinity,...players.filter(q=>q.side!==p.side&&q.role!=='GK').map(q=>arrivalTime(q,aim)));
  return NET_NEXT+CARRY_LOSS*clamp((NET_HOLD-reach)/NET_HOLD,0,1);
@@ -122,12 +114,12 @@ export function keeperCaught(p:PracticePlayer,players:readonly PracticePlayer[],
  * metre. A fresh route is still read over at least 5 m (a 2 m step is not an advance), but the same floor on the
  * rest of a committed route made its value decay as it was run (progress = goal gain / max(5, length)), so a fresh
  * straight line from the new spot beat it every ~0.4 s: dribbling read as dithering. */
-export const CARRY_BASE=WORLD.selection.carry.CARRY_BASE.v,CONTINUE_FLOOR=WORLD.selection.carry.CONTINUE_FLOOR.v;
+export const CARRY_BASE=.16,CONTINUE_FLOOR=1;
 /** What a carry achieves, per unit of each read (the carry's credits; named 2026-10-19 so the take-on values getting
  * past its man with the same scales, routeCredits): progress (goal gained a metre) CARRY_PROGRESS plus CARRY_RUNS x
  * his runs tendency, a better shooting angle CARRY_SHOT, a better pass CARRY_PASS, escaping the presser CARRY_ESCAPE,
  * and CARRY_CONFIDENT x confidence on any progress. */
-export const CARRY_PROGRESS=WORLD.selection.carry.CARRY_PROGRESS.v,CARRY_RUNS=WORLD.selection.carry.CARRY_RUNS.v,CARRY_SHOT=WORLD.selection.carry.CARRY_SHOT.v,CARRY_PASS=WORLD.selection.carry.CARRY_PASS.v,CARRY_ESCAPE=WORLD.selection.carry.CARRY_ESCAPE.v,CARRY_CONFIDENT=WORLD.selection.carry.CARRY_CONFIDENT.v;
+export const CARRY_PROGRESS=.14,CARRY_RUNS=.035,CARRY_SHOT=.22,CARRY_PASS=.32,CARRY_ESCAPE=.16,CARRY_CONFIDENT=.045;
 /** Confidence is a willingness to attempt the duel, never its eventual result. */
 export const dribbleConfidence=(p:PracticePlayer)=>clamp(p.traits.dribble*.45+p.traits.risk*.35+clamp(p.skills.control/10,0,1)*.2,0,1);
 
@@ -204,7 +196,7 @@ export function carryOptions(p:PracticePlayer,players:PracticePlayer[],held:numb
   const {aim,continuing}=candidate,length=distance(p,aim);if(length<.8||options.some(o=>distance(o.aim,aim)<.2))continue;
   // Own-goal guard (as recoveryTouch): an outfielder never carries toward the
   // mouth of his own goal; the backward diagonals stay on offer elsewhere.
-  if(p.role!=='GK'&&depth(p,aim.x)<GEOMETRY_CARRY_OWN_GOAL_DEPTH&&Math.abs(aim.y)<GEOMETRY_CARRY_OWN_GOAL_WIDE&&depth(p,aim.x)<depth(p,p.x))continue;
+  if(p.role!=='GK'&&depth(p,aim.x)<6&&Math.abs(aim.y)<6&&depth(p,aim.x)<depth(p,p.x))continue;
   // (R1 keeper tune, 2026-10-15) the settings-truth round's hard guard (a keeper whose sweep trait was at most KEEPER_HOME never
   // carried past 9 m) is gone: the goal he leaves behind him (emptyNetDanger, weighed by keeperNetWeight) is the price
   // that keeps a stay-at-home keeper from carrying it up out of his area.
@@ -289,7 +281,7 @@ export function viableOptions<T extends FootballOption>(options:T[],plan:CarryPl
  // route stands for carrying at the best route's value, so the cut-off for a
  // pass, a clearance or a shot is still set by the carry he actually has.
  const best=Math.max(...routed.map(o=>o.score),holding?bestCarry:-Infinity);
- return routed.filter(o=>(holding&&o===continuation)||o.score>=best-SELECTION_CHOICE_SHORTLIST);
+ return routed.filter(o=>(holding&&o===continuation)||o.score>=best-.085);
 }
 export function chooseFootballOption<T extends FootballOption>(options:T[],random:()=>number,plan:CarryPlan|null=null,time=0):T{
  const viable=viableOptions(options,plan,time);

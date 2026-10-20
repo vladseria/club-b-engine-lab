@@ -15,7 +15,6 @@ import {clamp} from './model.js';
 import {LessonResponsibilities,responsibilityNames} from './practice-lesson.js';
 import type {LessonSpec,LessonEvidence,LessonJob} from './practice-lesson.js';
 import type {RecognisedEntry} from './practice-recognition.js';
-import {WORLD} from './world.js';
 
 export type TeachingNumber=2|3|4|5;
 export type ActionActor=TeachingNumber|{receiverOf:string};
@@ -34,11 +33,11 @@ export interface ActionTrace {
 }
 type StepState={pursuit?:{origin:Vec;aim:Vec};pursued?:boolean;step:ActionStep;phase:ActionTrace['phase'];actor?:string;aim?:Vec;started?:number;released?:number;received?:number;arrived?:number;receiver?:string;target?:string;lastNote?:string;waitingReason?:string;reportedAt?:number};
 /** How long a routine's instructions last after its kick. */
-export const ROUTINE_SECONDS=WORLD.selection.teaching.ROUTINE_SECONDS.v;
+export const ROUTINE_SECONDS=12;
 /** A routine's drawn delivery is off above this lane risk: the bar at which an
  * idea trusts its drawn pass (practice-lesson.ts), with control risk ≤ 0.48
  * and reach margin ≥ −0.6 for kicked balls. */
-export const ROUTINE_DELIVERY_RISK=WORLD.selection.teaching.ROUTINE_DELIVERY_RISK.v;
+export const ROUTINE_DELIVERY_RISK=.42;
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
 const object=(value:unknown):value is Record<string,unknown>=>!!value&&typeof value==='object'&&!Array.isArray(value);
 const finite=(value:unknown):value is number=>typeof value==='number'&&Number.isFinite(value);

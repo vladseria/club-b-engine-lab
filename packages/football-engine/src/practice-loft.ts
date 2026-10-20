@@ -14,36 +14,6 @@ import {runMeetings} from './practice-meetings.js';
 import {turnoverPrice,deliveryLossWeight} from './practice-rest-defence.js';
 import {feltPressure} from './practice-possession.js';
 import type {ReceivingSpace} from './practice-meetings.js';
-import {WORLD} from './world.js';
-/** Hot-path aliases (engine as data W9b): world reads used inside this file's functions, read once at load. */
-const BALL_FLIGHT_GRAVITY=WORLD.ball.flight.gravity.v;
-const BALL_LOFT_ARRIVAL_HEIGHT=WORLD.ball.loft.arrivalHeight.v;
-const BALL_LOFT_CHIP_MIN_FLIGHT=WORLD.ball.loft.chipMinFlight.v;
-const BALL_LOFT_CHIP_SPEED_BASE=WORLD.ball.loft.chipSpeedBase.v;
-const BALL_LOFT_CHIP_SPEED_PER=WORLD.ball.loft.chipSpeedPer.v;
-const BALL_LOFT_DIRECTED_ARRIVAL_HEIGHT=WORLD.ball.loft.directedArrivalHeight.v;
-const BALL_LOFT_LOFT_MIN_FLIGHT=WORLD.ball.loft.loftMinFlight.v;
-const BALL_LOFT_LOFT_SPEED_BASE=WORLD.ball.loft.loftSpeedBase.v;
-const BALL_LOFT_LOFT_SPEED_PER=WORLD.ball.loft.loftSpeedPer.v;
-const BALL_LOFT_MAX_FLIGHT=WORLD.ball.loft.maxFlight.v;
-const BALL_LOFT_POWER_BASE=WORLD.ball.loft.powerBase.v;
-const BALL_LOFT_POWER_PER=WORLD.ball.loft.powerPer.v;
-const BALL_LOFT_TIRED_FLOOR=WORLD.ball.loft.tiredFloor.v;
-const BALL_LOFT_TIRED_SHARE=WORLD.ball.loft.tiredShare.v;
-const ERROR_CHOICE_VALUE_RANGE=WORLD.error.choice.valueRange.v;
-const ERROR_LOFT_BASE=WORLD.error.loft.base.v;
-const ERROR_LOFT_FAR=WORLD.error.loft.far.v;
-const ERROR_LOFT_NEAR=WORLD.error.loft.near.v;
-const ERROR_LOFT_PRECISION=WORLD.error.loft.precision.v;
-const ERROR_LOFT_PRESSURE=WORLD.error.loft.pressure.v;
-const ERROR_LOFT_RANGE=WORLD.error.loft.range.v;
-const ERROR_LOFT_SPREAD_BASE=WORLD.error.loft.spreadBase.v;
-const ERROR_LOFT_SPREAD_PRECISION=WORLD.error.loft.spreadPrecision.v;
-const ERROR_LOFT_SPREAD_PRESSURE=WORLD.error.loft.spreadPressure.v;
-const ERROR_LOFT_SPREAD_TIRED=WORLD.error.loft.spreadTired.v;
-const ERROR_LOFT_SPREAD_VERTICAL=WORLD.error.loft.spreadVertical.v;
-const REACTION_DEFENDER_REACTION=WORLD.reaction.defender.reaction.v;
-const REACTION_PASSING_RECEIVER_REACTION=WORLD.reaction.passing.RECEIVER_REACTION.v;
 export interface LoftPass {kind:'chip'|'loft';aim:Vec;speed:number;vz:number;flight:number;arrivalSpeed:number;apex:number;risk:number;controlRisk:number;reachMargin:number;meetingTime?:number}
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
 const inside=(p:Vec):Vec=>({x:clamp(p.x,.8,(L-.8)),y:clamp(p.y,-(W/2-1),(W/2-1))});
@@ -70,32 +40,32 @@ function launchRisk(ball:MovingBall,opponents:PracticePlayer[]):number{
 
 /** Compare flight shapes and meeting points along the same visible run. */
 export function loftCandidates(p:PracticePlayer,q:PracticePlayer,run:PassRun|undefined,from:Vec=p,opponents:PracticePlayer[]=[],space?:ReceivingSpace):LoftPass[]{
- const initial=distance(from,q),power=(BALL_LOFT_POWER_BASE+clamp(p.skills.strength,0,10)*BALL_LOFT_POWER_PER)*(BALL_LOFT_TIRED_FLOOR+BALL_LOFT_TIRED_SHARE*p.energy/100);
- const assess=(kind:'chip'|'loft',flight:number,aim:Vec,arrivalHeight=BALL_LOFT_ARRIVAL_HEIGHT):LoftPass=>{
+ const initial=distance(from,q),power=(23+clamp(p.skills.strength,0,10)*.3)*(.9+.1*p.energy/100);
+ const assess=(kind:'chip'|'loft',flight:number,aim:Vec,arrivalHeight=.55):LoftPass=>{
   const length=distance(from,aim),speed=length/flight+PASS_DRAG*(flight-STEP)/2;
   // Aim to arrive low on the descending side; include the runtime's Euler-step gravity.
-  const vz=arrivalHeight/flight+BALL_FLIGHT_GRAVITY*(flight-STEP)/2;
+  const vz=arrivalHeight/flight+9.81*(flight-STEP)/2;
   const ball:MovingBall={...from,z:0,vx:(aim.x-from.x)/Math.max(.001,length)*speed,vy:(aim.y-from.y)/Math.max(.001,length)*speed,vz,owner:null,mode:'pass'};
-  const samples=flightSamples(ball,flight+.65),receiver=flightMeeting(q,ball,REACTION_PASSING_RECEIVER_REACTION,samples);
+  const samples=flightSamples(ball,flight+.65),receiver=flightMeeting(q,ball,.12,samples);
   const end=receiver.reachable?receiver.time:flight+.3;
   // Keepers are already adjusting their position as a kick develops. Do not
   // assume they coast motionless through the outfield reaction delay.
   const threatSamples=samples.filter(s=>s.time<=end+.15);
-  const threats=opponents.map(d=>reachableFlightMeeting(d,ball,d.role==='GK'?0:REACTION_DEFENDER_REACTION,threatSamples));
+  const threats=opponents.map(d=>reachableFlightMeeting(d,ball,d.role==='GK'?0:.22,threatSamples));
   const risk=Math.max(launchRisk(ball,opponents),...threats.filter(d=>d!==null).map(d=>clamp(.55+(end-d.time)/.6,0,1)));
   const point=samples.find(s=>s.time>=receiver.time)??samples.at(-1)!;
   const preview={...q};for(let t=0;t<receiver.time;t+=.1)steerMotion(preview,receiver.aim,Math.min(.1,receiver.time-t),q.pace);
   const controlRisk=1-loftControlChance(preview,point);
   const reachMargin=receiver.reachable?Math.max(0,flight-receiver.time): -Math.max(.3,receiver.gap/Math.max(1,q.pace));
-  return {kind,aim,speed,vz,flight,arrivalSpeed:Math.max(0,speed-PASS_DRAG*flight),apex:vz*vz/(2*BALL_FLIGHT_GRAVITY),risk:speed>power||Math.hypot(speed,vz)>strikePowerLimit(p,from,aim)?1:risk,controlRisk,reachMargin};
+  return {kind,aim,speed,vz,flight,arrivalSpeed:Math.max(0,speed-PASS_DRAG*flight),apex:vz*vz/(2*9.81),risk:speed>power||Math.hypot(speed,vz)>strikePowerLimit(p,from,aim)?1:risk,controlRisk,reachMargin};
  };
  const ordinary=(['chip','loft'] as const).map(kind=>{
-  const minimum=kind==='chip'?BALL_LOFT_CHIP_MIN_FLIGHT:BALL_LOFT_LOFT_MIN_FLIGHT,preferred=Math.min(power,kind==='chip'?BALL_LOFT_CHIP_SPEED_BASE+initial*BALL_LOFT_CHIP_SPEED_PER:BALL_LOFT_LOFT_SPEED_BASE+initial*BALL_LOFT_LOFT_SPEED_PER);
+  const minimum=kind==='chip'?.95:1.65,preferred=Math.min(power,kind==='chip'?18+initial*.1:14+initial*.07);
   let flight=Math.max(minimum,passFlightTime(initial,preferred)),aim:Vec=q;
   for(let i=0;i<4;i++){
    if(run){const preview={...q};for(let t=0;t<flight;t+=.1)steerMotion(preview,run.aim,Math.min(.1,flight-t),Math.min(q.pace,run.speed));aim=inside(preview);}
    else aim=inside({x:q.x+q.vx*flight*.45,y:q.y+q.vy*flight*.45});
-   flight=clamp(Math.max(minimum,passFlightTime(distance(from,aim),preferred)),minimum,BALL_LOFT_MAX_FLIGHT);
+   flight=clamp(Math.max(minimum,passFlightTime(distance(from,aim),preferred)),minimum,4.5);
   }
   return assess(kind,flight,aim);
  });
@@ -104,7 +74,7 @@ export function loftCandidates(p:PracticePlayer,q:PracticePlayer,run:PassRun|und
  const directed:LoftPass[]=[];
  for(const meeting of runMeetings(q,run,space)){
   if(meeting.time<.95)continue;
-  directed.push({...assess('loft',meeting.time,meeting.aim,BALL_LOFT_DIRECTED_ARRIVAL_HEIGHT),meetingTime:meeting.time});
+  directed.push({...assess('loft',meeting.time,meeting.aim,.12),meetingTime:meeting.time});
  }
  return [...ordinary,...directed];
 }
@@ -115,9 +85,9 @@ export function loftPass(p:PracticePlayer,q:PracticePlayer,run:PassRun|undefined
 }
 export function strikeLoftPass(p:PracticePlayer,ball:Vec,q:PracticePlayer,run:PassRun|undefined,pressure:number,random:()=>number,opponents:PracticePlayer[]=[],space?:ReceivingSpace,meetingTime?:number,kind?:LoftPass['kind']){
  const plan=loftPass(p,q,run,ball,opponents,space,meetingTime,kind),precision=clamp(p.skills.passing/10,0,1);
- const range=clamp(distance(ball,plan.aim)/ERROR_LOFT_RANGE,0,1),error=(ERROR_LOFT_BASE+(1-precision)*ERROR_LOFT_PRECISION)*(ERROR_LOFT_NEAR+ERROR_LOFT_FAR*range)+pressure*ERROR_LOFT_PRESSURE,aim=inside({x:plan.aim.x+(random()-.5)*error,y:plan.aim.y+(random()-.5)*error});
- const spread=ERROR_LOFT_SPREAD_BASE+(1-precision)*ERROR_LOFT_SPREAD_PRECISION+pressure*ERROR_LOFT_SPREAD_PRESSURE+(1-p.energy/100)*ERROR_LOFT_SPREAD_TIRED;
- const speed=plan.speed*(1+(random()*2-1)*spread),vz=plan.vz*(1+(random()*2-1)*spread*ERROR_LOFT_SPREAD_VERTICAL),length=distance(ball,aim)||1;
+ const range=clamp(distance(ball,plan.aim)/24,0,1),error=(.15+(1-precision)*1.25)*(.7+.3*range)+pressure*.9,aim=inside({x:plan.aim.x+(random()-.5)*error,y:plan.aim.y+(random()-.5)*error});
+ const spread=.015+(1-precision)*.09+pressure*.08+(1-p.energy/100)*.05;
+ const speed=plan.speed*(1+(random()*2-1)*spread),vz=plan.vz*(1+(random()*2-1)*spread*.7),length=distance(ball,aim)||1;
  return {plan,aim,vx:(aim.x-ball.x)/length*speed,vy:(aim.y-ball.y)/length*speed,vz};
 }
 
@@ -131,7 +101,7 @@ export function loftOption(p:PracticePlayer,q:PracticePlayer,players:PracticePla
   const threat=clamp((depth(p.side,aim.x)-X(65))/X(32),0,1)*(1-Math.abs(aim.y)/Y(40)),lossCost=turnoverPrice(p,players,from);
   const delivery=readDelivery(p,q,aim,players,risk,laneRisk,loft.flight,context);
   const next=passProspects(p,from,q,aim,players,loft.flight)*(1-risk);
-  const score=-caught+next+.25+advance*(.24+p.traits.risk*.15)*(1-risk)+space*.14+threat*.21-(risk+(1-skill(p.skills.passing))*d/ERROR_CHOICE_VALUE_RANGE)*deliveryLossWeight(p,lossCost)-(1-space)*.12-d*.002+pressure*.2*space
+  const score=-caught+next+.25+advance*(.24+p.traits.risk*.15)*(1-risk)+space*.14+threat*.21-(risk+(1-skill(p.skills.passing))*d/75)*deliveryLossWeight(p,lossCost)-(1-space)*.12-d*.002+pressure*.2*space
    +delivery.shotGain*(.55+skill(p.skills.reading)*.2)*(delivery.shotGain>0?(1-risk)*space:1)
    +delivery.connectionGain*(.22+skill(p.skills.reading)*.16+p.traits.comesShort*.08)*(1-risk)*(1-loft.controlRisk)*clamp(1+loft.reachMargin,0,1)-loft.controlRisk*.45-Math.max(0,-loft.reachMargin)*.3-loft.flight*.025-.04;
   return {kind:'loft',target:q.id,aim,score,run,loft,delivery,next,relief:pressure*.2*space,reason:run?'Ridică mingea peste linie, spre locul în care poate ajunge colegul în cursă.':'Compară zborul cu presiunea și caută un coleg dincolo de ea.'};

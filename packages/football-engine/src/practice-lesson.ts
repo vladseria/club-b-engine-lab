@@ -11,16 +11,15 @@ import {activePassRun,groundOptions} from './practice-passing.js';
 import {carryOptions,dribbleConfidence,readDribbleRoute} from './practice-carry.js';
 import {possessionSafety,securePossessionOptions} from './practice-possession.js';
 import {bodyTurnRate,touchGap} from './practice-reception.js';
-import {WORLD} from './world.js';
 
-export const PASS_OPENING_SECONDS=WORLD.selection.lesson.PASS_OPENING_SECONDS.v;
+export const PASS_OPENING_SECONDS=1.1;
 /** The most an idea may lift a ball carrier's option above its ordinary score
  * (score units, after the accent). An idea breaks near-ties toward the drawn
  * pass/carry but never overrides a clearly better choice: uncapped, the drawn
  * through ball beat a better option in 80% of steered decisions and ideas cost
  * their side ~1 goal a match; at 0.2 they are neutral while runs still go as
  * drawn (packages/football-engine/evidence/2026-09-28-ideas-commitment/FINDINGS.md). */
-export const IDEA_PREFERENCE_CAP=WORLD.selection.lesson.IDEA_PREFERENCE_CAP.v;
+export const IDEA_PREFERENCE_CAP=.2;
 
 export interface LessonSpace {id:string;name:string;x:number;y:number;radius:number;anchor?:{kind:'player'|'opponent';number:TeachingNumber;dx:number;dy:number}}
 /** `restart-taken`: the kick of the lesson's own restart (a set-piece routine only). */

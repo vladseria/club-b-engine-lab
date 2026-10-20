@@ -10,7 +10,6 @@ import {turnoverPrice,deliveryLossWeight} from './practice-rest-defence.js';
 import {duelChance} from './practice-challenge.js';
 import {controlEdge} from './practice-reception.js';
 import {PASS_POINT} from './practice-receive.js';
-import {WORLD} from './world.js';
 
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
 const depth=(p:PracticePlayer,x=p.x)=>p.side===0?x:L-x;
@@ -46,7 +45,7 @@ export function possessionSafety(p:PracticePlayer,players:PracticePlayer[]):Poss
  * own goal sped it up, so a carrier pressed in midfield re-thought every
  * 0.38-0.56 s against a presser arriving in a median 0.41 s. With nobody
  * closing him the arrival is beyond the ordinary cadence and nothing changes. */
-export const LOOK_MIN=WORLD.perception.possession.LOOK_MIN.v,LOOK_SHARE:readonly [number,number]=[WORLD.perception.possession.LOOK_SHARE.low.v,WORLD.perception.possession.LOOK_SHARE.high.v],LOOK_SPREAD=WORLD.perception.possession.LOOK_SPREAD.v;
+export const LOOK_MIN=.12,LOOK_SHARE:readonly [number,number]=[.3,.75],LOOK_SPREAD=.3;
 export function lookAgain(p:PracticePlayer,players:PracticePlayer[],time?:number):number{
  const {contactTime}=possessionSafety(p,players);
  if(!Number.isFinite(contactTime))return Infinity;
@@ -72,7 +71,7 @@ export function releaseTime(p:PracticePlayer,aim:Vec,kind:Option['kind']):number
  * 0.22 s at control 3 and 0.11 s at control 9 (a good controller's ball is
  * playable sooner: touchGap, setTolerance). FOOT_BASE - FOOT_CONTROL x control
  * - FOOT_EDGE x controlEdge reproduces all three within 0.01 s. */
-export const FOOT_BASE=WORLD.selection.possession.FOOT_BASE.v,FOOT_CONTROL=WORLD.selection.possession.FOOT_CONTROL.v,FOOT_EDGE=WORLD.selection.possession.FOOT_EDGE.v;
+export const FOOT_BASE=.26,FOOT_CONTROL=.01,FOOT_EDGE=.0625;
 export const footToBall=(p:{skills:{control:number}})=>Math.max(.05,FOOT_BASE-FOOT_CONTROL*p.skills.control-FOOT_EDGE*controlEdge(p));
 export function kickHorizon(p:PracticePlayer,aim:Vec,kind:Option['kind']):number{return releaseTime(p,aim,kind)+footToBall(p);}
 /** His own read of that time (the release horizon his lane and launch reads
@@ -81,7 +80,7 @@ export function kickHorizon(p:PracticePlayer,aim:Vec,kind:Option['kind']):number
  * RELEASE_SPREAD s, a top one is nearly exact; a daring one (risk, audacity)
  * believes the ball is away RELEASE_OPTIMISM s x daring sooner than it is.
  * The real spread of the delay (quartiles 0.35-0.56 s) is about this size. */
-export const RELEASE_SPREAD=WORLD.perception.possession.RELEASE_SPREAD.v,RELEASE_OPTIMISM=WORLD.perception.possession.RELEASE_OPTIMISM.v;
+export const RELEASE_SPREAD=.15,RELEASE_OPTIMISM=.1;
 export function readKickHorizon(p:PracticePlayer,aim:Vec,kind:Option['kind']):number{
  return clamp(perceive(p,'lane',kickHorizon(p,aim,kind),RELEASE_SPREAD,aim,{salt:'release',bias:-RELEASE_OPTIMISM*daring(p)}),.1,1);
 }
@@ -107,7 +106,7 @@ export function readKickHorizon(p:PracticePlayer,aim:Vec,kind:Option['kind']):nu
  * (PASS_POINT a point). It is offered beside the ordinary kick whenever the ordinary one would be caught, and wins
  * only when getting it away sooner is worth more than placing it well. (A laptop check without it: pricing the
  * presser alone sent pressed men into carries and feints, and kept the ball 0.14 s longer.) */
-export const CHALLENGE_LAND=WORLD.selection.possession.CHALLENGE_LAND.v,CAUGHT_SPAN=WORLD.selection.possession.CAUGHT_SPAN.v,HURRY_SHARE=WORLD.selection.possession.HURRY_SHARE.v,HURRY_POINTS=WORLD.selection.possession.HURRY_POINTS.v;
+export const CHALLENGE_LAND=.16,CAUGHT_SPAN=.3,HURRY_SHARE=.5,HURRY_POINTS=2;
 export function caughtOnBall(p:PracticePlayer,players:PracticePlayer[],horizon:number,time?:number):number{
  const {contactTime}=possessionSafety(p,players);
  if(!Number.isFinite(contactTime))return 0;
@@ -145,7 +144,7 @@ export function priceCaught(p:PracticePlayer,players:PracticePlayer[],options:Op
  *    at all; a top reader is nearly exact), more under pressure unless he is
  *    composed (discipline and reading).
  * A read, never the kick: execution and its accuracy are unchanged. */
-export const LANE_RESPECT=WORLD.perception.possession.LANE_RESPECT.v,LANE_OPTIMISM=WORLD.perception.possession.LANE_OPTIMISM.v,LANE_SPREAD=WORLD.perception.possession.LANE_SPREAD.v;
+export const LANE_RESPECT=.45,LANE_OPTIMISM=.5,LANE_SPREAD=.9;
 /** `lead` (honest-reads round): his read of how long until the ball is away
  * (readKickHorizon); a lane read with it forecasts everyone over that time by
  * visible momentum before the ball's flight begins. */
@@ -164,7 +163,7 @@ export function readerMargin(r:PasserRead,opponent:{id:string},at:Vec,read:'lane
  * far as his legs take them in that time). The read then ranks the kicks lost
  * at the kick better (AUC 0.61 -> 0.71 on 2bec595c) at the same scale (a read
  * of 1 still loses about 27% of kicks there). */
-export const LAUNCH_REACT=WORLD.perception.possession.LAUNCH_REACT.v;
+export const LAUNCH_REACT=.25;
 /** Pre-push fixes (2026-10-12): he cannot run through a man. The lane and
  * launch reads forecast the carrier by his momentum until the kick (honest
  * reads), but a man standing in his path, or stepping into it, is met before
@@ -183,7 +182,7 @@ export const LAUNCH_REACT=WORLD.perception.possession.LAUNCH_REACT.v;
  * carrier for him would invent a block ahead of him).
  * Returns the time the carrier's forecast runs (`lead` when he meets nobody),
  * the id of the opponent met and where that opponent is at `lead`. */
-export const MEET_GAP=WORLD.selection.possession.MEET_GAP.v;
+export const MEET_GAP=1;
 type Mover={x:number;y:number;vx:number;vy:number;side:0|1};
 export function carrierMeets(p:Mover,players:(Mover&{id:string;pace:number;acceleration:number})[],lead:number):{t:number;met:string|null;at:Vec|null}{
  let t=lead,met:(typeof players)[number]|null=null;
@@ -243,7 +242,7 @@ export function recoveryTouch(p:PracticePlayer,players:PracticePlayer[]):Vec{
   const space=Math.min(...opponents.map(q=>distance(aim,{x:q.x+q.vx*.2,y:q.y+q.vy*.2})));
   const turn=Math.abs(difference(angle,p.angle));
   // Avoid turning across our own goal, while allowing a touch toward a safer flank.
-  const ownGoal=depth(p,aim.x)<WORLD.geometry.possession.ownGoalDepth.v&&Math.abs(aim.y)<WORLD.geometry.possession.ownGoalWide.v?2:0;
+  const ownGoal=depth(p,aim.x)<6&&Math.abs(aim.y)<6?2:0;
   return {aim,score:space-turn*.35-ownGoal};
  });
  return candidates.sort((a,b)=>b.score-a.score)[0].aim;
@@ -254,12 +253,12 @@ export function recoveryTouch(p:PracticePlayer,players:PracticePlayer[]):Vec{
  * his nerve (a daring or composed player feels it less, a nervous one more)
  * and misjudged by his reading (a relative error up to PRESSURE_SPREAD for
  * one who cannot read it at all). No pressure is never felt as pressure. */
-export const PRESSURE_SPREAD=WORLD.perception.possession.PRESSURE_SPREAD.v;
+export const PRESSURE_SPREAD=.5;
 /** R3 P1: a shot of his own reading SHOT_ON_FROM + SHOT_ON_SPAN (0.35) or
  * better is "a real shot on" and cuts a pass's pressure credits by
  * RELIEF_CUT; a goal-side carry past the presser earns CARRY_RELIEF of a
  * pass's relief. */
-export const SHOT_ON_FROM=WORLD.selection.possession.SHOT_ON_FROM.v,SHOT_ON_SPAN=WORLD.selection.possession.SHOT_ON_SPAN.v,RELIEF_CUT=WORLD.selection.possession.RELIEF_CUT.v,CARRY_RELIEF=WORLD.selection.possession.CARRY_RELIEF.v;
+export const SHOT_ON_FROM=.25,SHOT_ON_SPAN=.2,RELIEF_CUT=.75,CARRY_RELIEF=.5;
 export function feltPressure(p:PracticePlayer,pressure:number,time?:number):number{
  return clamp(pressure*Math.max(0,perceive(p,'pressure',nerve(p),PRESSURE_SPREAD,p,{time,salt:'felt'})),0,1);
 }
@@ -270,7 +269,7 @@ export function feltPressure(p:PracticePlayer,pressure:number,time?:number):numb
  * the urgency credit paid every safe-laned pass the same, so centre-backs
  * pressed in their own six-yard area played two-metre passes to each other
  * instead of clearing, carrying out, or finding a pass that escapes. */
-export const ESCAPE_FROM=WORLD.selection.possession.ESCAPE_FROM.v,ESCAPE_SPAN=WORLD.selection.possession.ESCAPE_SPAN.v;
+export const ESCAPE_FROM=.3,ESCAPE_SPAN=1.1;
 export const escapeFrom=(receiverTime:number)=>clamp((receiverTime-ESCAPE_FROM)/ESCAPE_SPAN,0,1);
 export function securePossessionOptions(p:PracticePlayer,players:PracticePlayer[],options:Option[],laneRisk:LaneRisk):Option[]{
  const exact=possessionSafety(p,players),felt=feltPressure(p,exact.pressure);
@@ -351,22 +350,22 @@ export function securePossessionOptions(p:PracticePlayer,players:PracticePlayer[
  // that flank he reads the one his side wins by the most (the touchline spot
  // 20 m up stays the read when no landing is better).
  const channel=(y:number)=>{
-  const spots=[WORLD.geometry.possession.clearSpot1.v,WORLD.geometry.possession.clearSpot2.v,WORLD.geometry.possession.clearSpot3.v,WORLD.geometry.possession.clearSpot4.v,WORLD.geometry.possession.clearSpot5.v].flatMap(x=>[W/2-2.5,W/2-WORLD.geometry.possession.clearInside.v].map(w=>({x:clamp(p.x+s*x,1,(L-1)),y:y*w})));
+  const spots=[20,12,16,24,28].flatMap(x=>[W/2-2.5,W/2-7].map(w=>({x:clamp(p.x+s*x,1,(L-1)),y:y*w})));
   let best=spots[0],edge=margin(best);
   for(const spot of spots.slice(1)){const m=margin(spot);if(m>edge+1e-9){best=spot;edge=m;}}
   return best;
  };
  const candidates:{aim:Vec;exit:ClearanceIntent}[]=[
-  ...[-1,1].map(y=>({aim:{x:p.x+s*WORLD.geometry.possession.longClear.v,y:clamp(p.y+y*Y(15),-Y(30),Y(30))},exit:'long' as const})),
-  ...[-1,1].flatMap(y=>[0,WORLD.geometry.possession.touchlineAhead.v].map(x=>({aim:{x:clamp(p.x+s*x,1,(L-1)),y:y*(W/2+4)},exit:'touchline' as const}))),
-  ...(depth(p)<WORLD.geometry.possession.cornerFrom.v&&p.role!=='GK'?[-1,1].map(y=>({aim:{x:p.side===0?-3:L+3,y:y*Math.max(Y(18),Math.abs(p.y))},exit:'corner' as const})):[]),
+  ...[-1,1].map(y=>({aim:{x:p.x+s*35,y:clamp(p.y+y*Y(15),-Y(30),Y(30))},exit:'long' as const})),
+  ...[-1,1].flatMap(y=>[0,8].map(x=>({aim:{x:clamp(p.x+s*x,1,(L-1)),y:y*(W/2+4)},exit:'touchline' as const}))),
+  ...(depth(p)<12&&p.role!=='GK'?[-1,1].map(y=>({aim:{x:p.side===0?-3:L+3,y:y*Math.max(Y(18),Math.abs(p.y))},exit:'corner' as const})):[]),
   // In play: up either touchline, or into the path of a team-mate further up.
   ...[-1,1].map(y=>({aim:channel(y),exit:'channel' as const})),
-  ...mates.filter(q=>depth(q)>depth(p)+WORLD.geometry.possession.mateAhead.v).map(q=>({aim:{x:clamp(q.x+q.vx*.8,1,(L-1)),y:clamp(q.y+q.vy*.8,-(W/2-1),(W/2-1))},exit:'mate' as const})),
+  ...mates.filter(q=>depth(q)>depth(p)+6).map(q=>({aim:{x:clamp(q.x+q.vx*.8,1,(L-1)),y:clamp(q.y+q.vy*.8,-(W/2-1),(W/2-1))},exit:'mate' as const})),
  ];
  // Never clear across the face of his own goal: the ball may not pass nearer
  // the goal's centre than it already is (within 4.5 m of it).
- const goal={x:p.side===0?0:L,y:0},near=Math.min(WORLD.geometry.possession.nearGoal.v,distance(p,goal));
+ const goal={x:p.side===0?0:L,y:0},near=Math.min(4.5,distance(p,goal));
  const across=(aim:Vec)=>{const dx=aim.x-p.x,dy=aim.y-p.y,t=clamp(((goal.x-p.x)*dx+(goal.y-p.y)*dy)/Math.max(1e-6,dx*dx+dy*dy),0,1);return distance({x:p.x+dx*t,y:p.y+dy*t},goal)<near-.25;};
  for(const {aim,exit} of candidates){
   if(across(aim))continue;
@@ -394,6 +393,6 @@ export function strikeClearance(p:PracticePlayer,ball:Vec,aim:Vec,pressure:numbe
   const speed=clamp(Math.sqrt(81+2*PASS_DRAG*distance(ball,aim)),9,14.5);
   return {vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,vz:5.5+p.skills.strength*.08};
  }
- const speed=WORLD.ball.kick.clearBase.v+p.skills.strength*WORLD.ball.kick.clearPer.v,out=intent!=='long';
+ const speed=22+p.skills.strength*.25,out=intent!=='long';
  return {vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,vz:out?1.2:6.5+p.skills.strength*.15};
 }
