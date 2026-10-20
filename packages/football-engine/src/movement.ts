@@ -1,7 +1,15 @@
 import { clamp, rng } from './model.js';
+import {WORLD} from './world.js';
+/** Hot-path aliases (engine as data W9b): world reads used inside this file's functions, read once at load. */
+const MOTION_STEER_ARRIVAL_RADIUS=WORLD.motion.steer.arrivalRadius.v;
+const MOTION_STEER_FACE_FROM=WORLD.motion.steer.faceFrom.v;
+const MOTION_STEER_SEPARATION=WORLD.motion.steer.separation.v;
+const MOTION_STEER_SEPARATION_GAIN=WORLD.motion.steer.separationGain.v;
+const MOTION_STEER_TURN_RATE=WORLD.motion.steer.turnRate.v;
+const MOTION_STEER_TURN_RATE_BACK=WORLD.motion.steer.turnRateBack.v;
 
 // A bounded movement experiment, in metres and seconds. It is not the full-match resolver.
-export const STEP = 1/60;
+export const STEP = 1/WORLD.clock.sim.ticksPerSecond.v;
 export type Cover = 'track' | 'step';
 export interface Vec {x:number;y:number}
 export interface MovingPlayer extends Vec {
@@ -18,21 +26,21 @@ const angleDiff=(a:number,b:number)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
 const unit=(p:Vec):Vec=>{const d=magnitude(p);return d?{x:p.x/d,y:p.y/d}:{x:0,y:0};};
 const noNeighbours:MovingPlayer[]=[],stationaryTarget:Vec={x:0,y:0};
 /** Shared physical steering; forecasts can omit the unused visual orientation update. */
-export function steerMotion(p:MovingPlayer,target:Vec,dt:number,limit=p.pace,neighbours:MovingPlayer[]=noNeighbours,targetVelocity:Vec=stationaryTarget,arrivalRadius=.2) {
+export function steerMotion(p:MovingPlayer,target:Vec,dt:number,limit=p.pace,neighbours:MovingPlayer[]=noNeighbours,targetVelocity:Vec=stationaryTarget,arrivalRadius=MOTION_STEER_ARRIVAL_RADIUS) {
   const dx=target.x-p.x,dy=target.y-p.y,distance=Math.hypot(dx,dy);
   const directionX=distance?dx/distance:0,directionY=distance?dy/distance:0;
   // Arrive under braking rather than crossing the target and snapping back.
   const speed=Math.min(limit,Math.sqrt(2*p.acceleration*Math.max(0,distance-arrivalRadius)));
   // Moving targets require matching their velocity, not braking to a standstill behind them.
   let desiredX=targetVelocity.x+directionX*speed,desiredY=targetVelocity.y+directionY*speed;
-  for(const q of neighbours){if(q.id===p.id)continue;const d=dist(p,q);if(d>0&&d<1.65){const strength=(1.65-d)*2.8;desiredX+=(p.x-q.x)/d*strength;desiredY+=(p.y-q.y)/d*strength;}}
+  for(const q of neighbours){if(q.id===p.id)continue;const d=dist(p,q);if(d>0&&d<MOTION_STEER_SEPARATION){const strength=(MOTION_STEER_SEPARATION-d)*MOTION_STEER_SEPARATION_GAIN;desiredX+=(p.x-q.x)/d*strength;desiredY+=(p.y-q.y)/d*strength;}}
   const length=Math.hypot(desiredX,desiredY);if(length>limit){desiredX*=limit/length;desiredY*=limit/length;}
   const dvx=desiredX-p.vx,dvy=desiredY-p.vy,change=Math.hypot(dvx,dvy),factor=Math.min(1,p.acceleration*dt/Math.max(change,.00001));
   p.vx+=dvx*factor;p.vy+=dvy*factor;p.x+=p.vx*dt;p.y+=p.vy*dt;
 }
 export function steer(p:MovingPlayer,target:Vec,dt:number,limit=p.pace,neighbours:MovingPlayer[]=noNeighbours,targetVelocity:Vec=stationaryTarget) {
   steerMotion(p,target,dt,limit,neighbours,targetVelocity);
-  const aim=Math.atan2(p.vy,p.vx);if(Math.hypot(p.vx,p.vy)>.2)p.angle+=clamp(angleDiff(aim,p.angle),-4*dt,4*dt);
+  const aim=Math.atan2(p.vy,p.vx);if(Math.hypot(p.vx,p.vy)>MOTION_STEER_FACE_FROM)p.angle+=clamp(angleDiff(aim,p.angle),MOTION_STEER_TURN_RATE_BACK*dt,MOTION_STEER_TURN_RATE*dt);
 }
 // Relative swept-segment collision catches a fast ball even between two ticks.
 export function contact(a:Vec,b:Vec,oldPlayer:Vec,newPlayer:Vec,radius:number):number|null {

@@ -1,3 +1,4 @@
+import * as S from './style.js';
 import {L,W,GH,HEIGHT,BOX_DEPTH,BOX_HALF,SPOT,X,Y,G} from './pitch.js';
 import {clamp} from './model.js';
 import type {Side,Tactics} from './model.js';
@@ -7,6 +8,25 @@ import {STEP} from './movement.js';
 import {PASS_DRAG} from './practice-flight.js';
 import {goalAngle} from './practice-football.js';
 import type {RestartInfo} from './practice-restarts.js';
+import {WORLD} from './world.js';
+/** Hot-path aliases (engine as data W9b): world reads used inside this file's functions, read once at load. */
+const BALL_FLIGHT_GRAVITY=WORLD.ball.flight.gravity.v;
+const BALL_FREE_KICK_DROP_ARRIVAL=WORLD.ball.freeKick.dropArrival.v;
+const BALL_FREE_KICK_LIFT_MAX=WORLD.ball.freeKick.liftMax.v;
+const BALL_FREE_KICK_LOW_LIFT=WORLD.ball.freeKick.lowLift.v;
+const BALL_FREE_KICK_POWER_BASE=WORLD.ball.freeKick.powerBase.v;
+const BALL_FREE_KICK_POWER_FINISHING=WORLD.ball.freeKick.powerFinishing.v;
+const BALL_FREE_KICK_POWER_STRENGTH=WORLD.ball.freeKick.powerStrength.v;
+const BALL_FREE_KICK_SHOT_ANGLE_MIN=WORLD.ball.freeKick.shotAngleMin.v;
+const BALL_FREE_KICK_SHOT_MAX=WORLD.ball.freeKick.shotMax.v;
+const BALL_FREE_KICK_SHOT_MIN=WORLD.ball.freeKick.shotMin.v;
+const BALL_FREE_KICK_SOFT_SHARE=WORLD.ball.freeKick.softShare.v;
+const BALL_FREE_KICK_TIRED_FLOOR=WORLD.ball.freeKick.tiredFloor.v;
+const BALL_FREE_KICK_TIRED_SHARE=WORLD.ball.freeKick.tiredShare.v;
+const BALL_FREE_KICK_UNDER_BAR=WORLD.ball.freeKick.underBar.v;
+const ERROR_FREE_KICK_BASE=WORLD.error.freeKick.base.v;
+const ERROR_FREE_KICK_TECHNIQUE=WORLD.error.freeKick.technique.v;
+const ERROR_FREE_KICK_TIRED=WORLD.error.freeKick.tired.v;
 
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
 const depth=(side:Side,x:number)=>side===0?x:L-x;
@@ -27,9 +47,9 @@ export type FreeKickOption=Option&{freeKick?:DirectFreeKickPlan};
  * FK_PLAN_B (Short does not float it into the box because one man there is
  * free; Into the box does not tap it to the edge man). A direct shot stays
  * his own judgement under either call. */
-export const FK_LEAN=.2,FK_CONTEST=.6,FK_PLAN_B=.15;
+export const FK_LEAN=S.FREE_KICK_COMMON.lean.v,FK_CONTEST=S.FREE_KICK_COMMON.contest.v,FK_PLAN_B=S.FREE_KICK_COMMON.planB.v;
 /** Below this read a direct free kick is not offered as a shot at all. */
-const SHOT_OPTION_QUALITY=.015;
+const SHOT_OPTION_QUALITY=WORLD.selection.setPieces.SHOT_OPTION_QUALITY.v;
 
 /** An active nominated player takes precedence; otherwise technique selects the specialist.
  * A shooter is wanted only where a direct shot is genuinely on: a direct free
@@ -67,18 +87,18 @@ const flightTime=(length:number,speed:number)=>{
  const initial=speed+PASS_DRAG*STEP/2,remaining=initial*initial-2*PASS_DRAG*length;
  return remaining>0?2*length/(initial+Math.sqrt(remaining)):Infinity;
 };
-const heightAt=(vz:number,time:number)=>Math.max(0,vz*time-9.81*time*(time-STEP)/2);
+const heightAt=(vz:number,time:number)=>Math.max(0,vz*time-BALL_FLIGHT_GRAVITY*time*(time-STEP)/2);
 
 /** Compare straight, physically reachable goal trajectories; there is no invented curl. */
 export function assessFreeKick(p:PracticePlayer,players:PracticePlayer[],spot:Vec=p):DirectFreeKickPlan|null {
  const goalX=p.side===0?L:0,length=distance(spot,{x:goalX,y:0}),angle=goalAngle({...p,...spot});
- if(length<5||length>36||angle<.14)return null;
+ if(length<BALL_FREE_KICK_SHOT_MIN||length>BALL_FREE_KICK_SHOT_MAX||angle<BALL_FREE_KICK_SHOT_ANGLE_MIN)return null;
  const opponents=players.filter(q=>q.side!==p.side),keeper=opponents.find(q=>q.role==='GK');
  const technique=clamp((p.skills.setPieces*.65+p.skills.finishing*.35)/10,0,1);
- const deviation=.019+(1-technique)*.064+(1-p.energy/100)*.012;
- const power=(21+p.skills.strength*.25+p.skills.finishing*.12)*(.94+.06*p.energy/100);
+ const deviation=ERROR_FREE_KICK_BASE+(1-technique)*ERROR_FREE_KICK_TECHNIQUE+(1-p.energy/100)*ERROR_FREE_KICK_TIRED;
+ const power=(BALL_FREE_KICK_POWER_BASE+p.skills.strength*BALL_FREE_KICK_POWER_STRENGTH+p.skills.finishing*BALL_FREE_KICK_POWER_FINISHING)*(BALL_FREE_KICK_TIRED_FLOOR+BALL_FREE_KICK_TIRED_SHARE*p.energy/100);
  let best:DirectFreeKickPlan|null=null,bestValue=-Infinity;
- for(const y of [-2.7,-1.4,0,1.4,2.7].map(G))for(const speed of [power,power*.88]){
+ for(const y of [-2.7,-1.4,0,1.4,2.7].map(G))for(const speed of [power,power*BALL_FREE_KICK_SOFT_SHARE]){
   const aim={x:goalX,y},dx=goalX-spot.x,dy=y-spot.y,d=Math.hypot(dx,dy),flight=flightTime(d,speed);
   const bodies=opponents.filter(q=>q.role!=='GK').map(q=>{
    const fraction=((q.x-spot.x)*dx+(q.y-spot.y)*dy)/(d*d);
@@ -87,8 +107,8 @@ export function assessFreeKick(p:PracticePlayer,players:PracticePlayer[],spot:Ve
   }).filter(q=>q.fraction>0&&q.fraction<1&&q.gap<1.4);
   // A low route and a descending route compete. The latter may clear a wall at
   // the existing 1.1m body-contact height, but gives the keeper more time.
-  for(const vz of [2.2,.8/flight+9.81*(flight-STEP)/2]){
-   const goalHeight=heightAt(vz,flight);if(goalHeight>HEIGHT-.19||vz>8.5)continue;
+  for(const vz of [BALL_FREE_KICK_LOW_LIFT,BALL_FREE_KICK_DROP_ARRIVAL/flight+BALL_FLIGHT_GRAVITY*(flight-STEP)/2]){
+   const goalHeight=heightAt(vz,flight);if(goalHeight>HEIGHT-BALL_FREE_KICK_UNDER_BAR||vz>BALL_FREE_KICK_LIFT_MAX)continue;
    let blocked=0,wallHeight=0;
    for(const q of bodies){
     const height=heightAt(vz,q.time),margin=deviation*d*q.fraction;
@@ -118,15 +138,15 @@ export function freeKickOptions(p:PracticePlayer,players:PracticePlayer[],restar
   const short=o.kind!=='loft'&&length<=16;
   const delivery=!short&&depth(p.side,o.aim.x)>X(78)&&Math.abs(o.aim.y)<Y(17);
   const shotGain=o.delivery?.shotGain??0;
-  const called=tactics?.setPiece==='short'&&short||tactics?.setPiece==='delivery'&&delivery;
-  const planB=tactics?.setPiece==='short'&&delivery||tactics?.setPiece==='delivery'&&short;
+  const called=S.FREE_KICK[tactics?.setPiece??'mixed'].callsShort.v&&short||S.FREE_KICK[tactics?.setPiece??'mixed'].callsDelivery.v&&delivery;
+  const planB=S.FREE_KICK[tactics?.setPiece??'mixed'].callsShort.v&&delivery||S.FREE_KICK[tactics?.setPiece??'mixed'].callsDelivery.v&&short;
   const preference=called?FK_LEAN+FK_CONTEST*risk:planB?-FK_PLAN_B:0;
   const score=o.score+(short?.035:0)+(delivery?(.035+precision*.065+shotGain*.1)*(1-risk)*(wide?1.3:1):0)+preference;
   return {...o,score,reason:short?'Reia scurt spre un coleg liber, ca să construiască următoarea fază.':delivery?'Caută un coleg în fața porții, comparând culoarul cu riscul de intercepție.':o.reason};
  });
  if(restart.kind==='freeKick'){
   const plan=assessFreeKick(p,players,restart.spot);
-  if(plan&&plan.quality>SHOT_OPTION_QUALITY)options.push({kind:'shoot',aim:plan.aim,score:.12+plan.quality*.93+p.traits.risk*.025-plan.blocked*.2-(tactics?.setPiece==='short'?.035:0),freeKick:plan,
+  if(plan&&plan.quality>SHOT_OPTION_QUALITY)options.push({kind:'shoot',aim:plan.aim,score:.12+plan.quality*.93+p.traits.risk*.025-plan.blocked*.2-S.FREE_KICK[tactics?.setPiece??'mixed'].shotCost.v,freeKick:plan,
    reason:plan.wallHeight>1.1?'Încearcă poarta cu o traiectorie peste zid; compară precizia cu timpul oferit portarului.':'Vede un culoar spre poartă și încearcă direct lovitura liberă.'});
  }
  // Normal restart layout supplies a nearby outlet. Retain a legal pass if an

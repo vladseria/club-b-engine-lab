@@ -1,6 +1,11 @@
+import {WORLD} from './world.js';
+/** Hot-path aliases (engine as data W9b): world reads used inside this file's functions, read once at load. */
+const PITCH_REFERENCE_GOAL_HALF=WORLD.pitch.reference.goalHalf.v;
+const PITCH_REFERENCE_LENGTH=WORLD.pitch.reference.length.v;
+const PITCH_REFERENCE_WIDTH=WORLD.pitch.reference.width.v;
 /** Real metres. Only tactical reference locations use X/Y. */
-export const L=48,W=30,GH=2.5,HEIGHT=2,BOX_DEPTH=8,BOX_HALF=8,SPOT=6;
-export const X=(reference:number)=>reference*L/105;
-export const Y=(reference:number)=>reference*W/68;
-export const G=(reference:number)=>reference*GH/3.66;
-export const pitch={length:L,width:W,goalWidth:GH*2,goalDepth:1.5,penaltyDepth:BOX_DEPTH,penaltyWidth:BOX_HALF*2,penaltySpot:SPOT,goalAreaDepth:3,goalAreaWidth:9,restartRadius:5};
+export const L=WORLD.pitch.core.length.v,W=WORLD.pitch.core.width.v,GH=WORLD.pitch.core.goalHalf.v,HEIGHT=WORLD.pitch.core.goalHeight.v,BOX_DEPTH=WORLD.pitch.core.boxDepth.v,BOX_HALF=WORLD.pitch.core.boxHalf.v,SPOT=WORLD.pitch.core.spot.v;
+export const X=(reference:number)=>reference*L/PITCH_REFERENCE_LENGTH;
+export const Y=(reference:number)=>reference*W/PITCH_REFERENCE_WIDTH;
+export const G=(reference:number)=>reference*GH/PITCH_REFERENCE_GOAL_HALF;
+export const pitch={length:L,width:W,goalWidth:GH*2,goalDepth:WORLD.pitch.core.shape.goalDepth.v,penaltyDepth:BOX_DEPTH,penaltyWidth:BOX_HALF*2,penaltySpot:SPOT,goalAreaDepth:WORLD.pitch.core.shape.goalAreaDepth.v,goalAreaWidth:WORLD.pitch.core.shape.goalAreaWidth.v,restartRadius:WORLD.pitch.core.shape.restartRadius.v};

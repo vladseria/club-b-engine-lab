@@ -1,6 +1,7 @@
 import type {Fixture,Side} from './model.js';
 import {HALF_SECONDS} from './practice-match.js';
 import type {PracticePlayer} from './practice.js';
+import {WORLD} from './world.js';
 
 /**
  * Manager-prepared substitutions (opt-in). Each order names a bench player and a
@@ -10,7 +11,7 @@ import type {PracticePlayer} from './practice.js';
  * so slot-addressed plans (#2–#5) and standing instructions pass to him.
  * With no orders the engine does not run any of this code.
  */
-export const MAX_TRIGGERED_SUBSTITUTIONS=3;
+export const MAX_TRIGGERED_SUBSTITUTIONS=WORLD.laws.substitutions.MAX_TRIGGERED_SUBSTITUTIONS.v;
 export type SubstitutionTrigger=
  | {kind:'tired';player:string;threshold:number}
  | {kind:'score';state:'losing'|'drawing'|'winning'}

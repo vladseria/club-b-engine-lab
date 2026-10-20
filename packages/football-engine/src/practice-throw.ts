@@ -5,10 +5,31 @@ import type {Vec,MovingBall} from './movement.js';
 import type {PracticePlayer,Option} from './practice.js';
 import {advanceFlight,PASS_DRAG} from './practice-flight.js';
 import {arrivalTime} from './practice-defense.js';
+import {WORLD} from './world.js';
+/** Hot-path aliases (engine as data W9b): world reads used inside this file's functions, read once at load. */
+const BALL_FLIGHT_GRAVITY=WORLD.ball.flight.gravity.v;
+const BALL_THROW_MAX_TICKS=WORLD.ball.throw.maxTicks.v;
+const BALL_THROW_MIN_TICKS=WORLD.ball.throw.minTicks.v;
+const BALL_THROW_POWER_BASE=WORLD.ball.throw.powerBase.v;
+const BALL_THROW_POWER_PER=WORLD.ball.throw.powerPer.v;
+const BALL_THROW_PREFERRED_BASE=WORLD.ball.throw.preferredBase.v;
+const BALL_THROW_PREFERRED_MAX=WORLD.ball.throw.preferredMax.v;
+const BALL_THROW_PREFERRED_MIN=WORLD.ball.throw.preferredMin.v;
+const BALL_THROW_PREFERRED_PER=WORLD.ball.throw.preferredPer.v;
+const BALL_THROW_TIRED_FLOOR=WORLD.ball.throw.tiredFloor.v;
+const BALL_THROW_TIRED_SHARE=WORLD.ball.throw.tiredShare.v;
+const BODY_REACH_HAND_REACH_HEIGHT=WORLD.body.reach.handReach.height.v;
+const BODY_REACH_TORSO_HEIGHT=WORLD.body.reach.torsoHeight.v;
+const ERROR_THROW_BASE=WORLD.error.throw.base.v;
+const ERROR_THROW_PRECISION=WORLD.error.throw.precision.v;
+const ERROR_THROW_PRESSURE=WORLD.error.throw.pressure.v;
+const ERROR_THROW_WEIGHT_BASE=WORLD.error.throw.weightBase.v;
+const ERROR_THROW_WEIGHT_PRECISION=WORLD.error.throw.weightPrecision.v;
+const ERROR_THROW_WEIGHT_PRESSURE=WORLD.error.throw.weightPressure.v;
 
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
 const inside=(p:Vec):Vec=>({x:clamp(p.x,.6,L-.6),y:clamp(p.y,-W/2+.6,W/2-.6)});
-const RELEASE_HEIGHT=1.8,RECEIVING_HEIGHT=.12;
+const RELEASE_HEIGHT=WORLD.ball.throw.RELEASE_HEIGHT.v,RECEIVING_HEIGHT=WORLD.ball.throw.RECEIVING_HEIGHT.v;
 export interface ThrowPlan {aim:Vec;flight:number;speed:number;vz:number;arrivalSpeed:number;apex:number;risk:number;reachable:boolean}
 
 /** Solve the same discrete gravity/drag used by the live ball. The contact
@@ -19,11 +40,11 @@ export function planThrow(p:PracticePlayer,from:Vec,q:PracticePlayer,opponents:P
  const aim=inside({x:future.x-ux*.65,y:future.y-uy*.65}),travel=distance(from,aim);
  // Game calibration: strength and fatigue constrain throwing power separately
  // from kicking power. Precision is applied only when the throw is released.
- const power=(10.5+clamp(p.skills.strength,0,10)*.55)*(.9+clamp(p.energy/100,0,1)*.1);
- const preferred=clamp(5+travel*.18,5,9),candidates:{flight:number;speed:number;vz:number;cost:number;reachable:boolean}[]=[];
- for(let ticks=45;ticks<=138;ticks++){
+ const power=(BALL_THROW_POWER_BASE+clamp(p.skills.strength,0,10)*BALL_THROW_POWER_PER)*(BALL_THROW_TIRED_FLOOR+clamp(p.energy/100,0,1)*BALL_THROW_TIRED_SHARE);
+ const preferred=clamp(BALL_THROW_PREFERRED_BASE+travel*BALL_THROW_PREFERRED_PER,BALL_THROW_PREFERRED_MIN,BALL_THROW_PREFERRED_MAX),candidates:{flight:number;speed:number;vz:number;cost:number;reachable:boolean}[]=[];
+ for(let ticks=BALL_THROW_MIN_TICKS;ticks<=BALL_THROW_MAX_TICKS;ticks++){
   const flight=ticks*STEP,speed=travel/flight+PASS_DRAG*(flight-STEP)/2;
-  const vz=(RECEIVING_HEIGHT-RELEASE_HEIGHT)/flight+9.81*(flight-STEP)/2,total=Math.hypot(speed,vz);
+  const vz=(RECEIVING_HEIGHT-RELEASE_HEIGHT)/flight+BALL_FLIGHT_GRAVITY*(flight-STEP)/2,total=Math.hypot(speed,vz);
   if(vz<1)continue;
   const reachable=total<=power;
   candidates.push({flight,speed,vz,reachable,cost:Math.abs(speed-preferred)+flight*.3+Math.max(0,total-power)*20});
@@ -37,7 +58,7 @@ export function planThrow(p:PracticePlayer,from:Vec,q:PracticePlayer,opponents:P
   const time=tick*STEP;
   for(const opponent of opponents){
    const depth=opponent.side===0?b.x:L-b.x,hands=opponent.role==='GK'&&depth<BOX_DEPTH&&Math.abs(b.y)<BOX_HALF;
-   if(b.z>(hands?2.3:1.1))continue;
+   if(b.z>(hands?BODY_REACH_HAND_REACH_HEIGHT:BODY_REACH_TORSO_HEIGHT))continue;
    risk=Math.max(risk,clamp((time+.2-arrivalTime(opponent,b))/.55,0,1));
   }
  }
@@ -83,8 +104,8 @@ export function leadThrowOption(p:PracticePlayer,from:Vec,q:PracticePlayer,run:{
  * ordinary physical events. Random precision/weight errors are not corrected. */
 export function strikeThrow(p:PracticePlayer,from:Vec,q:PracticePlayer,pressure:number,random:()=>number,opponents:PracticePlayer[]=[]):{aim:Vec;vx:number;vy:number;vz:number;z:number;plan:ThrowPlan}{
  const plan=planThrow(p,from,q,opponents),precision=clamp(p.skills.passing/10,0,1);
- const spread=.035+(1-precision)*.35+pressure*.2;
+ const spread=ERROR_THROW_BASE+(1-precision)*ERROR_THROW_PRECISION+pressure*ERROR_THROW_PRESSURE;
  const aim=inside({x:plan.aim.x+(random()-.5)*spread,y:plan.aim.y+(random()-.5)*spread});
- const angle=Math.atan2(aim.y-from.y,aim.x-from.x),weight=1+(random()*2-1)*(.015+(1-precision)*.045+pressure*.025);
+ const angle=Math.atan2(aim.y-from.y,aim.x-from.x),weight=1+(random()*2-1)*(ERROR_THROW_WEIGHT_BASE+(1-precision)*ERROR_THROW_WEIGHT_PRECISION+pressure*ERROR_THROW_WEIGHT_PRESSURE);
  return {aim,vx:Math.cos(angle)*plan.speed*weight,vy:Math.sin(angle)*plan.speed*weight,vz:plan.vz*weight,z:RELEASE_HEIGHT,plan};
 }

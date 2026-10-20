@@ -8,6 +8,7 @@ import {launchRisk,footToBall} from './practice-possession.js';
 import {touchGap} from './practice-reception.js';
 import {shotContest,hurryTruth} from './practice-shot-contest.js';
 import {PASS_DRAG} from './practice-flight.js';
+import {WORLD} from './world.js';
 
 /** Receive round (2026-10-15): the receiver reads his reception while the ball
  * is on its way, not after it arrives. The owner: "judging the situation before
@@ -42,20 +43,20 @@ import {PASS_DRAG} from './practice-flight.js';
  * own goal, closed down, he clears it first time: practice.ts CLEAR_READ).
  * Reading sets how early and how well he reads; temperament (daring) only
  * shades how readily he goes first time. */
-export const READ_BASE=.9,READ_PER=.08,READ_EVERY=.18;
+export const READ_BASE=WORLD.perception.receive.READ_BASE.v,READ_PER=WORLD.perception.receive.READ_PER.v,READ_EVERY=WORLD.perception.receive.READ_EVERY.v;
 export const readHorizon=(p:{skills:{reading:number}})=>READ_BASE+READ_PER*clamp(p.skills.reading,0,10);
 /** The opponents' momentum is read over at most READ_AHEAD s (launchRisk's own
  * one-second forecast, a little shorter: a man does not run straight on for
  * ever); a man closing the meeting point stops ON_HIM m short of it. */
-export const READ_AHEAD=.8,ON_HIM=1;
+export const READ_AHEAD=WORLD.perception.receive.READ_AHEAD.v,ON_HIM=WORLD.selection.receive.ON_HIM.v;
 /** A receiver who cannot read an arrival at all misjudges his room by up to
  * ROOM_SPREAD s; a top reader is nearly exact (practice-perception misread). */
-export const ROOM_SPREAD=.5;
+export const ROOM_SPREAD=WORLD.perception.receive.ROOM_SPREAD.v;
 /** Options he may plan in flight: within READ_MARGIN of his best (as before),
  * and a release up to LATE_MARGIN further when the read says he will be closed
  * down (late = 1): a slightly worse ball played now beats the ball he would be
  * caught on. */
-export const READ_MARGIN=.06,LATE_MARGIN=.1;
+export const READ_MARGIN=WORLD.perception.receive.READ_MARGIN.v,LATE_MARGIN=WORLD.perception.receive.LATE_MARGIN.v;
 /** What striking first time costs, as a share of the chance (the same 0..1
  * scale as touchCost): the incoming pace he strikes through, a ball still
  * dropping out of the air (AERIAL_SET more: the long ball's controlling touch
@@ -82,10 +83,10 @@ export const READ_MARGIN=.06,LATE_MARGIN=.1;
  * unit of load: two to three times what the strike loses (decide notes: a
  * free receiver played first time only off a ball slower than 4 m/s, 2% of
  * reads, and first-time shots converted better, not worse). */
-export const FT_PASSING=1.4,FT_FINISHING=1.8;
-export const PASS_ERROR=.1,PASS_SLACK=1,SHOT_DEVIATION=.008,TYPICAL_DEVIATION=.09;
+export const FT_PASSING=WORLD.selection.receive.FT_PASSING.v,FT_FINISHING=WORLD.selection.receive.FT_FINISHING.v;
+export const PASS_ERROR=WORLD.selection.receive.PASS_ERROR.v,PASS_SLACK=WORLD.selection.receive.PASS_SLACK.v,SHOT_DEVIATION=WORLD.selection.receive.SHOT_DEVIATION.v,TYPICAL_DEVIATION=WORLD.selection.receive.TYPICAL_DEVIATION.v;
 export const PASS_POINT=PASS_ERROR/PASS_SLACK,SHOT_POINT=SHOT_DEVIATION/TYPICAL_DEVIATION;
-export const PASS_LOAD=FT_PASSING*PASS_POINT,SHOT_LOAD=FT_FINISHING*SHOT_POINT,AERIAL_SET=.35,LOAD_DARE=.3;
+export const PASS_LOAD=FT_PASSING*PASS_POINT,SHOT_LOAD=FT_FINISHING*SHOT_POINT,AERIAL_SET=WORLD.selection.receive.AERIAL_SET.v,LOAD_DARE=WORLD.selection.receive.LOAD_DARE.v;
 /** The load a first-time strike carries: what the incoming pace takes off him, 0..1. */
 export const strikeLoad=(relativeSpeed:number)=>clamp((relativeSpeed-4)/8,0,1);
 
@@ -112,7 +113,7 @@ export const strikeLoad=(relativeSpeed:number)=>clamp((relativeSpeed-4)/8,0,1);
  *    points, none once he has had the deadline to shape his body; under
  *    SHAPE_MIN s (a reaction) he cannot strike it first time at all. That
  *    replaces the fixed "held 0.13 s + 0.012 s a reading point" gate. */
-export const READ_KEEP=.1,ROOM_DROP=.2,SWITCH_DEADLINE=.35,SHAPE_MIN=.1,LATE_POINTS=2;
+export const READ_KEEP=WORLD.perception.receive.READ_KEEP.v,ROOM_DROP=WORLD.selection.receive.ROOM_DROP.v,SWITCH_DEADLINE=WORLD.perception.receive.SWITCH_DEADLINE.v,SHAPE_MIN=WORLD.selection.receive.SHAPE_MIN.v,LATE_POINTS=WORLD.selection.receive.LATE_POINTS.v;
 /** The plan carries through the touch (practice.ts, the meeting): it is played unless, on the picture at the touch,
  * its lane has closed, it is gone, or another option is PLAN_KEEP better (before: 0.08, so a fresh look at the same
  * picture re-chose it; a prepared kick's own re-check margin is 0.18). If the plan is off he plays the next option
@@ -126,7 +127,7 @@ export const READ_KEEP=.1,ROOM_DROP=.2,SWITCH_DEADLINE=.35,SHAPE_MIN=.1,LATE_POI
  * LANE_CLOSED or more, the level at which the meeting's own check (practice.ts, risk under 0.32 for a plan) has long
  * given up on it. (Without it, the first cloud run of this round lost twice as many passes within 12 m of our own goal:
  * 2.0 a match against 1.0, their goals within 5 s of those 0.29 against 0.06.) */
-export const PLAN_KEEP=.15,COMMIT_GRACE=.25,LANE_CLOSED=.6;
+export const PLAN_KEEP=WORLD.selection.receive.PLAN_KEEP.v,COMMIT_GRACE=WORLD.perception.receive.COMMIT_GRACE.v,LANE_CLOSED=WORLD.selection.receive.LANE_CLOSED.v;
 /** How late a first-time strike of a plan held `held` s is, 0..1 (0 = shaped in time). */
 export const lateStrike=(held:number)=>clamp((SWITCH_DEADLINE-held)/(SWITCH_DEADLINE-SHAPE_MIN),0,1);
 /** The same intention: a kick to the same man, the same kind of carry or shot. */
@@ -143,7 +144,7 @@ export const sameIntention=(a:Option,b:Option)=>a.kind===b.kind&&a.target===b.ta
  * them there, `ahead` s on (at most MATE_AHEAD), as far as his reading lets
  * him anticipate it: ANTICIPATE_MIN of the way for a man who cannot read the
  * game, all of it for a top reader. Copies: the live players never move. */
-export const MATE_AHEAD=1.6,ANTICIPATE_MIN=.5;
+export const MATE_AHEAD=WORLD.selection.receive.MATE_AHEAD.v,ANTICIPATE_MIN=WORLD.perception.receive.ANTICIPATE_MIN.v;
 export const anticipation=(p:{skills:{reading:number}})=>ANTICIPATE_MIN+(1-ANTICIPATE_MIN)*clamp(p.skills.reading/10,0,1);
 export type MateJob=(q:PracticePlayer)=>{aim:Vec;speed:number}|undefined;
 export function projectMates(players:readonly PracticePlayer[],reader:PracticePlayer,ahead:number,job:MateJob):PracticePlayer[]{
@@ -211,7 +212,7 @@ export const roomLate=(p:PracticePlayer,room:number)=>{const need=touchTime(p);r
  * EDGE_HURRY), but hurry also pulls the shot towards him and softens it (placeHurried, strikeShot), so a keeper caught
  * moving counts KEEPER_SET_WORTH of what a fully hurried shot costs. Shot hurry is turned into a share of the chance
  * the way the shooter's own read of it is (practice-shot-contest hurryTruth). */
-export const KEEPER_STILL=3,KEEPER_SET_WORTH=.5;
+export const KEEPER_STILL=WORLD.selection.receive.KEEPER_STILL.v,KEEPER_SET_WORTH=WORLD.selection.receive.KEEPER_SET_WORTH.v;
 type LaneRisk=(from:Vec,to:Vec,defenders:PracticePlayer[],speed?:number,delay?:number)=>number;
 /** What a controlling touch would cost this option, 0..1, read at the meeting
  * point on the projected picture `seen`: the man closing him (roomLate), and

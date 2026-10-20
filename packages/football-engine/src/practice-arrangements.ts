@@ -15,6 +15,7 @@ import type {SupportMove} from './practice-support.js';
 import {readSupportLocation,shortSupportPoints} from './practice-support.js';
 import {arrivalTime} from './practice-defense.js';
 import {expectedPassFlight} from './practice-flight.js';
+import {WORLD} from './world.js';
 
 type Risk=(from:Vec,to:Vec,defenders:PracticePlayer[],speed?:number)=>number;
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
@@ -23,7 +24,7 @@ const inside=(v:Vec)=>({x:clamp(v.x,1,L-1),y:clamp(v.y,2-W/2,W/2-2)});
 interface Candidate {opportunity:AttackingSpace;coverage:number[];job:FootballJob;score:number;access:number;gap:number;travel:number;forward:number;path:Vec[];start:Vec}
 
 /** What a metre of change to a team-mate's aim costs in refineReceptionSupport (the price of dithering). */
-export const CHANGE_COST=.06;
+export const CHANGE_COST=WORLD.selection.arrangements.CHANGE_COST.v;
 /** Improve the angles of the team's existing invitations as a pass arrives.
  * Keep their purposes, rather than reallocating the whole attack at every
  * handover. Compare physically reachable positions, not occupied destinations. */

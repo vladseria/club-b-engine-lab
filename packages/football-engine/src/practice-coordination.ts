@@ -1,3 +1,4 @@
+import * as S from './style.js';
 import {keeperSupportCandidates} from './practice-keeper-support.js';
 import {selectPossessionJobs} from './practice-job-selection.js';
 import type {JobCandidate} from './practice-job-selection.js';
@@ -24,6 +25,7 @@ import {eagerness,followsTeam,perceive} from './practice-perception.js';
 import {flightSamples,flightMeeting,expectedPassFlight} from './practice-flight.js';
 import {defendOutOfPossession,offGoalLine,REGROUP_BEHIND} from './practice-defending.js';
 import type {DefendMemory} from './practice-defending.js';
+import {WORLD} from './world.js';
 export {REGROUP_BEHIND};
 
 export type JobPurpose='break'|'playbook'|'shape'|'balance'|'zone'|'press'|'screen'|'counter-press'|'counter-screen'|'trap'|'trap-screen'|'cover'|'mark'|'receive'|'collect'|'second-ball'|'join'|'outlet'|'give-and-go'|'depth'|'link'|'overlap'|'near-post'|'far-post'|'cutback'|'build-up'|'counter-cover'|'last-man'|'width'|'drop'|'pivot'|'third-man'|'shoulder'|'wall'|'spot'|'back-post'|'edge'|'ball';
@@ -84,11 +86,11 @@ export interface CoordinationPlan {
  * second man, closing the escape pass once a non-centre-back has engaged
  * (combined round, 2026-10-01: centre-backs springing alone near their own
  * box were the trap's most expensive moments). */
-export const TRAP_WINDOW=2.5,TRAP_REST=20,TRAP_REACH=10,TRAP_SPREAD=.6,TRAP_FRESH=1.2,TRAP_EAGER=.6,TRAP_SETTLED=5;
+export const TRAP_WINDOW=S.PRESS_COMMON.trapWindow.v,TRAP_REST=S.PRESS_COMMON.trapRest.v,TRAP_REACH=S.PRESS_COMMON.trapReach.v,TRAP_SPREAD=S.PRESS_COMMON.trapSpread.v,TRAP_FRESH=S.PRESS_COMMON.trapFresh.v,TRAP_EAGER=S.PRESS_COMMON.trapEager.v,TRAP_SETTLED=S.PRESS_COMMON.trapSettled.v;
 /** Trap territory, metres from the defending goal. No trap near our own
  * box: from 22 m out (combined round, 2026-10-01: the 20-26 m band was where a
  * beaten spring turned into a shot; it was X(28) = 12.8 m). */
-export const TRAP_NEAR=22,TRAP_FAR=L*.72;
+export const TRAP_NEAR=S.PRESS_COMMON.trapNear.v,TRAP_FAR=S.PRESS_COMMON.trapFar.v;
 export type TrapTrigger='touchline'|'entry'|'back';
 export interface Trap {side:Side;owner:string;at:number;trigger:TrapTrigger;engagers:string[];over:boolean;rest:number}
 /** How clearly this moment is a trigger (0..1) for the defending side, from
@@ -98,12 +100,12 @@ export function trapTrigger(owner:PracticePlayer,defending:Side,time:number,sinc
  const bd=depth(defending,owner.x);
  if(bd<TRAP_NEAR||bd>TRAP_FAR)return null;
  const fresh=clamp(1-(time-since)/TRAP_FRESH,0,1);
- const line=clamp((Math.abs(owner.y)-(W/2-4))/2.5,0,1);
+ const line=clamp((Math.abs(owner.y)-(W/2-WORLD.geometry.coordination.trapTouchlineFrom.v))/WORLD.geometry.coordination.trapTouchlineSpan.v,0,1);
  // Facing his own goal: the direction away from the goal he attacks.
  const away=defending===0?0:Math.PI,back=Math.cos(owner.angle-away);
  const turned=clamp((back-.2)/.5,0,1)*fresh;
  const gain=from?depth(defending,from.x)-bd:0;
- const entry=from&&bd<=L*.62?clamp((gain-2)/5,0,1)*clamp((9-Math.abs(owner.y))/3,0,1)*fresh:0;
+ const entry=from&&bd<=L*WORLD.geometry.coordination.trapEntryUpTo.v?clamp((gain-WORLD.geometry.coordination.trapEntryGainFrom.v)/WORLD.geometry.coordination.trapEntryGainSpan.v,0,1)*clamp((WORLD.geometry.coordination.trapEntryCentral.v-Math.abs(owner.y))/WORLD.geometry.coordination.trapEntryCentralSpan.v,0,1)*fresh:0;
  const best=Math.max(line,turned,entry);
  if(best<=0)return null;
  return {trigger:best===line?'touchline':best===entry?'entry':'back',strength:best};
@@ -131,9 +133,9 @@ export function seesTrigger(p:PracticePlayer,strength:number,at:Vec,time:number,
  * into it; players under an explicit instruction keep it. It ends for good the
  * moment the ball escapes the zone: whoever pressed is then out of position
  * and runs back like anyone else. */
-export const COUNTER_PRESS_WINDOW=3,COUNTER_PRESS_NEAR=8,COUNTER_PRESS_ZONE=10;
+export const COUNTER_PRESS_WINDOW=S.ON_LOSS_COMMON.window.v,COUNTER_PRESS_NEAR=S.ON_LOSS_COMMON.near.v,COUNTER_PRESS_ZONE=S.ON_LOSS_COMMON.zone.v;
 /** No counter-press (nor Regroup's drop) for a ball lost within COUNTER_PRESS_OWN m of our own goal line (defending-close round). */
-export const COUNTER_PRESS_OWN=16;
+export const COUNTER_PRESS_OWN=S.ON_LOSS_COMMON.own.v;
 export interface CounterPress {side:Side;at:number;spot:Vec;mode:'engage'|'delay'|null;over:boolean;
  /** Regroup: for the whole window, even once the ball has left the zone,
   * everyone but the delayer and his cover who is not yet clearly goal-side of
@@ -150,8 +152,8 @@ export interface CounterPress {side:Side;at:number;spot:Vec;mode:'engage'|'delay
  * behind him (delay and cover), and attackers ahead of the ball are left to
  * be picked up once the block is set: fewer counters, fewer balls won back. */
 export function counterPressFires(onLoss:Tactics['onLoss'],ours:number,theirs:number,trapped:boolean):boolean{
- if(onLoss==='regroup'||ours<1)return false;
- return onLoss==='counterpress'||ours+(trapped?1:0)-theirs>=1;
+ if(S.ON_LOSS[onLoss??'balanced'].regroups.v||ours<1)return false;
+ return S.ON_LOSS[onLoss??'balanced'].goesAlways.v||ours+(trapped?1:0)-theirs>=1;
 }
 /** Whether the counter-press goes is the call of the man who would go (R2),
  * not a perfect team count: he counts the men around the ball by his own
@@ -160,14 +162,14 @@ export function counterPressFires(onLoss:Tactics['onLoss'],ours:number,theirs:nu
  * as far as his discipline lets it (a keen, undisciplined player goes a man
  * short; a reluctant one waits for more; a disciplined one follows the rule
  * the manager set). Regroup never engages. */
-export const NUMBERS_SPREAD=1.5,EAGER_MEN=3;
+export const NUMBERS_SPREAD=S.ON_LOSS_COMMON.numbersSpread.v,EAGER_MEN=S.ON_LOSS_COMMON.eagerMen.v;
 export function counterPressRead(onLoss:Tactics['onLoss'],ours:number,theirs:number,trapped:boolean,presser:PracticePlayer,ball:Vec,time:number):boolean{
- if(onLoss==='regroup'||ours<1)return false;
+ if(S.ON_LOSS[onLoss??'balanced'].regroups.v||ours<1)return false;
  // (Counter-press is not a count: the man nearest the ball goes)
- if(onLoss==='counterpress')return true;
+ if(S.ON_LOSS[onLoss??'balanced'].goesAlways.v)return true;
  const margin=ours+(trapped?1:0)-theirs-1;
  const seen=perceive(presser,'numbers',margin,NUMBERS_SPREAD,ball,{time,salt:'counter-press',bias:(1-followsTeam(presser))*eagerness(presser)*EAGER_MEN});
- return seen>=-.5;
+ return seen>=S.ON_LOSS_COMMON.readThreshold.v;
 }
 /** Instruction producers can inspect coordination, but only the coordinator
  * publishes jobs. Keep this read-only boundary even for future tactics. */
@@ -192,7 +194,7 @@ export interface CoordinationContext extends SupportContext {
 }
 
 /** A set piece's zonal anchor takes over a runner within this many metres of his spot. */
-export const ANCHOR_ZONE=3;
+export const ANCHOR_ZONE=WORLD.selection.coordination.ANCHOR_ZONE.v;
 /** The side without the ball keeps no ball-anchored block (practice-defending
  * replaces it): its shape record carries only the time, so a change of
  * possession is still seen as one. */
@@ -219,9 +221,9 @@ const running=(purpose:JobPurpose)=>['break','give-and-go','depth','overlap','ne
  * (readTransition). A break that clears it is a genuinely free run on goal,
  * so patience does not tax it again. */
 export function runStyle(t:Pick<Tactics,'progression'|'commit'|'transition'>,purpose:JobPurpose):number{
- const bypassing=purpose==='depth'||purpose==='break'&&t.transition!=='secure';
- const progression=t.progression==='direct'?.18:t.progression==='patient'?(bypassing?-.18:purpose==='give-and-go'?.15:0):0;
- return progression+(purpose==='give-and-go'?0:(t.commit-3)*.08);
+ const bypassing=purpose==='depth'||purpose==='break'&&S.ON_WIN[t.transition??'balanced'].breakTaxed.v;
+ const progression=bypassing?S.PROGRESSION[t.progression].runBypass.v:purpose==='give-and-go'?S.PROGRESSION[t.progression].runReturn.v:S.PROGRESSION[t.progression].runOther.v;
+ return progression+(purpose==='give-and-go'?0:(t.commit-S.COMMIT.neutral.v)*S.COMMIT.runCredit.v);
 }
 
 /** The striker setting describes the team's most advanced forward, not a role
@@ -232,7 +234,7 @@ export function runStyle(t:Pick<Tactics,'progression'|'commit'|'transition'>,pur
  * for a sustained moment (1.5 s). The caller starts afresh after a restart or
  * a change of possession. */
 export interface LeadForward {id:string|undefined;challenger?:string;since?:number}
-export const LEAD_FORWARD_MARGIN=2,LEAD_FORWARD_HOLD=1.5;
+export const LEAD_FORWARD_MARGIN=S.STRIKER_COMMON.leadMargin.v,LEAD_FORWARD_HOLD=S.STRIKER_COMMON.leadHold.v;
 export function leadForward(players:readonly PracticePlayer[],side:Side,time:number,previous?:LeadForward):LeadForward{
  const strikers=players.filter(p=>p.side===side&&p.role==='ST');
  const pool=strikers.length?strikers:players.filter(p=>p.side===side&&(p.role==='W'||p.role==='AM'));
@@ -262,7 +264,7 @@ export function leadForward(players:readonly PracticePlayer[],side:Side,time:num
  * setting asks is only where he stands: he does not drop into the build-up
  * or run in behind (PIVOT_ALSO lists the jobs he still takes: the return
  * after his own lay-off, box arrivals, a break on a regain). */
-export const PIVOT_GAP=1,PIVOT_CONTACT=3,PIVOT_WIDTH=4.5,PIVOT_GOAL=5,PIVOT_SHOW=2.5,PIVOT_REACH=26,PIVOT_ON=.3,PIVOT_LANE_SPREAD=.15,PIVOT_HOLD=1;
+export const PIVOT_GAP=S.PIVOT.gap.v,PIVOT_CONTACT=S.PIVOT.contact.v,PIVOT_WIDTH=S.PIVOT.width.v,PIVOT_GOAL=S.PIVOT.goal.v,PIVOT_SHOW=S.PIVOT.show.v,PIVOT_REACH=S.PIVOT.reach.v,PIVOT_ON=S.PIVOT.on.v,PIVOT_LANE_SPREAD=S.PIVOT.laneSpread.v,PIVOT_HOLD=S.PIVOT.hold.v;
 /** A pivot needs a third man (style-identity step 1b). While the pivot is a
  * live option (showing: a pass to his feet is on), the ball is on its way to
  * him or he holds it, the others are offered lay-off spots: THIRD_BACK
@@ -273,12 +275,12 @@ export const PIVOT_GAP=1,PIVOT_CONTACT=3,PIVOT_WIDTH=4.5,PIVOT_GOAL=5,PIVOT_SHOW
  * he reads he can reach by the time a lay-off could come are offered: his
  * own arrival read (R2, 'arrival', THIRD_SPREAD s for a player who cannot
  * read at all). */
-export const THIRD_BACK=[4,6],THIRD_WIDE=[3.5,5.5],THIRD_SPREAD=.6,THIRD_SLACK=.6;
+export const THIRD_BACK=S.PIVOT.thirdBack.v,THIRD_WIDE=S.PIVOT.thirdWide.v,THIRD_SPREAD=S.PIVOT.thirdSpread.v,THIRD_SLACK=S.PIVOT.thirdSlack.v;
 export function thirdManSpots(pivot:Vec,side:Side):Vec[]{
  const s=side===0?1:-1;
  return THIRD_BACK.flatMap(dx=>THIRD_WIDE.flatMap(dy=>[-dy,dy].map(y=>inside({x:pivot.x-s*dx,y:pivot.y+y}))));
 }
-export const PIVOT_ALSO:ReadonlySet<JobPurpose>=new Set(['give-and-go','near-post','far-post','break','link']);
+export const PIVOT_ALSO:ReadonlySet<JobPurpose>=new Set(S.PIVOT.alsoTakes.v as JobPurpose[]);
 export interface PivotAnchor {id:string;depth:number}
 export function pivotAnchor(players:readonly PracticePlayer[],pivot:PracticePlayer,previous?:PivotAnchor,gap=PIVOT_GAP):PivotAnchor|null{
  const side=pivot.side,opponents=players.filter(q=>q.side!==side&&q.role!=='GK');
@@ -303,13 +305,13 @@ export function pivotAnchor(players:readonly PracticePlayer[],pivot:PracticePlay
  * ball and takes none of the short jobs (outlets, joining, third-man spots):
  * no ball into his feet when the team is pressed, nothing against a deep
  * block. RUN_ALSO lists the jobs he still takes. */
-export const RUN_GAP=.5,RUN_PAST=3,RUN_CHANNEL=2.5,RUN_WIDTH=6.5,RUN_ROOM=9,RUN_HOLD=.8,RUN_FIT=.5,RUN_LINE=4;
-export const RUN_ALSO:ReadonlySet<JobPurpose>=new Set(['give-and-go','near-post','far-post','break','link']);
+export const RUN_GAP=S.IN_BEHIND.gap.v,RUN_PAST=S.IN_BEHIND.past.v,RUN_CHANNEL=S.IN_BEHIND.channel.v,RUN_WIDTH=S.IN_BEHIND.width.v,RUN_ROOM=S.IN_BEHIND.room.v,RUN_HOLD=S.IN_BEHIND.hold.v,RUN_FIT=S.IN_BEHIND.fit.v,RUN_LINE=S.IN_BEHIND.line.v;
+export const RUN_ALSO:ReadonlySet<JobPurpose>=new Set(S.IN_BEHIND.alsoTakes.v as JobPurpose[]);
 /** (striker outlet, 2026-10-17) Joining the attack from behind it: besides
  * an 8 m step, the waypoint JOIN_STEP m along the way and the connected
  * position itself, within the reach a run is allowed (5 s). Short steps alone
  * made a player left behind the play brake into each one and stroll. */
-export const JOIN_STEP=12;
+export const JOIN_STEP=WORLD.selection.coordination.JOIN_STEP.v;
 export interface Shoulder {post:Vec;run:Vec|null;last:number}
 /** Striker: Drops deep, a false nine (settings round, 2026-10-03). The lead
  * forward takes a standing post between their lines, LINK_GAP metres in front
@@ -320,15 +322,15 @@ export interface Shoulder {post:Vec;run:Vec|null;last:number}
  * beyond him into the space he left: LINK_BEYOND metres past him, at least a
  * metre past their last line, LINK_WIDE either side of him. The price is
  * fewer bodies in the box: he takes no post arrivals (LINK_ALSO). */
-export const LINK_GAP=5,LINK_SHOW=4.5,LINK_HOLD=1,LINK_BEYOND=6,LINK_WIDE=Y(8);
-export const LINK_ALSO:ReadonlySet<JobPurpose>=new Set(['give-and-go','break','cutback']);
+export const LINK_GAP=S.DROPS_DEEP.gap.v,LINK_SHOW=S.DROPS_DEEP.show.v,LINK_HOLD=S.DROPS_DEEP.hold.v,LINK_BEYOND=S.DROPS_DEEP.beyond.v,LINK_WIDE=S.DROPS_DEEP.wide.v;
+export const LINK_ALSO:ReadonlySet<JobPurpose>=new Set(S.DROPS_DEEP.alsoTakes.v as JobPurpose[]);
 /** Width in 2-1-1, the midfielder's lean (laneCost). */
-export const MID_DISCIPLINE=.1,MID_SLACK=.5;
+export const MID_DISCIPLINE=S.WIDTH_COMMON.midDiscipline.v,MID_SLACK=S.WIDTH_COMMON.midSlack.v;
 /** Behaviour round C: in Counter's regain window the lead forward reads
  * whether the ball can reach him now: the ball-winner free (nobody within
  * ~3 m or arriving within ~0.75 s) and facing forward. His read (reading;
  * WINNER_SPREAD for a player who cannot read at all). */
-export const WINNER_SPREAD=.5;
+export const WINNER_SPREAD=S.ON_WIN_COMMON.winnerSpread.v;
 export function winnerFree(p:PracticePlayer,owner:PracticePlayer,players:readonly PracticePlayer[],time:number):boolean{
  const opponents=players.filter(q=>q.side!==owner.side&&q.role!=='GK');
  if(!opponents.length)return true;
@@ -413,8 +415,8 @@ export function coordinateFlight(players:PracticePlayer[],ball:MovingBall,side:S
  * drops to a spot REST_CUSHION m (by the Line) goal-side of that forward,
  * tucked towards the middle. Each guard reads the forward as he sees him.
  * A man pressing our ball is not such a forward (onOurBall, r1-shape). */
-export const REST_GUARDS=(commit:number)=>commit<=2?2:1;
-export const REST_CUSHION:Record<Tactics['line'],number>={deep:2.5,standard:1.5,high:1};
+export const REST_GUARDS=(commit:number)=>commit<=S.COMMIT.guardsUpTo.v?S.COMMIT.guardsMany.v:S.COMMIT.guardsFew.v;
+export const REST_CUSHION:Record<Tactics['line'],number>=S.view(S.LINE,'restCushion');
 const REST_FREE:ReadonlySet<JobPurpose>=new Set(['shape','build-up','counter-cover','outlet','width','link','second-ball','join','third-man']);
 export function restGuards(players:readonly PracticePlayer[],side:Side,focus:Vec,t:Tactics,jobs:Readonly<Record<string,FootballJob>>,mates:readonly PracticePlayer[],time:number):{player:string;aim:Vec;speed:number;reason:string;target:string}[]{
  const bd=depth(side,focus.x);
@@ -512,18 +514,18 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   const spot=held?.spot??{x:ball.x,y:ball.y},near=depth(defending,ball.x)<COUNTER_PRESS_OWN,over=!!held?.over||distance(ball,spot)>COUNTER_PRESS_ZONE||near;
   let mode=over?null:held?.mode??null;
   if(!mode&&!over&&owner&&owner.role!=='GK'){
-   if(onLoss==='regroup')mode='delay';
+   if(S.ON_LOSS[onLoss].regroups.v)mode='delay';
    else{
     const near=(side:Side)=>players.filter(p=>p.side===side&&p.role!=='GK'&&!(side===defending&&unavailable.has(p.id))&&distance(p,ball)<COUNTER_PRESS_NEAR).length;
     // The man who would go at the ball makes the call (counterPressRead).
     const bd=depth(defending,ball.x),outfield=players.filter(p=>p.side===defending&&p.role!=='GK');
     const deepest=outfield.slice().sort((a,b)=>depth(defending,a.x)-depth(defending,b.x)||a.id.localeCompare(b.id))[0];
-    const goer=outfield.filter(p=>!unavailable.has(p.id)&&!instructed.has(p.id)&&p.id!==deepest?.id&&depth(defending,p.x)>=bd-REST_MARGIN&&distance(p,ball)<COUNTER_PRESS_NEAR+4)
+    const goer=outfield.filter(p=>!unavailable.has(p.id)&&!instructed.has(p.id)&&p.id!==deepest?.id&&depth(defending,p.x)>=bd-REST_MARGIN&&distance(p,ball)<COUNTER_PRESS_NEAR+S.ON_LOSS_COMMON.goerReach.v)
      .sort((a,b)=>arrivalTime(a,owner)-arrivalTime(b,owner)||a.id.localeCompare(b.id))[0];
-    if(goer?counterPressRead(onLoss,near(defending),near(attacking),Math.abs(ball.y)>W/2-3,goer,spot,lostAt):counterPressFires(onLoss,near(defending),near(attacking),Math.abs(ball.y)>W/2-3))mode='engage';
+    if(goer?counterPressRead(onLoss,near(defending),near(attacking),Math.abs(ball.y)>W/2-WORLD.geometry.coordination.touchlineFrom.v,goer,spot,lostAt):counterPressFires(onLoss,near(defending),near(attacking),Math.abs(ball.y)>W/2-WORLD.geometry.coordination.touchlineFrom.v))mode='engage';
    }
   }
-  counterPress={side:defending,at:lostAt,spot,mode,over,...(onLoss==='regroup'&&!near?{drop:true}:{})};
+  counterPress={side:defending,at:lostAt,spot,mode,over,...(S.ON_LOSS[onLoss].regroups.v&&!near?{drop:true}:{})};
  }
  // Selective's trap (see Trap).
  const possession=owner?(previous?.possession?.owner===owner.id?previous.possession:{owner:owner.id,since:time}):undefined;
@@ -535,7 +537,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   if(held&&!held.over&&owner&&owner.id===held.owner&&time-held.at<TRAP_WINDOW)trap=held;
   else if(held&&!held.over)trap={...held,over:true,rest:time+TRAP_REST};
   else if(held&&time<held.rest)trap=held;
-  if((!trap||trap.over&&time>=trap.rest)&&owner&&owner.role!=='GK'&&possession&&tactics[defending].press==='selective'&&!counterPress?.mode&&time>=rest&&time-attackSince>=TRAP_SETTLED){
+  if((!trap||trap.over&&time>=trap.rest)&&owner&&owner.role!=='GK'&&possession&&S.PRESS[tactics[defending].press].traps.v&&!counterPress?.mode&&time>=rest&&time-attackSince>=TRAP_SETTLED){
    const from=context.lastPass&&context.lastPass.to===owner.id&&time-context.lastPass.at<TRAP_FRESH?players.find(p=>p.id===context.lastPass!.from):undefined;
    const read=trapTrigger(owner,defending,time,possession.since,from);
    if(read){
@@ -584,7 +586,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   if(owner&&pressing){
    const bd=depth(defending,ball.x),outfield=players.filter(p=>p.side===defending&&p.role!=='GK');
    const deepest=outfield.slice().sort((a,b)=>depth(defending,a.x)-depth(defending,b.x)||a.id.localeCompare(b.id))[0];
-   const eligible=outfield.filter(p=>!ordinaryUnavailable.has(p.id)&&p.id!==deepest?.id&&depth(defending,p.x)>=bd-REST_MARGIN&&distance(p,ball)<COUNTER_PRESS_NEAR+4)
+   const eligible=outfield.filter(p=>!ordinaryUnavailable.has(p.id)&&p.id!==deepest?.id&&depth(defending,p.x)>=bd-REST_MARGIN&&distance(p,ball)<COUNTER_PRESS_NEAR+S.ON_LOSS_COMMON.goerReach.v)
     .sort((a,b)=>arrivalTime(a,owner)-arrivalTime(b,owner)||a.id.localeCompare(b.id));
    if(!pressers.length&&eligible[0])pressers=[eligible[0].id];
    screener=eligible.find(p=>!pressers.includes(p.id));
@@ -595,7 +597,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   const fixedOwn=new Map<string,string>(fixedMarks);
   if(owner&&fixedPresser&&!instructed.has(fixedPresser.id)){
    // the goer (counter-press, trap) presses here; the rest decide around him
-   const move=containMovement(fixedPresser,owner,players,{...tactics[defending],press:'aggressive'},owner,'engage');
+   const move=containMovement(fixedPresser,owner,players,{...tactics[defending],press:S.ON_LOSS_COMMON.goerPressesAs.v},owner,'engage');
    // (settings close-out) the reason says what the numbers are: Counter-press goes whatever they are
    const around=(side:Side)=>players.filter(p=>p.side===side&&p.role!=='GK'&&distance(p,ball)<COUNTER_PRESS_NEAR).length,up=around(defending)>around(attacking);
    put(fixedPresser,springing?'trap':'counter-press',move.kind,move.aim,move.speed,springing?'Capcana: mingea a intrat unde o așteptam; atacă purtătorul, colegul închide ieșirea.':up?'Tocmai am pierdut-o, suntem mai mulți lângă minge: atacă imediat purtătorul.':'Tocmai am pierdut-o: atacă imediat purtătorul, deși nu suntem mai mulți lângă minge; cei din spate rămân în spatele mingii.',owner.id,move.velocity);
@@ -667,12 +669,12 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   const focus=owner??{...receiver,...flight.meetings[receiver.id]},side=receiver.side,t=tactics[side],s=side===0?1:-1,bd=depth(side,focus.x);
   const striker=strikers[side].id;
   // Striker: Pivot (pivotAnchor): the lead forward holds the last line.
-  const pivot=t.striker==='pivot'?players.find(p=>p.id===striker&&p.side===side&&p.id!==receiver.id&&!unavailable.has(p.id)&&!reserved.has(p.id)):undefined;
+  const pivot=S.STRIKER[t.striker??'mixed'].holdsLastLine.v?players.find(p=>p.id===striker&&p.side===side&&p.id!==receiver.id&&!unavailable.has(p.id)&&!reserved.has(p.id)):undefined;
   const anchor=pivot?pivotAnchor(players,pivot,previous?.attacking===side?previous.pivots?.[side]:undefined)??undefined:undefined;
   const pivotId=anchor&&anchor.depth>bd+3?pivot!.id:undefined;
   if(anchor)pivots[side]=anchor;
   // Striker: In behind (shoulderPost): the lead forward lives on their last line.
-  const runner=t.striker==='run'?players.find(p=>p.id===striker&&p.side===side&&p.id!==receiver.id&&!unavailable.has(p.id)&&!reserved.has(p.id)):undefined;
+  const runner=S.STRIKER[t.striker??'mixed'].runsInBehind.v?players.find(p=>p.id===striker&&p.side===side&&p.id!==receiver.id&&!unavailable.has(p.id)&&!reserved.has(p.id)):undefined;
   const runAnchor=runner?pivotAnchor(players,runner,previous?.attacking===side?previous.pivots?.[side]:undefined,RUN_GAP)??undefined:undefined;
   const shoulder=runAnchor&&runAnchor.depth>bd+3?shoulderPost(players,runner!,runAnchor,focus):undefined;
   const runnerId=shoulder?runner!.id:undefined;
@@ -680,13 +682,13 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   const holding=runnerId&&(t as SituationTactics).regainWindow&&owner&&owner.id!==runnerId&&!winnerFree(runner!,owner,players,time)?runnerId:undefined;
   if(runAnchor)pivots[side]=runAnchor;
   // Striker: Drops deep (LINK_*): a false nine between their lines.
-  const nine=t.striker==='link'?players.find(p=>p.id===striker&&p.side===side&&p.id!==receiver.id&&!unavailable.has(p.id)&&!reserved.has(p.id)):undefined;
+  const nine=S.STRIKER[t.striker??'mixed'].dropsDeep.v?players.find(p=>p.id===striker&&p.side===side&&p.id!==receiver.id&&!unavailable.has(p.id)&&!reserved.has(p.id)):undefined;
   const nineAnchor=nine&&bd<L-BOX_DEPTH?pivotAnchor(players,nine,previous?.attacking===side?previous.pivots?.[side]:undefined,LINK_GAP)??undefined:undefined;
   const nineId=nineAnchor?nine!.id:undefined;
   if(nineAnchor)pivots[side]=nineAnchor;
   // A combining (patient) side also offers close support on a forward
   // diagonal, between the lines; every outlet below competes on the same reads.
-  const closeSupport=(p:PracticePlayer)=>shortSupportPoints(p,focus,t.progression==='patient');
+  const closeSupport=(p:PracticePlayer)=>shortSupportPoints(p,focus,S.PROGRESSION[t.progression].forwardDiagonals.v);
   const mates=players.filter(p=>p.side===side&&p.id!==receiver.id&&p.role!=='GK'&&!unavailable.has(p.id)),opponents=players.filter(p=>p.side!==side);
   const transition=readTransition(players,focus,t,time-context.recoveredAt,previous?.attacking===side?Object.values(previous.jobs).filter(j=>j.purpose==='break'):[],time);
   const actualLine=L;
@@ -715,26 +717,26 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
    const p=mates.find(p=>p.id===move.player);if(!p||fixed.has(p.id)||p.id===pivotId||p.id===runnerId||p.id===nineId)continue;
    const read=readSupportLocation(p,move.aim,players,focus,laneRisk);
    // (r1-shape) priced like every other support spot: what it is worth to the carrier too
-   propose({...move,purpose:move.purpose as JobPurpose},1.05+(t.commit<3?.15:0)-read.risk*.45-read.travel*.06+supportWorth({...receiver,...focus},move.aim,read.risk,read.releaseRoom,players,p.id));
+   propose({...move,purpose:move.purpose as JobPurpose},1.05+(t.commit<S.COMMIT.neutral.v?S.COMMIT.holdCredit.v:0)-read.risk*.45-read.travel*.06+supportWorth({...receiver,...focus},move.aim,read.risk,read.releaseRoom,players,p.id));
   }
   type JobSpec={purpose:JobPurpose;kind:Duty;point:Vec;eligible:(p:PracticePlayer)=>boolean;fit:(p:PracticePlayer)=>number;reason:string;range?:number;target?:string;points?:(p:PracticePlayer)=>Vec[];lane?:boolean;shoulder?:boolean};
   // Width with the ball: a winger's support job pays for every metre it takes
   // him inside his lane band (nothing when narrow, more when wide). An urgent
   // release under pressure is exempt; runs keep their own geometry.
-  const band=laneY(t.width)-4,discipline=WIDTH[t.width].discipline;
+  const band=laneY(t.width)-S.WIDTH_COMMON.bandInside.v,discipline=WIDTH[t.width].discipline;
   // Without wingers (2-1-1) the centre-backs carry it: wide keeps them split
   // (a cost for coming inside their lane), narrow keeps them close (a cost for
   // drifting outside it). Standard leaves them free.
-  const {backs:spread,middle}=buildUpSpread(players,side,t.width),backLane=Y(11)*spread;
+  const {backs:spread,middle}=buildUpSpread(players,side,t.width),backLane=Y(S.WIDTH_COMMON.backLane.v)*spread;
   // ... and the midfielder carries it in the middle (settings round,
   // 2026-10-03): his support jobs pay MID_DISCIPLINE per metre beyond
   // MID_SLACK from his Width target, the team's lateral shift x middle
   // (narrow 1.3: towards the ball's side, close support; wide 0.55: holding
   // the far half-space for a switch). Standard leaves him free.
-  const midTarget=(p:PracticePlayer)=>p.lane*11+shapes[side].shift*middle;
+  const midTarget=(p:PracticePlayer)=>p.lane*S.WIDTH_COMMON.midLane.v+shapes[side].shift*middle;
   const laneCost=(p:PracticePlayer,aim:Vec)=>{
    if(discipline&&(p.role==='W'||p.role==='FB'))return discipline*Math.max(0,band-p.lane*aim.y);
-   if(p.role==='CB'&&p.lane&&spread!==1)return .06*(spread>1?Math.max(0,backLane-1-p.lane*aim.y):Math.max(0,p.lane*aim.y-backLane-1));
+   if(p.role==='CB'&&p.lane&&spread!==1)return S.WIDTH_COMMON.backCost.v*(spread>1?Math.max(0,backLane-1-p.lane*aim.y):Math.max(0,p.lane*aim.y-backLane-1));
    if((p.role==='CM'||p.role==='AM')&&middle!==1)return MID_DISCIPLINE*Math.max(0,Math.abs(aim.y-midTarget(p))-MID_SLACK);
    return 0;
   };
@@ -773,7 +775,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
      // Continuity belongs to the actual movement, not every new destination
      // carrying the same job label. Otherwise a short-support label can keep
      // winning after the reason to stay short has disappeared.
-     const style=run?runStyle(t,spec.purpose):(t.progression==='patient'?.15:0);
+     const style=run?runStyle(t,spec.purpose):S.PROGRESSION[t.progression].supportCredit.v;
      const roleFit=run&&(p.role==='CB'||p.role==='DM')?-.25:0;
      // Seven metres describes a short outlet, not the preferred distance of
      // every run. Applying it to depth candidates quietly favoured staying
@@ -781,7 +783,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
      const destinationCost=spec.points?(develop?0:Math.abs(gap-7)*.035):distance(aim,spec.point)*.045;
      // Runs that go past the build-up (depth, break) pay half: a winger may
      // still cut inside; box arrivals and the return after a pass are exempt.
-     const lane=spec.lane===false||spec.purpose==='width'||spec.purpose==='link'?0:run?(spec.purpose==='depth'||spec.purpose==='break'?laneCost(p,aim)*.5:0):laneCost(p,aim);
+     const lane=spec.lane===false||spec.purpose==='width'||spec.purpose==='link'?0:run?(spec.purpose==='depth'||spec.purpose==='break'?laneCost(p,aim)*S.WIDTH_COMMON.runShare.v:0):laneCost(p,aim);
      // (r1-shape) A support spot is also worth what the pass there is worth
      // to the carrier (ground gained, where a loss would leave us): near our
      // own goal a spot on the goal line beside the keeper is worth little.
@@ -818,7 +820,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   }
   // The run beyond the false nine, into the space he left: while he shows or has the ball.
   {
-   const onNine=t.striker==='link'&&receiver.id===striker;
+   const onNine=S.STRIKER[t.striker??'mixed'].dropsDeep.v&&receiver.id===striker;
    const shown=nineId?proposals.get(nineId)?.[0]?.job:undefined;
    const at=onNine?focus:shown?.kind==='show'?shown.aim:undefined;
    if(at){
@@ -842,7 +844,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   // The third man (thirdManSpots): around a pivot who is a live option, or
   // who has or is about to have the ball.
   {
-   const onPivot=t.striker==='pivot'&&receiver.id===striker;
+   const onPivot=S.STRIKER[t.striker??'mixed'].holdsLastLine.v&&receiver.id===striker;
    const shown=pivotId?proposals.get(pivotId)?.[0]?.job:undefined;
    const at=onPivot?focus:shown?.kind==='show'?shown.aim:undefined;
    if(at){
@@ -862,7 +864,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   // endpoint before his movement can be considered.
   offerJob({purpose:'join',kind:'support',point:focus,range:26,eligible:p=>p.role!=='GK',
    points:p=>{
-    const lead=p.role==='CB'||p.role==='DM'?-6:p.role==='ST'?8:4;
+    const lead=p.role==='CB'||p.role==='DM'?WORLD.geometry.coordination.joinLeadBack.v:p.role==='ST'?WORLD.geometry.coordination.joinLeadStriker.v:WORLD.geometry.coordination.joinLeadOther.v;
     const targetDepth=clamp(bd+lead,3,L-3);
     if(targetDepth<=depth(side,p.x)+2)return [];
     return [-W*.25,0,W*.25].flatMap(y=>{
@@ -884,7 +886,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   const wide=Math.abs(focus.y)>Y(14);
   // Patient play raises the value of short angles; they still compete
   // with runs and cover using ordinary lane and arrival checks.
-  if(t.progression==='patient'&&!hasPlannedExit())offerJob({purpose:'outlet',kind:'support',point:focus,points:p=>closeSupport(p),range:13,eligible:p=>p.role!=='CB'&&distance(p,focus)<20,fit:p=>1+p.traits.comesShort*.3+p.skills.reading*.025,target:receiver.id,reason:'Joc scurt: oferă un unghi apropiat pentru a lega următoarele pase.'});
+  if(S.PROGRESSION[t.progression].extraOutlet.v&&!hasPlannedExit())offerJob({purpose:'outlet',kind:'support',point:focus,points:p=>closeSupport(p),range:13,eligible:p=>p.role!=='CB'&&distance(p,focus)<20,fit:p=>1+p.traits.comesShort*.3+p.skills.reading*.025,target:receiver.id,reason:'Joc scurt: oferă un unghi apropiat pentru a lega următoarele pase.'});
   // Launch from the recovery itself, before ordinary build-up depth gates.
   // Remaining players attack distinct lanes. Exposure is priced by the same
   // evaluator as other runs; there is no separate permission-to-run rule.
@@ -897,10 +899,10 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
     fit:p=>1+p.traits.comesShort*.3+p.skills.reading*.02,target:receiver.id,
     reason:'Rămâne disponibil în spațiul avansat înainte ca apărarea să se refacă.'});
    if(!hasPlannedExit())offerJob({purpose:'outlet',kind:'support',point:focus,points:p=>closeSupport(p),range:13,eligible:p=>p.role!=='CB'&&distance(p,focus)<20,fit:p=>1+p.traits.comesShort*.3,target:receiver.id,reason:'Oferă o primă legătură în timp ce colegii pleacă pe contraatac.'});
-   offerJob({purpose:'break',kind:'run',point:{x:focus.x+s*12,y:0},range:34,
+   offerJob({purpose:'break',kind:'run',point:{x:focus.x+s*WORLD.geometry.coordination.breakAhead.v,y:0},range:34,
     points:p=>transition.lanes.filter(l=>l.player===p.id).map(l=>l.aim),
     eligible:p=>p.id!==holding&&transition.lanes.some(l=>l.player===p.id),
-    fit:p=>(t.transition==='counter'?1.25:.9)+p.traits.runs*.4+p.skills.reading*.02,
+    fit:p=>S.ON_WIN[t.transition??'balanced'].breakFit.v+p.traits.runs*.4+p.skills.reading*.02,
     reason:'La recuperare, atacă spațiul înainte ca adversarii să se reașeze.'});
   }
   // A pass changes the focus, not every teammate's job. Retain useful runs
@@ -981,20 +983,20 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
    // more: the same authored price the passer uses, as he reads it (a
    // centre-back arriving late should know he leaves one fewer behind).
    const rest=restDefence(focus,players),leaving=LOSS_SCALE*(lossDanger(rest.depth/L,rest.deficit+1)-lossDanger(rest.depth/L,rest.deficit));
-   if(t.commit>=3)offerJob({purpose:'cutback',kind:'run',point:{x:world(side,clamp(bd-3,X(78),X(88))),y:-flank*1},eligible:()=>true,fit:p=>.95+p.skills.reading*.03-(isRest(side,focus,p)?leaving*lossRead(p,focus):0),reason:'Vine în urma atacanților, disponibil pentru pasa întoarsă.'});
-  }else if(bd>X(32)||t.progression==='direct'){
+   if(t.commit>=S.COMMIT.neutral.v)offerJob({purpose:'cutback',kind:'run',point:{x:world(side,clamp(bd-3,X(78),X(88))),y:-flank*1},eligible:()=>true,fit:p=>.95+p.skills.reading*.03-(isRest(side,focus,p)?leaving*lossRead(p,focus):0),reason:'Vine în urma atacanților, disponibil pentru pasa întoarsă.'});
+  }else if(bd>X(S.PROGRESSION_COMMON.depthRunFrom.v)||S.PROGRESSION[t.progression].depthRunAnywhere.v){
    // No offside line in this small-sided game is not an instruction to run
    // straight to the end line. Stay within a usable next-pass distance.
    // (Drops deep's own link post and the run beyond it: LINK_*, above.)
-   offerJob({purpose:'depth',kind:'run',point:{x:world(side,Math.min(X(96),bd+X(t.progression==='direct'?30:23))),y:0},points:()=>[-Y(18),0,Y(18)].map(y=>({x:world(side,Math.min(X(96),bd+X(t.progression==='direct'?30:23))),y})),eligible:p=>p.id!==runnerId,fit:p=>.8+p.traits.runs*.6+(p.id===striker&&t.striker==='run'?.3:0),reason:'Oferă profunzime la distanță de pasă, pe un alt culoar.',range:26});
-   if(wide&&bd<X(83)&&t.fullbacks!=='hold'&&(t.commit>=3||t.fullbacks==='overlap'))offerJob({purpose:'overlap',kind:'run',point:{x:focus.x+s*X(9),y:Math.sign(focus.y)*Y(30)},eligible:p=>p.role==='FB'&&p.y*focus.y>0,fit:p=>1+p.traits.runs*.3,reason:'Trece pe exterior și oferă o continuare pe flanc.'});
+   offerJob({purpose:'depth',kind:'run',point:{x:world(side,Math.min(X(96),bd+X(S.PROGRESSION[t.progression].depthRunAhead.v))),y:0},points:()=>[-Y(18),0,Y(18)].map(y=>({x:world(side,Math.min(X(96),bd+X(S.PROGRESSION[t.progression].depthRunAhead.v))),y})),eligible:p=>p.id!==runnerId,fit:p=>.8+p.traits.runs*.6+(p.id===striker&&S.STRIKER[t.striker??'mixed'].runsInBehind.v?S.IN_BEHIND.depthBonus.v:0),reason:'Oferă profunzime la distanță de pasă, pe un alt culoar.',range:26});
+   if(wide&&bd<X(83)&&!S.FULLBACKS[t.fullbacks??'balanced'].staysBack.v&&(t.commit>=S.COMMIT.neutral.v||S.FULLBACKS[t.fullbacks??'balanced'].overlaps.v))offerJob({purpose:'overlap',kind:'run',point:{x:focus.x+s*X(9),y:Math.sign(focus.y)*Y(30)},eligible:p=>p.role==='FB'&&p.y*focus.y>0,fit:p=>1+p.traits.runs*.3,reason:'Trece pe exterior și oferă o continuare pe flanc.'});
   }
   // Two different passing angles, using the same lane assessment as the
   // carrier. Pressure makes these more useful, not a blanket veto on movement.
   // (r1-shape v5) near our own goal the reference angle is level with the
   // ball, not behind it (its candidates come from shortSupportPoints).
   const behindRef=X(5)*(1-ownGoalDanger({...focus,side}));
-  for(const flank of [-1,1])offerJob({purpose:'outlet',kind:'support',point:{x:focus.x-s*behindRef,y:focus.y+flank*Y(9)},points:p=>closeSupport(p).filter(v=>(v.y-focus.y)*flank>2),eligible:p=>distance(p,focus)<25&&!(p.role==='FB'&&t.fullbacks==='hold'&&depth(side,p.x)>bd-3),fit:p=>.8+p.traits.comesShort*.3+p.skills.reading*.02,reason:'Oferă un unghi diferit pentru următoarea pasă.'});
+  for(const flank of [-1,1])offerJob({purpose:'outlet',kind:'support',point:{x:focus.x-s*behindRef,y:focus.y+flank*Y(9)},points:p=>closeSupport(p).filter(v=>(v.y-focus.y)*flank>2),eligible:p=>distance(p,focus)<25&&!(p.role==='FB'&&S.FULLBACKS[t.fullbacks??'balanced'].staysBack.v&&depth(side,p.x)>bd-3),fit:p=>.8+p.traits.comesShort*.3+p.skills.reading*.02,reason:'Oferă un unghi diferit pentru următoarea pasă.'});
   // Hold width on the far side: pin a defender away from the ball, or be the
   // free man for a switch. Its base value is what the Width setting asks of
   // the wingers; it competes with every other job on the same reads.
@@ -1003,13 +1005,13 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   offerJob({purpose:'width',kind:'width',point:focus,range:34,
    // Any winger whose lane lies well outside the ball: the far side, or the
    // near touchline while the ball is inside it.
-   eligible:p=>(p.role==='W'||p.role==='FB')&&p.lane!==0&&laneY(t.width)-p.lane*focus.y>=6,
+   eligible:p=>(p.role==='W'||p.role==='FB')&&p.lane!==0&&laneY(t.width)-p.lane*focus.y>=S.WIDTH_COMMON.holdEligible.v,
    points:p=>{const at=holdLane(p);return [-3,0,3].map(dx=>inside({x:at.x+s*dx,y:at.y}));},
    fit:p=>{
     const at=holdLane(p);
     const pinned=outfieldOpponents.some(q=>distance(q,at)<8&&distance(q,focus)>9);
     const free=outfieldOpponents.length?clamp((Math.min(...outfieldOpponents.map(q=>arrivalTime(q,at)))-1)/1.5,0,1):0;
-    return WIDTH[t.width].hold+(pinned?.15:0)+free*.15;
+    return WIDTH[t.width].hold+(pinned?S.WIDTH_COMMON.holdPinned.v:0)+free*S.WIDTH_COMMON.holdFree.v;
    },
    reason:'Ține lățimea pe culoarul lui: fixează un apărător departe de minge sau rămâne omul liber pentru schimbarea de joc.'});
   const keeper=players.find(p=>p.side===side&&p.role==='GK'&&p.id!==receiver.id&&!reserved.has(p.id));

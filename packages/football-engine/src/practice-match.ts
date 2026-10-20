@@ -2,11 +2,32 @@ import {L,W,GH,HEIGHT,BOX_DEPTH,BOX_HALF,SPOT,X,Y,G} from './pitch.js';
 import {clamp} from './model.js';
 import type {Player,Team} from './model.js';
 import type {PracticePlayer} from './practice.js';
+import {WORLD} from './world.js';
+/** Hot-path aliases (engine as data W9b): world reads used inside this file's functions, read once at load. */
+const FATIGUE_MATCH_ACCELERATION_FLOOR=WORLD.fatigue.match.accelerationFloor.v;
+const FATIGUE_MATCH_CRITICAL_BASE=WORLD.fatigue.match.criticalBase.v;
+const FATIGUE_MATCH_CRITICAL_PER=WORLD.fatigue.match.criticalPer.v;
+const FATIGUE_MATCH_DRAIN_CENTRE=WORLD.fatigue.match.drainCentre.v;
+const FATIGUE_MATCH_FLAT_COST=WORLD.fatigue.match.flatCost.v;
+const FATIGUE_MATCH_HALF_TIME_REST=WORLD.fatigue.match.halfTimeRest.v;
+const FATIGUE_MATCH_KEEPER_ACCEL_FLOOR=WORLD.fatigue.match.keeperAccelFloor.v;
+const FATIGUE_MATCH_KEEPER_ACCEL_SHARE=WORLD.fatigue.match.keeperAccelShare.v;
+const FATIGUE_MATCH_KEEPER_TOP_FLOOR=WORLD.fatigue.match.keeperTopFloor.v;
+const FATIGUE_MATCH_KEEPER_TOP_SHARE=WORLD.fatigue.match.keeperTopShare.v;
+const FATIGUE_MATCH_MINETTI1=WORLD.fatigue.match.minetti1.v;
+const FATIGUE_MATCH_MINETTI2=WORLD.fatigue.match.minetti2.v;
+const FATIGUE_MATCH_MINETTI3=WORLD.fatigue.match.minetti3.v;
+const FATIGUE_MATCH_MINETTI4=WORLD.fatigue.match.minetti4.v;
+const FATIGUE_MATCH_MINETTI5=WORLD.fatigue.match.minetti5.v;
+const FATIGUE_MATCH_SLOPE_MAX=WORLD.fatigue.match.slopeMax.v;
+const FATIGUE_MATCH_SLOPE_MIN=WORLD.fatigue.match.slopeMin.v;
+const FATIGUE_MATCH_SPEED_COST=WORLD.fatigue.match.speedCost.v;
+const FATIGUE_MATCH_TOP_FLOOR=WORLD.fatigue.match.topFloor.v;
 
-export const MATCH_LENGTHS=[300,900,5400] as const;
+export const MATCH_LENGTHS=[WORLD.clock.match.MATCH_LENGTHS.five.v,WORLD.clock.match.MATCH_LENGTHS.fifteen.v,WORLD.clock.match.MATCH_LENGTHS.ninety.v] as const;
 export type MatchLength=typeof MATCH_LENGTHS[number];
-export const HALF_SECONDS=2700;
-export const SUB_MINUTES=[60,70,80] as const;
+export const HALF_SECONDS=WORLD.clock.match.HALF_SECONDS.v;
+export const SUB_MINUTES=[WORLD.clock.match.SUB_MINUTES.first.v,WORLD.clock.match.SUB_MINUTES.second.v,WORLD.clock.match.SUB_MINUTES.third.v] as const;
 
 /**
  * Full time plays out the last attack (owner-approved, 12 Oct 2026). Matches
@@ -28,7 +49,7 @@ export const SUB_MINUTES=[60,70,80] as const;
  * Half-time (matches over 2700 s) is left alone: delaying it would shift the
  * whole second half's clock.
  */
-export const LAST_ATTACK_MAX=20;
+export const LAST_ATTACK_MAX=WORLD.clock.match.LAST_ATTACK_MAX.v;
 export interface LastAttackView {restart:{kind:string}|null;side:0|1;ball:{x:number;mode:'control'|'pass'|'shot'|'loose'}}
 const ownHalf=(side:0|1,x:number)=>(side===0?x:L-x)<=L/2;
 /** At full time: is `view.side` in an attack worth playing out? */
@@ -80,8 +101,8 @@ export function chooseReplacement(team:Team,activeForSide:readonly PracticePlaye
  * Its scale converts J/kg into energy points with the existing drain at the
  * high-intensity threshold (5.5 m/s = 19.8 km/h): 0.0006*5.5^2 points/s for
  * 3.6*5.5 W/kg, so constant running costs exactly what it did before. */
-const G_ACC=9.81,HIGH_INTENSITY=5.5,METABOLIC_SCALE=.0006*HIGH_INTENSITY*HIGH_INTENSITY/(3.6*HIGH_INTENSITY);
-const runningCost=(slope:number)=>{const e=clamp(slope,-.45,.45);return 155.4*e**5-30.4*e**4-43.3*e**3+46.3*e**2+19.5*e+3.6;};
+const G_ACC=WORLD.fatigue.match.G_ACC.v,HIGH_INTENSITY=WORLD.fatigue.match.HIGH_INTENSITY.v,METABOLIC_SCALE=WORLD.fatigue.match.speedCost.v*HIGH_INTENSITY*HIGH_INTENSITY/(WORLD.fatigue.match.flatCost.v*HIGH_INTENSITY);
+const runningCost=(slope:number)=>{const e=clamp(slope,FATIGUE_MATCH_SLOPE_MIN,FATIGUE_MATCH_SLOPE_MAX);return FATIGUE_MATCH_MINETTI5*e**5-FATIGUE_MATCH_MINETTI4*e**4-FATIGUE_MATCH_MINETTI3*e**3+FATIGUE_MATCH_MINETTI2*e**2+FATIGUE_MATCH_MINETTI1*e+FATIGUE_MATCH_FLAT_COST;};
 /**
  * Intensity is what costs (with `topPace`): the same drain is split so that
  * running above the player's own critical speed carries INTENSITY_SHARE of a
@@ -123,14 +144,14 @@ const runningCost=(slope:number)=>{const e=clamp(slope,-.45,.45);return 155.4*e*
 /** The aerobic threshold for the energy drain: running above it costs energy (INTENSITY_COST), and a fitter
  * player's is higher, so the same running costs him less (0.77–0.83 of top pace from stamina 3 to 9, about the
  * spread of real CS, ± 10%). Energy only: the sprint reserve uses `sprintThreshold`, the same for every stamina. */
-export const criticalSpeed=(stamina:number,topPace:number)=>(.74+clamp(stamina,0,12)*.01)*topPace;
-export const INTENSITY_SHARE=.42,MOVEMENT_SHARE=1-INTENSITY_SHARE,INTENSITY_COST=.4108;
-export const STAMINA6_DRAIN=.98,STAMINA_DRAIN_SLOPE=.11,STAMINA_DRAIN_FLOOR=.3;
-const staminaDrain=(stamina:number)=>STAMINA6_DRAIN*Math.max(STAMINA_DRAIN_FLOOR,1-STAMINA_DRAIN_SLOPE*(clamp(stamina,0,12)-6));
+export const criticalSpeed=(stamina:number,topPace:number)=>(FATIGUE_MATCH_CRITICAL_BASE+clamp(stamina,0,12)*FATIGUE_MATCH_CRITICAL_PER)*topPace;
+export const INTENSITY_SHARE=WORLD.fatigue.match.INTENSITY_SHARE.v,MOVEMENT_SHARE=1-INTENSITY_SHARE,INTENSITY_COST=WORLD.fatigue.match.INTENSITY_COST.v;
+export const STAMINA6_DRAIN=WORLD.fatigue.match.STAMINA6_DRAIN.v,STAMINA_DRAIN_SLOPE=WORLD.fatigue.match.STAMINA_DRAIN_SLOPE.v,STAMINA_DRAIN_FLOOR=WORLD.fatigue.match.STAMINA_DRAIN_FLOOR.v;
+const staminaDrain=(stamina:number)=>STAMINA6_DRAIN*Math.max(STAMINA_DRAIN_FLOOR,1-STAMINA_DRAIN_SLOPE*(clamp(stamina,0,12)-FATIGUE_MATCH_DRAIN_CENTRE));
 export function fatigueCost(speed:number,stamina:number,seconds:number,acceleration=0,topPace?:number):number{
  const movement=Math.max(0,speed),slope=Math.max(0,acceleration)/G_ACC;
- const surcharge=slope>0?Math.max(0,runningCost(slope)*Math.sqrt(slope*slope+1)-3.6)*movement*METABOLIC_SCALE:0;
- const base=movement*movement*.0006+surcharge,staminaScale=staminaDrain(stamina);
+ const surcharge=slope>0?Math.max(0,runningCost(slope)*Math.sqrt(slope*slope+1)-FATIGUE_MATCH_FLAT_COST)*movement*METABOLIC_SCALE:0;
+ const base=movement*movement*FATIGUE_MATCH_SPEED_COST+surcharge,staminaScale=staminaDrain(stamina);
  if(topPace===undefined)return Math.max(0,seconds)*base*staminaScale;
  return Math.max(0,seconds)*(MOVEMENT_SHARE*base+INTENSITY_COST*Math.max(0,movement-criticalSpeed(stamina,topPace)))*staminaScale;
 }
@@ -138,7 +159,7 @@ export function fatigueEnergy(energy:number,speed:number,stamina:number,seconds:
  return clamp(energy-fatigueCost(speed,stamina,seconds,acceleration,topPace),0,100);
 }
 /** A short recovery at the interval, not a fresh player's full reservoir. */
-export function halfEnergy(energy:number):number{return clamp(energy+6,0,100);}
+export function halfEnergy(energy:number):number{return clamp(energy+FATIGUE_MATCH_HALF_TIME_REST,0,100);}
 
 /**
  * Short-term sprint reserve: D′, the running form of W′ (the work available
@@ -190,10 +211,10 @@ export function halfEnergy(energy:number):number{return clamp(energy+6,0,100);}
  * from 5 to 10 and +0.9 from 10 to 15 (was +1.1 / +1.3 / +1.0), and the goal
  * swing +2.5 (was +4.1). Evidence: evidence/2026-10-12-stamina.
  */
-export const SPRINT_SHARE=.825;
+export const SPRINT_SHARE=WORLD.fatigue.match.SPRINT_SHARE.v;
 export const sprintThreshold=(topPace:number,energy:number)=>SPRINT_SHARE*topPace*energyTop(energy);
-export const RESERVE_SIZE=13;
-export const RESERVE_HALF_LIFE_FRESH=34,RESERVE_FATIGUE_SLOWER=1.2;
+export const RESERVE_SIZE=WORLD.fatigue.match.RESERVE_SIZE.v;
+export const RESERVE_HALF_LIFE_FRESH=WORLD.fatigue.match.RESERVE_HALF_LIFE_FRESH.v,RESERVE_FATIGUE_SLOWER=WORLD.fatigue.match.RESERVE_FATIGUE_SLOWER.v;
 export const reserveHalfLife=(energy:number)=>RESERVE_HALF_LIFE_FRESH*(1+RESERVE_FATIGUE_SLOWER*(100-clamp(energy,0,100))/100);
 export function reserveBalance(reserve:number,speed:number,energy:number,topPace:number,seconds:number):number{
  const cs=sprintThreshold(topPace,energy),v=Math.max(0,speed),dt=Math.max(0,seconds);
@@ -227,12 +248,12 @@ export function reserveBalance(reserve:number,speed:number,energy:number,topPace
  * - Energy, the long-term fatigue, also scales acceleration (`energyAcceleration`),
  *   as it scales top pace (`energyTop`). Keepers keep 0.8 + 0.2 × energy/100.
  */
-export const RESERVE_TOP=.15,RESERVE_ACCELERATION=.6,TYPICAL_SPENT=.32;
+export const RESERVE_TOP=WORLD.fatigue.match.RESERVE_TOP.v,RESERVE_ACCELERATION=WORLD.fatigue.match.RESERVE_ACCELERATION.v,TYPICAL_SPENT=WORLD.fatigue.match.TYPICAL_SPENT.v;
 export function legs(energy:number,reserve?:number):{top:number;acceleration:number}{
  // Keepers: short dives from set positions never draw the reserve (it stays above 0.96 all match),
  // so it is not applied to them; centring on outfielders would otherwise make every keeper sharper.
  // Their energy barely moves either, so they keep the old linear energy line.
- if(reserve===undefined)return {top:1,acceleration:.8+.2*clamp(energy,0,100)/100};
+ if(reserve===undefined)return {top:1,acceleration:FATIGUE_MATCH_KEEPER_ACCEL_FLOOR+FATIGUE_MATCH_KEEPER_ACCEL_SHARE*clamp(energy,0,100)/100};
  const tired=energyAcceleration(energy);
  const spent=(1-clamp(reserve,0,1))**2;
  return {top:(1-RESERVE_TOP*spent)/(1-RESERVE_TOP*TYPICAL_SPENT),acceleration:(1-RESERVE_ACCELERATION*spent)/(1-RESERVE_ACCELERATION*TYPICAL_SPENT)*tired};
@@ -261,8 +282,8 @@ export function legs(energy:number,reserve?:number):{top:number;acceleration:num
  * Evidence: evidence/2026-10-11-tiredness-bite (branch ballers-overnight-run,
  * 3caaeb6a: patch.mjs, centre.mjs on results/pilot*.jsonl, results/tables.md).
  */
-export const ENERGY_TOP_MEAN=.9729,ENERGY_ACCELERATION_MEAN=.9819,ENERGY_SPENT_SQ_MEAN=425;
-export const ENERGY_TOP_LOSS=.9e-4,ENERGY_ACCELERATION_LOSS=1.2e-4;
+export const ENERGY_TOP_MEAN=WORLD.fatigue.match.ENERGY_TOP_MEAN.v,ENERGY_ACCELERATION_MEAN=WORLD.fatigue.match.ENERGY_ACCELERATION_MEAN.v,ENERGY_SPENT_SQ_MEAN=WORLD.fatigue.match.ENERGY_SPENT_SQ_MEAN.v;
+export const ENERGY_TOP_LOSS=WORLD.fatigue.match.ENERGY_TOP_LOSS.v,ENERGY_ACCELERATION_LOSS=WORLD.fatigue.match.ENERGY_ACCELERATION_LOSS.v;
 const spentSq=(energy:number)=>(100-clamp(energy,0,100))**2;
-export const energyTop=(energy:number,keeper=false)=>keeper?.7+.3*energy/100:Math.max(.5,ENERGY_TOP_MEAN-ENERGY_TOP_LOSS*(spentSq(energy)-ENERGY_SPENT_SQ_MEAN));
-export const energyAcceleration=(energy:number)=>Math.max(.5,ENERGY_ACCELERATION_MEAN-ENERGY_ACCELERATION_LOSS*(spentSq(energy)-ENERGY_SPENT_SQ_MEAN));
+export const energyTop=(energy:number,keeper=false)=>keeper?FATIGUE_MATCH_KEEPER_TOP_FLOOR+FATIGUE_MATCH_KEEPER_TOP_SHARE*energy/100:Math.max(FATIGUE_MATCH_TOP_FLOOR,ENERGY_TOP_MEAN-ENERGY_TOP_LOSS*(spentSq(energy)-ENERGY_SPENT_SQ_MEAN));
+export const energyAcceleration=(energy:number)=>Math.max(FATIGUE_MATCH_ACCELERATION_FLOOR,ENERGY_ACCELERATION_MEAN-ENERGY_ACCELERATION_LOSS*(spentSq(energy)-ENERGY_SPENT_SQ_MEAN));

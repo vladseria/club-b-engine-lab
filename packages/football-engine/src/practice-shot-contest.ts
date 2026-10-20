@@ -3,6 +3,7 @@ import {clamp} from './model.js';
 import type {PracticePlayer} from './practice.js';
 import type {Vec} from './movement.js';
 import {composure,daring,nerve,perceive,misread} from './practice-perception.js';
+import {WORLD} from './world.js';
 
 /** (contest: pressure on the shooter, 2026-10-15) What the defence does to a shot, as football does it. Before, a man
  * on the shooter only counted by his distance (2.5 m or nearer) and a body in front of him only by whether the ball hit
@@ -23,12 +24,12 @@ import {composure,daring,nerve,perceive,misread} from './practice-perception.js'
  * run, or first time, as before) is the shot's hurry, and it acts as before, only now from all of this: a hurried shot
  * is placed nearer the keeper and struck softer (practice-football placeHurried, strikeShot), and the keeper's edge
  * against it grows (keeperEdge). Never a wilder miss: the striking error is untouched. A free shot is what it was. */
-export const RUSH_FAR=2.5,RUSH_NEAR=.7,SWING=.25,CLOSE_READ=.25;
-export const SHADOW_NEAR=5,SHADOW_BODY=.3,SHADOW_LEG=.035,SHADOW_FULL=1;
-export const CONTACT_FAR=1.2,CONTACT_NEAR=.6,DUEL_FADE=.8;
-export const RESIST=1,POISE_TYPICAL=.64,KEPT_MIN=.5,KEPT_MAX=1.3;
+export const RUSH_FAR=WORLD.contact.shotContest.RUSH_FAR.v,RUSH_NEAR=WORLD.contact.shotContest.RUSH_NEAR.v,SWING=WORLD.contact.shotContest.SWING.v,CLOSE_READ=WORLD.contact.shotContest.CLOSE_READ.v;
+export const SHADOW_NEAR=WORLD.contact.shotContest.SHADOW_NEAR.v,SHADOW_BODY=WORLD.contact.shotContest.SHADOW_BODY.v,SHADOW_LEG=WORLD.contact.shotContest.SHADOW_LEG.v,SHADOW_FULL=WORLD.contact.shotContest.SHADOW_FULL.v;
+export const CONTACT_FAR=WORLD.contact.shotContest.CONTACT_FAR.v,CONTACT_NEAR=WORLD.contact.shotContest.CONTACT_NEAR.v,DUEL_FADE=WORLD.contact.shotContest.DUEL_FADE.v;
+export const RESIST=WORLD.contact.shotContest.RESIST.v,POISE_TYPICAL=WORLD.contact.shotContest.POISE_TYPICAL.v,KEPT_MIN=WORLD.contact.shotContest.KEPT_MIN.v,KEPT_MAX=WORLD.contact.shotContest.KEPT_MAX.v;
 /** Striking across his own run (as shotHurry) and first time (HURRY_FIRST): what he does to himself. */
-export const FIRST_TIME=.3;
+export const FIRST_TIME=WORLD.contact.shotContest.FIRST_TIME.v;
 /** (2026-10-15, owner: "how well they read the game, rather than hardcoded") What the hurry costs his shot, as HE reads
  * it (practice-perception perceive, read 'shot': reading 0.6, finishing 0.4). Before, every shooter read it as the same
  * HURRIED_READ 0.3 x hurry.
@@ -56,7 +57,7 @@ export const FIRST_TIME=.3;
  *    plain to see, and what it does to the shot is missed mostly by men who read the game badly. A good reader (8/7)
  *    now sees about 0.93 of it ("a good reader sees nearly all", the owner; it was 0.76), a typical one (6/6) about
  *    0.84 (0.63), a poor one (3/3) still only about 0.6, and less reliably (the spread is unchanged). */
-export const HURRY_COST=.7,HURRY_CURVE=1.5,HURRY_UNDER=.8,HURRY_SPREAD=.5,HURRY_SEEN_MAX=1.3;
+export const HURRY_COST=WORLD.perception.shotContest.HURRY_COST.v,HURRY_CURVE=WORLD.perception.shotContest.HURRY_CURVE.v,HURRY_UNDER=WORLD.perception.shotContest.HURRY_UNDER.v,HURRY_SPREAD=WORLD.perception.shotContest.HURRY_SPREAD.v,HURRY_SEEN_MAX=WORLD.perception.shotContest.HURRY_SEEN_MAX.v;
 /** What the hurry really costs a shot's chance, as a share of it (before anyone's read of it). */
 export const hurryTruth=(hurry:number)=>HURRY_COST*clamp(hurry,0,1)**HURRY_CURVE;
 export function hurryCost(p:Pick<PracticePlayer,'skills'|'traits'|'id'|'side'>,hurry:number,at:Vec,time?:number):number{
@@ -71,7 +72,7 @@ export function hurryCost(p:Pick<PracticePlayer,'skills'|'traits'|'id'|'side'>,h
  * and balance, the one place pressure enters), misjudged as a whole by his reading and finishing (perceive, read
  * 'shot': a relative error up to SHOT_SPREAD for a man who cannot read it, held at SHOT_READ_MIN..SHOT_READ_MAX of
  * it). No temperament in it: a daring, nervous or composed man with the same skills reads the same chance. */
-export const SHOT_SPREAD=.3,SHOT_READ_MIN=.5,SHOT_READ_MAX=1.6;
+export const SHOT_SPREAD=WORLD.perception.shotContest.SHOT_SPREAD.v,SHOT_READ_MIN=WORLD.perception.shotContest.SHOT_READ_MIN.v,SHOT_READ_MAX=WORLD.perception.shotContest.SHOT_READ_MAX.v;
 export function shotRead(p:Pick<PracticePlayer,'skills'|'traits'|'id'|'side'>,open:number,hurry:number,at:Vec,time?:number):number{
  return open*clamp(perceive(p,'shot',1,SHOT_SPREAD,at,{time,salt:'chance'}),SHOT_READ_MIN,SHOT_READ_MAX)*(1-clamp(hurryCost(p,hurry,at,time),0,.9));
 }
@@ -89,7 +90,7 @@ export function shotRead(p:Pick<PracticePlayer,'skills'|'traits'|'id'|'side'>,op
  * A composed man has no lean of his own: he takes what his read says is best, a good chance himself, a clearly better
  * one a pass away. SHOT_BASE is the shot's own standing (the old 0.1 plus a typical man's old risk lean, 0.45 x
  * 0.09), so a typical man's free shot is worth what it was. */
-export const SHOT_BASE=.14,SHOT_WORTH=1.2,SHOT_DARE=.15,SHOT_NERVE=.2;
+export const SHOT_BASE=WORLD.selection.shotContest.SHOT_BASE.v,SHOT_WORTH=WORLD.selection.shotContest.SHOT_WORTH.v,SHOT_DARE=WORLD.selection.shotContest.SHOT_DARE.v,SHOT_NERVE=WORLD.selection.shotContest.SHOT_NERVE.v;
 export function shotTemper(p:Pick<PracticePlayer,'skills'|'traits'|'id'>,pressure:number):number{
  return SHOT_DARE*daring(p)-SHOT_NERVE*Math.max(0,nerve(p)-1)*clamp(pressure,0,1);
 }

@@ -1,3 +1,4 @@
+import * as S from './style.js';
 import {clamp} from './model.js';
 import type {Tactics} from './model.js';
 import {L,W} from './pitch.js';
@@ -8,6 +9,7 @@ import type {FootballJob} from './practice-coordination.js';
 import {arrivalTime,BACK_REACH,QUICK_RELEASE,QUICK_REACT} from './practice-defense.js';
 import {strikeTurnTime} from './practice-striking.js';
 import {expectedPassFlight} from './practice-flight.js';
+import {WORLD} from './world.js';
 
 type Risk=(from:Vec,to:Vec,defenders:PracticePlayer[],speed?:number)=>number;
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
@@ -74,10 +76,10 @@ export function attackingSpaceReader(players:PracticePlayer[],carrier:PracticePl
  // opens such a reception is a combination, the thing a patient side plays
  // for, so patience never discounts it: connection() values it on the
  // neutral scale unless the side's own eagerness (direct) values it more.
- const weight=tactics.progression==='direct'?1.1:tactics.progression==='patient'?.7:.9;
+ const weight=S.PROGRESSION[tactics.progression].attackValue.v;
  const combination=Math.max(weight,.9);
  const worth=(point:Vec)=>{
-  const progress=clamp((depth(point)-depth(carrier))/12,0,1);
+  const progress=clamp((depth(point)-depth(carrier))/WORLD.geometry.attackingSpace.progressSpan.v,0,1);
   const beaten=outfield.filter(d=>depth(d)>depth(carrier)+1&&depth(d)<depth(point)-1).length/Math.max(1,outfield.length);
   const finishing=Math.max(0,threat(point)-threat(carrier));
   return progress*.5+beaten*.35+finishing*.55;
@@ -92,10 +94,10 @@ export function attackingSpaceReader(players:PracticePlayer[],carrier:PracticePl
    // The striker setting belongs to the team's most advanced forward: the ST,
    // or in a formation without one (2-2) the leading winger, scaled from his
    // own role's value so "mixed" leaves him as he was.
-   const setting=tactics.striker==='link'?.65:tactics.striker==='run'?1.15:1;
-   const roleValue=p.role==='GK'?0:p.role==='ST'?setting:p.role==='W'||p.role==='AM'?.85:p.role==='CM'?.6:p.role==='FB'?(tactics.fullbacks==='hold'?.2:.5):.3;
+   const setting=S.STRIKER[tactics.striker??'mixed'].attackValue.v;
+   const roleValue=p.role==='GK'?0:p.role==='ST'?setting:p.role==='W'||p.role==='AM'?.85:p.role==='CM'?.6:p.role==='FB'?(S.FULLBACKS[tactics.fullbacks??'balanced'].attackValue.v):.3;
    const attackingRole=p.role!=='ST'&&p.id===striker?roleValue*setting:roleValue;
-   const ambition=attackingRole*(.8+tactics.commit*.08)*weight;
+   const ambition=attackingRole*(S.COMMIT.ambitionBase.v+tactics.commit*S.COMMIT.ambitionPer.v)*weight;
    const connected=(v:Vec)=>Math.exp(-Math.max(0,distance(carrier,v)-12)/10);
    const initialConnection=connected(p),initialDepth=depth(p);
    const duration=Math.min(1.8,Math.max(0,job.until-time));
@@ -113,7 +115,7 @@ export function attackingSpaceReader(players:PracticePlayer[],carrier:PracticePl
     // for an actual reception. Do not reward running into a marker or becoming
     // detached from the ball; a better return angle can also earn value.
     const space=clamp((Math.min(...future.map(d=>distance(d,moving)))-1.5)/4,0,1);
-    const progress=clamp((depth(moving)-initialDepth)/8,-1,1);
+    const progress=clamp((depth(moving)-initialDepth)/WORLD.geometry.attackingSpace.moveProgressSpan.v,-1,1);
     const development=(ambition*progress*.8*connected(moving)+
      (connected(moving)-initialConnection)*.7)*space*Math.exp(-at*.18);
     // Keep a blocked but valuable reception available to pair evaluation.

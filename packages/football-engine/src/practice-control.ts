@@ -8,13 +8,14 @@ import type {PracticePlayer} from './practice.js';
 import {bodyScreensBall} from './practice-challenge.js';
 import {controlTouchBudget as touchBudget,cushionedVelocity,touchGap,bodyTurnRate,openBody,turnWithBall,setTolerance} from './practice-reception.js';
 import {strikeStance,fitStrikeToStance,StrikeKind} from './practice-striking.js';
+import {WORLD} from './world.js';
 
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
 const difference=(a:number,b:number)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
 const unit=(v:Vec):Vec=>{const length=Math.hypot(v.x,v.y);return length>.001?{x:v.x/length,y:v.y/length}:{x:1,y:0};};
 // Setup reach reserves time for the receiving foot to extend before contact.
 // Maximum leg reach still governs actual contacts; it is not a stopping target.
-const receivingSetupRadius=.72;
+const receivingSetupRadius=WORLD.body.control.receivingSetupRadius.v;
 export type ControlFoot='left'|'right';
 export interface ControlContact extends Vec {
  z?:number;technique?:import('./practice-aerial.js').AerialTechnique;
@@ -38,13 +39,13 @@ export interface TouchControl {
  * flat out (dribbling sprints run at roughly 85-90% of sprint speed). "Ahead"
  * is a cone around the carry direction: an opponent chasing from behind does
  * not shorten the touch unless he is at his heels. The keeper counts. */
-export const CARRY_CLOSE=.68,CARRY_OPEN=.85;
+export const CARRY_CLOSE=WORLD.body.control.CARRY_CLOSE.v,CARRY_OPEN=WORLD.body.control.CARRY_OPEN.v;
 /** Whether the ground ahead is open enough to knock it on is the carrier's
  * own read (R2): a confident, skilful carrier (control, dribble, reading:
  * the 'carry' read) knocks it on with ~3.3 m clear, a typical one ~3.9 m, an
  * unsure one ~4.3 m; and he judges that gap with his own error (up to
  * CARRY_SPREAD m for one who cannot read it at all). */
-export const CARRY_ROOM=4,CARRY_SPREAD=2;
+export const CARRY_ROOM=WORLD.perception.control.CARRY_ROOM.v,CARRY_SPREAD=WORLD.perception.control.CARRY_SPREAD.v;
 export function carryPace(p:Vec&{pace:number}&Reader,aim:Vec,opponents:readonly Vec[]):number{
  const dx=aim.x-p.x,dy=aim.y-p.y,len=Math.hypot(dx,dy);
  if(len<.5)return p.pace*CARRY_CLOSE;
@@ -74,7 +75,7 @@ export function footCanReach(p:PracticePlayer,ball:Vec,side:ControlFoot):boolean
  return front>=-.15&&distance(p,ball)>=.28&&distance(neutralFoot(p,side),ball)<=.88;
 }
 function clearKick(p:PracticePlayer,ball:Vec,direction:Vec,length=.9):boolean{
- return contact(ball,{x:ball.x+direction.x*length,y:ball.y+direction.y*length},p,p,.31)===null;
+ return contact(ball,{x:ball.x+direction.x*length,y:ball.y+direction.y*length},p,p,WORLD.body.reach.torsoRadius.v)===null;
 }
 /** (r1 mechanics) The struck ball against the passer's own moving torso, over
  * the same 1.3 m of its path the static release check reads: his momentum
@@ -83,7 +84,7 @@ function clearKick(p:PracticePlayer,ball:Vec,direction:Vec,length=.9):boolean{
 export function kickClearsMovingBody(p:PracticePlayer,ball:Vec,velocity:{vx:number;vy:number}):boolean{
  const speed=Math.hypot(velocity.vx,velocity.vy);if(speed<.1)return true;
  const window=1.3/speed;
- return contact(ball,{x:ball.x+velocity.vx*window,y:ball.y+velocity.vy*window},p,{x:p.x+p.vx*window,y:p.y+p.vy*window},.31)===null;
+ return contact(ball,{x:ball.x+velocity.vx*window,y:ball.y+velocity.vy*window},p,{x:p.x+p.vx*window,y:p.y+p.vy*window},WORLD.body.reach.torsoRadius.v)===null;
 }
 
 /** Open the body to both the incoming ball and the intended exit. This can
@@ -301,7 +302,7 @@ function touchVelocity(p:PracticePlayer,ball:MovingBall,aim:Vec,opponents:Practi
   return opponents.every(d=>{
    const normal=unit({x:ball.x-d.x,y:ball.y-d.y});
    if(distance(ball,d)<=.310001&&(flight.vx-d.vx)*normal.x+(flight.vy-d.vy)*normal.y>=-1e-8)return true;
-   return contact(ball,next,d,{x:d.x+d.vx*horizon,y:d.y+d.vy*horizon},.31)===null;
+   return contact(ball,next,d,{x:d.x+d.vx*horizon,y:d.y+d.vy*horizon},WORLD.body.reach.torsoRadius.v)===null;
   })&&recoverableTouch(p,flight,aim);
  };
  const forward=velocityFor(route,'push');
@@ -413,7 +414,7 @@ export function cushionControl(ball:MovingBall,state:TouchControl,meeting:Receiv
  * foot that has just met the ball sits exactly that far from it, and a rounding error either side decided whether a
  * receiver's first-time kick (and any kick from that contact) was available (receive round: about half the planned
  * first-time balls were refused at a foot 0.16000000000000006 m from the ball). */
-const FOOT_ON_BALL=.160001;
+const FOOT_ON_BALL=WORLD.body.control.FOOT_ON_BALL.v;
 export function controlStrikeReady(p:PracticePlayer,ball:MovingBall,state:TouchControl,aim:Vec,kind:StrikeKind='pass'):boolean{
  return ball.z<.25&&strikeStance(p,ball,aim,kind).available&&controlReleaseAvailable(p,ball,aim)&&state.feet.some(f=>footCanReach(p,ball,f.side)&&distance(f,ball)<=FOOT_ON_BALL);
 }
@@ -443,7 +444,7 @@ function bodyContact(ball:MovingBall,trial:MovingBall,bodies:BodyPath[],from:num
   // Overlapping source poses may separate continuously; closing motion must
   // still collide, including at the surface immediately after a foot contact.
   if(ball.z<=1.1&&distance(ball,a)<=.310001&&(ball.vx-velocity.x)*normal.x+(ball.vy-velocity.y)*normal.y>=-1e-8)continue;
-  const fraction=flightContact(ball,trial,a,b,.31,1.1);
+  const fraction=flightContact(ball,trial,a,b,WORLD.body.reach.torsoRadius.v,WORLD.body.reach.torsoHeight.v);
   if(fraction!==null&&(!first||fraction<first.fraction))first={body,fraction,at:{x:a.x+(b.x-a.x)*fraction,y:a.y+(b.y-a.y)*fraction},velocity};
  }
  return first;
@@ -487,7 +488,7 @@ export function rollControlRemainder(ball:MovingBall,players:PracticePlayer[],pr
 /** How much further (m/s) the ball off a planned set touch may run from how he wants it before he spends another touch
  * re-setting it: about what the best controller is allowed on any ball (SET_TOLERANCE_EDGE), since the touch was made
  * for this kick. */
-export const SET_TOUCH_SLACK=1;
+export const SET_TOUCH_SLACK=WORLD.body.control.SET_TOUCH_SLACK.v;
 export function advanceControl(p:PracticePlayer,previous:Vec,ball:MovingBall,state:TouchControl,aim:Vec,opponents:PracticePlayer[],dt:number,preparing=false,allowTouches=true,oldOpponents:Vec[]=opponents):boolean{
  const start=state.time,end=start+dt,before={...ball},trial={...ball};advanceFlight(trial,dt);
  // The ball is already settled during a precision stance correction. Move
@@ -546,7 +547,7 @@ export function releaseControl(p:PracticePlayer,ball:MovingBall,state:TouchContr
 export function forecastControl(p:PracticePlayer,ball:MovingBall,opponents:PracticePlayer[],aim:Vec,horizon=.65,current?:TouchControl):ControlForecast{
  const runner=structuredClone(p),near=opponents.filter(d=>distance(d,p)<7).map(d=>structuredClone(d)),b={...ball},state=current?structuredClone(current):captureControl(runner,b);
  let sum=0,peak=0,lost=false,count=0;
- const dt=1/60;
+ const dt=1/WORLD.clock.sim.ticksPerSecond.v;
  for(let time=0;time<horizon-1e-8;time+=dt){
   const old={x:runner.x,y:runner.y},oldOpponents=near.map(d=>({x:d.x,y:d.y}));steerControl(runner,b,state,aim,near,dt);
   for(const d of near){if(time<.18){d.x+=d.vx*dt;d.y+=d.vy*dt;}else steer(d,b,dt,d.pace*.9);}

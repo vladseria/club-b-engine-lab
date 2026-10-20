@@ -1,3 +1,4 @@
+import * as S from './style.js';
 import {L,W,GH,HEIGHT,BOX_DEPTH,BOX_HALF,SPOT,X,Y,G} from './pitch.js';
 import {clamp} from './model.js';
 import type {Tactics} from './model.js';
@@ -10,14 +11,15 @@ import {buildUpSpread,lineHeight,LINE_BUILD_CAP,onOurBall} from './practice-shap
 import {ownGoalDanger} from './practice-possession.js';
 import {LOSS_SCALE} from './practice-rest-defence.js';
 import {supportWorth,releaseRoomAt,lossThreat,ownGoalSupportPoints,RECEIVE_LOSS} from './practice-support.js';
+import {WORLD} from './world.js';
 /** r1-shape v5: how much of the cover price each Line keeps in possession near our goal. */
-export const LINE_CAUTION:Record<Tactics['line'],number>={deep:1.3,standard:1,high:.75};
+export const LINE_CAUTION:Record<Tactics['line'],number>=S.view(S.LINE,'coverPrice');
 
 type LaneRisk=(from:Vec,to:Vec,defenders:PracticePlayer[],speed?:number)=>number;
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
 const depth=(side:number,x:number)=>side===0?x:L-x;
 const world=depth;
-const inside=(p:Vec)=>({x:clamp(p.x,1,(L-1)),y:clamp(p.y,-(W/2-5),(W/2-5))});
+const inside=(p:Vec)=>({x:clamp(p.x,1,(L-1)),y:clamp(p.y,-(W/2-WORLD.geometry.buildUp.insideTouchline.v),(W/2-WORLD.geometry.buildUp.insideTouchline.v))});
 
 /** The back line travels with possession and offers return/switch angles.
  * One player remains the deeper balance; visible counter threats can keep
@@ -36,9 +38,9 @@ export function assignBuildUp(players:PracticePlayer[],receiver:PracticePlayer,t
  // reads him (deep 2 m goal-side, standard level; high leaves him to the
  // counter-cover). A man pressing our ball is not one (lineThreat, r1-shape):
  // the backs play around him instead of standing behind him.
- const ceilingFor=(p:PracticePlayer)=>Math.min(Math.max(LINE_BUILD_CAP[tactics.line],bd-11),lineHeight(p,players,tactics.line,owner.id,context.time,owner));
+ const ceilingFor=(p:PracticePlayer)=>Math.min(Math.max(LINE_BUILD_CAP[tactics.line],bd-WORLD.geometry.buildUp.capBehind.v),lineHeight(p,players,tactics.line,owner.id,context.time,owner));
  const goalkeeper=owner.role==='GK',centreBack=owner.role==='CB';
- const connectedFor=(ceiling:number)=>goalkeeper?clamp(bd+X(12),X(12),X(27)):centreBack?clamp(bd-3,5,ceiling):clamp(bd-X(16)+(tactics.commit-3),X(6),ceiling);
+ const connectedFor=(ceiling:number)=>goalkeeper?clamp(bd+X(12),X(12),X(27)):centreBack?clamp(bd-3,WORLD.geometry.buildUp.cbFloor.v,ceiling):clamp(bd-X(16)+(tactics.commit-S.COMMIT.neutral.v),X(6),ceiling);
  // A player chasing the carrier from behind is not automatically an unmarked
  // counter-attacking outlet that should pin our last defender to his own goal.
  const threats=outfield.filter(p=>depth(side,p.x)<bd-X(7)&&Math.abs(p.y)<Y(22)&&distance(p,owner)>8)

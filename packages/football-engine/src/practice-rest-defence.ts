@@ -1,8 +1,10 @@
+import * as S from './style.js';
 import {L} from './pitch.js';
 import {clamp} from './model.js';
 import type {Vec} from './movement.js';
 import {daring,perceive} from './practice-perception.js';
 import type {Reader} from './practice-perception.js';
+import {WORLD} from './world.js';
 
 type Body=Vec&{id:string;side:number;role:string};
 const depthOf=(side:number,x:number)=>side===0?x:L-x;
@@ -31,14 +33,14 @@ const depthOf=(side:number,x:number)=>side===0?x:L-x;
  *    ~0.13, inside the 0.10-0.18 extrapolated for 5v5. It bites from a
  *    quarter of the pitch and fully past 60%: deep in our half the ball is
  *    near our goal whoever stands behind it. */
-export const LOSS_OWN=.268,LOSS_FALL=2.45,LOSS_SHORT=1.55;
+export const LOSS_OWN=WORLD.selection.restDefence.LOSS_OWN.v,LOSS_FALL=WORLD.selection.restDefence.LOSS_FALL.v,LOSS_SHORT=WORLD.selection.restDefence.LOSS_SHORT.v;
 export function lossDanger(depthShare:number,deficit:number):number{
  const d=clamp(depthShare,0,1),k=clamp(deficit,-1,3),reach=clamp((d-.25)/.35,0,1);
  return LOSS_OWN*Math.exp(-LOSS_FALL*d)*LOSS_SHORT**(k*reach);
 }
 /** Goals to price units: the scale the passer's other terms use (the old
  * positional price, 0.55 at our goal line, was 2.2x these goals). */
-export const LOSS_SCALE=2.2;
+export const LOSS_SCALE=WORLD.selection.restDefence.LOSS_SCALE.v;
 
 export interface RestRead {depth:number;rest:number;threats:number;deficit:number}
 /** The rest defence behind a ball at `at` (default: where p stands): our
@@ -63,7 +65,7 @@ export function restDefence(p:Body,players:readonly Body[],at:Vec=p):RestRead{
  * underestimates it (by LOSS_OPTIMISM x daring), and everyone misjudges it by
  * his reading (a relative error up to LOSS_SPREAD). Without the player's
  * skills (a bare body) the read is exact. */
-export const LOSS_OPTIMISM=.35,LOSS_SPREAD=.4;
+export const LOSS_OPTIMISM=WORLD.perception.restDefence.LOSS_OPTIMISM.v,LOSS_SPREAD=WORLD.perception.restDefence.LOSS_SPREAD.v;
 /** What one ball lost costs a kick's valuation (the ground pass's and the
  * loft's loss term, per unit of their loss read): a base that a daring player
  * (risk) weighs less, plus the price of losing it there (turnoverPrice).
@@ -95,11 +97,11 @@ export function turnoverPrice(p:Body&Reader,players:readonly Body[],at:Vec=p):nu
  * worth it. Which players go, and to which job, is still the ordinary choice.
  * The old form, about a metre of midfield per step, left all three behind
  * the ball most of the time whatever the setting. */
-export const REST_MARGIN=4;
+export const REST_MARGIN=WORLD.selection.restDefence.REST_MARGIN.v;
 export interface CommitBounds {minRest:number;maxRest:number}
 export function commitBounds(commit:number):CommitBounds{
- const c=Math.round(clamp(commit,1,5));
- return c<3?{minRest:3-c,maxRest:3}:{minRest:0,maxRest:6-c};
+ const c=Math.round(clamp(commit,S.COMMIT.lowest.v,S.COMMIT.highest.v));
+ return c<S.COMMIT.neutral.v?{minRest:S.COMMIT.restFloorBase.v-c,maxRest:S.COMMIT.restCapFree.v}:{minRest:0,maxRest:S.COMMIT.restCapBase.v-c};
 }
 export const constrains=(b:CommitBounds)=>b.minRest>0||b.maxRest<3;
 export function establishedAttack(focus:Vec&{side:number;role:string}):boolean{
@@ -112,8 +114,8 @@ export const restMiss=(b:CommitBounds,rest:number)=>Math.max(0,b.minRest-rest)+M
  * units, for a player of this discipline (0..1): a fully disciplined player
  * holds it against about a strong alternative's worth of football value; an
  * undisciplined one a fraction of that. */
-export const COMMIT_PRICE=1.5;
-export const commitHold=(discipline:number)=>COMMIT_PRICE*(.2+.8*clamp(discipline,0,1));
+export const COMMIT_PRICE=S.COMMIT.price.v;
+export const commitHold=(discipline:number)=>COMMIT_PRICE*(S.COMMIT.holdFloor.v+S.COMMIT.holdPer.v*clamp(discipline,0,1));
 export interface Placed {rest:boolean;discipline:number}
 /** The price of an arrangement's rest defence against the committed bounds.
  * Each body short of or beyond them is charged to one player who could have

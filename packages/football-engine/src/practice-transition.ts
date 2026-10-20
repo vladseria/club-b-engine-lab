@@ -1,3 +1,4 @@
+import * as S from './style.js';
 import {L,W} from './pitch.js';
 import {clamp} from './model.js';
 import type {Tactics} from './model.js';
@@ -8,6 +9,7 @@ import {groundPassCandidates} from './practice-passing.js';
 import {releaseTime} from './practice-possession.js';
 import {assessShot} from './practice-football.js';
 import {daring,perceive} from './practice-perception.js';
+import {WORLD} from './world.js';
 const depth=(side:number,x:number)=>side===0?x:L-x;
 export interface TransitionRun {player:string;aim:Vec;until:number}
 interface TransitionOption {player:string;aim:Vec;advantage:number}
@@ -15,7 +17,7 @@ export interface TransitionRead {open:boolean;committed:number;lanes:TransitionO
 /** How far a runner who cannot read the game misjudges a break's race (in
  * advantage units: 0.5 is a second's lead), and how much a daring one
  * over-believes it (R2). A good reader errs by about a third of the spread. */
-export const RACE_SPREAD=.35,RACE_OPTIMISM=.1;
+export const RACE_SPREAD=WORLD.perception.transition.RACE_SPREAD.v,RACE_OPTIMISM=WORLD.perception.transition.RACE_OPTIMISM.v;
 /** Read a recent recovery from visible positions/momentum. A keeper is a valid
  * launch player. An organised block is not a counter merely because a timer
  * is running. Destinations remain invitations, not guaranteed receptions. */
@@ -24,7 +26,7 @@ export function readTransition(players:PracticePlayer[],owner:PracticePlayer,tac
  if(age<0||age>8)return empty;
  const bd=depth(owner.side,owner.x),mates=players.filter(p=>p.side===owner.side&&p.id!==owner.id&&p.role!=='GK'),opponents=players.filter(p=>p.side!==owner.side&&p.role!=='GK');
  const front=Math.max(bd,...mates.map(p=>depth(owner.side,p.x)));
- const committed=opponents.filter(p=>depth(owner.side,p.x)<Math.min(L-10,Math.max(bd+10,front+2))).length;
+ const committed=opponents.filter(p=>depth(owner.side,p.x)<Math.min(L-WORLD.geometry.transition.committedLimit.v,Math.max(bd+WORLD.geometry.transition.committedAhead.v,front+2))).length;
  const s=owner.side===0?1:-1,lanes:TransitionOption[]=[],outlets:TransitionOption[]=[];
  const defenders=players.filter(p=>p.side!==owner.side);
  // Only the new opportunities need this more expensive delivery check. Reuse
@@ -45,7 +47,7 @@ export function readTransition(players:PracticePlayer[],owner:PracticePlayer,tac
  for(const p of mates){
   if(p.energy<22)continue;
   const retained=continuing.find(r=>r.player===p.id&&r.until>time);
-  const points=[...(retained?[retained.aim]:[]),...[7,11].flatMap(advance=>[-W*.25,0,W*.25].map(y=>({x:depth(owner.side,clamp(Math.max(bd+8,depth(owner.side,p.x)+advance),3,L-4)),y})))];
+  const points=[...(retained?[retained.aim]:[]),...[7,11].flatMap(advance=>[-W*.25,0,W*.25].map(y=>({x:depth(owner.side,clamp(Math.max(bd+WORLD.geometry.transition.laneAhead.v,depth(owner.side,p.x)+advance),3,L-4)),y})))];
   const prospective:TransitionOption[]=[];
   for(const aim of points){
    const keeping=aim===retained?.aim;
@@ -61,7 +63,7 @@ export function readTransition(players:PracticePlayer[],owner:PracticePlayer,tac
    // The race is the runner's own read (R2): his error by reading, and a
    // daring runner believes a little more that he gets there first.
    const advantage=perceive(p,'race',clamp((nearestArrival-travel+.8)/2,0,1)+behind*.16,RACE_SPREAD,aim,{time,salt:'race',bias:RACE_OPTIMISM*daring(p)});
-   const threshold=tactics.transition==='counter'?.42:tactics.transition==='secure'?.85:.65;
+   const threshold=S.ON_WIN[tactics.transition??'balanced'].breakOpenness.v;
    // A break already under way is a sprint judged as a race still being won
    // (he gets there first, with room, past at least one man), not re-opened
    // from scratch: no fresh two-man count, and no pass needed right now.

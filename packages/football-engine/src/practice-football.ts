@@ -1,7 +1,42 @@
+import * as S from './style.js';
 import {L,W,GH,HEIGHT,BOX_DEPTH,BOX_HALF,SPOT,X,Y,G} from './pitch.js';
 import {clamp} from './model.js';
 import type {PracticePlayer} from './practice.js';
 import type {Vec,MovingBall} from './movement.js';
+import {WORLD} from './world.js';
+/** Hot-path aliases (engine as data W9b): world reads used inside this file's functions, read once at load. */
+const BALL_FLIGHT_HALF_GRAVITY=WORLD.ball.flight.halfGravity.v;
+const BALL_FLIGHT_PASS_DRAG=WORLD.ball.flight.PASS_DRAG.v;
+const BALL_KICK_SHOT_BASE=WORLD.ball.kick.shotBase.v;
+const BALL_KICK_SHOT_PER=WORLD.ball.kick.shotPer.v;
+const ERROR_SHOT_BASE=WORLD.error.shot.base.v;
+const ERROR_SHOT_CONTROL=WORLD.error.shot.control.v;
+const ERROR_SHOT_FINISHING=WORLD.error.shot.finishing.v;
+const ERROR_SHOT_LIFT=WORLD.error.shot.lift.v;
+const ERROR_SHOT_LIFT_MIN=WORLD.error.shot.liftMin.v;
+const ERROR_SHOT_LIFT_PRESSURE=WORLD.error.shot.liftPressure.v;
+const ERROR_SHOT_LIFT_SPREAD=WORLD.error.shot.liftSpread.v;
+const ERROR_SHOT_PRESSURE=WORLD.error.shot.pressure.v;
+const ERROR_SHOT_RUNNING=WORLD.error.shot.running.v;
+const ERROR_SHOT_TIRED=WORLD.error.shot.tired.v;
+const GEOMETRY_FOOTBALL_CROSSING_WIDE=WORLD.geometry.football.crossingWide.v;
+const GEOMETRY_FOOTBALL_CROSSING_WIDE_MAX=WORLD.geometry.football.crossingWideMax.v;
+const GEOMETRY_FOOTBALL_SHOT_ANGLE=WORLD.geometry.football.shotAngle.v;
+const GEOMETRY_FOOTBALL_SHOT_REACH=WORLD.geometry.football.shotReach.v;
+const KEEPER_REACH_BASE=WORLD.keeper.reach.base.v;
+const KEEPER_REACH_CLAIM_BASE=WORLD.keeper.reach.claimBase.v;
+const KEEPER_REACH_CLAIM_MAX=WORLD.keeper.reach.claimMax.v;
+const KEEPER_REACH_CLAIM_MIN=WORLD.keeper.reach.claimMin.v;
+const KEEPER_REACH_CLAIM_PER=WORLD.keeper.reach.claimPer.v;
+const KEEPER_REACH_EXTENSION=WORLD.keeper.reach.extension.v;
+const KEEPER_REACH_EXTENSION_KEEPING=WORLD.keeper.reach.extensionKeeping.v;
+const KEEPER_REACH_EXTENSION_TIME=WORLD.keeper.reach.extensionTime.v;
+const KEEPER_REACH_GOAL_BOUND_HIGH=WORLD.keeper.reach.goalBoundHigh.v;
+const KEEPER_REACH_GOAL_BOUND_WIDE=WORLD.keeper.reach.goalBoundWide.v;
+const REACTION_KEEPER_BASE=WORLD.reaction.keeper.base.v;
+const REACTION_KEEPER_CLAMPED_BASE=WORLD.reaction.keeper.clampedBase.v;
+const REACTION_KEEPER_CLAMPED_PER=WORLD.reaction.keeper.clampedPer.v;
+const REACTION_KEEPER_PER=WORLD.reaction.keeper.per.v;
 
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
 const relative=(p:PracticePlayer,x:number)=>p.side===0?L-x:x;
@@ -31,23 +66,23 @@ export interface ShotAssessment {aim:Vec;distance:number;angle:number;pressure:n
 export const shotZone=(p:PracticePlayer,at:Vec=p)=>(p.side===0?at.x:L-at.x)>X(73)-clamp(p.traits.audacity??0,0,1)*X(12)&&Math.abs(at.y)<Y(24);
 /** A keeper claiming the ball from a man who has it near him in his area: his keeping against the man's control
  * (practice.ts, the keeper's claim at a carrier within his reach). */
-export const keeperClaimChance=(keeper:{skills:{keeping:number}},p:{skills:{control:number}})=>clamp(.6+(keeper.skills.keeping-p.skills.control)*.035,.35,.85);
+export const keeperClaimChance=(keeper:{skills:{keeping:number}},p:{skills:{control:number}})=>clamp(KEEPER_REACH_CLAIM_BASE+(keeper.skills.keeping-p.skills.control)*KEEPER_REACH_CLAIM_PER,KEEPER_REACH_CLAIM_MIN,KEEPER_REACH_CLAIM_MAX);
 export function assessShot(p:PracticePlayer,players:PracticePlayer[]):ShotAssessment{
  const goalX=p.side===0?L:0,distanceToGoal=Math.hypot(goalX-p.x,p.y),angle=goalAngle(p);
  const opponents=players.filter(q=>q.side!==p.side),keeper=opponents.find(q=>q.role==='GK');
  const nearest=Math.min(...opponents.filter(q=>q.role!=='GK').map(q=>distance(q,p)));
  const pressure=clamp((4-nearest)/4,0,1),running=clamp(Math.hypot(p.vx,p.vy)/p.basePace,0,1);
  // Error is angular: the same striking error spreads farther over a longer flight.
- const deviation=.045+(1-clamp(p.skills.finishing/10,0,1))*.08+(1-clamp(p.skills.control/10,0,1))*.03+pressure*.035+running*.012+(1-p.energy/100)*.015;
+ const deviation=ERROR_SHOT_BASE+(1-clamp(p.skills.finishing/10,0,1))*ERROR_SHOT_FINISHING+(1-clamp(p.skills.control/10,0,1))*ERROR_SHOT_CONTROL+pressure*ERROR_SHOT_PRESSURE+running*ERROR_SHOT_RUNNING+(1-p.energy/100)*ERROR_SHOT_TIRED;
  let aim={x:goalX,y:0},best=-Infinity,keeperCoverage=0;
  for(const y of [-2.6,-1.3,0,1.3,2.6].map(G)){
-  const dx=goalX-p.x,dy=y-p.y,d=Math.hypot(dx,dy),flight=d/(22+p.skills.finishing*.3);
+  const dx=goalX-p.x,dy=y-p.y,d=Math.hypot(dx,dy),flight=d/(BALL_KICK_SHOT_BASE+p.skills.finishing*BALL_KICK_SHOT_PER);
   // Read the visible keeper's coverage at the shot crossing, including a
   // bounded reaction and lateral reach. This is an estimate, not a save roll.
   const k=keeper?(keeper.x-p.x)/(dx||.01):-1;
   let coverage=0;
   if(keeper&&k>=0&&k<=1){
-   const crossingTime=flight*k,reaction=.2+(10-clamp(keeper.skills.reading,0,10))*.015;
+   const crossingTime=flight*k,reaction=REACTION_KEEPER_CLAMPED_BASE+(10-clamp(keeper.skills.reading,0,10))*REACTION_KEEPER_CLAMPED_PER;
    const available=Math.max(0,crossingTime-reaction);
    const lateral=keeper.y+keeper.vy*Math.min(.35,crossingTime);
    const reach=keeperReach(keeper,crossingTime)+Math.min(keeper.pace*available,.5*keeper.acceleration*available*available);
@@ -65,8 +100,8 @@ export function assessShot(p:PracticePlayer,players:PracticePlayer[]):ShotAssess
   if(value>best){best=value;aim={x:goalX,y};keeperCoverage=coverage;}
  }
  // This values the opportunity; it never decides whether the ball becomes a goal.
- const quality=clamp(angle/.6,0,1)*clamp(1-distanceToGoal/45,.05,1)*(1-pressure*.24)*(1-keeperCoverage*.75);
- const open=clamp(angle/.6,0,1)*clamp(1-distanceToGoal/45,.05,1)*(1-keeperCoverage*.75);
+ const quality=clamp(angle/GEOMETRY_FOOTBALL_SHOT_ANGLE,0,1)*clamp(1-distanceToGoal/GEOMETRY_FOOTBALL_SHOT_REACH,.05,1)*(1-pressure*.24)*(1-keeperCoverage*.75);
+ const open=clamp(angle/GEOMETRY_FOOTBALL_SHOT_ANGLE,0,1)*clamp(1-distanceToGoal/GEOMETRY_FOOTBALL_SHOT_REACH,.05,1)*(1-keeperCoverage*.75);
  return {aim,distance:distanceToGoal,angle,pressure,deviation,quality,open,keeperCoverage};
 }
 const gaussian=(random:()=>number)=>Math.sqrt(-2*Math.log(Math.max(1e-9,random())))*Math.cos(2*Math.PI*random());
@@ -75,16 +110,16 @@ const gaussian=(random:()=>number)=>Math.sqrt(-2*Math.log(Math.max(1e-9,random()
  * softer (placement and pace, never a wilder miss). */
 export function strikeShot(p:PracticePlayer,ball:Vec,assessment:ShotAssessment,random:()=>number,hurry=0,offBalance=0):{vx:number;vy:number;vz:number}{
  const angle=Math.atan2(assessment.aim.y-ball.y,assessment.aim.x-ball.x)+gaussian(random)*assessment.deviation;
- const speed=(22+p.skills.finishing*.3)*(1-HURRIED_SOFT*hurry-OFF_BALANCE_SOFT*offBalance);
- return {vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,vz:Math.max(.4,2.7+gaussian(random)*(1.0+assessment.pressure*.65))};
+ const speed=(BALL_KICK_SHOT_BASE+p.skills.finishing*BALL_KICK_SHOT_PER)*(1-HURRIED_SOFT*hurry-OFF_BALANCE_SOFT*offBalance);
+ return {vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,vz:Math.max(ERROR_SHOT_LIFT_MIN,ERROR_SHOT_LIFT+gaussian(random)*(ERROR_SHOT_LIFT_SPREAD+assessment.pressure*ERROR_SHOT_LIFT_PRESSURE))};
 }
 /** Hands and a timed extension; no teleporting to the destination of a shot. A keeper's edge for this shot
  * (keeperEdge) shortens his reaction and adds reach that is there at once (his stance and spread), not only at full
  * extension. */
 export function keeperReach(p:{skills:Pick<PracticePlayer['skills'],'reading'|'keeping'>},shotAge:number,edge:KeeperEdge=NO_EDGE):number{
- const reaction=.2+(10-p.skills.reading)*.015-edge.reactionCut;
- const extension=clamp((shotAge-reaction)/.3,0,1);
- return .85+edge.reachAdd+extension*(.65+p.skills.keeping*.06);
+ const reaction=REACTION_KEEPER_BASE+(10-p.skills.reading)*REACTION_KEEPER_PER-edge.reactionCut;
+ const extension=clamp((shotAge-reaction)/KEEPER_REACH_EXTENSION_TIME,0,1);
+ return KEEPER_REACH_BASE+edge.reachAdd+extension*(KEEPER_REACH_EXTENSION+p.skills.keeping*KEEPER_REACH_EXTENSION_KEEPING);
 }
 /** (keeper upgrade, 2026-10-13) A keeper's edge against one shot: a shorter reaction (s) and reach there at once (m).
  * Every keeper gets EDGE_BASE; one SET at the strike (still, facing the ball, at his ready spot) gets up to EDGE_SET
@@ -95,10 +130,10 @@ export function keeperReach(p:{skills:Pick<PracticePlayer['skills'],'reading'|'k
  * since 2026-10-15), so a carrier under a man with a better option passes. Calibrated towards futsal's keepers saving about three-quarters of shots on target and conversion in the low
  * to mid teens, without more shots missing the goal (evidence/2026-10-13-safety-check, 2026-10-13-keeper-2). */
 export interface KeeperEdge {reactionCut:number;reachAdd:number}
-export const NO_EDGE:KeeperEdge={reactionCut:0,reachAdd:0};
-export const EDGE_BASE:KeeperEdge={reactionCut:.03,reachAdd:.12},EDGE_SET:KeeperEdge={reactionCut:.06,reachAdd:.22},EDGE_HURRY:KeeperEdge={reactionCut:.05,reachAdd:.15};
-export const EDGE_KEEPING=6,EDGE_KEEPING_MAX=1.7;
-export const HURRIED_PLACE=.35,HURRIED_SOFT=.1,OFF_BALANCE_SOFT=.1;
+export const NO_EDGE:KeeperEdge={reactionCut:WORLD.keeper.edge.NO_EDGE.reactionCut.v,reachAdd:WORLD.keeper.edge.NO_EDGE.reachAdd.v};
+export const EDGE_BASE:KeeperEdge={reactionCut:WORLD.keeper.edge.EDGE_BASE.reactionCut.v,reachAdd:WORLD.keeper.edge.EDGE_BASE.reachAdd.v},EDGE_SET:KeeperEdge={reactionCut:WORLD.keeper.edge.EDGE_SET.reactionCut.v,reachAdd:WORLD.keeper.edge.EDGE_SET.reachAdd.v},EDGE_HURRY:KeeperEdge={reactionCut:WORLD.keeper.edge.EDGE_HURRY.reactionCut.v,reachAdd:WORLD.keeper.edge.EDGE_HURRY.reachAdd.v};
+export const EDGE_KEEPING=WORLD.keeper.edge.EDGE_KEEPING.v,EDGE_KEEPING_MAX=WORLD.keeper.edge.EDGE_KEEPING_MAX.v;
+export const HURRIED_PLACE=WORLD.keeper.edge.HURRIED_PLACE.v,HURRIED_SOFT=WORLD.keeper.edge.HURRIED_SOFT.v,OFF_BALANCE_SOFT=WORLD.keeper.edge.OFF_BALANCE_SOFT.v;
 /** `set` and `hurry` are 0..1. */
 export function keeperEdge(set:number,hurry:number,keeping:number):KeeperEdge{
  const k=clamp(keeping/EDGE_KEEPING,0,EDGE_KEEPING_MAX);
@@ -126,20 +161,20 @@ export function goalBoundFlight(keeper:Pick<PracticePlayer,'side'|'x'|'y'>,ball:
  if(ball.owner)return null;
  const goalX=keeper.side===0?0:L,dx=goalX-ball.x,speed=Math.hypot(ball.vx,ball.vy);
  if(dx*ball.vx<=0||Math.abs(ball.vx)<.1||speed<1)return null;
- const path=dx/ball.vx*speed,discriminant=speed*speed-2*.65*path;
+ const path=dx/ball.vx*speed,discriminant=speed*speed-2*BALL_FLIGHT_PASS_DRAG*path;
  if(discriminant<=0)return null;
- const time=(speed-Math.sqrt(discriminant))/.65,y=ball.y+ball.vy/ball.vx*dx;
- const height=Math.max(0,ball.z+ball.vz*time-4.905*time*time);
- if(Math.abs(y)>GH+1.34||height>HEIGHT+.66)return null;
+ const time=(speed-Math.sqrt(discriminant))/BALL_FLIGHT_PASS_DRAG,y=ball.y+ball.vy/ball.vx*dx;
+ const height=Math.max(0,ball.z+ball.vz*time-BALL_FLIGHT_HALF_GRAVITY*time*time);
+ if(Math.abs(y)>GH+KEEPER_REACH_GOAL_BOUND_WIDE||height>HEIGHT+KEEPER_REACH_GOAL_BOUND_HIGH)return null;
  const ownDepth=keeper.side===0?keeper.x:L-keeper.x,ballDepth=keeper.side===0?ball.x:L-ball.x;
  const x=ownDepth<ballDepth-.3?keeper.x:goalX+(keeper.side===0?.3:-.3);
- return {time,crossing:{x:goalX,y},aim:{x,y:clamp(ball.y+(x-ball.x)/ball.vx*ball.vy,-7,7)}};
+ return {time,crossing:{x:goalX,y},aim:{x,y:clamp(ball.y+(x-ball.x)/ball.vx*ball.vy,GEOMETRY_FOOTBALL_CROSSING_WIDE,GEOMETRY_FOOTBALL_CROSSING_WIDE_MAX)}};
 }
 /** Stand goal-side of the receiver while keeping a route to the ball. */
 export function markPosition(marker:PracticePlayer,receiver:Vec,ball:Vec,style:'balanced'|'zonal'|'tight'='balanced'):Vec{
  const goal={x:marker.side===0?0:L,y:0},toGoal=normalize(goal.x-receiver.x,goal.y-receiver.y);
  const toBall=normalize(ball.x-receiver.x,ball.y-receiver.y);
- const gap=style==='tight'?.95:1.4,screen=style==='tight'?.4:.65;
+ const gap=S.MARKING[style].spotGap.v,screen=S.MARKING[style].spotScreen.v;
  return {x:receiver.x+toGoal.x*gap+toBall.x*screen,y:receiver.y+toGoal.y*gap+toBall.y*screen};
 }
 

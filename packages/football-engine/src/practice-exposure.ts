@@ -1,3 +1,4 @@
+import * as S from './style.js';
 import {clamp} from './model.js';
 import type {Tactics} from './model.js';
 import {L} from './pitch.js';
@@ -17,7 +18,7 @@ export function readTeamExposure(players:PracticePlayer[],carrier:PracticePlayer
  // behind the ball remain separate threats regardless of carrier pressure.
  const nearest=Math.min(...players.filter(p=>p.side!==carrier.side&&p.role!=='GK').map(p=>Math.hypot(p.x-carrier.x,p.y-carrier.y)));
  const urgency=threats.map(threat=>threat===carrier?.15+.4*clamp((8-nearest)/6,0,1):clamp(1-depth(threat)/L,.25,1));
- const weight=1.4-clamp(tactics.commit,1,5)*.16;
+ const weight=S.COMMIT.exposureBase.v-clamp(tactics.commit,S.COMMIT.lowest.v,S.COMMIT.highest.v)*S.COMMIT.exposurePer.v;
  return {
   coverage(p:PracticePlayer,job?:Destination):number[]{
    // A short horizon avoids pretending distant destinations are already held.

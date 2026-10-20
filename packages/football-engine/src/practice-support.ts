@@ -15,6 +15,7 @@ import {expectedPassFlight} from './practice-flight.js';
 import {passAdvance} from './practice-passing.js';
 import {LOSS_SCALE,LOSS_OWN,lossDanger} from './practice-rest-defence.js';
 import {goalShot} from './practice-threat.js';
+import {WORLD} from './world.js';
 
 export type SupportPurpose='playbook'|'join'|'recovery-outlet'|'recycle'|'overlap'|'give-and-go'|'near-post'|'far-post'|'cutback'|'link'|'channel'|'build-up'|'counter-cover';
 export interface SupportMove {
@@ -111,7 +112,7 @@ export function releaseRoomAt(p:PracticePlayer,aim:Vec,players:readonly Practice
  * our goal and more central in front of it; a ball won beside our post is
  * one touch from a shot from the middle of the goal, one won in the corner
  * is not. */
-export const SHOT_STEP=1.5,SHOT_COVER:readonly [number,number]=[.4,1.2];
+export const SHOT_STEP=WORLD.selection.support.SHOT_STEP.v,SHOT_COVER:readonly [number,number]=[WORLD.selection.support.SHOT_COVER.near.v,WORLD.selection.support.SHOT_COVER.far.v];
 export function lossThreat(side:Side,at:Vec,players:readonly PracticePlayer[],except?:string):number{
  const spot={x:world(side,SPOT),y:0},gap=distance(at,spot),f=gap>SHOT_STEP?SHOT_STEP/gap:1;
  const step={x:at.x+(spot.x-at.x)*f,y:at.y+(spot.y-at.y)*f};
@@ -138,7 +139,7 @@ export function lossThreat(side:Side,at:Vec,players:readonly PracticePlayer[],ex
  * the safest spot won: on the goal line beside the keeper, nobody near it,
  * from where the only next pass goes back across our own goal mouth. It is a
  * price that competes with the spot's other reads, not a rule. */
-export const RECEIVE_LOSS=.15;
+export const RECEIVE_LOSS=WORLD.selection.support.RECEIVE_LOSS.v;
 export function supportWorth(carrier:PracticePlayer,aim:Vec,risk:number,releaseRoom:number,players:readonly PracticePlayer[],supporter?:string):number{
  const side=carrier.side,r=clamp(risk,0,1),danger=ownGoalDanger(carrier);
  const advance=passAdvance(carrier,carrier,aim)*(.24+carrier.traits.risk*.15)*(1-r)*danger;
@@ -178,9 +179,9 @@ export function ownGoalSupportPoints(p:Vec,owner:Vec&{side:Side}):Vec[]{
  const side=owner.side,bd=depth(side,owner.x),at=(d:number,y:number)=>inside({x:world(side,clamp(d,.8,L-.8)),y});
  return [
   at(depth(side,p.x)+3,p.y),at(depth(side,p.x)-3,p.y),
-  ...[-11,-8,-5,5,8,11].map(dy=>at(bd,owner.y+dy)),
+  ...[WORLD.geometry.support.levelWide3.v,WORLD.geometry.support.levelWide2.v,WORLD.geometry.support.levelWide1.v,WORLD.geometry.support.levelWide1r.v,WORLD.geometry.support.levelWide2r.v,WORLD.geometry.support.levelWide3r.v].map(dy=>at(bd,owner.y+dy)),
   ...[3,6,9].flatMap(dd=>[-8,-4,0,4,8].map(dy=>at(bd+dd,owner.y+dy))),
-  ...[BOX_DEPTH,BOX_DEPTH+4].flatMap(d=>[-10,-5,5,10].map(y=>at(d,y))),
+  ...[BOX_DEPTH,BOX_DEPTH+WORLD.geometry.support.boxBeyond.v].flatMap(d=>[WORLD.geometry.support.boxWide2.v,WORLD.geometry.support.boxWide1.v,WORLD.geometry.support.boxWide1r.v,WORLD.geometry.support.boxWide2r.v].map(y=>at(d,y))),
  ];
 }
 /** The same short return routes are considered before and after a pass. */

@@ -8,6 +8,7 @@ import {restartPositions} from './practice-restarts.js';
 import {restartRoutine,legalRestartAim} from './practice-restart-live.js';
 import type {LessonSpec,LessonScene,SceneRestart,SceneZone} from './practice-lesson.js';
 import {sceneZoneOf,sceneSideOf} from './practice-lesson.js';
+import {WORLD} from './world.js';
 
 /**
  * Set-piece routines: a lesson with a `scene` belongs to a restart. At the
@@ -45,10 +46,10 @@ export function sceneMatches(scene:LessonScene,kind:RestartKind,side:Side,spot:V
 /** A designated taker farther than this from the ball leaves the kick to
  * the engine's own taker (he would otherwise walk half the pitch while
  * everyone waits); the two swap parts in the routine. */
-export const ROUTINE_TAKER_REACH=16;
+export const ROUTINE_TAKER_REACH=WORLD.laws.routine.ROUTINE_TAKER_REACH.v;
 /** The most a drawing is compressed, per direction, to fit the real restart.
  * Beyond that it was drawn for a different restart and is not used. */
-export const ROUTINE_MIN_SCALE=.5;
+export const ROUTINE_MIN_SCALE=WORLD.laws.routine.ROUTINE_MIN_SCALE.v;
 const BOUND={x0:.8,x1:L-.8,y0:-(W/2-1),y1:W/2-1};
 /** How far offsets in each direction (negatives and positives) can stretch
  * from `c` before leaving [lo, hi]: 1 = as drawn, less = compressed. */

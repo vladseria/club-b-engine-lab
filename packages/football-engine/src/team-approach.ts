@@ -1,3 +1,4 @@
+import * as S from './style.js';
 import {clamp} from './model.js';
 import {L} from './pitch.js';
 import {ARRIVAL_SPREAD,ARRIVAL_OPTIMISM} from './practice-passing.js';
@@ -9,10 +10,13 @@ import {readTransition} from './practice-transition.js';
 import {REST_MARGIN} from './practice-rest-defence.js';
 import {daring,perceive} from './practice-perception.js';
 import type {TransitionRun} from './practice-transition.js';
+import {WORLD} from './world.js';
 
 /** The style fine-tune. `onLoss` ("On losing it") is optional everywhere:
  * missing means 'balanced', so inputs from before the field play as before. */
 export type ApproachSettings=Pick<Tactics,'progression'|'width'|'line'|'press'|'commit'|'striker'|'onLoss'> & {transition:'balanced'|'secure'|'counter'};
+/** The four presets' settings are a copy of lib/ballers/league.ts PRESETS, their one source (the engine package
+ * cannot import the app); verificare/ballers-preset-source.test.ts asserts the copy equal, key for key. */
 export const teamApproaches:Record<string,{name:string;description:string;settings:ApproachSettings}>={
  balanced:{name:'Echilibrat',description:'Pase, avansări și curse în funcție de situație. Păstrează sprijinul și acoperirea.',settings:{progression:'mixed',width:'standard',line:'standard',press:'balanced',commit:3,striker:'mixed',transition:'balanced',onLoss:'balanced'}},
  combinations:{name:'Combinații scurte',description:'Colegi aproape, în unghiuri diferite. Caută schimburi scurte și continuarea după pasă.',settings:{progression:'patient',width:'standard',line:'high',press:'balanced',commit:3,striker:'pivot',transition:'secure',onLoss:'counterpress'}},
@@ -35,8 +39,8 @@ export function validateApproach(value:unknown):ApproachSettings{
  * is pressed or turned (`regainWindow`). */
 export function approachInPossession(t:Tactics,recoveryAge:number):SituationTactics{
  if(recoveryAge<0)return t;
- if(t.transition==='counter'&&recoveryAge<8)return {...t,progression:'direct',striker:t.striker==='pivot'||t.striker==='link'?t.striker:'run',commit:Math.max(4,t.commit),regainWindow:true};
- if(t.transition==='secure'&&recoveryAge<3)return {...t,progression:'patient'};
+ if(S.ON_WIN[t.transition??'balanced'].counterRewrite.v&&recoveryAge<S.REWRITES.counter.window.v)return {...t,progression:S.REWRITES.counter.progression.v,striker:S.REWRITES.counter.keepStriker.v.includes(t.striker as string)?t.striker:S.REWRITES.counter.striker.v,commit:Math.max(S.REWRITES.counter.commitAtLeast.v,t.commit),regainWindow:true};
+ if(S.ON_WIN[t.transition??'balanced'].secureRewrite.v&&recoveryAge<S.REWRITES.secure.window.v)return {...t,progression:S.REWRITES.secure.progression.v};
  return t;
 }
 /** The numbers of a transition, from visible positions: our outfielders level
@@ -63,12 +67,12 @@ export function counterNumbers(players:ReadonlyArray<PracticePlayer>,carrier:Pra
  * most two in their rest defence (three for Counter). It is the carrier's
  * read (he does not kick a counter away to nobody); only Counter's team
  * changes how it plays because of it (approachForSituation). */
-export const COUNTER_WINDOW=10;
+export const COUNTER_WINDOW=S.ON_WIN_COMMON.counterWindow.v;
 export function counterOn(t:Tactics,players:ReadonlyArray<PracticePlayer>,carrier:PracticePlayer|undefined,recoveryAge:number):boolean{
  if(!carrier||carrier.role==='GK'||recoveryAge<0||recoveryAge>=COUNTER_WINDOW)return false;
  const {ours,theirs}=counterNumbers(players,carrier);
- const need=t.transition==='counter'?-1:t.transition==='secure'?1:0;
- return theirs<=(t.transition==='counter'?3:2)&&ours-theirs>=need;
+ const need=S.ON_WIN[t.transition??'balanced'].counterNeed.v;
+ return theirs<=S.ON_WIN[t.transition??'balanced'].counterRestMax.v&&ours-theirs>=need;
 }
 /** The situation's tactics; `counter` marks a counter that is on (counterOn),
  * an internal read, never a manager's input. */
@@ -88,10 +92,10 @@ export type SituationTactics=Tactics&{counter?:boolean;
  * credits fade the same way and its penetration and switch credits grow;
  * which pass it plays is still its own style's choice. 0 = the clock has not
  * started, 1 = fully on. */
-export const PURPOSE_AFTER=2,CLOCK_RELIEF=.6,CLOCK_SHOT=.05,CLOCK_PEN=.08,CLOCK_SWITCH=.05,CLOCK_BACK=.03;
+export const PURPOSE_AFTER=S.COMMON.purposeAfter.v,CLOCK_RELIEF=S.COMMON.clockRelief.v,CLOCK_SHOT=S.COMMON.clockShot.v,CLOCK_PEN=S.COMMON.clockPen.v,CLOCK_SWITCH=S.COMMON.clockSwitch.v,CLOCK_BACK=S.COMMON.clockBack.v;
 export function purposeClock(t:SituationTactics):number{
- const n=t.recycled??0,start=PURPOSE_AFTER+(t.progression==='patient'?1:0);
- return clamp((n-start+1)/2,0,1);
+ const n=t.recycled??0,start=PURPOSE_AFTER+S.PROGRESSION[t.progression].clockStartsAfter.v;
+ return clamp((n-start+1)/S.COMMON.clockRamp.v,0,1);
 }
 /** Let a visible recovery opportunity influence the first allocation too.
  * Requiring an already-selected counter run makes that first decision use the
@@ -106,10 +110,10 @@ export function purposeClock(t:SituationTactics):number{
  * runs, readTransition at the side's own bar), run with the ball into open
  * ground, and do not kick a counter that is on away to nobody (`counter`,
  * the carrier's read, which changes no setting). */
-export const COUNTER_FLIP=8;
+export const COUNTER_FLIP=S.ON_WIN_COMMON.counterFlip.v;
 export function approachForSituation(t:Tactics,players:PracticePlayer[],carrier:PracticePlayer|undefined,recoveryAge:number,continuing:ReadonlyArray<TransitionRun>=[],time=0):SituationTactics{
  const on=counterOn(t,players,carrier,recoveryAge);
- if(t.transition==='counter'){
+ if(S.ON_WIN[t.transition??'balanced'].counterRewrite.v){
   if(recoveryAge<0||recoveryAge>=COUNTER_FLIP||!carrier)return on?{...t,counter:true}:t;
   if(on)return {...approachInPossession(t,recoveryAge),counter:true};
   if(!readTransition(players,carrier,t,recoveryAge,continuing,time).open)return t;
@@ -134,7 +138,7 @@ export function readBlock(p:PracticePlayer,players:ReadonlyArray<PracticePlayer>
  * interception risk; how much a daring passer shades that risk down. The
  * receiver's room uses the passer's arrival-time read (ARRIVAL_SPREAD). A
  * good reader errs by about a third of these. */
-export const SLIDE_SPREAD=.8,LANE_SPREAD=.15,LANE_OPTIMISM=.05;
+export const SLIDE_SPREAD=WORLD.perception.teamApproach.SLIDE_SPREAD.v,LANE_SPREAD=WORLD.perception.teamApproach.LANE_SPREAD.v,LANE_OPTIMISM=WORLD.perception.teamApproach.LANE_OPTIMISM.v;
 /** What a delivery does for a patient side, from what the passer can see (0
  * when there is no defending block to read):
  *  - bypassed: defending outfielders it goes past (the lines it crosses);
@@ -160,7 +164,7 @@ export function patientPurpose(p:PracticePlayer,o:Option,block:BlockRead):{bypas
  const room=clamp((perceive(p,'arrival',first,ARRIVAL_SPREAD,o.aim,{salt:`room${o.target}`,bias:ARRIVAL_OPTIMISM*daring(p)})-flight)/.8,0,1);
  const open=clamp((.3-risk)/.3,0,1)*clamp((room-.3)/.5,0,1);
  const penetration=bypassed?open*(1+.4*Math.min(1,bypassed-1))*(1+.6*block.sliding):0;
- const across=clamp((Math.abs(o.aim.y-p.y)-6)/6,0,1);
+ const across=clamp((Math.abs(o.aim.y-p.y)-WORLD.geometry.teamApproach.switchFrom.v)/WORLD.geometry.teamApproach.switchSpan.v,0,1);
  const near=(v:{x:number;y:number})=>block.opponents.filter(q=>Math.hypot(q.x-v.x,q.y-v.y)<7).length;
  const relief=clamp((near(p)-near(o.aim))/2,0,1);
  const free=clamp((room-.3)/.5,0,1);
@@ -173,7 +177,7 @@ export function patientPurpose(p:PracticePlayer,o:Option,block:BlockRead):{bypas
  * tenth of a goal, Opta's fast breaks). Kicking the ball away to nobody (a
  * long, touchline or corner clearance) throws it away, so under a counter
  * those clearances pay it; a clearance into a team-mate's path does not. */
-export const COUNTER_VALUE=.22;
+export const COUNTER_VALUE=S.COMMON.counterValue.v;
 /** Striker: Pivot (settings round, 2026-10-03). While the pivot is showing for
  * it (practice-coordination pivotPoint: his own read that the lane to his feet
  * is open), a ball into his feet is preferred among the deliveries, the more
@@ -181,7 +185,7 @@ export const COUNTER_VALUE=.22;
  * full pressure. It is a delivery preference like a style's (which pass, not
  * whether to pass): it is re-centred with them, so it never turns a better
  * shot, carry or feint into a pass. */
-export const PIVOT_PULL=.06,PIVOT_PRESSED=.4;
+export const PIVOT_PULL=S.PIVOT.pull.v,PIVOT_PRESSED=S.PIVOT.pullPressed.v;
 /** A style chooses WHICH delivery, not WHETHER to deliver. The preference
  * reorders passes and lofts among themselves, then the whole delivery set is
  * re-centred so its best member keeps the neutral best delivery's value: a
@@ -201,13 +205,13 @@ export const PIVOT_PULL=.06,PIVOT_PRESSED=.4;
 export function approachOptions(p:PracticePlayer,options:Option[],t:SituationTactics,players:ReadonlyArray<PracticePlayer>=[],pivot?:string):Option[]{
  if(t.counter)options=options.map(o=>o.kind==='clear'&&o.clearance!=='mate'&&o.clearance!=='channel'?{...o,score:o.score-COUNTER_VALUE}:o);
  const clock=purposeClock(t),s=p.side===0?1:-1;
- const block=t.progression==='patient'||clock>0?readBlock(p,players):null;
+ const block=S.PROGRESSION[t.progression].readsBlock.v||clock>0?readBlock(p,players):null;
  if(clock>0)options=options.map(o=>{
   let score=o.score-CLOCK_RELIEF*clock*(o.relief??0);
   if(o.kind==='shoot')score+=CLOCK_SHOT*clock;
-  else if(t.progression!=='patient'&&(o.pass||o.loft)&&o.target){
+  else if(S.PROGRESSION[t.progression].clockDeliveryTerms.v&&(o.pass||o.loft)&&o.target){
    const purpose=patientPurpose(p,o,block!),gain=(o.aim.x-p.x)*s;
-   score+=clock*(CLOCK_PEN*purpose.penetration+CLOCK_SWITCH*purpose.shift-(gain< -2?CLOCK_BACK:0));
+   score+=clock*(CLOCK_PEN*purpose.penetration+CLOCK_SWITCH*purpose.shift-(gain<S.COMMON.clockBackGain.v?CLOCK_BACK:0));
   }
   return score===o.score?o:{...o,score};
  });
@@ -215,25 +219,25 @@ export function approachOptions(p:PracticePlayer,options:Option[],t:SituationTac
  const into=pivot&&pivot!==p.id?options.filter(o=>o.kind==='pass'&&o.target===pivot):[];
  const felt=into.length?feltPressure(p,possessionSafety(p,players as PracticePlayer[]).pressure):0;
  const pull=(o:Option)=>into.includes(o)?PIVOT_PULL+PIVOT_PRESSED*felt:0;
- if(t.progression==='mixed'&&!into.length)return options;
+ if(S.PROGRESSION[t.progression].delivery.v==='none'&&!into.length)return options;
  const style=(o:Option)=>{
-  if(t.progression==='mixed')return 0;
+  if(S.PROGRESSION[t.progression].delivery.v==='none')return 0;
   const gap=Math.hypot(o.aim.x-p.x,o.aim.y-p.y),gain=(o.aim.x-p.x)*s;
   const risk=o.pass?.risk??o.loft?.risk??0;
-  const feasible=1-clamp(risk,0,1)*.65;
-  if(t.progression==='patient'){
+  const feasible=1-clamp(risk,0,1)*S.COMMON.feasibleRisk.v;
+  if(S.PROGRESSION[t.progression].delivery.v==='patient'){
    const connection=o.delivery?.connectionGain??0;
    const purpose=patientPurpose(p,o,block!);
    // The purpose clock fades keeping and resetting and grows going through.
-   const keeps=Math.max(clamp(.5+gain/8+connection*1.5,0,1)*(1-.5*clock),purpose.reset*(1-clock));
-   const through=purpose.bypassed?.4+.6*purpose.open:1;
-   const purposeful=Math.max(purpose.penetration,purpose.shift,purpose.reset,clamp(connection*4,0,1));
-   const forcing=Math.max(clamp(purpose.bypassed/2,0,1)*(1-purpose.open),clamp((risk-.15)/.3,0,1));
+   const keeps=Math.max(clamp(S.PATIENT_DELIVERY.keepBase.v+gain/S.PATIENT_DELIVERY.keepGainPer.v+connection*S.PATIENT_DELIVERY.keepConnection.v,0,1)*(1-S.PATIENT_DELIVERY.clockFade.v*clock),purpose.reset*(1-clock));
+   const through=purpose.bypassed?S.PATIENT_DELIVERY.throughBase.v+S.PATIENT_DELIVERY.throughOpen.v*purpose.open:1;
+   const purposeful=Math.max(purpose.penetration,purpose.shift,purpose.reset,clamp(connection*S.PATIENT_DELIVERY.purposeConnection.v,0,1));
+   const forcing=Math.max(clamp(purpose.bypassed/S.PATIENT_DELIVERY.forcingLines.v,0,1)*(1-purpose.open),clamp((risk-S.PATIENT_DELIVERY.forcingRisk.v)/S.PATIENT_DELIVERY.forcingSpan.v,0,1));
    // The switch credit tops up what the receiver's prospects (o.next, every
    // style) already pay for the same free man; it is never paid twice.
-   return .19*feasible*keeps*through-(1-clamp(purposeful,0,1))*forcing*.05+purpose.penetration*.09*(1+clock)+Math.max(0,purpose.shift*.06*(1+.5*clock)-(o.next??0))+(o.run&&gap<16?.035:0);
+   return S.PATIENT_DELIVERY.keep.v*feasible*keeps*through-(1-clamp(purposeful,0,1))*forcing*S.PATIENT_DELIVERY.forcingCost.v+purpose.penetration*S.PATIENT_DELIVERY.penetration.v*(1+clock)+Math.max(0,purpose.shift*S.PATIENT_DELIVERY.switch.v*(1+S.PATIENT_DELIVERY.switchClock.v*clock)-(o.next??0))+(o.run&&gap<S.PATIENT_DELIVERY.runnerRange.v?S.PATIENT_DELIVERY.runnerBonus.v:0);
   }
-  return clamp(gain/14,-.55,1)*.21*feasible+(gap>13&&gain>7?.035:0);
+  return clamp(gain/S.DIRECT_DELIVERY.gainSpan.v,S.DIRECT_DELIVERY.gainFloor.v,1)*S.DIRECT_DELIVERY.weight.v*feasible+(gap>S.DIRECT_DELIVERY.longGap.v&&gain>S.DIRECT_DELIVERY.longGain.v?S.DIRECT_DELIVERY.longBonus.v:0);
  };
  const preference=(o:Option)=>into.length?style(o)+pull(o):style(o);
  const deliveries=options.filter(o=>o.pass||o.loft);
