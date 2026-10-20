@@ -1,5 +1,5 @@
 export type {StandingInstruction,StandingNote} from './practice-standing.js';
-export {teamApproaches,validateApproach} from './team-approach.js';
+export {teamApproaches,validateApproach,validateEntryTactics} from './team-approach.js';
 export type {ApproachSettings} from './team-approach.js';
 /** The same input contract is used in browser workers and background match jobs. */
 import {simulatePractice, PRACTICE_VERSION} from './practice.js';
@@ -9,6 +9,7 @@ import type {PlaybookConfig, TrainingSetup} from './practice-playbook.js';
 import type {CoachingIntent} from './practice-coaching.js';
 import {ENGINE_BUILD} from './build-info.js';
 import {validateSubstitutionOrders} from './practice-substitutions.js';
+import {validateEntryTactics} from './team-approach.js';
 import type {SubstitutionOrder} from './practice-substitutions.js';
 export {ENGINE_BUILD};
 export const ENGINE_VERSION = PRACTICE_VERSION;
@@ -53,6 +54,7 @@ export function createSimulationRequest(input: SimulationInput): SimulationReque
  if(!input.fixture || !Number.isInteger(input.fixture.seed) || input.fixture.seed<0 || input.fixture.seed>0xffffffff)throw Error('A fixture with an explicit seed is required.');
  for(const team of input.fixture.teams)if(team.tactics.marking!==undefined&&!['balanced','zonal','tight'].includes(team.tactics.marking))throw Error('Unknown marking style.');
  for(const team of input.fixture.teams)if(team.tactics.transition!==undefined&&!['balanced','secure','counter'].includes(team.tactics.transition))throw Error('Unknown transition approach.');
+ validateEntryTactics(input.fixture.teams);
  const durationSeconds=input.durationSeconds??(input.kind==='match'?900:20);
  if(!Number.isFinite(durationSeconds)||durationSeconds<10||durationSeconds>5400)throw Error('Duration must be between 10 and 5400 seconds.');
  if(input.record!==undefined&&typeof input.record!=='boolean')throw Error('record must be a boolean.');
