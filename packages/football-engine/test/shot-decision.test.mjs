@@ -11,7 +11,11 @@ import {viableOptions} from '../dist/practice-carry.js';
 import {actionWeights} from '../dist/practice-selection.js';
 import {shotRead,hurryTruth} from '../dist/practice-shot-contest.js';
 const fixture=JSON.parse(readFileSync(new URL('./fixture.json',import.meta.url)));
-const temperaments={composed:{risk:.45,audacity:0,discipline:.97},nervous:{risk:.1,audacity:0,discipline:.45},daring:{risk:.9,audacity:.8,discipline:.83}};
+// The dribble tendency is held at the squad's typical 0.33 (practice-carry DRIBBLE_TYPICAL): these tests are about the
+// shot's temperament (risk, audacity, discipline), and the fixture's shooter is a natural dribbler (0.9). With the
+// take-on price (2026-10-19) a natural dribbler pressed 6 m out sometimes takes his man on first (nervous: about one
+// time in four), which the owner accepts as in character (2026-10-20).
+const temperaments={composed:{risk:.45,audacity:0,discipline:.97,dribble:.33},nervous:{risk:.1,audacity:0,discipline:.45,dribble:.33},daring:{risk:.9,audacity:.8,discipline:.83,dribble:.33}};
 // Team 0 attacks x = 48; the shooter is index 2 (reading 7, finishing 6).
 const decide=(at,traits,skills={reading:7,finishing:6})=>{
  const players=practicePlayers(structuredClone(fixture));

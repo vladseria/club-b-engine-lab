@@ -141,7 +141,10 @@ test('a stationary outlet opens to the carrier before a pass, using a gradual tu
   const playbook={side:setup.ball.side,plans:[{id:'hold',name:'Hold the outlet',weight:100,emphasis:1,preferred:null,instructions:[{number:4,action:'hold',dx:0,dy:0,delay:0}]}]};
   const result=runTraining({fixture:f,setup,durationSeconds:10,playbook}).result;
   const index=result.players.findIndex(p=>p.side===setup.ball.side&&p.number===4),initial=result.frames[0].players[index];
-  const early=result.frames.find(f=>f.time>=.1),ready=result.frames.find(f=>f.time>=.5);
+  // Read at 0.5 s, or just before the carrier releases if he does sooner (with the take-on price, 2026-10-19, the
+  // mirrored carrier passes at 0.43 s instead of faking first): the outlet's body before the pass is the point.
+  const release=result.events.find(e=>e.kind==='pass'&&e.time<.5),at=release?release.time-.02:.5;
+  const early=result.frames.find(f=>f.time>=.1),ready=release?result.frames.findLast(f=>f.time<=at):result.frames.find(f=>f.time>=.5);
   const difference=(a,b)=>Math.abs(Math.atan2(Math.sin(a-b),Math.cos(a-b)));
   assert(difference(early.players[index].angle,initial.angle)>.01);
   assert(difference(early.players[index].angle,initial.angle)<.6,'The player turns under the existing rate limit');
