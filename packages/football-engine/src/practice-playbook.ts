@@ -225,7 +225,7 @@ export class PracticePlaybook {
  private participants(active:Active,players:PracticePlayer[]):Set<string>{return active.teaching?.participants(players)??active.participants;}
  private select(time:number,owner:PracticePlayer,players:PracticePlayer[],laneRisk:LaneRisk,ball:MovingBall|undefined,opportunity:boolean):boolean {
   // Set-piece routines never start in open play: only their restart chooses them.
-  const plans=this.config.plans.filter(p=>!p.lesson?.scene&&!this.active.some(a=>a.plan.id===p.id)&&time>=(this.retryAfter.get(p.id)??0)&&(!opportunity||p.lesson&&p.weight>0&&p.emphasis!==0));
+  const plans=this.config.plans.filter(p=>!p.lesson&&!this.active.some(a=>a.plan.id===p.id)&&time>=(this.retryAfter.get(p.id)??0)&&(!opportunity||p.lesson&&p.weight>0&&p.emphasis!==0));
   if(!plans.length)return false;
   const evaluated=plans.map(plan=>{
    const fit=fitPlan(plan,this.config.side,players,owner,laneRisk,ball);

@@ -685,12 +685,12 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
  // Triggered orders: checked only at stoppages, never at the opening kickoff.
  // Order ties resolve in list order; each order fires at most once.
  const orderNotes:SubstitutionNote[]=orders.map(o=>({order:o.id,side:o.side,status:'waiting',in:o.in,...(o.out!==undefined?{out:o.out}:{}),detail:'Condiția nu a fost îndeplinită la nicio oprire a jocului.'}));
- const gone=new Set<string>(),madeCounts=[0,0];
+ const gone=new Set<string>(),madeCounts=[0,0],armedLate=new Set<string>();
  const applyOrders=()=>{
   if(!orders.length||time<=0)return;
   orders.forEach((order,i)=>{
    const note=orderNotes[i],team=order.side;
-   if(note.status!=='waiting'||(order.notBefore??0)>time||!triggerHolds(order.trigger,team,time,duration,score,players))return;
+   if(note.status!=='waiting'||(order.notBefore??0)>time||!triggerHolds(order.trigger,team,time,duration,score,players))return;if(!armedLate.has(order.id)){armedLate.add(order.id);return;}
    if(madeCounts[team]>=MAX_TRIGGERED_SUBSTITUTIONS){Object.assign(note,{status:'impossible',detail:'Echipa a făcut deja toate schimbările.'});return;}
    const decision=resolveOrder(order,f,players,gone);
    if('wait' in decision){note.detail=decision.wait;return;}
