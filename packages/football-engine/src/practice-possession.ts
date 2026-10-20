@@ -46,7 +46,7 @@ export function possessionSafety(p:PracticePlayer,players:PracticePlayer[]):Poss
  * own goal sped it up, so a carrier pressed in midfield re-thought every
  * 0.38-0.56 s against a presser arriving in a median 0.41 s. With nobody
  * closing him the arrival is beyond the ordinary cadence and nothing changes. */
-export const LOOK_MIN=.12,LOOK_SHARE:readonly [number,number]=[.3,.75],LOOK_SPREAD=.3;
+export const LOOK_MIN=WORLD.perception.possession.LOOK_MIN.v,LOOK_SHARE:readonly [number,number]=[WORLD.perception.possession.LOOK_SHARE.low.v,WORLD.perception.possession.LOOK_SHARE.high.v],LOOK_SPREAD=WORLD.perception.possession.LOOK_SPREAD.v;
 export function lookAgain(p:PracticePlayer,players:PracticePlayer[],time?:number):number{
  const {contactTime}=possessionSafety(p,players);
  if(!Number.isFinite(contactTime))return Infinity;
@@ -81,7 +81,7 @@ export function kickHorizon(p:PracticePlayer,aim:Vec,kind:Option['kind']):number
  * RELEASE_SPREAD s, a top one is nearly exact; a daring one (risk, audacity)
  * believes the ball is away RELEASE_OPTIMISM s x daring sooner than it is.
  * The real spread of the delay (quartiles 0.35-0.56 s) is about this size. */
-export const RELEASE_SPREAD=.15,RELEASE_OPTIMISM=.1;
+export const RELEASE_SPREAD=WORLD.perception.possession.RELEASE_SPREAD.v,RELEASE_OPTIMISM=WORLD.perception.possession.RELEASE_OPTIMISM.v;
 export function readKickHorizon(p:PracticePlayer,aim:Vec,kind:Option['kind']):number{
  return clamp(perceive(p,'lane',kickHorizon(p,aim,kind),RELEASE_SPREAD,aim,{salt:'release',bias:-RELEASE_OPTIMISM*daring(p)}),.1,1);
 }
@@ -145,7 +145,7 @@ export function priceCaught(p:PracticePlayer,players:PracticePlayer[],options:Op
  *    at all; a top reader is nearly exact), more under pressure unless he is
  *    composed (discipline and reading).
  * A read, never the kick: execution and its accuracy are unchanged. */
-export const LANE_RESPECT=.45,LANE_OPTIMISM=.5,LANE_SPREAD=.9;
+export const LANE_RESPECT=WORLD.perception.possession.LANE_RESPECT.v,LANE_OPTIMISM=WORLD.perception.possession.LANE_OPTIMISM.v,LANE_SPREAD=WORLD.perception.possession.LANE_SPREAD.v;
 /** `lead` (honest-reads round): his read of how long until the ball is away
  * (readKickHorizon); a lane read with it forecasts everyone over that time by
  * visible momentum before the ball's flight begins. */
@@ -164,7 +164,7 @@ export function readerMargin(r:PasserRead,opponent:{id:string},at:Vec,read:'lane
  * far as his legs take them in that time). The read then ranks the kicks lost
  * at the kick better (AUC 0.61 -> 0.71 on 2bec595c) at the same scale (a read
  * of 1 still loses about 27% of kicks there). */
-export const LAUNCH_REACT=.25;
+export const LAUNCH_REACT=WORLD.perception.possession.LAUNCH_REACT.v;
 /** Pre-push fixes (2026-10-12): he cannot run through a man. The lane and
  * launch reads forecast the carrier by his momentum until the kick (honest
  * reads), but a man standing in his path, or stepping into it, is met before
@@ -254,7 +254,7 @@ export function recoveryTouch(p:PracticePlayer,players:PracticePlayer[]):Vec{
  * his nerve (a daring or composed player feels it less, a nervous one more)
  * and misjudged by his reading (a relative error up to PRESSURE_SPREAD for
  * one who cannot read it at all). No pressure is never felt as pressure. */
-export const PRESSURE_SPREAD=.5;
+export const PRESSURE_SPREAD=WORLD.perception.possession.PRESSURE_SPREAD.v;
 /** R3 P1: a shot of his own reading SHOT_ON_FROM + SHOT_ON_SPAN (0.35) or
  * better is "a real shot on" and cuts a pass's pressure credits by
  * RELIEF_CUT; a goal-side carry past the presser earns CARRY_RELIEF of a

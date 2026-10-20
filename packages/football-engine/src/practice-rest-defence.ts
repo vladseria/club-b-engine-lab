@@ -4,6 +4,7 @@ import {clamp} from './model.js';
 import type {Vec} from './movement.js';
 import {daring,perceive} from './practice-perception.js';
 import type {Reader} from './practice-perception.js';
+import {WORLD} from './world.js';
 
 type Body=Vec&{id:string;side:number;role:string};
 const depthOf=(side:number,x:number)=>side===0?x:L-x;
@@ -64,7 +65,7 @@ export function restDefence(p:Body,players:readonly Body[],at:Vec=p):RestRead{
  * underestimates it (by LOSS_OPTIMISM x daring), and everyone misjudges it by
  * his reading (a relative error up to LOSS_SPREAD). Without the player's
  * skills (a bare body) the read is exact. */
-export const LOSS_OPTIMISM=.35,LOSS_SPREAD=.4;
+export const LOSS_OPTIMISM=WORLD.perception.restDefence.LOSS_OPTIMISM.v,LOSS_SPREAD=WORLD.perception.restDefence.LOSS_SPREAD.v;
 /** What one ball lost costs a kick's valuation (the ground pass's and the
  * loft's loss term, per unit of their loss read): a base that a daring player
  * (risk) weighs less, plus the price of losing it there (turnoverPrice).

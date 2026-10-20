@@ -49,7 +49,7 @@ export function assessShot(p:PracticePlayer,players:PracticePlayer[]):ShotAssess
   const k=keeper?(keeper.x-p.x)/(dx||.01):-1;
   let coverage=0;
   if(keeper&&k>=0&&k<=1){
-   const crossingTime=flight*k,reaction=.2+(10-clamp(keeper.skills.reading,0,10))*.015;
+   const crossingTime=flight*k,reaction=WORLD.reaction.keeper.clampedBase.v+(10-clamp(keeper.skills.reading,0,10))*WORLD.reaction.keeper.clampedPer.v;
    const available=Math.max(0,crossingTime-reaction);
    const lateral=keeper.y+keeper.vy*Math.min(.35,crossingTime);
    const reach=keeperReach(keeper,crossingTime)+Math.min(keeper.pace*available,.5*keeper.acceleration*available*available);
@@ -84,7 +84,7 @@ export function strikeShot(p:PracticePlayer,ball:Vec,assessment:ShotAssessment,r
  * (keeperEdge) shortens his reaction and adds reach that is there at once (his stance and spread), not only at full
  * extension. */
 export function keeperReach(p:{skills:Pick<PracticePlayer['skills'],'reading'|'keeping'>},shotAge:number,edge:KeeperEdge=NO_EDGE):number{
- const reaction=.2+(10-p.skills.reading)*.015-edge.reactionCut;
+ const reaction=WORLD.reaction.keeper.base.v+(10-p.skills.reading)*WORLD.reaction.keeper.per.v-edge.reactionCut;
  const extension=clamp((shotAge-reaction)/WORLD.keeper.reach.extensionTime.v,0,1);
  return WORLD.keeper.reach.base.v+edge.reachAdd+extension*(WORLD.keeper.reach.extension.v+p.skills.keeping*WORLD.keeper.reach.extensionKeeping.v);
 }

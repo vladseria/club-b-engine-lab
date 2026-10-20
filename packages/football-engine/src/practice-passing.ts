@@ -55,7 +55,7 @@ export function receivingRoom(aim:Vec,opponents:PracticePlayer[],flight:number):
  * (ARRIVAL_SPREAD s for a player who cannot read at all), and a daring passer
  * thinks defenders arrive a little later than they do. Without a reader the
  * read is exact. */
-export const ARRIVAL_SPREAD=.6,ARRIVAL_OPTIMISM=.12;
+export const ARRIVAL_SPREAD=WORLD.perception.passing.ARRIVAL_SPREAD.v,ARRIVAL_OPTIMISM=WORLD.perception.passing.ARRIVAL_OPTIMISM.v;
 export function receiverProspects(q:PracticePlayer,aim:Vec,players:readonly PracticePlayer[],flight:number,reader?:PracticePlayer):{time:number;cover:number;numbers:number;value:number}{
  const bias=reader?ARRIVAL_OPTIMISM*daring(reader):0;
  const seen=(d:PracticePlayer,own:boolean)=>{const t=arrivalTime(d,aim);return reader?perceive(reader,'arrival',t,ARRIVAL_SPREAD,aim,{salt:d.id,bias:own?-bias:bias}):t;};
@@ -90,7 +90,7 @@ export function passFlightTime(length:number,speed:number):number{
 
 /** A receiver reacts to the kick after this long (the flight receiver's
  * reception movement starts at the same moment in the match loop). */
-export const RECEIVER_REACTION=.12;
+export const RECEIVER_REACTION=WORLD.reaction.passing.RECEIVER_REACTION.v;
 /** Body-to-aim distance at which the reception movement counts a point on the
  * ball's path as reached (receptionTarget's own tolerance). */
 export const RECEIVING_REACH=.65;
@@ -135,10 +135,10 @@ export function groundPassRisk(from:Vec,to:Vec,opponents:PracticePlayer[],speed:
  // farther downstream after that contact is not a reason to reject this delivery.
  let end=1;
  if(receiver){
-  const reacting={...receiver,x:receiver.x+receiver.vx*.12,y:receiver.y+receiver.vy*.12};
+  const reacting={...receiver,x:receiver.x+receiver.vx*WORLD.reaction.passing.RECEIVER_REACTION.v,y:receiver.y+receiver.vy*WORLD.reaction.passing.RECEIVER_REACTION.v};
   for(let fraction=.1;fraction<=1;fraction+=.05){
    const point={x:from.x+dx*fraction,y:from.y+dy*fraction},flight=passFlightTime(length*fraction,speed);
-   if(.12+arrivalTime(reacting,point)>flight)continue;
+   if(WORLD.reaction.passing.RECEIVER_REACTION.v+arrivalTime(reacting,point)>flight)continue;
    // Reach alone is insufficient: a sprinting receiver must also be able to brake
    // or turn into the ball's path by the time it crosses this point.
    const preview={...reacting};
@@ -151,7 +151,7 @@ export function groundPassRisk(from:Vec,to:Vec,opponents:PracticePlayer[],speed:
   const m=read?Math.max(-1,readerMargin(read,p,to)):0;
   const projection=clamp(((p.x-from.x)*dx+(p.y-from.y)*dy)/(length*length),.06,end);
   for(const fraction of [projection,Math.min(end,projection+.15)]){
-   const flight=passFlightTime(length*fraction,speed),available=Math.max(0,flight-.22);
+   const flight=passFlightTime(length*fraction,speed),available=Math.max(0,flight-WORLD.reaction.defender.reaction.v);
    const point={x:from.x+dx*fraction,y:from.y+dy*fraction},gap=distance(p,point);
    const towards=clamp(((point.x-p.x)*p.vx+(point.y-p.y)*p.vy)/Math.max(.001,gap),-p.pace,p.pace);
    const accelerating=Math.min(available,(p.pace-towards)/p.acceleration);
@@ -302,7 +302,7 @@ export function readDelivery(p:PracticePlayer,q:PracticePlayer,aim:Vec,players:P
  * full within OWN_ZONE m of our goal and fading out by OWN_ZONE_FAR (further
  * up the flat room terms already price it). The room is his read: off by up
  * to ROOM_SPREAD for a player who cannot read the game. */
-export const RECEIVER_CAUGHT=.5,OWN_ZONE=WORLD.geometry.passing.OWN_ZONE.v,OWN_ZONE_FAR=WORLD.geometry.passing.OWN_ZONE_FAR.v,ROOM_SPREAD=.5;
+export const RECEIVER_CAUGHT=.5,OWN_ZONE=WORLD.geometry.passing.OWN_ZONE.v,OWN_ZONE_FAR=WORLD.geometry.passing.OWN_ZONE_FAR.v,ROOM_SPREAD=WORLD.perception.passing.ROOM_SPREAD.v;
 export function receiverCaught(p:PracticePlayer,q:PracticePlayer,aim:Vec,space:number,players:readonly PracticePlayer[]):number{
  const zone=clamp((OWN_ZONE_FAR-depth(p,aim.x))/(OWN_ZONE_FAR-OWN_ZONE),0,1);if(!zone)return 0;
  const room=clamp(perceive(p,'arrival',space,ROOM_SPREAD,aim,{salt:'room'+q.id}),0,1);

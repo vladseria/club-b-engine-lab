@@ -47,12 +47,12 @@ export function loftCandidates(p:PracticePlayer,q:PracticePlayer,run:PassRun|und
   // Aim to arrive low on the descending side; include the runtime's Euler-step gravity.
   const vz=arrivalHeight/flight+WORLD.ball.flight.gravity.v*(flight-STEP)/2;
   const ball:MovingBall={...from,z:0,vx:(aim.x-from.x)/Math.max(.001,length)*speed,vy:(aim.y-from.y)/Math.max(.001,length)*speed,vz,owner:null,mode:'pass'};
-  const samples=flightSamples(ball,flight+.65),receiver=flightMeeting(q,ball,.12,samples);
+  const samples=flightSamples(ball,flight+.65),receiver=flightMeeting(q,ball,WORLD.reaction.passing.RECEIVER_REACTION.v,samples);
   const end=receiver.reachable?receiver.time:flight+.3;
   // Keepers are already adjusting their position as a kick develops. Do not
   // assume they coast motionless through the outfield reaction delay.
   const threatSamples=samples.filter(s=>s.time<=end+.15);
-  const threats=opponents.map(d=>reachableFlightMeeting(d,ball,d.role==='GK'?0:.22,threatSamples));
+  const threats=opponents.map(d=>reachableFlightMeeting(d,ball,d.role==='GK'?0:WORLD.reaction.defender.reaction.v,threatSamples));
   const risk=Math.max(launchRisk(ball,opponents),...threats.filter(d=>d!==null).map(d=>clamp(.55+(end-d.time)/.6,0,1)));
   const point=samples.find(s=>s.time>=receiver.time)??samples.at(-1)!;
   const preview={...q};for(let t=0;t<receiver.time;t+=.1)steerMotion(preview,receiver.aim,Math.min(.1,receiver.time-t),q.pace);

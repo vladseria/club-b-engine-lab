@@ -16,7 +16,7 @@ export interface KeeperState extends Vec {
 }
 const ownDepth=(side:0|1,x:number)=>side===0?x:L-x;
 const worldX=(side:0|1,x:number)=>side===0?x:L-x;
-const reactionTime=(p:KeeperState,edge:KeeperEdge=NO_EDGE)=>.2+(10-clamp(p.skills.reading,0,10))*.015-edge.reactionCut;
+const reactionTime=(p:KeeperState,edge:KeeperEdge=NO_EDGE)=>WORLD.reaction.keeper.clampedBase.v+(10-clamp(p.skills.reading,0,10))*WORLD.reaction.keeper.clampedPer.v-edge.reactionCut;
 const unit=(x:number,y:number)=>{const d=Math.hypot(x,y)||1;return {x:x/d,y:y/d};};
 
 /** (keeper upgrade) How far out (m from his line) a carrier through on goal is met (keeperReadyPosition `oneOnOne`). */
@@ -146,7 +146,7 @@ export function keeperLineDepth(sweep:number,lastLine:number,ballDepth:number):n
  *    was observed). */
 export const SHOT_RANGE=WORLD.geometry.keeper.SHOT_RANGE.v,SHOT_SET=WORLD.keeper.keeper.SHOT_SET.v,ATTACK_SPEED=WORLD.keeper.keeper.ATTACK_SPEED.v,PASS_PREP=WORLD.keeper.keeper.PASS_PREP.v,PASS_SPEED=WORLD.keeper.keeper.PASS_SPEED.v,KEEPER_DROP=WORLD.keeper.keeper.KEEPER_DROP.v,KEEPER_SPRINT=WORLD.keeper.keeper.KEEPER_SPRINT.v;
 type Runner=Pick<KeeperState,'pace'|'acceleration'>&{skills:{reading:number}};
-const keeperReaction=(p:{skills:{reading:number}})=>.2+(10-clamp(p.skills.reading,0,10))*.015;
+const keeperReaction=(p:{skills:{reading:number}})=>WORLD.reaction.keeper.clampedBase.v+(10-clamp(p.skills.reading,0,10))*WORLD.reaction.keeper.clampedPer.v;
 export function attackTime(side:0|1,ball:Vec&{vx?:number},attackers:readonly Vec[],carrier?:Vec|null):number{
  const bd=ownDepth(side,ball.x),goalward=Math.max(0,(side===0?-1:1)*(ball.vx??0));
  const into=(d:number,speed=ATTACK_SPEED)=>SHOT_SET+Math.max(0,d-SHOT_RANGE)/Math.max(ATTACK_SPEED,speed);

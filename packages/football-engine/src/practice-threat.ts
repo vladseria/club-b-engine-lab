@@ -54,14 +54,14 @@ import {WORLD} from './world.js';
  * (the positions he saw, a moment late) and misjudges it by up to THREAT_SPREAD
  * of its size for a player who cannot read the game (the 'threat' read:
  * reading and defending). It never touches the ball. */
-export const THREAT_FLOOR=.3,LOFT_REACH=.5,LOFT_MIN=10,LOFT_MAX=40,PRESSED=3,LATER=.6;
-export const ARRIVE_SOON=1,ARRIVE_LATE=2.5,ARRIVE_FLOOR=.35,LEAD_CAP=1.2;
-export const CLOSE_WINDOW=.8,CLOSE_CUT=.25,THREAT_SPREAD=.3;
-export const LAYOFF=.35,SECOND_TOP=2,SECOND_STEP=.8,SECOND_READ:readonly [number,number]=[.45,.85];
+export const THREAT_FLOOR=WORLD.perception.threat.THREAT_FLOOR.v,LOFT_REACH=WORLD.perception.threat.LOFT_REACH.v,LOFT_MIN=WORLD.perception.threat.LOFT_MIN.v,LOFT_MAX=WORLD.perception.threat.LOFT_MAX.v,PRESSED=WORLD.perception.threat.PRESSED.v,LATER=WORLD.perception.threat.LATER.v;
+export const ARRIVE_SOON=WORLD.perception.threat.ARRIVE_SOON.v,ARRIVE_LATE=WORLD.perception.threat.ARRIVE_LATE.v,ARRIVE_FLOOR=WORLD.perception.threat.ARRIVE_FLOOR.v,LEAD_CAP=WORLD.perception.threat.LEAD_CAP.v;
+export const CLOSE_WINDOW=WORLD.perception.threat.CLOSE_WINDOW.v,CLOSE_CUT=WORLD.perception.threat.CLOSE_CUT.v,THREAT_SPREAD=WORLD.perception.threat.THREAT_SPREAD.v;
+export const LAYOFF=WORLD.perception.threat.LAYOFF.v,SECOND_TOP=WORLD.perception.threat.SECOND_TOP.v,SECOND_STEP=WORLD.perception.threat.SECOND_STEP.v,SECOND_READ:readonly [number,number]=[WORLD.perception.threat.SECOND_READ.low.v,WORLD.perception.threat.SECOND_READ.high.v];
 /** The lane is read up to RECEIVE_REACH m short of him (where he takes it). */
-export const RECEIVE_REACH=1.2;
+export const RECEIVE_REACH=WORLD.perception.threat.RECEIVE_REACH.v;
 /** The carrier: a drive DRIVE m on towards goal counts when nobody of ours is within DRIVE_W m of his path; a shooting line is shut by a defender within SHOT_W m of it. */
-export const DRIVE=3,DRIVE_W=1.5,SHOT_W=1;
+export const DRIVE=WORLD.perception.threat.DRIVE.v,DRIVE_W=WORLD.perception.threat.DRIVE_W.v,SHOT_W=WORLD.perception.threat.SHOT_W.v;
 
 const dist=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
 const world=(side:Side,x:number)=>side===0?x:L-x;

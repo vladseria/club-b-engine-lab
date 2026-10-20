@@ -15,7 +15,7 @@ import {WORLD} from './world.js';
 export const JUMP_BASE=WORLD.contact.airDuel.JUMP_BASE.v,JUMP_SKILL=WORLD.contact.airDuel.JUMP_SKILL.v,STANDING_HEAD=WORLD.contact.airDuel.STANDING_HEAD.v;
 export const jumpReach=(p:{skills:{aerial:number}})=>JUMP_BASE+JUMP_SKILL*clamp(p.skills.aerial,0,10);
 /** How much later a poor reader starts setting himself for a ball in the air (s, at reading 0 vs 10, centred on 6). */
-export const AIR_READ=.015;
+export const AIR_READ=WORLD.perception.airDuel.AIR_READ.v;
 export const airReaction=(p:{skills:{reading:number}},base=.18)=>Math.max(.08,base+(6-clamp(p.skills.reading,0,10))*AIR_READ);
 
 /** Who is in the contest. An opponent whose body is within AIR_REACH m of the ball (horizontally) when it is touched
@@ -93,7 +93,7 @@ export function resolveAirDuel(a:AirMan,b:AirMan,ball:Vec&{z:number;vx:number;vy
  * or hold a metre goal-side and let him have it in front. He weighs his own read of the duel (his aerial and strength
  * against the man's, misread by up to AIR_READ_SPREAD for a man who cannot read the game) with the inside track and his
  * nerve. A strong header of the ball goes; a poor one holds unless he is brave; a hesitant one holds. */
-export const AIR_READ_SPREAD=.8,AIR_GO=0;
+export const AIR_READ_SPREAD=WORLD.perception.airDuel.AIR_READ_SPREAD.v,AIR_GO=WORLD.perception.airDuel.AIR_GO.v;
 export function attacksTheBall(d:PracticePlayer,man:PracticePlayer,at:Vec,time:number,goalSide:boolean):number{
  const s=d.skills,m=man.skills;
  const edge=AIR_JUMP*(s.aerial-m.aerial)+AIR_BUMP*(s.strength-m.strength);
@@ -131,7 +131,7 @@ export function challengePoint(p:PracticePlayer,samples:readonly {x:number;y:num
  * late (a brave one dares AIR_DARE_LATE s more a unit of nerve), misjudged by up to AIR_RACE_SPREAD s for a man who cannot
  * read the game: who reads the flight first. A defender other than the receiver's marker leaves his own man for it only
  * if that man is at least AIR_LEAVE m from where the ball comes down. */
-export const AIR_EVERY=6,AIR_LATE=.08,AIR_DARE_LATE=.12,AIR_RACE_SPREAD=.4,AIR_LEAVE=6;
+export const AIR_EVERY=WORLD.perception.airDuel.AIR_EVERY.v,AIR_LATE=WORLD.perception.airDuel.AIR_LATE.v,AIR_DARE_LATE=WORLD.perception.airDuel.AIR_DARE_LATE.v,AIR_RACE_SPREAD=WORLD.perception.airDuel.AIR_RACE_SPREAD.v,AIR_LEAVE=WORLD.perception.airDuel.AIR_LEAVE.v;
 /** Setting off costs AIR_STEP s; once on his way he keeps going unless he reads he is AIR_KEEP s later than that. */
 export const AIR_STEP=WORLD.contact.airDuel.AIR_STEP.v,AIR_KEEP=WORLD.contact.airDuel.AIR_KEEP.v;
 export const airRace=(p:PracticePlayer,point:{aim:Vec;need:number},time:number)=>perceive(p,'race',point.need,AIR_RACE_SPREAD,point.aim,{time,salt:'airRace'});

@@ -17,7 +17,7 @@ export interface TransitionRead {open:boolean;committed:number;lanes:TransitionO
 /** How far a runner who cannot read the game misjudges a break's race (in
  * advantage units: 0.5 is a second's lead), and how much a daring one
  * over-believes it (R2). A good reader errs by about a third of the spread. */
-export const RACE_SPREAD=.35,RACE_OPTIMISM=.1;
+export const RACE_SPREAD=WORLD.perception.transition.RACE_SPREAD.v,RACE_OPTIMISM=WORLD.perception.transition.RACE_OPTIMISM.v;
 /** Read a recent recovery from visible positions/momentum. A keeper is a valid
  * launch player. An organised block is not a counter merely because a timer
  * is running. Destinations remain invitations, not guaranteed receptions. */

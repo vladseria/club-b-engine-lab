@@ -138,7 +138,7 @@ export function readBlock(p:PracticePlayer,players:ReadonlyArray<PracticePlayer>
  * interception risk; how much a daring passer shades that risk down. The
  * receiver's room uses the passer's arrival-time read (ARRIVAL_SPREAD). A
  * good reader errs by about a third of these. */
-export const SLIDE_SPREAD=.8,LANE_SPREAD=.15,LANE_OPTIMISM=.05;
+export const SLIDE_SPREAD=WORLD.perception.teamApproach.SLIDE_SPREAD.v,LANE_SPREAD=WORLD.perception.teamApproach.LANE_SPREAD.v,LANE_OPTIMISM=WORLD.perception.teamApproach.LANE_OPTIMISM.v;
 /** What a delivery does for a patient side, from what the passer can see (0
  * when there is no defending block to read):
  *  - bypassed: defending outfielders it goes past (the lines it crosses);

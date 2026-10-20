@@ -51,7 +51,7 @@ export const TIGHT_BODY=WORLD.contact.duel.TIGHT_BODY.v,TIGHT_SPAN=WORLD.contact
 export const NICK_BASE=WORLD.contact.duel.NICK_BASE.v,NICK_FRONT=WORLD.contact.duel.NICK_FRONT.v,NICK_SCREEN=WORLD.contact.duel.NICK_SCREEN.v,NICK_SKILL=WORLD.contact.duel.NICK_SKILL.v,NICK_STRENGTH=WORLD.contact.duel.NICK_STRENGTH.v,NICK_READ=WORLD.contact.duel.NICK_READ.v,NICK_CLOSING=WORLD.contact.duel.NICK_CLOSING.v;
 /** How wrong his read of that chance can be (one who cannot read at all),
  * and how much a daring / eager defender adds to what he sees. */
-export const NICK_SPREAD=.25,NICK_DARING=.15,NICK_EAGER=.2;
+export const NICK_SPREAD=WORLD.perception.duel.NICK_SPREAD.v,NICK_DARING=WORLD.perception.duel.NICK_DARING.v,NICK_EAGER=WORLD.perception.duel.NICK_EAGER.v;
 /** What holding is worth to him, in the units of the nick (a ball won): a
  * touch he makes go loose is half a ball won (LOOSE_WORTH), a man forced to
  * play back or shield with his back to goal is worth FORCED_WORTH. He reads
@@ -75,7 +75,7 @@ export const NICK_CLEAN=WORLD.contact.duel.NICK_CLEAN.v;
 export const LOOSE_BASE=WORLD.contact.duel.LOOSE_BASE.v,LOOSE_FIRM=WORLD.contact.duel.LOOSE_FIRM.v,LOOSE_SKILL=WORLD.contact.duel.LOOSE_SKILL.v,LOOSE_COMPOSED=WORLD.contact.duel.LOOSE_COMPOSED.v,ROLL_BASE=WORLD.contact.duel.ROLL_BASE.v,ROLL_STRENGTH=WORLD.contact.duel.ROLL_STRENGTH.v,ROLL_CONTROL=WORLD.contact.duel.ROLL_CONTROL.v,ROLL_COMPOSED=WORLD.contact.duel.ROLL_COMPOSED.v;
 /** A forced receiver lays it off first time when the pressure he feels (his
  * own read, scaled by his nerve) reaches LAYOFF_FELT; otherwise he shields. */
-export const LAYOFF_FELT=WORLD.contact.duel.LAYOFF_FELT.v,LAYOFF_SPREAD=.3;
+export const LAYOFF_FELT=WORLD.contact.duel.LAYOFF_FELT.v,LAYOFF_SPREAD=WORLD.perception.duel.LAYOFF_SPREAD.v;
 /** How long a defender who was turned needs to plant and come back (s). */
 export const TURNED_TIME=WORLD.contact.duel.TURNED_TIME.v;
 

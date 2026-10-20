@@ -51,7 +51,7 @@ export const CARRY_LOSS=.35;
  * how they move, who they are. It replaces the flat contact cost a pressed
  * carry used to pay whoever was on the ball or pressing him (B2 card: a
  * playmaker and a heavy touch lost it as often as each other). */
-export const BEAT_SPREAD=.4,BEAT_OPTIMISM=.25,BEAT_NATURE=.4,DRIBBLE_TYPICAL=.33;
+export const BEAT_SPREAD=WORLD.perception.carry.BEAT_SPREAD.v,BEAT_OPTIMISM=WORLD.perception.carry.BEAT_OPTIMISM.v,BEAT_NATURE=WORLD.perception.carry.BEAT_NATURE.v,DRIBBLE_TYPICAL=WORLD.perception.carry.DRIBBLE_TYPICAL.v;
 export function carryLossRead(p:PracticePlayer,players:PracticePlayer[],contactRisk:number,opponent?:string,winOdds?:number):number{
  const d=opponent?players.find(q=>q.id===opponent):undefined;
  if(!d||contactRisk<=0)return 0;

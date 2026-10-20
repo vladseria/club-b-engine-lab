@@ -40,17 +40,17 @@ export const POSITIONAL_KINDS:ReadonlySet<string>=new Set(['support','hold','sho
 /** Cruise: the share of his pace, and of his acceleration, he chooses when nothing calls for more. */
 export const CRUISE=WORLD.motion.intensity.CRUISE.v,CRUISE_PUSH=WORLD.motion.intensity.CRUISE_PUSH.v;
 /** How quickly the ball can travel to a place once it is played (m/s), to judge the time he has. */
-export const BALL_REACH=14;
+export const BALL_REACH=WORLD.perception.intensity.BALL_REACH.v;
 /** A runner is read as going past him when, within RUN_LOOK s, he will be level with or beyond him. */
-export const RUN_LOOK=.8,RUN_NEAR=14,RUN_WIDE=9;
+export const RUN_LOOK=WORLD.perception.intensity.RUN_LOOK.v,RUN_NEAR=WORLD.perception.intensity.RUN_NEAR.v,RUN_WIDE=WORLD.perception.intensity.RUN_WIDE.v;
 /** How soon the next ball can be played when the carrier is not yet getting ready (s), and when it is loose or travelling. */
-export const CUE_CARRY=1.5,CUE_LOOSE=.3;
+export const CUE_CARRY=WORLD.perception.intensity.CUE_CARRY.v,CUE_LOOSE=WORLD.perception.intensity.CUE_LOOSE.v;
 /** A poor reader reads the passer getting ready this much later (s, at misread 1). */
-export const CUE_LATE=.35;
+export const CUE_LATE=WORLD.perception.intensity.CUE_LATE.v;
 /** He re-reads how hard to go this often (s), and whenever his job's kind or the side in possession changes. */
-export const INTENSITY_EVERY=.1;
+export const INTENSITY_EVERY=WORLD.perception.intensity.INTENSITY_EVERY.v;
 /** (threat round) A marker whose man he reads as a threat of THREAT_HURRY[0] goes as before; of THREAT_HURRY[1] or more, at full urgency while more than 1.5 m from his spot or while his man is moving. */
-export const THREAT_HURRY:readonly [number,number]=[.12,.3];
+export const THREAT_HURRY:readonly [number,number]=[WORLD.perception.intensity.THREAT_HURRY.from.v,WORLD.perception.intensity.THREAT_HURRY.full.v];
 /** (striker outlet) Attacking, moving up: the ball this far ahead of him (m) starts to hurry him, this far is everything he has. */
 export const LEFT_BEHIND:readonly [number,number]=[WORLD.geometry.intensity.LEFT_BEHIND.from.v,WORLD.geometry.intensity.LEFT_BEHIND.full.v];
 
@@ -137,7 +137,7 @@ export function readCue(reader:{id:string;side:number;skills:{reading:number;def
 /** A spot's own motion: its net displacement over the last DRIFT_WINDOW s (sampled every 0.1 s), so the
  * back-and-forth of successive re-plans cancels and only the way the spot is really going remains. A new kind
  * of job or a jump to a different place starts again from rest. */
-export const DRIFT_WINDOW=.8;
+export const DRIFT_WINDOW=WORLD.perception.intensity.DRIFT_WINDOW.v;
 export class SpotDrift{
  private spots=new Map<string,{kind:string;t:number[];x:number[];y:number[]}>();
  update(id:string,kind:string,aim:Vec,time:number):{x:number;y:number}{
@@ -164,7 +164,7 @@ export class SpotDrift{
  * the taker has the ball, and for a run timed to the kick, nothing changes. A
  * quick restart stays as quick as before: nobody who decides when it can be
  * taken slows down. */
-export const RESTART_WALK=WORLD.motion.intensity.RESTART_WALK.v,RESTART_EARLY=.7,RESTART_SET=.5;
+export const RESTART_WALK=WORLD.motion.intensity.RESTART_WALK.v,RESTART_EARLY=WORLD.perception.intensity.RESTART_EARLY.v,RESTART_SET=WORLD.perception.intensity.RESTART_SET.v;
 /** Seconds until the kick can come: the restart's earliest time, or when the last man it waits for arrives, plus the set moment. */
 export function restartKickIn(ready:number,time:number,waiting:{distance:number;speed:number}[]):number{
  let t=Math.max(0,ready-time);

@@ -56,7 +56,7 @@ import {WORLD} from './world.js';
 export const PRACTICE_VERSION='five-shared-1';
 /** The least time between two closing-lane rechecks of a prepared kick (honest-reads round): a minimum hold, so a
  * carrier does not re-plan every tick while a presser closes. */
-export const RELEASE_RECHECK=.1;
+export const RELEASE_RECHECK=WORLD.reaction.timing.RELEASE_RECHECK.v;
 /** (keeper upgrade, 2026-10-13) How set a keeper is at the strike, 0..1 (his edge, practice-football keeperEdge): still
  * (fully at rest, none at SET_STILL m/s), facing the ball (cos + SET_FACING) and at his ready spot (none SET_SPOT m off
  * it). Seeing a shooter shape to shoot (SET_READ + SET_READ_PER x reading s before the strike), he plants when he is
@@ -182,7 +182,7 @@ export function laneRisk(from:Vec,to:Vec,defenders:PracticePlayer[],speed=16,del
   // value is the one before to the last bit.
   for(let end=0;end<2;end++){
    const t=end===0?projection:Math.min(1,projection+.15);
-   const flight=length*t/speed,available=Math.max(0,flight+delay-.22),px=from.x+dx*t,py=from.y+dy*t;
+   const flight=length*t/speed,available=Math.max(0,flight+delay-WORLD.reaction.defender.reaction.v),px=from.x+dx*t,py=from.y+dy*t;
    const ux=px-p.x,uy=py-p.y,gap=Math.hypot(ux,uy),norm=gap||1,towards=p.vx*(ux/norm)+p.vy*(uy/norm);
    const reach=Math.max(0,Math.min(p.pace*available,towards*available+.5*p.acceleration*available*available));
    risk=Math.max(risk,clamp((reach+1.1-gap)/2,0,1));
@@ -709,7 +709,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
  // A defending keeper reads each new ball once his reaction time has passed,
  // and drops a sweep the moment somebody controls the ball, shoots, or plays it on.
  const keeperRereads=(p:PracticePlayer,intent:Intent)=>intent.kind==='sweep'?!!ball.owner||ball.mode==='shot'||intent.release!==releaseAt:
-  !ball.owner&&ball.mode!=='shot'&&intent.release!==releaseAt&&time-releaseAt>=.2+(10-p.skills.reading)*.015;
+  !ball.owner&&ball.mode!=='shot'&&intent.release!==releaseAt&&time-releaseAt>=WORLD.reaction.keeper.base.v+(10-p.skills.reading)*WORLD.reaction.keeper.per.v;
  const offball=(p:PracticePlayer):Intent=>{
   const t=tacticsFor(p.side),ownTeam=side===p.side,bd=depth(p.side,ball.x),pd=depth(p.side,p.x),laneY=p.lane*(p.role==='FB'||p.role==='W'?t.width==='narrow'?Y(21):Y(27):p.role==='CB'?Y(10):Y(13)),owner=ball.owner?get(ball.owner):null;
   const structure=teamShapes[p.side],slot=structure?.slots[p.id];
@@ -775,7 +775,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
     if(standing>x){x=standing;reason='Mingea trece de apărare; își ține poziția, gata să iasă, în loc să se retragă pe linie.';}
     // He comes when he reads he is there first, or level if he is a sweeper
     // (keeperSweepNeed): his own reaction, his own pace, his own read.
-    const samples=flightSamples(ball),meeting=flightMeeting(p,ball,Math.max(0,.2+(10-p.skills.reading)*.015-(time-releaseAt)),samples,time-releaseAt);
+    const samples=flightSamples(ball),meeting=flightMeeting(p,ball,Math.max(0,WORLD.reaction.keeper.base.v+(10-p.skills.reading)*WORLD.reaction.keeper.per.v-(time-releaseAt)),samples,time-releaseAt);
     const zone=(aerialDelivery?X(28):keeperSweepReach(sweep).range)+higher;
     if(meeting.reachable&&depth(p.side,meeting.aim.x)<zone){
      const since=time-flightAt,theirs=flight.theirs!-since,mate=(flight.defenders?.[0]?.score??Infinity)-since;
@@ -788,7 +788,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    }else if(!ownTeam&&!ball.owner&&ball.mode!=='shot'&&bd<WORLD.geometry.practice.sweepGroundFrom.v){
     if(aerialDelivery){
      const samples=flightSamples(ball),meeting=flightMeeting(p,ball,.2,samples,time-releaseAt),nearest=sidePlayers(other(p.side)).sort((a,b)=>dist(a,meeting.aim)-dist(b,meeting.aim)).slice(0,2);
-     const opponent=Math.min(...nearest.map(q=>{const m=flightMeeting(q,ball,.12,samples);return m.reachable?m.time:Infinity;}));
+     const opponent=Math.min(...nearest.map(q=>{const m=flightMeeting(q,ball,WORLD.reaction.passing.RECEIVER_REACTION.v,samples);return m.reachable?m.time:Infinity;}));
      if(meeting.reachable&&depth(p.side,meeting.aim.x)<X(28)+higher&&meeting.time<opponent+(.1+sweep*.35)){
       kind='sweep';x=depth(p.side,meeting.aim.x);y=meeting.aim.y;speed=p.pace;reason='Citește unde coboară mingea și iese să ajungă înaintea atacantului.';
      }
@@ -798,12 +798,12 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
      // trait sets the head start he wants and how far out he goes; inside
      // his area he may use his hands, outside it his feet (the contact rules).
      const {margin,range}=keeperSweepReach(sweep),samples=flightSamples(ball);
-     const meeting=flightMeeting(p,ball,Math.max(0,.2+(10-p.skills.reading)*.015-(time-releaseAt)),samples,time-releaseAt);
+     const meeting=flightMeeting(p,ball,Math.max(0,WORLD.reaction.keeper.base.v+(10-p.skills.reading)*WORLD.reaction.keeper.per.v-(time-releaseAt)),samples,time-releaseAt);
      if(meeting.reachable&&depth(p.side,meeting.aim.x)<range+higher){
       // Others' arrival: the earlier of the steered forecast and the coordinator's
       // arrival model (assignFlight), which credits a runner already moving onto
       // the ball; the keeper does not come on the chance that a runner is slow.
-      const arrival=(q:PracticePlayer)=>{const m=flightMeeting(q,ball,.12,samples);
+      const arrival=(q:PracticePlayer)=>{const m=flightMeeting(q,ball,WORLD.reaction.passing.RECEIVER_REACTION.v,samples);
        const run=samples.find(s=>s.z<1.1&&s.x>=0&&s.x<=L&&Math.abs(s.y)<=W/2&&arrivalTime(q,s)<=s.time+.12);
        return Math.min(m.reachable?m.time:Infinity,run?.time??Infinity);};
       // Anybody who can cut the ball out on its way counts, not only players near his point.
@@ -974,8 +974,8 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
     if(flight.receiver!==previousReceiver){reception=null;intercepts.clear();}
     // (step-across round) a clear run at goal: the defence looks again when the next man's own read of it falls due
     // (marking and shape round) ... and when the next marker's read of the passer's preparation falls due
-    const due=[coordination.defending?.clear?.next,coordination.defending?.cueNext].filter((d):d is number=>d!==undefined&&d>time&&d<time+.25);
-    assignmentAt=due.length?Math.min(...due):time+.25;
+    const due=[coordination.defending?.clear?.next,coordination.defending?.cueNext].filter((d):d is number=>d!==undefined&&d>time&&d<time+WORLD.reaction.cadence.assign.v);
+    assignmentAt=due.length?Math.min(...due):time+WORLD.reaction.cadence.assign.v;
    }else{
     if(owner){
      defense=assignDefense(players,owner,f.teams[other(side)].tactics,defense,unavailable);
@@ -1016,7 +1016,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
     restart.settle={at:time,aims:{...restart.settle?.aims,...settled.aims}};
    }
    if(restart.settle)for(const [id,aim] of Object.entries(restart.settle.aims)){const p=get(id);restart.live.jobs[id]={aim,speed:p.pace*.85,reason:p.side===restart.side?'Rămâne pe loc, la distanța regulamentară, până la execuție.':'Arbitrul cere distanța: stă pe loc până la execuție.'};}
-   restartAssignAt=time+.25;
+   restartAssignAt=time+WORLD.reaction.cadence.assign.v;
   }
   // (receive round) Whoever will meet the ball reads his reception while it is on its way (practice-receive): from his
   // read horizon on, every READ_EVERY s, the picture at his reception (the opponents where their momentum takes them by
@@ -1169,7 +1169,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    // A late pick-up of a runner from behind the shoulder: he carries on with
    // his job from before a moment longer. Going for the ball is never delayed.
    const job=lapse&&time<lapse.until&&lapse.attacking===side&&planned!.purpose==='mark'?lapse.job:planned;
-   if(coordinatedOutfield)intent={kind:job?.kind??'hold',aim:job?.aim??{x:p.x,y:p.y},speed:job?.speed??0,reason:job?.reason??'Așteaptă o responsabilitate.',since:time,until:time+.25,teamSide:side};
+   if(coordinatedOutfield)intent={kind:job?.kind??'hold',aim:job?.aim??{x:p.x,y:p.y},speed:job?.speed??0,reason:job?.reason??'Așteaptă o responsabilitate.',since:time,until:time+WORLD.reaction.cadence.assign.v,teamSide:side};
    else if(!intent||time>=intent.until||intent.teamSide!==side||p.role==='GK'&&side!==p.side&&keeperRereads(p,intent)){intent=offball(p);intents.set(p.id,intent);}
    let aim=intent!.aim,limit=intent!.speed,kind=intent!.kind,reason=intent!.reason,trackingVelocity:Vec|undefined=job?.velocity;
 
@@ -1219,7 +1219,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
     const recoveringStep=recovering.get(p.id);
     if(recoveringStep&&time<recoveringStep.until&&p.side!==side){aim=recoveryPosition(p,get(recoveringStep.opponent));kind='recover';reason='A ratat intrarea; își reface poziția înainte să încerce din nou.';trackingVelocity=undefined;}
     if(challenge?.defender===p.id){aim=challenge.aim;trackingVelocity=challenge.velocity;kind='challenge';reason=challenge.read.reason;limit=p.pace*.94;}
-    if(ball.mode==='pass'&&flight.receiver===p.id&&hunters.includes(p.id)&&time-releaseAt>.12){if(!reception||time>=receptionAt){reception=aerialDelivery?flightMeeting(p,ball).aim:receptionTarget(p,ball);receptionAt=time+.2;}aim=reception;limit=p.pace;kind='receive';reason=p.id===intended?'Ajustează cursa la traiectoria reală a pasei.':'Preia cursa spre pasă; colegul poate oferi următoarea soluție.';}
+    if(ball.mode==='pass'&&flight.receiver===p.id&&hunters.includes(p.id)&&time-releaseAt>WORLD.reaction.passing.RECEIVER_REACTION.v){if(!reception||time>=receptionAt){reception=aerialDelivery?flightMeeting(p,ball).aim:receptionTarget(p,ball);receptionAt=time+.2;}aim=reception;limit=p.pace;kind='receive';reason=p.id===intended?'Ajustează cursa la traiectoria reală a pasei.':'Preia cursa spre pasă; colegul poate oferi următoarea soluție.';}
     else if(!owner&&kind!=='block'&&hunters.includes(p.id)&&time-releaseAt>.2){let meeting=intercepts.get(p.id);if(!meeting||time>=meeting.at){meeting={at:time+.25,aim:flight.meetings[p.id]??(aerialDelivery?flightMeeting(p,ball).aim:receptionTarget(p,ball))};intercepts.set(p.id,meeting);}aim=meeting.aim;limit=p.pace*.93;kind='intercept';reason='Caută un punct de întâlnire cu mingea, în loc să alerge în urma ei.';}
     const read=p.role==='GK'?readKeeperFlight(p,ball,time-releaseAt,edgeOf(p)):null;
     // A ball his own side played (a back-pass, a throw, a clearance gone astray)
@@ -1227,7 +1227,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
     const mates=!!read&&p.side===side&&ball.mode!=='shot';
     if(mates&&kind!=='receive'&&kind!=='intercept'){aim=read!.aim;limit=p.pace;kind='receive';reason='Mingea vine de la un coleg; se așază în calea ei ca s-o preia.';trackingVelocity=undefined;}
     const incoming=mates?null:read;
-    if(incoming&&!(kind==='sweep'&&ball.mode!=='shot')&&time-releaseAt>.2+(10-p.skills.reading)*.015-edgeOf(p).reactionCut){
+    if(incoming&&!(kind==='sweep'&&ball.mode!=='shot')&&time-releaseAt>WORLD.reaction.keeper.base.v+(10-p.skills.reading)*WORLD.reaction.keeper.per.v-edgeOf(p).reactionCut){
      aim=incoming.aim;limit=p.pace;kind='keeper';reason='Mingea vine spre poartă; citește traiectoria și încearcă s-o oprească.';trackingVelocity=undefined;
      const previous=dives.get(p.id);
      if(previous&&time<previous.until)previous.aim=aim;

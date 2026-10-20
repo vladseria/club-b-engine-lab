@@ -82,13 +82,13 @@ export const CENTRAL=WORLD.geometry.defending.CENTRAL.v;
 /** A man ahead of the ball (nearer our goal than it by AHEAD m) matters out to DANGER_R + AHEAD_R. */
 export const AHEAD=2,AHEAD_R=WORLD.geometry.defending.AHEAD_R.v;
 /** A runner (RUN_GOALWARD m/s at our goal, as seen) matters out to DANGER_R + RUN_R, read RUN_LEAD s ahead. */
-export const RUN_GOALWARD=3.5,RUN_LEAD=.7,RUN_R=WORLD.geometry.defending.RUN_R.v;
+export const RUN_GOALWARD=3.5,RUN_LEAD=WORLD.perception.defending.RUN_LEAD.v,RUN_R=WORLD.geometry.defending.RUN_R.v;
 /** A marker reads where his man is going: his seen velocity this far ahead (s), further for a runner. */
-export const READ_AHEAD=.4,TRACK_LEAD=.55;
+export const READ_AHEAD=WORLD.perception.defending.READ_AHEAD.v,TRACK_LEAD=WORLD.perception.defending.TRACK_LEAD.v;
 /** ... and matches this share of his velocity (all of it for a runner): his spot already leads the man, and a man who stops must not be overrun. */
 export const VELOCITY_SHARE=.25,RUN_VELOCITY_SHARE=.5;
 /** Who can take a runner is judged on where he will be this far ahead (s). */
-export const TAKE_LEAD=.9,CHASE=.8,BEHIND_PRICE=1;
+export const TAKE_LEAD=WORLD.perception.defending.TAKE_LEAD.v,CHASE=.8,BEHIND_PRICE=1;
 /** A wide man (|y| > BEHIND_WIDE) BEHIND m behind the ball (further from our
  * goal than it) matters by distance only within DANGER_R - BEHIND_R: out
  * there he is no threat to the goal until the ball comes back to him. (A
@@ -99,7 +99,7 @@ export const SPARE_BEHIND=WORLD.geometry.defending.SPARE_BEHIND.v,SPARE_R=WORLD.
 /** The read of how far a man is from our goal is the defender's own: off by
  * up to DANGER_SPREAD of the distance (plus half a metre) for a player who
  * cannot read the game at all; a typical reader is off by a third of that. */
-export const DANGER_SPREAD=.12;
+export const DANGER_SPREAD=WORLD.perception.defending.DANGER_SPREAD.v;
 /** His own man keeps mattering a little longer (hysteresis, m). */
 export const KEEP_MATTER=WORLD.geometry.defending.KEEP_MATTER.v;
 /** What an unowned man costs the team's choice (s of run). A watched man is
@@ -115,8 +115,8 @@ export const KEEP:Record<NonNullable<Tactics['marking']>,number>=S.view(S.MARKIN
 export const KEEP_BALL=.5,KEEP_RUNNER=4,KEEP_BEATEN=.3,KEEP_CROSSING=.15,CROSS_GAP=3.5;
 const SHIFT=KEEP_RUNNER+2.5;
 /** Two of us on one man: seen within DUP_SEE m, looked at every DUP_EVERY s between solves. */
-export const DUP_SEE=2.5,DUP_EVERY=.15;
-export const SWITCH_GAIN=.35,SOLVE_EVERY=.5,CALL_FAST=.25,CALL_SLOW=.6,RUN_CAP=6,VISIBLE_MARK=2;
+export const DUP_SEE=WORLD.perception.defending.DUP_SEE.v,DUP_EVERY=WORLD.perception.defending.DUP_EVERY.v;
+export const SWITCH_GAIN=.35,SOLVE_EVERY=WORLD.perception.defending.SOLVE_EVERY.v,CALL_FAST=WORLD.perception.defending.CALL_FAST.v,CALL_SLOW=WORLD.perception.defending.CALL_SLOW.v,RUN_CAP=6,VISIBLE_MARK=2;
 /** (threat round, item 3: commitment) A defender keeps the job he has chosen (a man, the cover, the balance)
  * unless the picture clearly changes. For COMMIT s after taking it (COMMIT.fast for a sharp reader, COMMIT.slow for
  * one who cannot read the game) another job must improve the team's choice on his picture by COMMIT_GAIN (s of
@@ -132,8 +132,8 @@ export const SWITCH_GAIN=.35,SOLVE_EVERY=.5,CALL_FAST=.25,CALL_SLOW=.6,RUN_CAP=6
  * two defenders swapped a man and the balance spot between them every 0.5 s, each acting on calls the other had
  * already taken back (evidence/2026-10-10-movement-intensity series.mjs). */
 /** (threat round) An exchange made around the man on the ball holds PIN s (the next look and the presser-beaten check used to undo the step across, and back). */
-export const PIN=.8;
-export const COMMIT={fast:1,slow:2},COMMIT_GAIN=2,SETTLE_GAIN=.7,HANDOVER_THREAT=.15,LEAVE_MARGIN=.12,FLIP_BACK=1.5,FLIP_GAIN=3;
+export const PIN=WORLD.perception.defending.PIN.v;
+export const COMMIT={fast:WORLD.perception.defending.COMMIT.fast.v,slow:WORLD.perception.defending.COMMIT.slow.v},COMMIT_GAIN=2,SETTLE_GAIN=.7,HANDOVER_THREAT=.15,LEAVE_MARGIN=.12,FLIP_BACK=WORLD.perception.defending.FLIP_BACK.v,FLIP_GAIN=3;
 export function commitFor(p:PracticePlayer):number{return COMMIT.slow-(COMMIT.slow-COMMIT.fast)*acuity(p,'threat');}
 /** Where the presser engages the man on the ball (m of the carrier from our
  * goal, by Press, plus the Line's shift); beyond it he waits HOLD m off him,
@@ -141,12 +141,12 @@ export function commitFor(p:PracticePlayer):number{return COMMIT.slow-(COMMIT.sl
 export const ENGAGE:Record<Tactics['press'],number>=S.view(S.PRESS,'engage');
 export const ENGAGE_LINE:Record<Tactics['line'],number>=S.view(S.LINE,'engageShift');
 /** (threat round) ... and a carrier whose own threat (practice-threat carrierThreat: his shot, or his drive at goal) the presser reads at ENGAGE_THREAT or more is engaged wherever he is (misread by up to THREAT_SPREAD_C). */
-export const ENGAGE_THREAT=.3,THREAT_SPREAD_C=.1;
+export const ENGAGE_THREAT=.3,THREAT_SPREAD_C=WORLD.perception.defending.THREAT_SPREAD_C.v;
 export const HOLD:Record<Tactics['press'],number>=S.view(S.PRESS,'hold');
 /** The presser stands a little inside the man (shows him away from the middle). */
 export const SHOW=.6;
 /** A clear run at goal: the carrier within CLEAR_R m of our goal (CLEAR_R_RUN m running at it) with nobody of ours in his path (CLEAR_W m either side of it, widening CLEAR_W_GROW per m towards the goal); seen CLEAR_SEE..CLEAR_SEE+CLEAR_SLOW s after it opened, by reading, CLEAR_KEEN s sooner for a keen player. */
-export const CLEAR_R=WORLD.geometry.defending.CLEAR_R.v,CLEAR_R_RUN=WORLD.geometry.defending.CLEAR_R_RUN.v,CLEAR_W=1.6,CLEAR_W_GROW=.12,CLEAR_SEE=.15,CLEAR_SLOW=.45,CLEAR_KEEN=.2;
+export const CLEAR_R=WORLD.geometry.defending.CLEAR_R.v,CLEAR_R_RUN=WORLD.geometry.defending.CLEAR_R_RUN.v,CLEAR_W=1.6,CLEAR_W_GROW=.12,CLEAR_SEE=WORLD.perception.defending.CLEAR_SEE.v,CLEAR_SLOW=WORLD.perception.defending.CLEAR_SLOW.v,CLEAR_KEEN=WORLD.perception.defending.CLEAR_KEEN.v;
 /** Near our goal (the man on the ball within NEAR_BLOCK m) the presser must be the block: goal-side of him within BLOCK_REACH m, or a team-mate who is steps in. */
 export const NEAR_BLOCK=WORLD.geometry.defending.NEAR_BLOCK.v,BLOCK_REACH=3;
 /** Marking distance off the man (one pass away or near goal), by Marking. */
@@ -183,7 +183,7 @@ export const BALANCE_FLOOR=4,BALANCE_CUSHION=1;
  * ball, out of range), and gives it up for a loose far man COVER_DROP_FAR m nearer our goal. */
 export const COVER_DROP_R:Record<Tactics['line'],number>=S.view(S.LINE,'coverDrop');
 export const COVER_DROP_NEAR=4,COVER_DROP_DEEP=2.5,COVER_DROP_BELOW=1,COVER_DROP_MAX=4.5,COVER_DROP_ACROSS=1.5,COVER_DROP_OFF=1.5,COVER_DROP_WIDE=WORLD.geometry.defending.COVER_DROP_WIDE.v;
-export const COVER_DROP_SEE=.15,COVER_DROP_SLOW=.45,COVER_DROP_SPREAD=.15,COVER_DROP_FAR=WORLD.geometry.defending.COVER_DROP_FAR.v,COVER_DROP_FREE=WORLD.geometry.defending.COVER_DROP_FREE.v,COVER_DROP_KEEP=WORLD.geometry.defending.COVER_DROP_KEEP.v;
+export const COVER_DROP_SEE=WORLD.perception.defending.COVER_DROP_SEE.v,COVER_DROP_SLOW=WORLD.perception.defending.COVER_DROP_SLOW.v,COVER_DROP_SPREAD=WORLD.perception.defending.COVER_DROP_SPREAD.v,COVER_DROP_FAR=WORLD.geometry.defending.COVER_DROP_FAR.v,COVER_DROP_FREE=WORLD.geometry.defending.COVER_DROP_FREE.v,COVER_DROP_KEEP=WORLD.geometry.defending.COVER_DROP_KEEP.v;
 /** (threat round) The cover's man: the most threatening of those he could cover, COVER_DROP_THREAT m nearer per unit of threat. */
 export const COVER_DROP_THREAT=WORLD.geometry.defending.COVER_DROP_THREAT.v;
 /** Cover: no further than COVER_FAR s from the cover point; the previous cover keeps it (COVER_KEEP s). */
@@ -207,7 +207,7 @@ export const COLLECT_MARGIN=.15,COLLECT_NEAR=4,COLLECT_WIN=.4,COLLECT_MAN=4;
  * aerial, strength: duelSkill), about 0.2 s for a typical one. Otherwise he holds goal-side: he closes his man as a
  * marker does (1 m goal-side of the meeting), so the attacker gets the ball but not the space behind him. A sharp
  * reader sees "I am not getting there" correctly; a poor one sometimes goes when he should not. */
-export const COLLECT_SPREAD=.6,DUEL_SKILL=.25;
+export const COLLECT_SPREAD=WORLD.perception.defending.COLLECT_SPREAD.v,DUEL_SKILL=.25;
 export const duelSkill=(p:{skills:{defending:number;aerial:number;strength:number}})=>clamp((.5*p.skills.defending+.3*p.skills.aerial+.2*p.skills.strength-5)/5,0,1);
 export const duelWindow=(p:{skills:{defending:number;aerial:number;strength:number}})=>COLLECT_MARGIN+DUEL_SKILL*duelSkill(p);
 /** B3 (2026-10-09), answering the long ball. A pass the defence reads being
@@ -222,7 +222,7 @@ export const duelWindow=(p:{skills:{defending:number;aerial:number;strength:numb
  * their men. When the keeper has called it (he is coming), nobody goes for
  * it near him: the receiver's defender screens instead, in the runner's path
  * SCREEN_STEP m in front of him. */
-export const CONTEST_WITHIN=.5,CONTEST_SPREAD=.6,CONTEST_GOALSIDE=.4,SCREEN_STEP=1.2,KEEPER_ZONE=4;
+export const CONTEST_WITHIN=.5,CONTEST_SPREAD=WORLD.perception.defending.CONTEST_SPREAD.v,CONTEST_GOALSIDE=.4,SCREEN_STEP=1.2,KEEPER_ZONE=4;
 /** (contest round, 2026-10-15) Where the contesting defender meets it. Always CONTEST_GOALSIDE m goal-side of the
  * meeting point before, so he arrived second to every ball played towards goal and the touch was never his. Now he
  * weighs stepping in front: when his own read says he gets there with the receiver (STEP_WINDOW s late or better) he
@@ -230,7 +230,7 @@ export const CONTEST_WITHIN=.5,CONTEST_SPREAD=.6,CONTEST_GOALSIDE=.4,SCREEN_STEP
  * turned there allows (stepInWillingness: his daring and appetite against the cost of being beaten this near goal
  * with nobody behind him). A late read, or a cautious man, keeps him goal-side as before. The reception duel
  * (practice-duel.ts) then decides the touch. */
-export const STEP_WINDOW=.3,STEP_IN=.35;
+export const STEP_WINDOW=WORLD.perception.defending.STEP_WINDOW.v,STEP_IN=.35;
 /** Spacing between free defenders' spots (m). */
 export const SPACING=2.2,FREE_GAP=3.2,SCREEN_OFF=WORLD.geometry.defending.SCREEN_OFF.v;
 /** A sagging marker keeps SAG_CLEAR m off a man a team-mate has. */
@@ -415,7 +415,7 @@ export function readMan(d:PracticePlayer,a:PracticePlayer,input:Pick<DefendInput
  * gap itself: now 0.1 s for a man who cannot read the game (he sees the run at about its speed as seen), 0.8 s for
  * a sharp one (about the whole first acceleration of a run, the most a look can carry ahead), so a 3 reads it at
  * 0.31 s, a 6 at 0.52 s, a 9 at 0.73 s: a good reader spots it a fifth of a second before an average one.) */
-export const RUN_LOOK=.2,RUN_SET=1,RUN_AIM=.6,RUN_SPREAD=1.2,RUN_EARLY={min:.1,max:.8};
+export const RUN_LOOK=WORLD.perception.defending.RUN_LOOK.v,RUN_SET=WORLD.perception.defending.RUN_SET.v,RUN_AIM=WORLD.perception.defending.RUN_AIM.v,RUN_SPREAD=WORLD.perception.defending.RUN_SPREAD.v,RUN_EARLY={min:WORLD.perception.defending.RUN_EARLY.min.v,max:WORLD.perception.defending.RUN_EARLY.max.v};
 export function readRun(d:PracticePlayer,a:PracticePlayer,v:PracticePlayer,input:Pick<DefendInput,'defending'|'time'|'view'>,da:number,db:number,g:Vec):PracticePlayer|undefined{
  const {defending,time}=input;
  if(goalward(v,defending)<RUN_SET)return undefined;
@@ -688,9 +688,9 @@ export function solveMen(input:DefendInput,ref:Vec):DefendMemory{
  *  - the man who matters most to him (the nearest our goal of those ahead of
  *    the ball, in his own read) gets less sag towards the ball (PRIORITY_SAG). */
 export const HABIT_IN=WORLD.geometry.defending.HABIT_IN.v,HABIT_FAR=WORLD.geometry.defending.HABIT_FAR.v,RUN_HABIT=WORLD.geometry.defending.RUN_HABIT.v;
-export const LEAD={min:.25,max:.55,spread:.15,run:.15};
+export const LEAD={min:WORLD.perception.defending.LEAD.min.v,max:WORLD.perception.defending.LEAD.max.v,spread:WORLD.perception.defending.LEAD.spread.v,run:WORLD.perception.defending.LEAD.run.v};
 export const ARRIVE=3,CLOSE=2;
-export const PRIORITY_SAG=.4,SAG_REACT=.3;
+export const PRIORITY_SAG=.4,SAG_REACT=WORLD.perception.defending.SAG_REACT.v;
 /** How fully the goal-side habit holds for a man (as this defender reads his distance from our goal). */
 export function habit(dg:number,running:boolean):number{return clamp((HABIT_FAR-(dg-(running?RUN_HABIT:0)))/(HABIT_FAR-HABIT_IN),0,1);}
 /** The part of his man's movement a marker follows near our goal (see above). */
@@ -710,7 +710,7 @@ export function markLead(q:PracticePlayer,r:Pick<ManRead,'id'|'v'|'running'>,tim
  * legs, and late if the passer is outside his view; he is watching the ball, not a flight), and from then closes
  * goal-side of where he reads it going (CUE_SPREAD of the pass's length off for a player who cannot read the game)
  * as he does once it is struck. A preparation abandoned leaves him a step committed: a clever passer can use it. */
-export const CUE_SPREAD=.3;
+export const CUE_SPREAD=WORLD.perception.defending.CUE_SPREAD.v;
 export function cueDelay(q:PracticePlayer,passer:Vec,ball:Vec,since:number):number{
  return sightLag(q,{energy:q.energy,inView:inView(q,lookingAt(q,ball),passer),watching:0,at:passer,time:since,salt:'cue'});
 }
@@ -735,7 +735,7 @@ const onSegment=(v:Vec,a:Vec,b:Vec):Vec=>{const dx=b.x-a.x,dy=b.y-a.y,d2=dx*dx+d
  * round: 5-6 m off a shooter at 10 m let him turn and shoot). */
 export const TIGHT_IN=WORLD.geometry.defending.TIGHT_IN.v,TIGHT_FADE=WORLD.geometry.defending.TIGHT_FADE.v,TIGHT_MAX=1.5;
 /** A marker on his way to a man moving faster than INTERCEPT_SPEED m/s reads him INTERCEPT_SHARE of his own run ahead, up to INTERCEPT_MAX s. */
-export const INTERCEPT_SPEED=1.5,INTERCEPT_SHARE=.8,INTERCEPT_MAX=1.2;
+export const INTERCEPT_SPEED=1.5,INTERCEPT_SHARE=WORLD.perception.defending.INTERCEPT_SHARE.v,INTERCEPT_MAX=WORLD.perception.defending.INTERCEPT_MAX.v;
 /** He sits on the side his man wants to go (his velocity, else his facing), up
  * to SIDE_SHADE m across the man's line to goal; a wide man near goal is
  * shown outside (the marker leans inside, INSIDE_LEAN). */
@@ -752,7 +752,7 @@ export const LINE_NEAR=5;
  * overrun. And the diagonal cover of a man within COVER_SINK m of goal who already has a marker goal-side of him
  * stands no deeper than that marker: one defender per runner. Measured on the combined build: markers sat a median
  * 3.3 m goal-side, overshot by 2-3 m, and 52% ended behind their keeper (evidence/2026-10-10-role-goalline-check). */
-export const HOLD_IN=WORLD.geometry.defending.HOLD_IN.v,GOAL_HOLD=1.2,HOLD_READ=.8,BRAKE_NEAR=6,COVER_SINK=WORLD.geometry.defending.COVER_SINK.v;
+export const HOLD_IN=WORLD.geometry.defending.HOLD_IN.v,GOAL_HOLD=1.2,HOLD_READ=WORLD.perception.defending.HOLD_READ.v,BRAKE_NEAR=6,COVER_SINK=WORLD.geometry.defending.COVER_SINK.v;
 /** (threat round) Tightness follows threat: a man this defender reads as a threat of TIGHT_THREAT[0] or less is
  * marked as before (cushions and sag where he is far from the ball or from goal: watched, zonally), one of
  * TIGHT_THREAT[1] or more tightly: no cushion beyond MARK_GAP (the Marking setting's distance), no sag off him,
@@ -895,7 +895,7 @@ export function holdFrontCushion(q:PracticePlayer,man:PracticePlayer,threat:numb
  * off it, 10% blocked and 19% score; nobody between, 39% score.) */
 export const PROTECT_R:Record<Tactics['line'],number>=S.view(S.LINE,'protectRange');
 export const PROTECT:Record<Tactics['line'],number>=S.view(S.LINE,'protectShare');
-export const PROTECT_FADE=WORLD.geometry.defending.PROTECT_FADE.v,PROTECT_OFF=1.5,PROTECT_NEAR=3.5,PROTECT_FRONT=.35,PROTECT_BETTER=1.6,PROTECT_READ=.6,PROTECT_SPREAD=WORLD.geometry.defending.PROTECT_SPREAD.v,PROTECT_ON=.3;
+export const PROTECT_FADE=WORLD.geometry.defending.PROTECT_FADE.v,PROTECT_OFF=1.5,PROTECT_NEAR=3.5,PROTECT_FRONT=.35,PROTECT_BETTER=1.6,PROTECT_READ=WORLD.perception.defending.PROTECT_READ.v,PROTECT_SPREAD=WORLD.geometry.defending.PROTECT_SPREAD.v,PROTECT_ON=.3;
 /** How good a shot from here looks: goal angle times nearness (the shooter's assessShot terms, without the people). */
 const openShot=(v:Vec,g:Vec)=>{const d=distance(v,g),x=Math.max(.01,Math.abs(g.x-v.x));return Math.abs(Math.atan2(GH-v.y,x)-Math.atan2(-GH-v.y,x))*clamp(1-d/WORLD.geometry.defending.openShotReach.v,.05,1);};
 /** His share of the way to the lane, by his man's chance against the ball's (1 = the man is no better placed). */

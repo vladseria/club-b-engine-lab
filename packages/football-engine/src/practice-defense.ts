@@ -24,7 +24,7 @@ export interface DefensiveMovement {kind:'press'|'jockey';aim:Vec;velocity:Vec;s
  * at most RUNNER_LAPSE_MAX. Only a switch from closing the ball (a press) to
  * marking that runner is delayed; going for the ball never is. A runner in
  * view, or one who is barely moving, is picked up at once, as before. */
-export const RUNNER_LAPSE_MAX=.3,RUNNER_VIEW=100*Math.PI/180,RUNNER_SPEED=2.5;
+export const RUNNER_LAPSE_MAX=WORLD.perception.defense.RUNNER_LAPSE_MAX.v,RUNNER_VIEW=WORLD.perception.defense.RUNNER_VIEW.v*Math.PI/180,RUNNER_SPEED=WORLD.perception.defense.RUNNER_SPEED.v;
 export function runnerPickupDelay(reading:number):number{
  return RUNNER_LAPSE_MAX*(1-.75*clamp(reading/10,0,1));
 }
@@ -45,10 +45,10 @@ export {arrivalTime};
  * when the receiver plays it on within QUICK_RELEASE and the next ball goes
  * away from that defender (a lay-off, a wall pass), he is not counted; for a
  * slower release, or one played past him, he is. Visible positions only. */
-export const BACK_REACH=5,QUICK_RELEASE=.45;
+export const BACK_REACH=WORLD.perception.defense.BACK_REACH.v,QUICK_RELEASE=WORLD.perception.defense.QUICK_RELEASE.v;
 /** Nobody reads where such a quick ball goes before it is played: the others
  * start for it from the reception, this long late (attacking-space). */
-export const QUICK_REACT=.25;
+export const QUICK_REACT=WORLD.perception.defense.QUICK_REACT.v;
 export function releaseClosing(defenders:readonly PracticePlayer[],aim:Vec,from:Vec,next:Vec,prepare:number):number{
  const dx=aim.x-from.x,dy=aim.y-from.y,d2=dx*dx+dy*dy||1;
  let closing=Infinity;
@@ -235,7 +235,7 @@ export interface ReceivingAssignment {intended?:string;passer?:string;previous?:
  * of slack on a ground ball he steps into (he is off the mark sooner), LANE_READ.air s off his reaction to a ball
  * in the air, LANE_READ.margin s more daring when the defence picks its man for the ball, and his feet set for
  * the ball's path as a reader and defender (practice-control receivingContact). */
-export const LANE_READ={slack:.1,air:.08,margin:.1};
+export const LANE_READ={slack:WORLD.perception.defense.LANE_READ.slack.v,air:WORLD.perception.defense.LANE_READ.air.v,margin:WORLD.perception.defense.LANE_READ.margin.v};
 export function laneSkill(p:{skills:{defending:number;reading:number}}):number{return clamp(((p.skills.defending+p.skills.reading)/2-5)/5,0,1);}
 /** Read reachable points on the visible flight; each team sends one challenger. */
 export function assignFlight(players:PracticePlayer[],ball:import('./movement.js').MovingBall,attacking:0|1,unavailable:ReadonlySet<string>=new Set(),receiving:ReceivingAssignment={}):FlightAssignment{

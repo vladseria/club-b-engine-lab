@@ -45,7 +45,7 @@ export const CARRY_CLOSE=WORLD.body.control.CARRY_CLOSE.v,CARRY_OPEN=WORLD.body.
  * the 'carry' read) knocks it on with ~3.3 m clear, a typical one ~3.9 m, an
  * unsure one ~4.3 m; and he judges that gap with his own error (up to
  * CARRY_SPREAD m for one who cannot read it at all). */
-export const CARRY_ROOM=4,CARRY_SPREAD=2;
+export const CARRY_ROOM=WORLD.perception.control.CARRY_ROOM.v,CARRY_SPREAD=WORLD.perception.control.CARRY_SPREAD.v;
 export function carryPace(p:Vec&{pace:number}&Reader,aim:Vec,opponents:readonly Vec[]):number{
  const dx=aim.x-p.x,dy=aim.y-p.y,len=Math.hypot(dx,dy);
  if(len<.5)return p.pace*CARRY_CLOSE;

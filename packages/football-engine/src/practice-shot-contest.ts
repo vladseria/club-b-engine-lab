@@ -57,7 +57,7 @@ export const FIRST_TIME=WORLD.contact.shotContest.FIRST_TIME.v;
  *    plain to see, and what it does to the shot is missed mostly by men who read the game badly. A good reader (8/7)
  *    now sees about 0.93 of it ("a good reader sees nearly all", the owner; it was 0.76), a typical one (6/6) about
  *    0.84 (0.63), a poor one (3/3) still only about 0.6, and less reliably (the spread is unchanged). */
-export const HURRY_COST=.7,HURRY_CURVE=1.5,HURRY_UNDER=.8,HURRY_SPREAD=.5,HURRY_SEEN_MAX=1.3;
+export const HURRY_COST=WORLD.perception.shotContest.HURRY_COST.v,HURRY_CURVE=WORLD.perception.shotContest.HURRY_CURVE.v,HURRY_UNDER=WORLD.perception.shotContest.HURRY_UNDER.v,HURRY_SPREAD=WORLD.perception.shotContest.HURRY_SPREAD.v,HURRY_SEEN_MAX=WORLD.perception.shotContest.HURRY_SEEN_MAX.v;
 /** What the hurry really costs a shot's chance, as a share of it (before anyone's read of it). */
 export const hurryTruth=(hurry:number)=>HURRY_COST*clamp(hurry,0,1)**HURRY_CURVE;
 export function hurryCost(p:Pick<PracticePlayer,'skills'|'traits'|'id'|'side'>,hurry:number,at:Vec,time?:number):number{
@@ -72,7 +72,7 @@ export function hurryCost(p:Pick<PracticePlayer,'skills'|'traits'|'id'|'side'>,h
  * and balance, the one place pressure enters), misjudged as a whole by his reading and finishing (perceive, read
  * 'shot': a relative error up to SHOT_SPREAD for a man who cannot read it, held at SHOT_READ_MIN..SHOT_READ_MAX of
  * it). No temperament in it: a daring, nervous or composed man with the same skills reads the same chance. */
-export const SHOT_SPREAD=.3,SHOT_READ_MIN=.5,SHOT_READ_MAX=1.6;
+export const SHOT_SPREAD=WORLD.perception.shotContest.SHOT_SPREAD.v,SHOT_READ_MIN=WORLD.perception.shotContest.SHOT_READ_MIN.v,SHOT_READ_MAX=WORLD.perception.shotContest.SHOT_READ_MAX.v;
 export function shotRead(p:Pick<PracticePlayer,'skills'|'traits'|'id'|'side'>,open:number,hurry:number,at:Vec,time?:number):number{
  return open*clamp(perceive(p,'shot',1,SHOT_SPREAD,at,{time,salt:'chance'}),SHOT_READ_MIN,SHOT_READ_MAX)*(1-clamp(hurryCost(p,hurry,at,time),0,.9));
 }

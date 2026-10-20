@@ -238,7 +238,7 @@ export function teamShape(players:PracticePlayer[],ball:MovingBall,attacking:Sid
  * his reading, his legs (a tired player reacts slower) and whether the man
  * is in front of him or running from behind his shoulder. */
 export const LINE_CUSHION:Record<Tactics['line'],number|null>=S.view(S.LINE,'cushion');
-export const LINE_SPREAD=3,LINE_LEAD=.5,LINE_VIEW=100*Math.PI/180;
+export const LINE_SPREAD=WORLD.perception.shape.LINE_SPREAD.v,LINE_LEAD=WORLD.perception.shape.LINE_LEAD.v,LINE_VIEW=WORLD.perception.shape.LINE_VIEW.v*Math.PI/180;
 /** In possession, how high the back line may support the attack regardless
  * of the opponents (m from own goal): a deep line keeps its old cap; standard
  * and high are held back only by their cushion (the shape's unit, and each
@@ -302,7 +302,7 @@ export function lineReaction(p:PracticePlayer,seen:{behind:boolean}|null,droppin
  * offset plus the setting's reach. The single front screen (ST) keeps his
  * place. Players under an explicit instruction, and the attackers they are
  * told to mark, are left to that instruction (`ignore`). */
-export const THREAT_SPREAD=.5,MAN_SPREAD=2;
+export const THREAT_SPREAD=WORLD.perception.shape.THREAT_SPREAD.v,MAN_SPREAD=WORLD.perception.shape.MAN_SPREAD.v;
 export function blockPulls(players:readonly PracticePlayer[],side:Side,base:readonly {p:PracticePlayer;x:number;y:number}[],shift:number,focus:Vec,bd:number,width:Tactics['width'],carrier:string|undefined,ignore:ReadonlySet<string>=new Set(),time?:number,sight?:Sight):Record<string,number>{
  const {follow,reach}=WIDTH[width];
  const zone=base.filter(b=>b.p.role!=='ST'&&!ignore.has(b.p.id));

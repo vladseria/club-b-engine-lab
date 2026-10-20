@@ -1,6 +1,7 @@
 import {clamp} from './model.js';
 import {L} from './pitch.js';
 import type {Vec} from './movement.js';
+import {WORLD} from './world.js';
 
 /** What the engine knows is not what the player knows (R2, 2026-10-01).
  *
@@ -35,17 +36,17 @@ const trait=(p:Reader,k:'risk'|'dribble'|'discipline'|'engagement',typical:numbe
 export function acuity(p:Reader,read:Read):number{
  const s=p.skills??{},r=skill(s.reading);
  switch(read){
-  case 'arrival':case 'lane':return .6*r+.4*skill(s.passing);
-  case 'shot':return .6*r+.4*skill(s.finishing);
-  case 'carry':return .45*skill(s.control)+.25*clamp(trait(p,'dribble',1),0,1)+.3*r;
-  case 'keeper':return .6*skill(s.keeping)+.4*r;
-  case 'threat':case 'trigger':return .7*r+.3*skill(s.defending);
+  case 'arrival':case 'lane':return WORLD.perception.acuity.laneReading.v*r+WORLD.perception.acuity.lanePassing.v*skill(s.passing);
+  case 'shot':return WORLD.perception.acuity.shotReading.v*r+WORLD.perception.acuity.shotFinishing.v*skill(s.finishing);
+  case 'carry':return WORLD.perception.acuity.carryControl.v*skill(s.control)+WORLD.perception.acuity.carryDribble.v*clamp(trait(p,'dribble',1),0,1)+WORLD.perception.acuity.carryReading.v*r;
+  case 'keeper':return WORLD.perception.acuity.keeperKeeping.v*skill(s.keeping)+WORLD.perception.acuity.keeperReading.v*r;
+  case 'threat':case 'trigger':return WORLD.perception.acuity.threatReading.v*r+WORLD.perception.acuity.threatDefending.v*skill(s.defending);
   default:return r;
  }
 }
 /** The size of his errors as a share of the read's full spread: 0.05 for a
  * perfect reader (10), about 0.35 for a good one (7), 0.65 for a poor one (4). */
-export function misread(p:Reader,read:Read):number{return clamp(1.05-acuity(p,read),.05,1);}
+export function misread(p:Reader,read:Read):number{return clamp(WORLD.perception.acuity.misreadTop.v-acuity(p,read),WORLD.perception.acuity.misreadFloor.v,1);}
 
 /** Optimism, -0.5..1: how much a player underestimates what can go wrong.
  * Centred on the squad's typical risk trait (0.45); audacity ("tries the
@@ -99,9 +100,9 @@ function readHash(id:string,read:string,salt:unknown):number{
  return h;
 }
 /** A misread persists over about this many metres of the place read ... */
-export const READ_CELL=4;
+export const READ_CELL=WORLD.perception.perception.READ_CELL.v;
 /** ... and about this many seconds, where the caller knows the time. */
-export const READ_TICK=1.2;
+export const READ_TICK=WORLD.perception.perception.READ_TICK.v;
 /** Standard deviation of the raw 2-D and 3-D fields (measured), so the
  * returned noise has unit spread. */
 const SD2=.43,SD3=.37;
@@ -151,15 +152,15 @@ export function perceive(p:Reader,read:Read,exact:number,spread:number,at:Vec,o:
  *  - and a smooth individual variation, like every other read.
  * It is a read like the others: it never touches the ball. Going for the ball
  * (pressing, intercepting, covering the presser) is always exact. */
-export const SIGHT={sharp:.06,span:.3,blind:.3,tired:.2,watch:.35,cap:.8,view:100*Math.PI/180};
+export const SIGHT={sharp:WORLD.perception.perception.SIGHT.sharp.v,span:WORLD.perception.perception.SIGHT.span.v,blind:WORLD.perception.perception.SIGHT.blind.v,tired:WORLD.perception.perception.SIGHT.tired.v,watch:WORLD.perception.perception.SIGHT.watch.v,cap:WORLD.perception.perception.SIGHT.cap.v,view:WORLD.perception.perception.SIGHT.view.v*Math.PI/180};
 export interface SightContext {energy?:number;inView:boolean;watching:number;at:Vec;time?:number;salt?:string}
 export function sightLag(p:Reader,o:SightContext):number{
  const a=acuity(p,'sight');
  let lag=SIGHT.sharp+SIGHT.span*(1-a);
- if(o.energy!==undefined)lag+=SIGHT.tired*clamp((90-o.energy)/40,0,1);
- if(!o.inView)lag+=SIGHT.blind*(1.25-.5*a);
- lag+=SIGHT.watch*(1-.5*a)*clamp(o.watching,0,1);
- return clamp(lag*(1+.25*readNoise(p,'sight',o.at,o.time,o.salt)),0,SIGHT.cap);
+ if(o.energy!==undefined)lag+=SIGHT.tired*clamp((WORLD.perception.acuity.tiredFrom.v-o.energy)/WORLD.perception.acuity.tiredSpan.v,0,1);
+ if(!o.inView)lag+=SIGHT.blind*(WORLD.perception.acuity.blindBase.v-WORLD.perception.acuity.blindSharp.v*a);
+ lag+=SIGHT.watch*(1-WORLD.perception.acuity.watchSharp.v*a)*clamp(o.watching,0,1);
+ return clamp(lag*(1+WORLD.perception.acuity.lagNoise.v*readNoise(p,'sight',o.at,o.time,o.salt)),0,SIGHT.cap);
 }
 /** Whether `target` is in the field of view of a player at `from`, looking
  * along `facing` (radians). */
@@ -170,7 +171,7 @@ export function inView(from:Vec,facing:number,target:Vec):boolean{
 /** Where he looks: at the ball while standing or shuffling (under 2.5 m/s),
  * the way he runs when he is running. */
 export function lookingAt(p:Vec&{vx:number;vy:number;angle:number},ball:Vec):number{
- return Math.hypot(p.vx,p.vy)<2.5?Math.atan2(ball.y-p.y,ball.x-p.x):p.angle;
+ return Math.hypot(p.vx,p.vy)<WORLD.perception.acuity.lookAtBallBelow.v?Math.atan2(ball.y-p.y,ball.x-p.x):p.angle;
 }
 /** A short memory of what everyone looked like (position and velocity), so a
  * read can be taken from a moment ago. Snapshots every `every` seconds over
