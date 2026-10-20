@@ -11,11 +11,7 @@ import {viableOptions} from '../dist/practice-carry.js';
 import {actionWeights} from '../dist/practice-selection.js';
 import {shotRead,hurryTruth} from '../dist/practice-shot-contest.js';
 const fixture=JSON.parse(readFileSync(new URL('./fixture.json',import.meta.url)));
-// The dribble tendency is held at the squad's typical 0.33 (practice-carry DRIBBLE_TYPICAL): these tests are about the
-// shot's temperament (risk, audacity, discipline), and the fixture's shooter is a natural dribbler (0.9). With the
-// take-on price (2026-10-19) a natural dribbler pressed 6 m out sometimes takes his man on first (nervous: about one
-// time in four), which the owner accepts as in character (2026-10-20).
-const temperaments={composed:{risk:.45,audacity:0,discipline:.97,dribble:.33},nervous:{risk:.1,audacity:0,discipline:.45,dribble:.33},daring:{risk:.9,audacity:.8,discipline:.83,dribble:.33}};
+const temperaments={composed:{risk:.45,audacity:0,discipline:.97},nervous:{risk:.1,audacity:0,discipline:.45},daring:{risk:.9,audacity:.8,discipline:.83}};
 // Team 0 attacks x = 48; the shooter is index 2 (reading 7, finishing 6).
 const decide=(at,traits,skills={reading:7,finishing:6})=>{
  const players=practicePlayers(structuredClone(fixture));
@@ -39,11 +35,7 @@ test('a real ~0.5 chance is taken by a composed, a nervous and a daring player a
   for(const [name,traits] of Object.entries(temperaments)){
    const d=decide(at,traits);reads.add(d.read);
    assert.ok(d.read>.55,`${scene}: a decent chance (${d.read})`);
-   // Pressed, the bar is 0.7, not 0.9 (owner, 2026-10-20): since the take-on price round 5 (bf768100) the take-on is
-   // read where his run actually ends, so even the typical dribbler sometimes takes the man rushing him on first (the
-   // nervous one shoots about 0.77). A behaviour change, not a lost claim: he still takes the chance far more often than not.
-   const bar=scene==='pressed'?.7:.9;
-   assert.ok(d.shoot>bar,`${scene}: the ${name} player shoots (P ${d.shoot.toFixed(2)})`);
+   assert.ok(d.shoot>.9,`${scene}: the ${name} player shoots (P ${d.shoot.toFixed(2)})`);
   }
   // Free, the same skills read the same chance whatever the temperament. Pressed, composure is part of his poise
  // (how much of the press reaches the strike, shotContest), so the chance itself differs a little.

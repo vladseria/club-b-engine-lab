@@ -20,7 +20,7 @@ import {receptionTarget} from './decisions.js';
 import {practiceFixture} from './practice-data.js';
 import {carryOptions,chooseFootballOption,commitCarry,CarryPlan,CarryAssessment,CarryOption} from './practice-carry.js';
 import type {ShotAssessment} from './practice-football.js';
-import {assessShot,shotZone,keeperClaimChance,strikeShot,keeperReach,goalBoundFlight,markPosition,goalAngle,pitchExit,keeperEdge,placeHurried,NO_EDGE} from './practice-football.js';
+import {assessShot,strikeShot,keeperReach,goalBoundFlight,markPosition,goalAngle,pitchExit,keeperEdge,placeHurried,NO_EDGE} from './practice-football.js';
 import {shotContest,shotRead,shotTemper,SHOT_BASE,SHOT_WORTH,type ShotContest} from './practice-shot-contest.js';
 import type {KeeperEdge} from './practice-football.js';
 import {arrivalTime,assignDefense,containMovement,coverPosition,shootingThreat,BLOCK_NEAR,BLOCK_GAP,DefenseAssignment,assignFlight,assignMarking,FlightAssignment,runnerBehindShoulder,runnerPickupDelay} from './practice-defense.js';
@@ -45,7 +45,7 @@ import {Restart,RestartKind,RestartInfo,restartPositions,restartPlayersReady,res
 import {liveRestart,restartRoutine,authoredRoutine,planLiveRestart,restartHold,restartOptions,settleRestart,SET_PIECE_HOLD} from './practice-restart-live.js';
 import {chooseFreeKickTaker,choosePenaltyTaker,freeKickOptions,setPiecePlayer,strikeFreeKick,DirectFreeKickPlan} from './practice-set-pieces.js';
 import {createOffsideAwareness,perceivedOffside,runReleaseAllowance,ReleaseCue} from './practice-awareness.js';
-import {feintOptions,feintDuration,finishFeint,feintReleaseOpening,feintFoolChance,FOOLED_FOR,FAKE_TIME,FeintMemory} from './practice-feints.js';
+import {feintOptions,feintDuration,finishFeint,feintReleaseOpening,FeintMemory} from './practice-feints.js';
 import {strikeStance} from './practice-striking.js';
 import {duelGeometry,readDuel,resolveDuel,shieldTouch,turnTouch,dangerAt,TURNED_TIME,DuelResult} from './practice-duel.js';
 import {carryPace,captureControl,faceControl,steerControl,advanceControl,receivingContact,cushionControl,controlReleaseAvailable,controlStrikeReady,strikeControl,rollControlRemainder,deflectBodyBall,TouchControl,ControlContact} from './practice-control.js';
@@ -117,7 +117,7 @@ export interface PracticeStats {passes:number;completed:number;clearances:number
 export interface AerialDuelRecord {time:number;x:number;y:number;z:number;attacker:string;defender:string;toucher:string;winner:string;outcome:'clean'|'knock'|'foul';result:string;way:'up'|'nip';chance:number}
 export interface PracticeResult {version:string;seed:number;duration:number;played?:number;teams:[string,string];players:PracticePlayer[];frames:PracticeFrame[];events:PracticeEvent[];choices:Choice[];stats:[PracticeStats,PracticeStats];score:[number,number];controlContacts?:ControlContact[];receptionDuels?:ReceptionDuelRecord[];aerialDuels?:AerialDuelRecord[];aerialChallenges?:{time:number;id:string;result:string}[];playbookSelections?:PlaybookSelection[];standingNotes?:StandingNote[];coachingNotes?:CoachingNote[];substitutionNotes?:SubstitutionNote[]}
 type Action='pass'|'through'|'loft'|'carry'|'shoot'|'feint'|'clear';
-export interface Option {/** What the receiver can do next, already in `score` (receiverProspects). */next?:number;/** A delivery's pass-only pressure credits (relief, retreat, pressure x space), already in `score`: what the purpose clock decays (R3). */relief?:number;/** A shot: the shooter's own read of his chance (R2), already in `score`. */quality?:number;/** Interception risk of a planned throw (throw-ins only). */throwRisk?:number;/** A throw that leads a run: where the receiver meets it. */throwLead?:Vec;kind:Action;clearance?:ClearanceIntent;target?:string;aim:Vec;score:number;reason:string;carry?:CarryAssessment;continuing?:boolean;delivery?:DeliveryRead;run?:PassRun;pass?:GroundPass;loft?:LoftPass;freeKick?:DirectFreeKickPlan;teachingStep?:string;teachingPlan?:string;teachingFit?:number;teachingSpace?:boolean;receivingSpace?:ReceivingSpace;/** (decide round) played hurried by a pressed man: half the preparation, struck worse (practice-possession priceCaught). */hurried?:boolean;/** (take-on price) a take-on whose loss is already priced where he is (practice-feints): the possession urgency charge is not laid on it again. */lossPriced?:boolean}
+export interface Option {/** What the receiver can do next, already in `score` (receiverProspects). */next?:number;/** A delivery's pass-only pressure credits (relief, retreat, pressure x space), already in `score`: what the purpose clock decays (R3). */relief?:number;/** A shot: the shooter's own read of his chance (R2), already in `score`. */quality?:number;/** Interception risk of a planned throw (throw-ins only). */throwRisk?:number;/** A throw that leads a run: where the receiver meets it. */throwLead?:Vec;kind:Action;clearance?:ClearanceIntent;target?:string;aim:Vec;score:number;reason:string;carry?:CarryAssessment;continuing?:boolean;delivery?:DeliveryRead;run?:PassRun;pass?:GroundPass;loft?:LoftPass;freeKick?:DirectFreeKickPlan;teachingStep?:string;teachingPlan?:string;teachingFit?:number;teachingSpace?:boolean;receivingSpace?:ReceivingSpace;/** (decide round) played hurried by a pressed man: half the preparation, struck worse (practice-possession priceCaught). */hurried?:boolean}
 interface Intent {kind:Duty;aim:Vec;speed:number;until:number;since:number;reason:string;teamSide:Side;shapeOffset?:Vec;
  /** The release this intent was read against (a keeper re-reads each new ball). */release?:number}
 interface FirstTouch {owner:string;aim:Vec}
@@ -248,8 +248,9 @@ export function practiceOptions(p:PracticePlayer,players:PracticePlayer[],runnin
   options.push(loftOptions(p,q,players,run,p,laneRisk,undefined,{support,time})[0]);
  }
  const goal={x:world(p.side,L),y:0},keeper=defenders.find(q=>q.role==='GK')!,exposure=L-depth(p.side,keeper.x);
- // An audacious player ("shoots on sight") looks at goal from further out (shotZone).
- if(shotZone(p)||(forward>X(48)&&exposure>X(15)&&p.traits.risk>.6)){
+ // An audacious player ("shoots on sight") looks at goal from further out.
+ const audacity=clamp(p.traits.audacity??0,0,1);
+ if((forward>X(73)-audacity*X(12)&&Math.abs(p.y)<Y(24))||(forward>X(48)&&exposure>X(15)&&p.traits.risk>.6)){
   const assessment=assessShot(p,players),uncovered=exposure>X(15)&&assessment.keeperCoverage<.25;
   // (shot decision, 2026-10-15, owner: "what's the chance" is a skill, "do I
   // take it" is a personality) Two steps, kept apart:
@@ -277,7 +278,7 @@ export function practiceOptions(p:PracticePlayer,players:PracticePlayer[],runnin
  }
  // Keep one best duel in ordinary selection; the lesson may prefer another
  // exit toward its taught destination without multiplying random chances.
- const duel=feintOptions(p,players,lastFeint,time,laneRisk)[0];if(duel)options.push(duel);
+ const duel=feintOptions(p,players,lastFeint,time)[0];if(duel)options.push(duel);
  return securePossessionOptions(p,players,options,laneRisk);
 }
 // (B2) the duel's odds live with the challenge model, where the carrier's own read of them can use them too
@@ -1407,8 +1408,8 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    if(!resolveExit(before)&&ball.owner===p.id){
    if(feint&&feint.attacker===p.id){
     if(!feint.resolved&&time>=feint.check){
-     const d=get(feint.defender);const fooled=execution()<feintFoolChance(p,d);
-     if(fooled){wrongfoot.set(d.id,{until:time+FOOLED_FOR,aim:inside({x:d.x-sign(p.side)*1.5,y:d.y-(feint.aim.y-p.y)})});duelAfter.set(d.id,Math.max(duelAfter.get(d.id)??0,time+FOOLED_FOR));}
+     const d=get(feint.defender);const fooled=execution()<clamp(.42+(p.skills.control-d.skills.reading)*.055+(1-d.traits.discipline)*.1,.12,.8);
+     if(fooled){wrongfoot.set(d.id,{until:time+.65,aim:inside({x:d.x-sign(p.side)*1.5,y:d.y-(feint.aim.y-p.y)})});duelAfter.set(d.id,Math.max(duelAfter.get(d.id)??0,time+.65));}
      feint.resolved=true;
     }
     let releaseOpening=false;
@@ -1424,7 +1425,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    const goalkeeper=sidePlayers(other(p.side)).find(q=>canUseHands(q)&&depth(q.side,q.x)<BOX_DEPTH&&Math.abs(q.y)<BOX_HALF&&depth(q.side,ball.x)>=0&&depth(q.side,ball.x)<=BOX_DEPTH&&Math.abs(ball.y)<=BOX_HALF&&ball.z<=2.3&&dist(q,ball)<1.25);
    if(!restart&&goalkeeper&&time>=(duelAfter.get(goalkeeper.id)??0)){
     duelAfter.set(goalkeeper.id,time+1);
-    if(execution()<keeperClaimChance(goalkeeper,p))own(goalkeeper,'save',true);
+    if(execution()<clamp(.6+(goalkeeper.skills.keeping-p.skills.control)*.035,.35,.85))own(goalkeeper,'save',true);
    }
    if(!restart&&!challenge&&!inHands&&ball.owner===p.id){
     // "On losing it": a counter-presser engages like an aggressive press; the
@@ -1550,7 +1551,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
      nextThink=time+lookCadence(p,option);
      if(inHands){nextThink=Math.min(nextThink,Math.max(time+STEP,holdUntil));keeperStep=option.kind==='carry'&&dist(option.aim,p)>.2?{...option.aim}:null;}
      if(option.kind==='carry')carry=option.aim;
-     else if(option.kind==='feint'){stats[p.side].feints++;const marker=get(option.target!);feintMemory.set(p.id,{opponent:marker.id,at:time,attacker:{x:p.x,y:p.y},defender:{x:marker.x,y:marker.y}});feint={attacker:p.id,defender:marker.id,check:time+FAKE_TIME,aim:option.aim,resolved:false,score:option.score,review:time+.41,finish:time+feintDuration(p,option.aim)};say('feint',`${p.name} scoate o fentă din buzunar. ${marker.name} îl așteaptă.`,p,marker);}
+     else if(option.kind==='feint'){stats[p.side].feints++;const marker=get(option.target!);feintMemory.set(p.id,{opponent:marker.id,at:time,attacker:{x:p.x,y:p.y},defender:{x:marker.x,y:marker.y}});feint={attacker:p.id,defender:marker.id,check:time+.26,aim:option.aim,resolved:false,score:option.score,review:time+.41,finish:time+feintDuration(p,option.aim)};say('feint',`${p.name} scoate o fentă din buzunar. ${marker.name} îl așteaptă.`,p,marker);}
      else {
       prepared={option,at:time+preparationTime(p,option.kind)*(option.hurried?HURRY_SHARE:1)};recheckAt=time+RELEASE_RECHECK;
       // Teammates can read their release cue. The private target must not
