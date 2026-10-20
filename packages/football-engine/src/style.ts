@@ -5,7 +5,7 @@
  * `X(57)`, computed at load); a formula stays a formula with its coefficients named here; old exported tables survive
  * as views with the same keys in the same order. Engine files import this module as a namespace (`import * as S`).
  * Runtime imports: pitch.ts only (a leaf), so this module can never sit in an import cycle. */
-import {X,Y} from './pitch.js';
+import {L,X,Y} from './pitch.js';
 import type {Tactics} from './model.js';
 
 /** The unit an entry is in, as the code uses it today. Never converted. */
@@ -149,6 +149,58 @@ export const WIDTH_COMMON={
  holdPinned:{v:.15,unit:'B',kind:'jobCredit',at:['practice-coordination.ts:1013'],says:'hold-width job: extra when he pins a defender away from the ball'},
  holdFree:{v:.15,unit:'B',kind:'jobCredit',at:['practice-coordination.ts:1013'],says:'hold-width job: extra times how free he is'},
  holdEligible:{v:6,unit:'m',kind:'jobOffered',axis:'W',at:['practice-coordination.ts:1007'],says:'hold-width job: offered when his lane lies at least this far outside the ball'},
+} as const satisfies Record<string,Effect>;
+
+// ------------------------------------------------------------------ Press
+/** One entry per Press option (selective, balanced, aggressive). lean / cap / effort are read only by teamShape's
+ * defending block, which no Ballers match runs (plan 6.1): mirrored exactly, still dead. */
+export interface PressOption{
+ dangerShift:Effect;watchShift:Effect;engage:Effect;hold:Effect;sag:Effect;
+ lean:Effect;cap:Effect;effort:Effect;
+ pressesKeeper:Effect<boolean>;doubles:Effect<boolean>;engagement:Effect;tackleNerve:Effect;traps:Effect<boolean>;goalKickBlock:Effect<boolean>;
+}
+const PAT={
+ dangerShift:['practice-defending.ts:367','practice-defending.ts:374'],watchShift:['practice-defending.ts:509'],
+ engage:['practice-defending.ts:1090'],hold:['practice-defending.ts:1135'],sag:['practice-defending.ts:726'],
+ lean:['practice-shape.ts:58 (markLean, no caller)','practice-shape.ts:135 (teamShape, dead)'],cap:['practice-shape.ts:135 (teamShape, dead)'],effort:['practice-shape.ts:214 (teamShape, dead)'],
+ pressesKeeper:['practice-defending.ts:492','practice-defending.ts:1090'],doubles:['practice-defending.ts:1205'],
+ engagement:['practice-defense.ts:201'],tackleNerve:['practice-challenge.ts:99'],traps:['practice-coordination.ts:539'],goalKickBlock:['practice-restart-live.ts:419'],
+} as const;
+const pressOption=(o:{dangerShift:number;watchShift:number;engage:number;hold:number;sag:number;lean:number;cap:number;effort:number;pressesKeeper:boolean;doubles:boolean;engagement:number;tackleNerve:number;traps:boolean;goalKickBlock:boolean}):PressOption=>({
+ dangerShift:{v:o.dangerShift,unit:'m',kind:'defendingThreshold',axis:'L',at:PAT.dangerShift,says:'added to the Line\'s who-matters distance'},
+ watchShift:{v:o.watchShift,unit:'s',kind:'defendingThreshold',at:PAT.watchShift,says:'added to the Line\'s step-out time (floor 0.2 s)'},
+ engage:{v:o.engage,unit:'m',kind:'defendingThreshold',axis:'L',at:PAT.engage,says:'the man on the carrier engages within this of our goal (plus the Line shift)'},
+ hold:{v:o.hold,unit:'m',kind:'positionOffset',axis:'body',at:PAT.hold,says:'further out, he waits this far off the carrier, goal-side'},
+ sag:{v:o.sag,unit:'x',kind:'multiplier',at:PAT.sag,says:'how far a marker may sag off his man'},
+ lean:{v:o.lean,unit:'x',kind:'multiplier',at:PAT.lean,says:'(dead) the teamShape block\'s lean toward the ball'},
+ cap:{v:o.cap,unit:'m',kind:'positionOffset',axis:'W',at:PAT.cap,says:'(dead) the teamShape lean\'s cap'},
+ effort:{v:o.effort,unit:'x',kind:'multiplier',at:PAT.effort,says:'(dead) how hard the teamShape players slide'},
+ pressesKeeper:{v:o.pressesKeeper,unit:'flag',kind:'jobOffered',at:PAT.pressesKeeper,says:'the keeper on the ball is pressed and engaged like an outfielder'},
+ doubles:{v:o.doubles,unit:'flag',kind:'jobOffered',at:PAT.doubles,says:'a second man doubles the carrier on a trigger, with a balance man goal-side'},
+ engagement:{v:o.engagement,unit:'trait',kind:'traitOverride',at:PAT.engagement,says:'added to the defender\'s engagement when he chooses to close or jockey'},
+ tackleNerve:{v:o.tackleNerve,unit:'trait',kind:'defendingThreshold',at:PAT.tackleNerve,says:'taken off the ordinary tackle threshold'},
+ traps:{v:o.traps,unit:'flag',kind:'triggerWindow',at:PAT.traps,says:'springs the trap on a trigger (touchline, entry pass, back to goal)'},
+ goalKickBlock:{v:o.goalKickBlock,unit:'flag',kind:'positionOffset',at:PAT.goalKickBlock,says:'at their goal kick only the man on the short option goes; the rest hold a block'},
+});
+/** Press: how the team goes for the ball. Values exactly as the code had them at b107e7b2. */
+export const PRESS:Readonly<Record<Tactics['press'],PressOption>>={
+ selective:pressOption({dangerShift:-1,watchShift:-.3,engage:22,hold:5.5,sag:1.15,lean:.35,cap:Y(14),effort:1,pressesKeeper:false,doubles:false,engagement:-.1,tackleNerve:0,traps:true,goalKickBlock:true}),
+ balanced:pressOption({dangerShift:0,watchShift:0,engage:31,hold:4,sag:1,lean:.5,cap:Y(14),effort:1,pressesKeeper:false,doubles:false,engagement:0,tackleNerve:0,traps:false,goalKickBlock:false}),
+ aggressive:pressOption({dangerShift:3,watchShift:.8,engage:L,hold:2.5,sag:.8,lean:.7,cap:Y(21),effort:1.15,pressesKeeper:true,doubles:true,engagement:.2,tackleNerve:.025,traps:false,goalKickBlock:false}),
+};
+/** The trap (Selective) and the double (Aggressive): their coefficients, the same whoever runs them. */
+export const PRESS_COMMON={
+ trapWindow:{v:2.5,unit:'s',kind:'triggerWindow',at:['practice-coordination.ts:536 (TRAP_WINDOW)'],says:'the trap presses at most this long'},
+ trapRest:{v:20,unit:'s',kind:'triggerWindow',at:['practice-coordination.ts:535,537 (TRAP_REST)'],says:'after a trap, this long before the next'},
+ trapReach:{v:10,unit:'m',kind:'triggerWindow',axis:'body',at:['practice-coordination.ts:545 (TRAP_REACH)'],says:'trap goers come from within this of the carrier'},
+ trapSpread:{v:.6,unit:'trait',kind:'triggerWindow',at:['practice-coordination.ts:114 (TRAP_SPREAD)'],says:'how noisy a defender\'s read of the trigger is'},
+ trapFresh:{v:1.2,unit:'s',kind:'triggerWindow',at:['practice-coordination.ts:101,540 (TRAP_FRESH)'],says:'a trigger is fresh this long after the carrier got the ball'},
+ trapEager:{v:.6,unit:'trait',kind:'triggerWindow',at:['practice-coordination.ts:114 (TRAP_EAGER)'],says:'bias of an eager, independent defender toward seeing the trigger'},
+ trapSettled:{v:5,unit:'s',kind:'triggerWindow',at:['practice-coordination.ts:539 (TRAP_SETTLED)'],says:'no trap in the first seconds of their possession'},
+ trapNear:{v:22,unit:'m',kind:'triggerWindow',axis:'L',at:['practice-coordination.ts:100 (TRAP_NEAR)'],says:'no trap nearer our goal than this'},
+ trapFar:{v:L*.72,unit:'m',kind:'triggerWindow',axis:'L',at:['practice-coordination.ts:100 (TRAP_FAR)'],says:'no trap further from our goal than this'},
+ doubleReach:{v:4,unit:'m',kind:'triggerWindow',axis:'body',at:['practice-defending.ts:1205'],says:'the double starts only with the presser this close to the carrier'},
+ doubleSpread:{v:.6,unit:'trait',kind:'triggerWindow',at:['practice-defending.ts:1209 (DOUBLE_SPREAD)'],says:'how noisy the cover man\'s read of the double\'s trigger is'},
 } as const satisfies Record<string,Effect>;
 
 // ------------------------------------------------------------------ views (old names survive, rule 1.3.6)

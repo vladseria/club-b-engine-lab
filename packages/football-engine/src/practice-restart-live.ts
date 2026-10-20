@@ -1,3 +1,4 @@
+import * as S from './style.js';
 import {L,W,BOX_DEPTH,BOX_HALF,SPOT,X,Y} from './pitch.js';
 import {clamp} from './model.js';
 import type {Side,Tactics} from './model.js';
@@ -415,7 +416,7 @@ export function planLiveRestart(scene:Scene,routine:RestartRoutine,players:Pract
   let aim=job.aim,velocity=job.velocity,reason=job.reason;
   // A selective press does not follow every goal-kick option up to the area:
   // only the defender closing the short option does; the rest hold a block.
-  if(kind==='goalKick'&&p.side!==side&&job.purpose!=='press'&&context.tactics[p.side].press==='selective'&&depth(side,aim.x)<GOAL_KICK_PRESS_DEPTH+1){
+  if(kind==='goalKick'&&p.side!==side&&job.purpose!=='press'&&S.PRESS[context.tactics[p.side].press].goalKickBlock.v&&depth(side,aim.x)<GOAL_KICK_PRESS_DEPTH+1){
    aim={x:world(side,GOAL_KICK_PRESS_DEPTH+1),y:aim.y};velocity=undefined;reason='Pressing selectiv: nu urcă după fiecare variantă scurtă, ține blocul.';
   }
   const legal=legalRestartAim(scene,p,aim);

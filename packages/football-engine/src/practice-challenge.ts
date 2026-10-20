@@ -1,3 +1,4 @@
+import * as S from './style.js';
 import {L,W,GH,HEIGHT,BOX_DEPTH,BOX_HALF,SPOT,X,Y,G} from './pitch.js';
 import {clamp,Tactics} from './model.js';
 import type {PracticePlayer} from './practice.js';
@@ -95,7 +96,7 @@ export function readChallenge(d:PracticePlayer,a:PracticePlayer,ball:Vec,players
  const opportunity=reach*.3+exposed*.3+balance*.18+clamp(d.skills.defending/10,0,1)*.1+clamp(d.skills.reading/10,0,1)*.06+urgency*.06;
  const frustration=(d.traits.frustration??0)*Math.min(3,Math.max(0,deficit))/3;
  const ordinaryThreshold=.66-d.traits.engagement*.1+(d.traits.discipline-.5)*.08-(cover?.035:0)
-  -(tactics.press==='aggressive'?.025:0)-frustration*.06;
+  -S.PRESS[tactics.press].tackleNerve.v-frustration*.06;
  const inBox=Math.abs(goal.x-a.x)<BOX_DEPTH&&Math.abs(a.y)<BOX_HALF;
  // A foul can turn a harmless box possession into a penalty even if the
  // defender is balanced. Imminent shooting danger can justify accepting it.

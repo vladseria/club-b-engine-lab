@@ -1,3 +1,4 @@
+import * as S from './style.js';
 import {playableAerialMeetings} from './practice-aerial.js';
 import {L,W,GH,HEIGHT,BOX_DEPTH,BOX_HALF,SPOT,X,Y,G} from './pitch.js';
 import {clamp,Tactics} from './model.js';
@@ -197,7 +198,7 @@ export function containMovement(p:PracticePlayer,owner:PracticePlayer,players:Pr
  // A goalkeeper cannot count as the covering outfield defender.
  const covered=players.some(q=>q.side===p.side&&q.id!==p.id&&q.role!=='GK'&&
   (q.x-seen.x)*u.x+(q.y-seen.y)*u.y>1&&distance(q,seen)<12);
- const engagement=p.traits.engagement+(tactics.press==='aggressive'?.2:tactics.press==='selective'?-.1:0);
+ const engagement=p.traits.engagement+S.PRESS[tactics.press].engagement.v;
  const urgent=shootingThreat(owner),jockey=!urgent&&(intent==='delay'||intent!=='engage'&&!covered&&engagement<.75);
  // Defending round (step 4): near our goal he takes a block stance on the
  // shot line, BLOCK_GAP m goal-side of the ball on the line to the goal centre

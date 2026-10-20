@@ -75,7 +75,7 @@ export function offGoalLine(side:Side,aim:Vec,ball:Pick<MovingBall,'x'|'mode'>&{
 /** Who matters: a man this close to our goal centre (m), by the Line (a high
  * block marks men further out); Aggressive marks further out still. */
 export const DANGER_R:Record<Tactics['line'],number>=S.view(S.LINE,'whoMatters');
-export const DANGER_PRESS:Record<Tactics['press'],number>={selective:-1,balanced:0,aggressive:3};
+export const DANGER_PRESS:Record<Tactics['press'],number>=S.view(S.PRESS,'dangerShift');
 /** ... and CENTRAL m further for a central man (|y| under 3 m, fading out by 9 m): the middle is where goals come from. */
 export const CENTRAL=3;
 /** A man ahead of the ball (nearer our goal than it by AHEAD m) matters out to DANGER_R + AHEAD_R. */
@@ -107,7 +107,7 @@ export const KEEP_MATTER=3;
  * leaves them in front of it. */
 export const UNOWNED={ball:8,danger:7};
 export const UNOWNED_WATCH:Record<Tactics['line'],number>=S.view(S.LINE,'stepOut');
-export const WATCH_PRESS:Record<Tactics['press'],number>={selective:-.3,balanced:0,aggressive:.8};
+export const WATCH_PRESS:Record<Tactics['press'],number>=S.view(S.PRESS,'watchShift');
 /** Keeping a man (s of run credited to the current owner), by Marking. */
 export const KEEP:Record<NonNullable<Tactics['marking']>,number>={tight:2.5,balanced:1.5,zonal:.8};
 /** A run behind his marker: never handed on. Two runners crossing in front of their markers: an exchange. */
@@ -137,11 +137,11 @@ export function commitFor(p:PracticePlayer):number{return COMMIT.slow-(COMMIT.sl
 /** Where the presser engages the man on the ball (m of the carrier from our
  * goal, by Press, plus the Line's shift); beyond it he waits HOLD m off him,
  * goal-side. A man running at our goal is met wherever he is. */
-export const ENGAGE:Record<Tactics['press'],number>={selective:22,balanced:31,aggressive:L};
+export const ENGAGE:Record<Tactics['press'],number>=S.view(S.PRESS,'engage');
 export const ENGAGE_LINE:Record<Tactics['line'],number>=S.view(S.LINE,'engageShift');
 /** (threat round) ... and a carrier whose own threat (practice-threat carrierThreat: his shot, or his drive at goal) the presser reads at ENGAGE_THREAT or more is engaged wherever he is (misread by up to THREAT_SPREAD_C). */
 export const ENGAGE_THREAT=.3,THREAT_SPREAD_C=.1;
-export const HOLD:Record<Tactics['press'],number>={selective:5.5,balanced:4,aggressive:2.5};
+export const HOLD:Record<Tactics['press'],number>=S.view(S.PRESS,'hold');
 /** The presser stands a little inside the man (shows him away from the middle). */
 export const SHOW=.6;
 /** A clear run at goal: the carrier within CLEAR_R m of our goal (CLEAR_R_RUN m running at it) with nobody of ours in his path (CLEAR_W m either side of it, widening CLEAR_W_GROW per m towards the goal); seen CLEAR_SEE..CLEAR_SEE+CLEAR_SLOW s after it opened, by reading, CLEAR_KEEN s sooner for a keen player. */
@@ -161,7 +161,7 @@ export const CUSHION_MARKING:Record<NonNullable<Tactics['marking']>,number>={tig
 export const SHADE=.5;
 /** Sagging off a far man: what he can afford (reach), by Marking, Press and Width. */
 export const SAG:Record<NonNullable<Tactics['marking']>,number>={tight:.4,balanced:1,zonal:1.25};
-export const PRESS_SAG:Record<Tactics['press'],number>={selective:1.15,balanced:1,aggressive:.8};
+export const PRESS_SAG:Record<Tactics['press'],number>=S.view(S.PRESS,'sag');
 export const WIDTH_SAG:Record<Tactics['width'],number>=S.view(S.WIDTH,'sag');
 export const SAG_CAP=6.5;
 /** The block's height (m from our goal): the ball's depth minus `gap`, between `floor` and `ceiling`; it squeezes up `squeeze` m when the ball is pressed or played back. */
@@ -192,7 +192,7 @@ export const BALANCE_KEEP=1;
 export const PRESSER_KEEP=.3;
 export const COVER_FAR=2.2,COVER_KEEP=.6,COVER_BEHIND=2.5,COVER_SHARE=3.5,COVER_RUN=.4,COVER_SHARE_KEEP=1.5;
 /** A doubling second man (Aggressive): on a trigger, with a team-mate kept goal-side as balance. */
-export const DOUBLE_SPREAD=.6;
+export const DOUBLE_SPREAD=S.PRESS_COMMON.doubleSpread.v;
 /** The ball: a defender goes for it only when he gets there by COLLECT_MARGIN s of the first attacker. A marker whose man matters may go only for a ball at his feet (COLLECT_NEAR m) he clearly wins, or when his man is the one going for it (COLLECT_MAN m). */
 export const COLLECT_MARGIN=.15,COLLECT_NEAR=4,COLLECT_WIN=.4,COLLECT_MAN=4;
 /** (collect read, 2026-10-11) A ball in the air to his man. The receiver's own defender used to go for it whenever
@@ -489,7 +489,7 @@ export function solveMen(input:DefendInput,ref:Vec):DefendMemory{
  for(const [id,target] of fixed)call(id,target);
  for(const [id,target] of input.locked??[])call(id,target);
  for(const id of Object.keys(memory.men))if(!available.some(p=>p.id===id)&&!fixed.has(id)&&players.some(p=>p.id===id&&p.side===defending))call(id,'');
- const attackers=players.filter(a=>a.side===attacking&&(a.role!=='GK'||a.id===input.carrier?.id&&tactics.press==='aggressive'));
+ const attackers=players.filter(a=>a.side===attacking&&(a.role!=='GK'||a.id===input.carrier?.id&&S.PRESS[tactics.press].pressesKeeper.v));
  for(const [id,m] of Object.entries(memory.men))if(!isRole(m.target)&&!attackers.some(a=>a.id===m.target)&&!fixed.has(id))call(id,'');
  const taken=new Set([...fixed.values(),...(input.locked?.values()??[])]);
  const open=attackers.filter(a=>!taken.has(a.id));
@@ -1087,7 +1087,7 @@ export function defendOutOfPossession(given:DefendInput):DefendPlan{
    const cd=depth(defending,carrier.x),running=goalward(carrier,defending)>=RUN_GOALWARD;
    // (threat round) a carrier who can shoot or drive at our goal from where he is is engaged wherever Press would wait (the presser's own read of it)
    const threat=carrier.role!=='GK'&&input.threat?perceive(presser,'threat',carrierThreat(carrier,input.threat.defenders,defending),THREAT_SPREAD_C,carrier,{time,salt:'carrier'}):0;
-   engaged=presser===committed||input.intent==='engage'||cd<=ENGAGE[tactics.press]+ENGAGE_LINE[tactics.line]||running||carrier.role==='GK'&&tactics.press==='aggressive'||threat>=ENGAGE_THREAT;
+   engaged=presser===committed||input.intent==='engage'||cd<=ENGAGE[tactics.press]+ENGAGE_LINE[tactics.line]||running||carrier.role==='GK'&&S.PRESS[tactics.press].pressesKeeper.v||threat>=ENGAGE_THREAT;
    // The presser beaten: the cover (or the best placed goal-side team-mate
    // whose man matters less) steps out to the ball; the beaten one recovers
    // goal-side towards the middle and takes that team-mate's man.
@@ -1202,7 +1202,7 @@ export function defendOutOfPossession(given:DefendInput):DefendPlan{
    cover=c;memory.cover=cover.id;
    // Aggressive doubles on a trigger, while someone else stays goal-side as balance
    let doubled=false;
-   if(tactics.press==='aggressive'&&input.intent!=='delay'&&distance(presser,carrier)<4){
+   if(S.PRESS[tactics.press].doubles.v&&input.intent!=='delay'&&distance(presser,carrier)<S.PRESS_COMMON.doubleReach.v){
     const touch=clamp((Math.abs(carrier.y)-(W/2-4))/2.5,0,1),backTo=clamp((Math.cos(carrier.angle-(attacking===0?Math.PI:0))-.2)/.5,0,1);
     const loose=input.since!==undefined&&time-input.since<.8&&distance(ball,carrier)>.9?1:0,strength=Math.max(touch,backTo,loose);
     const balance=own.some(q=>q!==cover&&q!==presser&&depth(defending,q.x)<depth(defending,carrier.x)-1&&distance(q,carrier)>5);

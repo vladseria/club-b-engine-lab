@@ -85,11 +85,11 @@ export interface CoordinationPlan {
  * second man, closing the escape pass once a non-centre-back has engaged
  * (combined round, 2026-10-01: centre-backs springing alone near their own
  * box were the trap's most expensive moments). */
-export const TRAP_WINDOW=2.5,TRAP_REST=20,TRAP_REACH=10,TRAP_SPREAD=.6,TRAP_FRESH=1.2,TRAP_EAGER=.6,TRAP_SETTLED=5;
+export const TRAP_WINDOW=S.PRESS_COMMON.trapWindow.v,TRAP_REST=S.PRESS_COMMON.trapRest.v,TRAP_REACH=S.PRESS_COMMON.trapReach.v,TRAP_SPREAD=S.PRESS_COMMON.trapSpread.v,TRAP_FRESH=S.PRESS_COMMON.trapFresh.v,TRAP_EAGER=S.PRESS_COMMON.trapEager.v,TRAP_SETTLED=S.PRESS_COMMON.trapSettled.v;
 /** Trap territory, metres from the defending goal. No trap near our own
  * box: from 22 m out (combined round, 2026-10-01: the 20-26 m band was where a
  * beaten spring turned into a shot; it was X(28) = 12.8 m). */
-export const TRAP_NEAR=22,TRAP_FAR=L*.72;
+export const TRAP_NEAR=S.PRESS_COMMON.trapNear.v,TRAP_FAR=S.PRESS_COMMON.trapFar.v;
 export type TrapTrigger='touchline'|'entry'|'back';
 export interface Trap {side:Side;owner:string;at:number;trigger:TrapTrigger;engagers:string[];over:boolean;rest:number}
 /** How clearly this moment is a trigger (0..1) for the defending side, from
@@ -536,7 +536,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   if(held&&!held.over&&owner&&owner.id===held.owner&&time-held.at<TRAP_WINDOW)trap=held;
   else if(held&&!held.over)trap={...held,over:true,rest:time+TRAP_REST};
   else if(held&&time<held.rest)trap=held;
-  if((!trap||trap.over&&time>=trap.rest)&&owner&&owner.role!=='GK'&&possession&&tactics[defending].press==='selective'&&!counterPress?.mode&&time>=rest&&time-attackSince>=TRAP_SETTLED){
+  if((!trap||trap.over&&time>=trap.rest)&&owner&&owner.role!=='GK'&&possession&&S.PRESS[tactics[defending].press].traps.v&&!counterPress?.mode&&time>=rest&&time-attackSince>=TRAP_SETTLED){
    const from=context.lastPass&&context.lastPass.to===owner.id&&time-context.lastPass.at<TRAP_FRESH?players.find(p=>p.id===context.lastPass!.from):undefined;
    const read=trapTrigger(owner,defending,time,possession.since,from);
    if(read){

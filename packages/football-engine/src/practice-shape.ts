@@ -42,11 +42,7 @@ const toward=(old:number,next:number,limit:number)=>old+clamp(next-old,-limit,li
  * Aggressive leans hard (0.7, up to 9.3 m): it crowds the ball's side and
  * leaves the far side and the switch open. Balanced keeps today's lean.
  * `effort` is how hard the shape players slide to get there. */
-export const PRESS_LEAN={
- selective:{lean:.35,cap:Y(14),effort:1},
- balanced:{lean:.5,cap:Y(14),effort:1},
- aggressive:{lean:.7,cap:Y(21),effort:1.15},
-} as const satisfies Record<Tactics['press'],{lean:number;cap:number;effort:number}>;
+export const PRESS_LEAN:Record<Tactics['press'],{lean:number;cap:number;effort:number}>=S.objView(S.PRESS,['lean','cap','effort']);
 /** The lean reaches the markers too (M2). A man-marker's aim is his man's
  * position; before, every press setting marked the same way, so the block's
  * lean only moved the one or two players holding a shape slot and the block as
