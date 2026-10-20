@@ -26,9 +26,6 @@ let DATA:{scen:Record<string,any>;g7:Record<string,any>}={scen:{},g7:{}};
 export function init(d:any){DATA=d;}
 /** --build-only (run.mjs): every input is built and validated exactly as for a real run, but no simulation is played. */
 let DRY=false;export function setDry(v:boolean){DRY=v;}
-/** An optional read of the raw results (../2026-10-22-whatif/row.ts sets it): its value is added to the row as `extra`.
- * Unset (every run before the what-if harness) the row is exactly what it was. It reads the results; it changes nothing. */
-let EXTRA:null|((runs:any[],teams:any[],t:any)=>any)=null;export function setExtra(f:typeof EXTRA){EXTRA=f;}
 const FAKE=(d:number)=>({result:{duration:d,players:[],frames:[],events:[],choices:[],stats:[{},{}],score:[0,0]}});
 const RUN_MATCH=(i:any)=>DRY?(createSimCheck(i),FAKE(i.durationSeconds)):runMatch(i);
 const RUN_TRAINING=(i:any)=>DRY?(createSimCheck({...i,kind:'training'}),FAKE(i.durationSeconds)):runTraining(i);
@@ -187,5 +184,5 @@ export function play(t:any){
  const full=combine(runs.map(fullHash));
  const pr=prints.length===1?prints[0]:prints.reduce((a,p)=>[a[0]+p[0],fnv(String(p[1]),a[1]),fnv(String(p[2]),a[2])],[0,2166136261,0x9747b28c]);
  return {id:t.id,ms,cpuMs,score,print:pr,full,runs:runs.length,frames:runs.reduce((n,r)=>n+r.frames.length,0),build:ENGINE_BUILD.slice(0,8),plat:`${process.platform}-${process.arch}-node${process.versions.node}`,
-  dropped,tactics:teamsOut.map((tm:any)=>tacticsRead(tm.tactics,tm.squad,tm.lineup)),variety:variety(runs,teamsOut),...(EXTRA?{extra:(()=>{try{return EXTRA!(runs,teamsOut,t);}catch(e){return {error:String(e)};}})()}:{})};
+  dropped,tactics:teamsOut.map((tm:any)=>tacticsRead(tm.tactics,tm.squad,tm.lineup)),variety:variety(runs,teamsOut)};
 }
