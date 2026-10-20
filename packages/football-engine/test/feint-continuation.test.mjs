@@ -56,7 +56,7 @@ test('priced, the release is weighed against carrying on as it reads now, not th
 });
 
 test('live take-on can become a pass before its old timeout without skipping the fake, preparation or foot contact',()=>{
- const fixture=structuredClone(scene.fixture);fixture.seed=2121;fixture.teams[0].lineup[1]='motanescu';Object.assign(fixture.teams[0].tactics,teamApproaches.direct.settings);
+ const fixture=structuredClone(scene.fixture);fixture.seed=2119;fixture.teams[0].lineup[1]='motanescu';Object.assign(fixture.teams[0].tactics,teamApproaches.direct.settings);
  const r=runMatch({fixture,durationSeconds:40}).result;
  // Live restart setups (2026-09-29) changed the seed-2026 passage (Fleasca to
  // Van). The recorded encounter was Crocodinho's take-on at 6.53 s of seed
@@ -106,9 +106,9 @@ test('live take-on can become a pass before its old timeout without skipping the
  // take-on at 25.817 s, released to Golusor at 27.450 s (evidence/2026-10-14-r1/repin.mjs takeonGolusor from 2095).
  // Release 3 (2026-10-16) moved it to seed 2117: Crocodinho's take-on at 6.500 s, released to Golusor at 8.083 s
  // (evidence/2026-10-16-release-3/repin.mjs takeonGolusor from 2114, public lab).
- // The take-on price (2026-10-19) moved it to seed 2121: Crocodinho's take-on at 6.850 s, released to Golusor at
- // 7.850 s (evidence/2026-10-19-takeon-price/repin.mjs takeonGolusor 2117-2236, public lab).
- const attempt=r.events.find(e=>e.kind==='feint'&&e.actor==='0:crocodinho'&&e.time>6.80&&e.time<6.90);assert(attempt,'Recorded encounter still occurs');
+ // The take-on price (2026-10-19, round 4) moved it to seed 2119: Crocodinho's take-on at 20.817 s, released to Golusor at
+ // 21.883 s (evidence/2026-10-19-takeon-price/repin.mjs takeonGolusor 2117-2236, public lab).
+ const attempt=r.events.find(e=>e.kind==='feint'&&e.actor==='0:crocodinho'&&e.time>20.77&&e.time<20.87);assert(attempt,'Recorded encounter still occurs');
  const player=r.players.findIndex(p=>p.id===attempt.actor),prepare=r.choices.find(c=>c.player===player&&c.kind==='prepare'&&c.action&&c.time>attempt.time);
  const pass=r.events.find(e=>e.kind==='pass'&&e.actor===attempt.actor&&e.time>attempt.time);
  assert(prepare&&pass);assert(prepare.time>=attempt.time+.41,'Fake and initial burst must complete');

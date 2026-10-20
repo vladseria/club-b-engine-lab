@@ -12,7 +12,6 @@ import {keeperReadyPosition} from './practice-keeper.js';
 import {steerMotion} from './movement.js';
 import {projectOpponents,ON_HIM,READ_AHEAD} from './practice-receive.js';
 import {arrivalTime} from './practice-arrival.js';
-import {SHOT_RESTART} from './practice.js';
 
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
 export interface FeintMemory {opponent:string;at:number;attacker:Vec;defender:Vec}
@@ -178,36 +177,35 @@ export function afterTakeOn(p:PracticePlayer,aim:Vec,players:PracticePlayer[],ma
  if(keeper)picture.push(keeperSet(keeper,aim,getThere));
  return picture;
 }
-/** The shot a spot gives him, on the shoot option's own read and in its units of chance (practice.ts practiceOptions):
- * inside the zone a shot is on offer from (shotZone), his read of the chance from `body` (where he is and how fast he
- * is moving) in `after` (assessShot's free chance, less what the contest at the strike costs it as he reads it,
- * shotContest with his wind-up, shotRead), less what a shot gives away unless it goes in (SHOT_RESTART x turnoverPrice)
- * and the lane to goal shut by a body (laneRisk x 0.22), both taken back to chance by SHOT_WORTH. 0 outside the zone. */
-export function shotOpening(p:PracticePlayer,body:PracticePlayer,after:PracticePlayer[],risk:Risk,time:number):number{
+/** The shot he has when he gets there (round 5: B's valuation, at the arrival the engine's path gives): inside the zone
+ * a shot is on offer from (shotZone), the shoot option's own read of the chance from `body` (where and how fast the
+ * engine's path, takeOnPath, has him arrive) in `after` (assessShot's free chance, less what the contest at the strike
+ * costs it as he reads it, shotContest with his wind-up, shotRead), at the shot's own worth (SHOT_WORTH a unit). The
+ * whole shot, not its gain over the shot he has now: that one is the shoot option's, and the choice compares the two
+ * (round 3: subtracting it here counted it against the take-on twice). (Round 4 netted it of what a shot gives away and
+ * the lane shut, as a carry credit against the shot he has now; that took the box take-ons out, and round 5 restores
+ * B's.) `risk` is kept for the evidence harnesses' calls and not read. */
+export function shotOpening(p:PracticePlayer,body:PracticePlayer,after:PracticePlayer[],_risk:Risk,time:number):number{
  if(!shotZone(p,body))return 0;
  const there=assessShot(body,after),contest=shotContest(body,after,there.aim,{lead:preparationTime(p,'shoot')});
- const quality=shotRead(p,there.open,contest.hurry,body,time),outfield=after.filter(q=>q.side!==p.side&&q.role!=='GK');
- const given=(1-clamp(quality*.6,0,.9))*SHOT_RESTART*turnoverPrice(p,after,body);
- return Math.max(0,quality-(given+risk(body,there.aim,outfield,22+p.skills.finishing*.3)*.22)/SHOT_WORTH);
+ return shotRead(p,there.open,contest.hurry,body,time)*SHOT_WORTH;
 }
 
 /** What getting past the man gets him at `aim`, read in the picture he arrives in (afterTakeOn, at the moment the
  * engine's path, takeOnPath, has him there): the carry's credits for being there against being here (routeCredits:
- * progress, a better shot, a better pass, room from the man closing him), summed as the carry sums them, on the
- * carry's scales. Its shot term is the carry's own (CARRY_SHOT per unit of a better shot), read on the shoot option's
- * read (shotOpening: the chance from where and how fast he arrives, net of what a shot gives away and of the lane shut)
- * against the shot he has `here`, in place of the carry's angle-and-distance proxy, which cannot see the man he takes
- * out of the shooting lane. (Round 4: it was the whole shot, worth SHOT_WORTH, on top of the other credits.) The carry's
- * confidence credit is left out: liking to go forward with the ball is his flair (TAKEON_FLAIR), counted once. */
-export function takeOnGain(p:PracticePlayer,aim:Vec,players:PracticePlayer[],marker:PracticePlayer,risk:Risk,near:number,time:number,fooled=true,here=0,path:readonly Step[]=takeOnPath(p,aim)):number{
+ * progress, a better pass, room from the man closing him), with the shooting-angle credit raised to the shot he has
+ * there (shotOpening, from where and how fast the path has him arrive) when that is worth more. The carry's confidence
+ * credit is left out: liking to go forward with the ball is his flair (TAKEON_FLAIR), counted once. (Round 5: B's shot
+ * term on round 4's path; `here` is kept for the evidence harnesses' calls and not read.) */
+export function takeOnGain(p:PracticePlayer,aim:Vec,players:PracticePlayer[],marker:PracticePlayer,risk:Risk,near:number,time:number,fooled=true,_here=0,path:readonly Step[]=takeOnPath(p,aim)):number{
  const last=path[path.length-1],after=afterTakeOn(p,aim,players,marker,fooled,last.t),r=routeCredits(p,aim,after,risk,near,players);
  const body={...p,x:last.x,y:last.y,vx:last.vx,vy:last.vy},angle=Math.max(0,r.shotGain)*CARRY_SHOT;
- return r.credits-r.confident-angle+CARRY_SHOT*Math.max(0,shotOpening(p,body,after,risk,time)-here);
+ return r.credits-r.confident-angle+Math.max(angle,shotOpening(p,body,after,risk,time));
 }
 
 /** The priced take-on's read and expected gain (feintOptions): the gain with the man fooled as often as he reads the
  * fake works, with the man following as often as he reads it fails but the man cannot get to him, both as often as he
- * keeps it from the route's next man. `here` is the shot he has now (shotOpening, 0 outside the zone). */
+ * keeps it from the route's next man. `here` is not read (round 5; kept for the evidence harnesses' calls). */
 export function takeOnParts(p:PracticePlayer,marker:PracticePlayer,players:PracticePlayer[],aim:Vec,risk:Risk,near:number,time:number,here:number){
  const path=takeOnPath(p,aim),read=takeOnRead(p,marker,players,aim,path),free=read.fail*(1-read.contact);
  const gain=(1-read.other)*((1-read.fail)*takeOnGain(p,aim,players,marker,risk,near,time,true,here,path)+(free>0?free*takeOnGain(p,aim,players,marker,risk,near,time,false,here,path):0));
@@ -233,15 +231,13 @@ export function feintOptions(p:PracticePlayer,players:PracticePlayer[],memory:Fe
  const priced=TAKEON_PRICE.on&&!!risk&&markers.length>0;
  const lossWeight=priced?deliveryLossWeight(p,turnoverPrice(p,players,p)):0;
  const near=priced?Math.min(...players.filter(q=>q.side!==p.side&&q.role!=='GK').map(q=>distance(q,p))):0;
- // the shot he has now, on the same read (shotOpening), for the take-on's shot term
- const here=priced&&shotZone(p,p)?shotOpening(p,p,players,risk!,time):0;
  return markers.flatMap(marker=>[-1,1].map(lateral=>{
   const aim={x:clamp(marker.x+sign*2.2,.8,L-.8),y:clamp(marker.y+lateral*2.6,-W/2+1,W/2-1)};
   const local=readDribbleRoute(p,aim,players,marker.id),exitRoom=Math.min(...players.filter(q=>q.side!==p.side&&q.id!==marker.id).map(q=>distance(q,aim)));
   const gap=distance(p,marker),speed=Math.hypot(p.vx,p.vy),alignment=speed>.3?((aim.x-p.x)*p.vx+(aim.y-p.y)*p.vy)/(Math.max(.01,distance(p,aim))*speed):1;
   let score:number;
   if(priced){
-   const {read,gain}=takeOnParts(p,marker,players,aim,risk!,near,time,here);
+   const {read,gain}=takeOnParts(p,marker,players,aim,risk!,near,time,0);
    score=CARRY_BASE+TAKEON_FLAIR*((p.traits.dribble??DRIBBLE_TYPICAL)-DRIBBLE_TYPICAL)+gain-read.stopped*lossWeight
     -(gap<2?.1:0)-Math.max(0,gap-3.5)*.045-local.nearbyChallenges*(.12-confidence*.04)-clamp((3-exitRoom)/3,0,1)*.2-(1-alignment)*.035-repeatFeintCost(p,marker,memory,time);
   }else score=.16+p.traits.dribble*.36+clamp(p.skills.control/10,0,1)*.1+(p.traits.risk-.5)*.08
