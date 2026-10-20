@@ -11,6 +11,13 @@ import {arrivalTime} from './practice-defense.js';
 import {duelChance} from './practice-challenge.js';
 import {perceive,daring} from './practice-perception.js';
 import {WORLD} from './world.js';
+/** Hot-path aliases (engine as data W9b): world reads used inside this file's functions, read once at load. */
+const GEOMETRY_CARRY_OWN_GOAL_DEPTH=WORLD.geometry.carry.ownGoalDepth.v;
+const GEOMETRY_CARRY_OWN_GOAL_WIDE=WORLD.geometry.carry.ownGoalWide.v;
+const GEOMETRY_CARRY_SHOT_ANGLE=WORLD.geometry.carry.shotAngle.v;
+const GEOMETRY_CARRY_SHOT_REACH=WORLD.geometry.carry.shotReach.v;
+const SELECTION_CHOICE_SHORTLIST=WORLD.selection.choice.shortlist.v;
+const SKILLS_KEEPER_SWEEP_DEFAULT=WORLD.skills.keeper.sweepDefault.v;
 
 export type CarryPurpose='advance'|'shooting-angle'|'passing-lane'|'escape'|'protect';
 export interface CarryAssessment {
@@ -28,7 +35,7 @@ const depth=(p:PracticePlayer,x:number)=>p.side===0?x:L-x;
 const bound=(p:Vec):Vec=>({x:clamp(p.x,.8,(L-.8)),y:clamp(p.y,-(W/2-1),(W/2-1))});
 const nearest=(point:Vec,opponents:PracticePlayer[])=>Math.min(...opponents.map(p=>distance(point,p)));
 const goalDistance=(p:PracticePlayer,point:Vec)=>Math.hypot((p.side===0?L:0)-point.x,point.y);
-const shotPotential=(p:PracticePlayer,point:Vec)=>clamp(goalAngle({...p,...point})/WORLD.geometry.carry.shotAngle.v,0,1)*clamp(1-goalDistance(p,point)/WORLD.geometry.carry.shotReach.v,0,1);
+const shotPotential=(p:PracticePlayer,point:Vec)=>clamp(goalAngle({...p,...point})/GEOMETRY_CARRY_SHOT_ANGLE,0,1)*clamp(1-goalDistance(p,point)/GEOMETRY_CARRY_SHOT_REACH,0,1);
 
 /** A carry into a contested route loses the ball about a third of the time
  * (B4b: ~19% for carries under pressure, passes 22-27%): the share of the
@@ -95,7 +102,7 @@ export function emptyNetDanger(p:PracticePlayer,players:readonly PracticePlayer[
  * 0.3 -> 0, a sweeper at 0.8 weighs it 0.30 instead of 0.54, so he carries
  * about half as often again; a keeper at home, 1.40 instead of 1.42.) */
 export const NET_HOME=WORLD.selection.carry.NET_HOME.v,NET_SWEEPER=WORLD.selection.carry.NET_SWEEPER.v;
-export const keeperNetWeight=(p:{traits:{keeperSweep?:number}})=>NET_HOME+(NET_SWEEPER-NET_HOME)*clamp(p.traits.keeperSweep??WORLD.skills.keeper.sweepDefault.v,0,1);
+export const keeperNetWeight=(p:{traits:{keeperSweep?:number}})=>NET_HOME+(NET_SWEEPER-NET_HOME)*clamp(p.traits.keeperSweep??SKILLS_KEEPER_SWEEP_DEFAULT,0,1);
 /** Keeping the ball away from his goal (what a route's tackle read does not
  * see): the chance the ball is lost while he is out there with it. The
  * ball he plays on from there is lost about one time in eight whoever is
@@ -197,7 +204,7 @@ export function carryOptions(p:PracticePlayer,players:PracticePlayer[],held:numb
   const {aim,continuing}=candidate,length=distance(p,aim);if(length<.8||options.some(o=>distance(o.aim,aim)<.2))continue;
   // Own-goal guard (as recoveryTouch): an outfielder never carries toward the
   // mouth of his own goal; the backward diagonals stay on offer elsewhere.
-  if(p.role!=='GK'&&depth(p,aim.x)<WORLD.geometry.carry.ownGoalDepth.v&&Math.abs(aim.y)<WORLD.geometry.carry.ownGoalWide.v&&depth(p,aim.x)<depth(p,p.x))continue;
+  if(p.role!=='GK'&&depth(p,aim.x)<GEOMETRY_CARRY_OWN_GOAL_DEPTH&&Math.abs(aim.y)<GEOMETRY_CARRY_OWN_GOAL_WIDE&&depth(p,aim.x)<depth(p,p.x))continue;
   // (R1 keeper tune, 2026-10-15) the settings-truth round's hard guard (a keeper whose sweep trait was at most KEEPER_HOME never
   // carried past 9 m) is gone: the goal he leaves behind him (emptyNetDanger, weighed by keeperNetWeight) is the price
   // that keeps a stay-at-home keeper from carrying it up out of his area.
@@ -282,7 +289,7 @@ export function viableOptions<T extends FootballOption>(options:T[],plan:CarryPl
  // route stands for carrying at the best route's value, so the cut-off for a
  // pass, a clearance or a shot is still set by the carry he actually has.
  const best=Math.max(...routed.map(o=>o.score),holding?bestCarry:-Infinity);
- return routed.filter(o=>(holding&&o===continuation)||o.score>=best-WORLD.selection.choice.shortlist.v);
+ return routed.filter(o=>(holding&&o===continuation)||o.score>=best-SELECTION_CHOICE_SHORTLIST);
 }
 export function chooseFootballOption<T extends FootballOption>(options:T[],random:()=>number,plan:CarryPlan|null=null,time=0):T{
  const viable=viableOptions(options,plan,time);

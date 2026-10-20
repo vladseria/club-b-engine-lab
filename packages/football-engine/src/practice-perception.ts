@@ -2,6 +2,45 @@ import {clamp} from './model.js';
 import {L} from './pitch.js';
 import type {Vec} from './movement.js';
 import {WORLD} from './world.js';
+/** Hot-path aliases (engine as data W9b): world reads used inside this file's functions, read once at load. */
+const PERCEPTION_ACUITY_BLIND_BASE=WORLD.perception.acuity.blindBase.v;
+const PERCEPTION_ACUITY_BLIND_SHARP=WORLD.perception.acuity.blindSharp.v;
+const PERCEPTION_ACUITY_CARRY_CONTROL=WORLD.perception.acuity.carryControl.v;
+const PERCEPTION_ACUITY_CARRY_DRIBBLE=WORLD.perception.acuity.carryDribble.v;
+const PERCEPTION_ACUITY_CARRY_READING=WORLD.perception.acuity.carryReading.v;
+const PERCEPTION_ACUITY_KEEPER_KEEPING=WORLD.perception.acuity.keeperKeeping.v;
+const PERCEPTION_ACUITY_KEEPER_READING=WORLD.perception.acuity.keeperReading.v;
+const PERCEPTION_ACUITY_LAG_NOISE=WORLD.perception.acuity.lagNoise.v;
+const PERCEPTION_ACUITY_LANE_PASSING=WORLD.perception.acuity.lanePassing.v;
+const PERCEPTION_ACUITY_LANE_READING=WORLD.perception.acuity.laneReading.v;
+const PERCEPTION_ACUITY_LOOK_AT_BALL_BELOW=WORLD.perception.acuity.lookAtBallBelow.v;
+const PERCEPTION_ACUITY_MISREAD_FLOOR=WORLD.perception.acuity.misreadFloor.v;
+const PERCEPTION_ACUITY_MISREAD_TOP=WORLD.perception.acuity.misreadTop.v;
+const PERCEPTION_ACUITY_SHOT_FINISHING=WORLD.perception.acuity.shotFinishing.v;
+const PERCEPTION_ACUITY_SHOT_READING=WORLD.perception.acuity.shotReading.v;
+const PERCEPTION_ACUITY_THREAT_DEFENDING=WORLD.perception.acuity.threatDefending.v;
+const PERCEPTION_ACUITY_THREAT_READING=WORLD.perception.acuity.threatReading.v;
+const PERCEPTION_ACUITY_TIRED_FROM=WORLD.perception.acuity.tiredFrom.v;
+const PERCEPTION_ACUITY_TIRED_SPAN=WORLD.perception.acuity.tiredSpan.v;
+const PERCEPTION_ACUITY_WATCH_SHARP=WORLD.perception.acuity.watchSharp.v;
+const SKILLS_TRAITS_AUDACITY_WEIGHT=WORLD.skills.traits.audacityWeight.v;
+const SKILLS_TRAITS_COMPOSURE_DISCIPLINE=WORLD.skills.traits.composureDiscipline.v;
+const SKILLS_TRAITS_COMPOSURE_READING=WORLD.skills.traits.composureReading.v;
+const SKILLS_TRAITS_COMPOSURE_TYPICAL=WORLD.skills.traits.composureTypical.v;
+const SKILLS_TRAITS_DARING_MIN=WORLD.skills.traits.daringMin.v;
+const SKILLS_TRAITS_DISCIPLINE_TYPICAL=WORLD.skills.traits.disciplineTypical.v;
+const SKILLS_TRAITS_EAGERNESS_MAX=WORLD.skills.traits.eagernessMax.v;
+const SKILLS_TRAITS_EAGERNESS_MIN=WORLD.skills.traits.eagernessMin.v;
+const SKILLS_TRAITS_ENGAGEMENT_CENTRE=WORLD.skills.traits.engagementCentre.v;
+const SKILLS_TRAITS_ENGAGEMENT_TYPICAL=WORLD.skills.traits.engagementTypical.v;
+const SKILLS_TRAITS_NERVE_COMPOSURE=WORLD.skills.traits.nerveComposure.v;
+const SKILLS_TRAITS_NERVE_DARING=WORLD.skills.traits.nerveDaring.v;
+const SKILLS_TRAITS_NERVE_MAX=WORLD.skills.traits.nerveMax.v;
+const SKILLS_TRAITS_NERVE_MIN=WORLD.skills.traits.nerveMin.v;
+const SKILLS_TRAITS_READING_TYPICAL=WORLD.skills.traits.readingTypical.v;
+const SKILLS_TRAITS_RISK_CENTRE=WORLD.skills.traits.riskCentre.v;
+const SKILLS_TRAITS_RISK_TYPICAL=WORLD.skills.traits.riskTypical.v;
+const SKILLS_TRAITS_RISK_WEIGHT=WORLD.skills.traits.riskWeight.v;
 
 /** What the engine knows is not what the player knows (R2, 2026-10-01).
  *
@@ -36,32 +75,32 @@ const trait=(p:Reader,k:'risk'|'dribble'|'discipline'|'engagement',typical:numbe
 export function acuity(p:Reader,read:Read):number{
  const s=p.skills??{},r=skill(s.reading);
  switch(read){
-  case 'arrival':case 'lane':return WORLD.perception.acuity.laneReading.v*r+WORLD.perception.acuity.lanePassing.v*skill(s.passing);
-  case 'shot':return WORLD.perception.acuity.shotReading.v*r+WORLD.perception.acuity.shotFinishing.v*skill(s.finishing);
-  case 'carry':return WORLD.perception.acuity.carryControl.v*skill(s.control)+WORLD.perception.acuity.carryDribble.v*clamp(trait(p,'dribble',1),0,1)+WORLD.perception.acuity.carryReading.v*r;
-  case 'keeper':return WORLD.perception.acuity.keeperKeeping.v*skill(s.keeping)+WORLD.perception.acuity.keeperReading.v*r;
-  case 'threat':case 'trigger':return WORLD.perception.acuity.threatReading.v*r+WORLD.perception.acuity.threatDefending.v*skill(s.defending);
+  case 'arrival':case 'lane':return PERCEPTION_ACUITY_LANE_READING*r+PERCEPTION_ACUITY_LANE_PASSING*skill(s.passing);
+  case 'shot':return PERCEPTION_ACUITY_SHOT_READING*r+PERCEPTION_ACUITY_SHOT_FINISHING*skill(s.finishing);
+  case 'carry':return PERCEPTION_ACUITY_CARRY_CONTROL*skill(s.control)+PERCEPTION_ACUITY_CARRY_DRIBBLE*clamp(trait(p,'dribble',1),0,1)+PERCEPTION_ACUITY_CARRY_READING*r;
+  case 'keeper':return PERCEPTION_ACUITY_KEEPER_KEEPING*skill(s.keeping)+PERCEPTION_ACUITY_KEEPER_READING*r;
+  case 'threat':case 'trigger':return PERCEPTION_ACUITY_THREAT_READING*r+PERCEPTION_ACUITY_THREAT_DEFENDING*skill(s.defending);
   default:return r;
  }
 }
 /** The size of his errors as a share of the read's full spread: 0.05 for a
  * perfect reader (10), about 0.35 for a good one (7), 0.65 for a poor one (4). */
-export function misread(p:Reader,read:Read):number{return clamp(WORLD.perception.acuity.misreadTop.v-acuity(p,read),WORLD.perception.acuity.misreadFloor.v,1);}
+export function misread(p:Reader,read:Read):number{return clamp(PERCEPTION_ACUITY_MISREAD_TOP-acuity(p,read),PERCEPTION_ACUITY_MISREAD_FLOOR,1);}
 
 /** Optimism, -0.5..1: how much a player underestimates what can go wrong.
  * Centred on the squad's typical risk trait (0.45); audacity ("tries the
  * audacious", "shoots on sight") adds to it. Missing audacity reads as none. */
-export function daring(p:Reader):number{return clamp((trait(p,'risk',WORLD.skills.traits.riskTypical.v)-WORLD.skills.traits.riskCentre.v)*WORLD.skills.traits.riskWeight.v+(p.traits?.audacity??0)*WORLD.skills.traits.audacityWeight.v,WORLD.skills.traits.daringMin.v,1);}
+export function daring(p:Reader):number{return clamp((trait(p,'risk',SKILLS_TRAITS_RISK_TYPICAL)-SKILLS_TRAITS_RISK_CENTRE)*SKILLS_TRAITS_RISK_WEIGHT+(p.traits?.audacity??0)*SKILLS_TRAITS_AUDACITY_WEIGHT,SKILLS_TRAITS_DARING_MIN,1);}
 /** Composure, 0..1: keeping his head (discipline and reading, the "Keeps his
  * head" tendency). */
-export function composure(p:Reader):number{return clamp(WORLD.skills.traits.composureDiscipline.v*trait(p,'discipline',WORLD.skills.traits.disciplineTypical.v)+WORLD.skills.traits.composureReading.v*skill(p.skills?.reading??WORLD.skills.traits.readingTypical.v),0,1);}
+export function composure(p:Reader):number{return clamp(SKILLS_TRAITS_COMPOSURE_DISCIPLINE*trait(p,'discipline',SKILLS_TRAITS_DISCIPLINE_TYPICAL)+SKILLS_TRAITS_COMPOSURE_READING*skill(p.skills?.reading??SKILLS_TRAITS_READING_TYPICAL),0,1);}
 /** How strongly he feels the pressure he sees: below 1 for a daring or
  * composed player, above 1 for a nervous one; about 1 for a typical player. */
-export function nerve(p:Reader):number{return clamp(1-WORLD.skills.traits.nerveDaring.v*daring(p)-WORLD.skills.traits.nerveComposure.v*(composure(p)-WORLD.skills.traits.composureTypical.v),WORLD.skills.traits.nerveMin.v,WORLD.skills.traits.nerveMax.v);}
+export function nerve(p:Reader):number{return clamp(1-SKILLS_TRAITS_NERVE_DARING*daring(p)-SKILLS_TRAITS_NERVE_COMPOSURE*(composure(p)-SKILLS_TRAITS_COMPOSURE_TYPICAL),SKILLS_TRAITS_NERVE_MIN,SKILLS_TRAITS_NERVE_MAX);}
 /** How strictly he follows a team job against his own read, 0..1. */
-export const followsTeam=(p:Reader)=>clamp(trait(p,'discipline',WORLD.skills.traits.disciplineTypical.v),0,1);
+export const followsTeam=(p:Reader)=>clamp(trait(p,'discipline',SKILLS_TRAITS_DISCIPLINE_TYPICAL),0,1);
 /** His own appetite to engage, centred on the squad's typical engagement. */
-export const eagerness=(p:Reader)=>clamp(trait(p,'engagement',WORLD.skills.traits.engagementTypical.v)-WORLD.skills.traits.engagementCentre.v,WORLD.skills.traits.eagernessMin.v,WORLD.skills.traits.eagernessMax.v);
+export const eagerness=(p:Reader)=>clamp(trait(p,'engagement',SKILLS_TRAITS_ENGAGEMENT_TYPICAL)-SKILLS_TRAITS_ENGAGEMENT_CENTRE,SKILLS_TRAITS_EAGERNESS_MIN,SKILLS_TRAITS_EAGERNESS_MAX);
 
 // ---- deterministic smooth noise ------------------------------------------
 const hashes=new Map<string,number>();
@@ -157,10 +196,10 @@ export interface SightContext {energy?:number;inView:boolean;watching:number;at:
 export function sightLag(p:Reader,o:SightContext):number{
  const a=acuity(p,'sight');
  let lag=SIGHT.sharp+SIGHT.span*(1-a);
- if(o.energy!==undefined)lag+=SIGHT.tired*clamp((WORLD.perception.acuity.tiredFrom.v-o.energy)/WORLD.perception.acuity.tiredSpan.v,0,1);
- if(!o.inView)lag+=SIGHT.blind*(WORLD.perception.acuity.blindBase.v-WORLD.perception.acuity.blindSharp.v*a);
- lag+=SIGHT.watch*(1-WORLD.perception.acuity.watchSharp.v*a)*clamp(o.watching,0,1);
- return clamp(lag*(1+WORLD.perception.acuity.lagNoise.v*readNoise(p,'sight',o.at,o.time,o.salt)),0,SIGHT.cap);
+ if(o.energy!==undefined)lag+=SIGHT.tired*clamp((PERCEPTION_ACUITY_TIRED_FROM-o.energy)/PERCEPTION_ACUITY_TIRED_SPAN,0,1);
+ if(!o.inView)lag+=SIGHT.blind*(PERCEPTION_ACUITY_BLIND_BASE-PERCEPTION_ACUITY_BLIND_SHARP*a);
+ lag+=SIGHT.watch*(1-PERCEPTION_ACUITY_WATCH_SHARP*a)*clamp(o.watching,0,1);
+ return clamp(lag*(1+PERCEPTION_ACUITY_LAG_NOISE*readNoise(p,'sight',o.at,o.time,o.salt)),0,SIGHT.cap);
 }
 /** Whether `target` is in the field of view of a player at `from`, looking
  * along `facing` (radians). */
@@ -171,7 +210,7 @@ export function inView(from:Vec,facing:number,target:Vec):boolean{
 /** Where he looks: at the ball while standing or shuffling (under 2.5 m/s),
  * the way he runs when he is running. */
 export function lookingAt(p:Vec&{vx:number;vy:number;angle:number},ball:Vec):number{
- return Math.hypot(p.vx,p.vy)<WORLD.perception.acuity.lookAtBallBelow.v?Math.atan2(ball.y-p.y,ball.x-p.x):p.angle;
+ return Math.hypot(p.vx,p.vy)<PERCEPTION_ACUITY_LOOK_AT_BALL_BELOW?Math.atan2(ball.y-p.y,ball.x-p.x):p.angle;
 }
 /** A short memory of what everyone looked like (position and velocity), so a
  * read can be taken from a moment ago. Snapshots every `every` seconds over

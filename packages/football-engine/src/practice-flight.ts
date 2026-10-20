@@ -4,10 +4,31 @@ import {contact,STEP} from './movement.js';
 import type {MovingBall,MovingPlayer,Vec} from './movement.js';
 import {goalBoundFlight,keeperReach} from './practice-football.js';
 import {WORLD} from './world.js';
+/** Hot-path aliases (engine as data W9b): world reads used inside this file's functions, read once at load. */
+const BALL_FLIGHT_ARRIVAL_BASE=WORLD.ball.flight.arrivalBase.v;
+const BALL_FLIGHT_ARRIVAL_MAX=WORLD.ball.flight.arrivalMax.v;
+const BALL_FLIGHT_ARRIVAL_MIN=WORLD.ball.flight.arrivalMin.v;
+const BALL_FLIGHT_ARRIVAL_PER=WORLD.ball.flight.arrivalPer.v;
+const BALL_FLIGHT_BOUNCE_ABOVE=WORLD.ball.flight.bounceAbove.v;
+const BALL_FLIGHT_BOUNCE_KEEP=WORLD.ball.flight.bounceKeep.v;
+const BALL_FLIGHT_FALLBACK_EXTRA=WORLD.ball.flight.fallbackExtra.v;
+const BALL_FLIGHT_FORECAST_HORIZON=WORLD.ball.flight.forecastHorizon.v;
+const BALL_FLIGHT_FORECAST_INTERVAL=WORLD.ball.flight.forecastInterval.v;
+const BALL_FLIGHT_GRAVITY=WORLD.ball.flight.gravity.v;
+const BODY_AERIAL_AERIAL_CONTACT_SHAPE_CHEST_MAX=WORLD.body.aerial.aerialContactShape.chest.max.v;
+const BODY_AERIAL_AERIAL_CONTACT_SHAPE_CHEST_MIN=WORLD.body.aerial.aerialContactShape.chest.min.v;
+const BODY_AERIAL_AERIAL_CONTACT_SHAPE_HEADER_MAX=WORLD.body.aerial.aerialContactShape.header.max.v;
+const BODY_AERIAL_AERIAL_CONTACT_SHAPE_HEADER_MIN=WORLD.body.aerial.aerialContactShape.header.min.v;
+const BODY_AERIAL_AERIAL_CONTACT_SHAPE_VOLLEY_MAX=WORLD.body.aerial.aerialContactShape.volley.max.v;
+const BODY_AERIAL_AERIAL_CONTACT_SHAPE_VOLLEY_MIN=WORLD.body.aerial.aerialContactShape.volley.min.v;
+const BODY_REACH_FOOT_REACH_HEIGHT=WORLD.body.reach.footReach.height.v;
+const BODY_REACH_HAND_REACH_HEIGHT=WORLD.body.reach.handReach.height.v;
+const BODY_REACH_TORSO_HEIGHT=WORLD.body.reach.torsoHeight.v;
+const MOTION_STEER_ARRIVAL_RADIUS=WORLD.motion.steer.arrivalRadius.v;
 
 export const PASS_DRAG=WORLD.ball.flight.PASS_DRAG.v;
 /** The comfortable arrival speed of a ground pass of this length (the passer's weighting, practice-passing). */
-export const preferredArrival=(length:number)=>clamp(WORLD.ball.flight.arrivalBase.v+length*WORLD.ball.flight.arrivalPer.v,WORLD.ball.flight.arrivalMin.v,WORLD.ball.flight.arrivalMax.v);
+export const preferredArrival=(length:number)=>clamp(BALL_FLIGHT_ARRIVAL_BASE+length*BALL_FLIGHT_ARRIVAL_PER,BALL_FLIGHT_ARRIVAL_MIN,BALL_FLIGHT_ARRIVAL_MAX);
 /** Honest-reads round (2026-10-10): how long a team-mate expects a ground pass
  * of this length to take, to time his run or judge his room. Before, every
  * such read assumed a ball travelling at a steady 14 + 0.5 x passing m/s
@@ -37,13 +58,13 @@ export function advanceFlight(ball:MovingBall,dt=STEP):MovingBall {
  ball.x+=ball.vx*dt;ball.y+=ball.vy*dt;
  const speed=Math.hypot(ball.vx,ball.vy),factor=Math.max(0,speed-PASS_DRAG*dt)/Math.max(.001,speed);
  ball.vx*=factor;ball.vy*=factor;
- ball.z=Math.max(0,ball.z+ball.vz*dt);ball.vz-=WORLD.ball.flight.gravity.v*dt;
- if(ball.z===0)ball.vz=Math.abs(ball.vz)>WORLD.ball.flight.bounceAbove.v?-ball.vz*WORLD.ball.flight.bounceKeep.v:0;
+ ball.z=Math.max(0,ball.z+ball.vz*dt);ball.vz-=BALL_FLIGHT_GRAVITY*dt;
+ if(ball.z===0)ball.vz=Math.abs(ball.vz)>BALL_FLIGHT_BOUNCE_ABOVE?-ball.vz*BALL_FLIGHT_BOUNCE_KEEP:0;
  return ball;
 }
 
 /** Keep regular samples and both ticks around changes in legal contact height/area. */
-export function flightSamples(ball:MovingBall,horizon=WORLD.ball.flight.forecastHorizon.v,interval=WORLD.ball.flight.forecastInterval.v):FlightSample[] {
+export function flightSamples(ball:MovingBall,horizon=BALL_FLIGHT_FORECAST_HORIZON,interval=BALL_FLIGHT_FORECAST_INTERVAL):FlightSample[] {
  const state={...ball},samples:FlightSample[]=[];
  const sample=(time:number,point:Omit<FlightSample,'time'>=state)=>{if(samples.at(-1)?.time!==time)samples.push({time,x:point.x,y:point.y,z:point.z,vx:point.vx,vy:point.vy,vz:point.vz});};
  const crosses=(a:number,b:number,edge:number)=>a!==b&&(a-edge)*(b-edge)<=0;
@@ -51,7 +72,7 @@ export function flightSamples(ball:MovingBall,horizon=WORLD.ball.flight.forecast
  let next=spacing;sample(0);
  for(let tick=1;tick<=ticks;tick++){
   const {x,y,z,vx,vy,vz}=state;advanceFlight(state);const time=tick*STEP;
-  const contactChange=[WORLD.body.reach.handReach.height.v,WORLD.body.aerial.aerialContactShape.header.max.v,WORLD.body.aerial.aerialContactShape.header.min.v,WORLD.body.aerial.aerialContactShape.chest.max.v,WORLD.body.reach.torsoHeight.v,WORLD.body.aerial.aerialContactShape.chest.min.v,WORLD.body.aerial.aerialContactShape.volley.max.v,WORLD.body.aerial.aerialContactShape.volley.min.v,WORLD.body.reach.footReach.height.v].some(height=>z>height&&state.z<=height)
+  const contactChange=[BODY_REACH_HAND_REACH_HEIGHT,BODY_AERIAL_AERIAL_CONTACT_SHAPE_HEADER_MAX,BODY_AERIAL_AERIAL_CONTACT_SHAPE_HEADER_MIN,BODY_AERIAL_AERIAL_CONTACT_SHAPE_CHEST_MAX,BODY_REACH_TORSO_HEIGHT,BODY_AERIAL_AERIAL_CONTACT_SHAPE_CHEST_MIN,BODY_AERIAL_AERIAL_CONTACT_SHAPE_VOLLEY_MAX,BODY_AERIAL_AERIAL_CONTACT_SHAPE_VOLLEY_MIN,BODY_REACH_FOOT_REACH_HEIGHT].some(height=>z>height&&state.z<=height)
    ||crosses(x,state.x,BOX_DEPTH)||crosses(x,state.x,(L-BOX_DEPTH))
    ||crosses(y,state.y,-BOX_HALF)||crosses(y,state.y,BOX_HALF);
   if(contactChange)sample((tick-1)*STEP,{x,y,z,vx,vy,vz});
@@ -65,7 +86,7 @@ const handsAt=(p:FlightPlayer,point:Vec)=>p.role==='GK'&&p.side!==undefined&&poi
 const footReach={height:WORLD.body.reach.footReach.height.v,radius:WORLD.body.reach.footReach.radius.v},handReach={height:WORLD.body.reach.handReach.height.v,radius:WORLD.body.reach.handReach.radius.v};
 const reachAt=(p:FlightPlayer,point:Vec,time=0,ball?:MovingBall)=>{
  if(!handsAt(p,point))return footReach;
- if(p.skills&&p.side!==undefined&&ball&&goalBoundFlight({x:p.x,y:p.y,side:p.side},{...ball,...point}))return {height:WORLD.body.reach.handReach.height.v,radius:keeperReach({skills:p.skills},time)};
+ if(p.skills&&p.side!==undefined&&ball&&goalBoundFlight({x:p.x,y:p.y,side:p.side},{...ball,...point}))return {height:BODY_REACH_HAND_REACH_HEIGHT,radius:keeperReach({skills:p.skills},time)};
  return handReach;
 };
 const onPitch=(p:Vec)=>p.x>=0&&p.x<=L&&Math.abs(p.y)<=W/2;
@@ -87,7 +108,7 @@ export function previewGap(p:FlightPlayer,point:FlightSample,reaction:number):nu
   const dt=Math.min(STEP,end-time);
   const dx=tx-x,dy=ty-y,distance=Math.hypot(dx,dy);
   const directionX=distance?dx/distance:0,directionY=distance?dy/distance:0;
-  const speed=Math.min(limit,Math.sqrt(2*acceleration*Math.max(0,distance-WORLD.motion.steer.arrivalRadius.v)));
+  const speed=Math.min(limit,Math.sqrt(2*acceleration*Math.max(0,distance-MOTION_STEER_ARRIVAL_RADIUS)));
   let desiredX=0+directionX*speed,desiredY=0+directionY*speed;
   const length=Math.hypot(desiredX,desiredY);if(length>limit){desiredX*=limit/length;desiredY*=limit/length;}
   const dvx=desiredX-vx,dvy=desiredY-vy,change=Math.hypot(dvx,dvy),factor=Math.min(1,acceleration*dt/Math.max(change,.00001));
@@ -114,8 +135,8 @@ function findMeeting(player:FlightPlayer,ball:MovingBall,reaction:number,samples
  // the fallback to its first low tick instead of chasing a high, early position.
  if(!fallback){
   const state={...ball};let time=0;
-  const fall=(Math.max(0,ball.vz)+Math.sqrt(ball.vz*ball.vz+2*WORLD.ball.flight.gravity.v*Math.max(0,ball.z)))/WORLD.ball.flight.gravity.v;
-  const end=Math.max(delay,fall)+WORLD.ball.flight.fallbackExtra.v;
+  const fall=(Math.max(0,ball.vz)+Math.sqrt(ball.vz*ball.vz+2*BALL_FLIGHT_GRAVITY*Math.max(0,ball.z)))/BALL_FLIGHT_GRAVITY;
+  const end=Math.max(delay,fall)+BALL_FLIGHT_FALLBACK_EXTRA;
   while(time<end){
    if(time+1e-9>=delay&&state.z<=reachAt(player,state).height){fallback={time,x:state.x,y:state.y,z:state.z,vx:state.vx,vy:state.vy,vz:state.vz};break;}
    advanceFlight(state);time+=STEP;

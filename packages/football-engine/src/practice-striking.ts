@@ -3,6 +3,29 @@ import type {PracticePlayer} from './practice.js';
 import type {Vec} from './movement.js';
 import {bodyTurnRate} from './practice-reception.js';
 import {WORLD} from './world.js';
+/** Hot-path aliases (engine as data W9b): world reads used inside this file's functions, read once at load. */
+const BALL_KICK_CLEAR_BASE=WORLD.ball.kick.clearBase.v;
+const BALL_KICK_CLEAR_PER=WORLD.ball.kick.clearPer.v;
+const BALL_KICK_PASS_BASE=WORLD.ball.kick.passBase.v;
+const BALL_KICK_PASS_PER=WORLD.ball.kick.passPer.v;
+const BALL_KICK_PASS_TIRED_FLOOR=WORLD.ball.kick.passTiredFloor.v;
+const BALL_KICK_PASS_TIRED_SHARE=WORLD.ball.kick.passTiredShare.v;
+const BALL_KICK_SHOT_BASE=WORLD.ball.kick.shotBase.v;
+const BALL_KICK_SHOT_PER=WORLD.ball.kick.shotPer.v;
+const ERROR_STRIKING_ERROR_BASE=WORLD.error.striking.errorBase.v;
+const ERROR_STRIKING_ERROR_TECHNIQUE=WORLD.error.striking.errorTechnique.v;
+const ERROR_STRIKING_PASS_POWER_LOSS=WORLD.error.striking.passPowerLoss.v;
+const ERROR_STRIKING_PASS_TURN_LIMIT=WORLD.error.striking.passTurnLimit.v;
+const ERROR_STRIKING_SHOT_POWER_LOSS=WORLD.error.striking.shotPowerLoss.v;
+const ERROR_STRIKING_SHOT_TURN_LIMIT=WORLD.error.striking.shotTurnLimit.v;
+const ERROR_STRIKING_SIDEWAYS_BASE=WORLD.error.striking.sidewaysBase.v;
+const ERROR_STRIKING_SIDEWAYS_SPEED=WORLD.error.striking.sidewaysSpeed.v;
+const ERROR_STRIKING_STRETCH_FROM=WORLD.error.striking.stretchFrom.v;
+const ERROR_STRIKING_STRETCH_SHARE=WORLD.error.striking.stretchShare.v;
+const ERROR_STRIKING_STRETCH_SPAN=WORLD.error.striking.stretchSpan.v;
+const ERROR_STRIKING_TECHNIQUE_CONTROL=WORLD.error.striking.techniqueControl.v;
+const ERROR_STRIKING_TECHNIQUE_KICK=WORLD.error.striking.techniqueKick.v;
+const ERROR_STRIKING_TECHNIQUE_POWER_SAVE=WORLD.error.striking.techniquePowerSave.v;
 
 export type StrikeKind='pass'|'shot'|'clearance';
 const difference=(a:number,b:number)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
@@ -14,15 +37,15 @@ const smooth=(n:number)=>{const x=clamp(n,0,1);return x*x*(3-2*x);};
  * These envelopes are prototype parameters, not measured human limits. */
 export function strikeStance(p:PracticePlayer,ball:Vec,aim:Vec,kind:StrikeKind='pass'){
  const angle=Math.abs(difference(Math.atan2(aim.y-ball.y,aim.x-ball.x),p.angle));
- const limit=(kind==='shot'?WORLD.error.striking.shotTurnLimit.v:WORLD.error.striking.passTurnLimit.v)*Math.PI/180;
+ const limit=(kind==='shot'?ERROR_STRIKING_SHOT_TURN_LIMIT:ERROR_STRIKING_PASS_TURN_LIMIT)*Math.PI/180;
  const sideways=smooth((angle-Math.PI/3)/(limit-Math.PI/3));
- const stretch=smooth((Math.hypot(ball.x-p.x,ball.y-p.y)-WORLD.error.striking.stretchFrom.v)/WORLD.error.striking.stretchSpan.v);
+ const stretch=smooth((Math.hypot(ball.x-p.x,ball.y-p.y)-ERROR_STRIKING_STRETCH_FROM)/ERROR_STRIKING_STRETCH_SPAN);
  const speed=clamp(Math.hypot(p.vx,p.vy)/p.basePace,0,1);
- const technique=clamp((p.skills.control*WORLD.error.striking.techniqueControl.v+(kind==='shot'?p.skills.finishing:p.skills.passing)*WORLD.error.striking.techniqueKick.v)/10,0,1);
- const difficulty=clamp(sideways*(WORLD.error.striking.sidewaysBase.v+speed*WORLD.error.striking.sidewaysSpeed.v)+stretch*WORLD.error.striking.stretchShare.v,0,1);
+ const technique=clamp((p.skills.control*ERROR_STRIKING_TECHNIQUE_CONTROL+(kind==='shot'?p.skills.finishing:p.skills.passing)*ERROR_STRIKING_TECHNIQUE_KICK)/10,0,1);
+ const difficulty=clamp(sideways*(ERROR_STRIKING_SIDEWAYS_BASE+speed*ERROR_STRIKING_SIDEWAYS_SPEED)+stretch*ERROR_STRIKING_STRETCH_SHARE,0,1);
  return {angle,limit,available:angle<=limit,technique:angle<=Math.PI/3?'forward' as const:'side-foot' as const,difficulty,
-  powerScale:1-difficulty*(kind==='shot'?WORLD.error.striking.shotPowerLoss.v:WORLD.error.striking.passPowerLoss.v)*(1-technique*WORLD.error.striking.techniquePowerSave.v),
-  errorScale:1+difficulty*(WORLD.error.striking.errorBase.v+(1-technique)*WORLD.error.striking.errorTechnique.v)};
+  powerScale:1-difficulty*(kind==='shot'?ERROR_STRIKING_SHOT_POWER_LOSS:ERROR_STRIKING_PASS_POWER_LOSS)*(1-technique*ERROR_STRIKING_TECHNIQUE_POWER_SAVE),
+  errorScale:1+difficulty*(ERROR_STRIKING_ERROR_BASE+(1-technique)*ERROR_STRIKING_ERROR_TECHNIQUE)};
 }
 
 /** Modify the existing sampled execution error once; no second failure roll.
@@ -42,7 +65,7 @@ export function fitStrikeToStance(p:PracticePlayer,ball:Vec,aim:Vec,velocity:{vx
 }
 
 export function strikePowerLimit(p:PracticePlayer,ball:Vec,aim:Vec,kind:StrikeKind='pass'){
- const normal=kind==='shot'?WORLD.ball.kick.shotBase.v+p.skills.finishing*WORLD.ball.kick.shotPer.v:kind==='clearance'?WORLD.ball.kick.clearBase.v+p.skills.strength*WORLD.ball.kick.clearPer.v:(WORLD.ball.kick.passBase.v+clamp(p.skills.strength,0,10)*WORLD.ball.kick.passPer.v)*(WORLD.ball.kick.passTiredFloor.v+WORLD.ball.kick.passTiredShare.v*p.energy/100);
+ const normal=kind==='shot'?BALL_KICK_SHOT_BASE+p.skills.finishing*BALL_KICK_SHOT_PER:kind==='clearance'?BALL_KICK_CLEAR_BASE+p.skills.strength*BALL_KICK_CLEAR_PER:(BALL_KICK_PASS_BASE+clamp(p.skills.strength,0,10)*BALL_KICK_PASS_PER)*(BALL_KICK_PASS_TIRED_FLOOR+BALL_KICK_PASS_TIRED_SHARE*p.energy/100);
  return normal*strikeStance(p,ball,aim,kind).powerScale;
 }
 
