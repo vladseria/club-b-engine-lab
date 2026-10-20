@@ -51,19 +51,14 @@ export const CARRY_LOSS=.35;
  * carry used to pay whoever was on the ball or pressing him (B2 card: a
  * playmaker and a heavy touch lost it as often as each other). */
 export const BEAT_SPREAD=.4,BEAT_OPTIMISM=.25,BEAT_NATURE=.4,DRIBBLE_TYPICAL=.33;
-export function carryLossRead(p:PracticePlayer,players:PracticePlayer[],contactRisk:number,opponent?:string,winOdds?:number):number{
+export function carryLossRead(p:PracticePlayer,players:PracticePlayer[],contactRisk:number,opponent?:string):number{
  const d=opponent?players.find(q=>q.id===opponent):undefined;
  if(!d||contactRisk<=0)return 0;
- // `winOdds`: the man's odds of taking it when he is on him, when they are not a tackle's (a keeper's claim)
- const cover=players.filter(q=>q.side===d.side&&q.id!==d.id&&distance(q,p)<6).length,odds=winOdds??duelChance(p,d,cover);
- const nature=beatNature(p);
+ const cover=players.filter(q=>q.side===d.side&&q.id!==d.id&&distance(q,p)<6).length,odds=duelChance(p,d,cover);
+ const nature=clamp(1-BEAT_OPTIMISM*daring(p)-BEAT_NATURE*((p.traits.dribble??DRIBBLE_TYPICAL)-DRIBBLE_TYPICAL),.35,1.3);
  const read=perceive(p,'carry',odds*nature,BEAT_SPREAD*odds,p,{salt:'beat'+d.id});
  return contactRisk*clamp(read,.03,.97);
 }
-/** How much less likely than it is he believes he loses the ball to the man he takes on (carryLossRead's nature, so
- * also the take-on's loss read, practice-feints takeOnRead): BEAT_OPTIMISM x daring and BEAT_NATURE per unit of dribble
- * tendency above DRIBBLE_TYPICAL, 0.35..1.3. */
-export const beatNature=(p:PracticePlayer)=>clamp(1-BEAT_OPTIMISM*daring(p)-BEAT_NATURE*((p.traits.dribble??DRIBBLE_TYPICAL)-DRIBBLE_TYPICAL),.35,1.3);
 /** R1, the keeper with the ball at his feet (2026-10-14). If he loses it, he
  * has lost it in front of the goal he has walked away from: the danger, in
  * goals, beyond what any loss there costs (turnoverPrice prices a loss with a
@@ -115,11 +110,6 @@ export function keeperCaught(p:PracticePlayer,players:readonly PracticePlayer[],
  * rest of a committed route made its value decay as it was run (progress = goal gain / max(5, length)), so a fresh
  * straight line from the new spot beat it every ~0.4 s: dribbling read as dithering. */
 export const CARRY_BASE=.16,CONTINUE_FLOOR=1;
-/** What a carry achieves, per unit of each read (the carry's credits; named 2026-10-19 so the take-on values getting
- * past its man with the same scales, routeCredits): progress (goal gained a metre) CARRY_PROGRESS plus CARRY_RUNS x
- * his runs tendency, a better shooting angle CARRY_SHOT, a better pass CARRY_PASS, escaping the presser CARRY_ESCAPE,
- * and CARRY_CONFIDENT x confidence on any progress. */
-export const CARRY_PROGRESS=.14,CARRY_RUNS=.035,CARRY_SHOT=.22,CARRY_PASS=.32,CARRY_ESCAPE=.16,CARRY_CONFIDENT=.045;
 /** Confidence is a willingness to attempt the duel, never its eventual result. */
 export const dribbleConfidence=(p:PracticePlayer)=>clamp(p.traits.dribble*.45+p.traits.risk*.35+clamp(p.skills.control/10,0,1)*.2,0,1);
 
@@ -218,7 +208,7 @@ export function carryOptions(p:PracticePlayer,players:PracticePlayer[],held:numb
   // (decide round) a route he is already running is valued for how directly it takes him on (goal gained a metre),
   // not as a short fresh route: the 5 m floor made the part of a route still to run worth less and less as he ran it
   // (CONTINUE_FLOOR)
-  const progress=clamp(goalGain/Math.max(continuing?CONTINUE_FLOOR:5,length),-1,1),advanceValue=Math.max(0,progress)*(CARRY_PROGRESS+p.traits.runs*CARRY_RUNS);
+  const progress=clamp(goalGain/Math.max(continuing?CONTINUE_FLOOR:5,length),-1,1),advanceValue=Math.max(0,progress)*(.14+p.traits.runs*.035);
   const purpose:CarryPurpose=passGain>.08&&passGain*.32>Math.max(advanceValue*.65,Math.max(0,shotGain)*.22)?'passing-lane'
    :shotGain>.08&&Math.abs(aim.y)<Math.abs(p.y)-1&&shotGain*.22>advanceValue*.4?'shooting-angle'
    :escapeGain>.16&&escapeGain*.16>advanceValue*.65?'escape':goalGain>.3?'advance':'protect';
@@ -226,9 +216,9 @@ export function carryOptions(p:PracticePlayer,players:PracticePlayer[],held:numb
   // Multiplying by current pressure made freshly escaped receivers blind to
   // the same approaching defender until they were already in the next duel.
   // (B2) an escape is worth what it is if he gets out: a route on which he reads he is tackled escapes nothing
-  const score=CARRY_BASE+clamp(clearance/6,0,1)*.06+progress*(CARRY_PROGRESS+p.traits.runs*CARRY_RUNS)+Math.max(0,shotGain)*CARRY_SHOT+passGain*CARRY_PASS+escapeGain*CARRY_ESCAPE*(1-beaten)
+  const score=CARRY_BASE+clamp(clearance/6,0,1)*.06+progress*(.14+p.traits.runs*.035)+Math.max(0,shotGain)*.22+passGain*.32+escapeGain*.16*(1-beaten)
    -obstruction*(.18-confidence*.07)-beaten*deliveryLossWeight(p,lossCost)-Math.max(0,local.nearbyChallenges-1)*(.1-confidence*.025)
-   +opening.gain*(.08+confidence*.1)*clamp(1-local.contactRisk,0,1)+Math.max(0,progress)*confidence*CARRY_CONFIDENT-turnCost*.07-pressure*.06-held*.003
+   +opening.gain*(.08+confidence*.1)*clamp(1-local.contactRisk,0,1)+Math.max(0,progress)*confidence*.045-turnCost*.07-pressure*.06-held*.003
    -local.endPressure*(.16-confidence*.08)-CARRY_LOSS*obstruction*(1-confidence*.4)*lossCost-leaving;
   const passTarget=opening.gain*.65>outlet.value-beforePass.value?opening.target:outlet.target;
   const recipient=purpose==='passing-lane'?players.find(q=>q.id===passTarget):undefined;
@@ -239,23 +229,6 @@ export function carryOptions(p:PracticePlayer,players:PracticePlayer[],held:numb
  return options;
 }
 
-/** (take-on price, 2026-10-19) What being at `aim` gets him, read as the carry reads a route there: progress toward
- * goal (the fresh route's goal gained a metre over at least 5 m), a better shooting angle, a better pass (the best
- * outlet from there, in the picture `there` he reads it in, against the best from here, in the picture `here` he sees
- * now), and escaping the man closing him (room at `aim` in `there` against `near`, the nearest opponent now), each at
- * the carry's own scale (CARRY_PROGRESS ... CARRY_CONFIDENT); `confident` is the confidence credit within `credits`.
- * Visible positions only. The drawn-opening credit is the carry's alone: it is the route pulling a defender, not
- * getting past him. */
-export function routeCredits(p:PracticePlayer,aim:Vec,there:PracticePlayer[],risk:Risk,near:number,here:PracticePlayer[]=there):{credits:number;confident:number;progress:number;shotGain:number;passGain:number;escapeGain:number}{
- const opponents=there.filter(q=>q.side!==p.side&&q.role!=='GK');
- const goalGain=goalDistance(p,p)-goalDistance(p,aim),length=distance(p,aim);
- const progress=clamp(goalGain/Math.max(5,length),-1,1),shotGain=shotPotential(p,aim)-shotPotential(p,p);
- const passGain=Math.max(0,passingOutlet(p,aim,there,risk).value-passingOutlet(p,p,here,risk).value);
- const pressure=clamp((5-near)/5,0,1),clearance=opponents.length?nearest(aim,opponents):6,escapeGain=pressure*clamp((clearance-near)/5,0,1);
- const confident=Math.max(0,progress)*dribbleConfidence(p)*CARRY_CONFIDENT;
- const credits=progress*(CARRY_PROGRESS+p.traits.runs*CARRY_RUNS)+Math.max(0,shotGain)*CARRY_SHOT+passGain*CARRY_PASS+escapeGain*CARRY_ESCAPE+confident;
- return {credits,confident,progress,shotGain,passGain,escapeGain};
-}
 /** Randomness may choose comparable routes, not an option worse on every football measure. */
 export function viableOptions<T extends FootballOption>(options:T[],plan:CarryPlan|null=null,time=0):T[]{
  const carries=options.filter(o=>o.carry),continuation=carries.find(o=>o.continuing),bestCarry=Math.max(-Infinity,...carries.map(o=>o.score));

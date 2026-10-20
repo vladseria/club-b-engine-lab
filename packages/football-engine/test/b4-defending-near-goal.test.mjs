@@ -120,9 +120,7 @@ test('in a match, late pick-ups happen, are short, and only ever for a runner af
 // The keeper keeps setting himself against the ball: at the shot he stands
 // near the line bisecting the posts (before: ~1.1 m off on average).
 test('the defending keeper is set near the bisector of the posts when the shot comes',()=>{
- // The take-on price (2026-10-19) left seed 2057 with 7 shots; 2058 has 12 (evidence/2026-10-19-takeon-price/repin.mjs
- // keeperBisector, public lab: the pooled mean miss over seeds 2057-2116 is 0.67 m with the price, 0.59 m without).
- const f=structuredClone(fixture);f.seed=2058;
+ const f=structuredClone(fixture);f.seed=2057;
  const r=runMatch({fixture:f,durationSeconds:300}).result,miss=[];
  for(const e of r.events.filter(e=>e.kind==='shot'&&e.actor)){
   const s=r.players.find(p=>p.id===e.actor).side,d=1-s,g=r.players.findIndex(p=>p.side===d&&p.role==='GK');
