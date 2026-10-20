@@ -221,11 +221,7 @@ test('ordinary match aerial releases have matching physical contacts without a c
  // not a header-frequency target. The take-on price (2026-10-19) lost the header; 14594 has one (14588, the first lab hit, does not reproduce on macOS arm64), and 14126 a volley (14123, 14125 do not reproduce there), round 4 (evidence/2026-10-19-
  // takeon-price/repin.mjs header 14581-14640, public lab) (volley 14123-14182). Round 5: 14587 has a header (14582 and 14594, earlier lab hits,
  // do not reproduce on macOS arm64) and 14131 a volley (14128 does not reproduce there) (same ranges, public lab).
- // The goal-line freeze fix (2026-10-20: a hurried shot struck where he set it when the pull would cross his body; the
- // long way round the ball when the short way leaves the pitch) lost both; 14591 has a header and 14140 a volley, the
- // first lab hits, both reproducing on macOS arm64 (../2026-10-19-takeon-price/repin.mjs header 14587-14646 /
- // volley 14131-14190, public lab runs 39450510056 / 39451973919; rows in evidence/2026-10-20-goalline-freeze/results).
- for(const [technique,seed] of [['header',14591],['volley',14140]]){
+ for(const [technique,seed] of [['header',14587],['volley',14131]]){
   const f=structuredClone(sandbox);f.seed=seed;
   f.teams[0].lineup[1]='motanescu';Object.assign(f.teams[0].tactics,teamApproaches.combinations.settings);
   Object.assign(f.teams[1].tactics,defensiveApproaches.press.tactics);
