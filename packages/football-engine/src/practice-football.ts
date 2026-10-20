@@ -109,6 +109,17 @@ export function placeHurried(aim:Vec,keeper:Vec|undefined,hurry:number):Vec{
  if(!keeper||hurry<=0)return aim;
  return {x:aim.x,y:aim.y+(clamp(keeper.y,-GH,GH)-aim.y)*HURRIED_PLACE*hurry};
 }
+/** (goal-line freeze, 2026-10-20) Where a prepared hurried foot shot goes. The hurry's pull (placeHurried) is where the
+ * ball ends up, and it cannot take the ball through the shooter's own body: `strikable` is whether his stance can strike
+ * an aim at all (practice.ts passes controlStrikeReady). Pulled where it can be struck; otherwise the aim he set, his
+ * striking error still applying (strikeShot, fitStrikeToStance). Before, a man set for the near post at a tight angle,
+ * the ball on his outside foot, was set for an aim the release gate accepted and a pulled aim the strike refused (it
+ * crossed his body), tick after tick, and nothing made him choose again: he stood on the ball by the byline to full
+ * time (evidence/2026-10-20-goalline-freeze). */
+export function hurriedShotAim(aim:Vec,keeper:Vec|undefined,hurry:number,strikable:(aim:Vec)=>boolean):Vec{
+ const pulled=placeHurried(aim,keeper,hurry);
+ return pulled===aim||strikable(pulled)?pulled:aim;
+}
 export interface GoalFlight {time:number;crossing:Vec;aim:Vec}
 /** Read the flight itself: an overhit pass can threaten the goal just like a shot. */
 export function goalBoundFlight(keeper:Pick<PracticePlayer,'side'|'x'|'y'>,ball:MovingBall):GoalFlight|null{

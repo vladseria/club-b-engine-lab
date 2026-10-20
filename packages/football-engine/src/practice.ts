@@ -20,7 +20,7 @@ import {receptionTarget} from './decisions.js';
 import {practiceFixture} from './practice-data.js';
 import {carryOptions,chooseFootballOption,commitCarry,CarryPlan,CarryAssessment,CarryOption} from './practice-carry.js';
 import type {ShotAssessment} from './practice-football.js';
-import {assessShot,shotZone,keeperClaimChance,strikeShot,keeperReach,goalBoundFlight,markPosition,goalAngle,pitchExit,keeperEdge,placeHurried,NO_EDGE} from './practice-football.js';
+import {assessShot,shotZone,keeperClaimChance,strikeShot,keeperReach,goalBoundFlight,markPosition,goalAngle,pitchExit,keeperEdge,hurriedShotAim,NO_EDGE} from './practice-football.js';
 import {shotContest,shotRead,shotTemper,SHOT_BASE,SHOT_WORTH,type ShotContest} from './practice-shot-contest.js';
 import type {KeeperEdge} from './practice-football.js';
 import {arrivalTime,assignDefense,containMovement,coverPosition,shootingThreat,BLOCK_NEAR,BLOCK_GAP,DefenseAssignment,assignFlight,assignMarking,FlightAssignment,runnerBehindShoulder,runnerPickupDelay} from './practice-defense.js';
@@ -584,7 +584,9 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
      // 2026-10-15) the hurry is the contest at the strike (practice-shot-contest shotContest), and off balance it is struck softer too
      const contest=shot&&!o.freeKick?shotContest(p,players,aerial?aerial.plan.aim:shotRead!.aim,{firstTime,sinceDuel:p.duelAt===undefined?undefined:time-p.duelAt}):undefined;
      const theirKeeper=shot?sidePlayers(other(p.side)).find(q=>q.role==='GK'):undefined,hurry=contest?.hurry??0;
-     if(shotRead&&!aerial&&hurry>0){shotRead.aim=placeHurried(shotRead.aim,theirKeeper,hurry);aim=shotRead.aim;}
+     // (goal-line freeze, 2026-10-20) not through his own body: from a stance the pulled aim cannot be struck from, he
+     // strikes where he set it (hurriedShotAim). Before, every strike was refused there and he stood on the ball to full time.
+     if(shotRead&&!aerial&&hurry>0){shotRead.aim=hurriedShotAim(shotRead.aim,theirKeeper,hurry,a=>firstTime||!!restart||inHands||controlStrikeReady(p,ball,controlFor(p),a,'shot'));aim=shotRead.aim;}
      const strike=aerial?strikeAerial(p,ball,aerial.technique,aerial.plan,pressure,execution):throwStrike?{vx:throwStrike.vx,vy:throwStrike.vy,vz:throwStrike.vz}:o.freeKick?strikeFreeKick(p,ball,o.freeKick,execution):shot?strikeShot(p,ball,shotRead!,execution,hurry,contest?.offBalance??0):clear?strikeClearance(p,ball,aim,pressure,execution,o.clearance??'long'):groundStrike?{vx:groundStrike.vx,vy:groundStrike.vy,vz:0}:{vx:loftStrike!.vx,vy:loftStrike!.vy,vz:loftStrike!.vz};
      // The receiver may have moved since selection. Only deviation from the
      // freshly planned, unperturbed aim is error; a new lead is not a mishit.

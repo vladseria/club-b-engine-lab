@@ -119,7 +119,14 @@ export function steerControl(p:PracticePlayer,ball:MovingBall,state:TouchControl
  }
  const crossing=contact(p,target,ball,ball,.46);
  if(crossing!==null){
-  const start=Math.atan2(p.y-ball.y,p.x-ball.x),end=Math.atan2(target.y-ball.y,target.x-ball.x),turn=clamp(difference(end,start),-.65,.65),radius=Math.max(.62,Math.min(1,gap));
+  const start=Math.atan2(p.y-ball.y,p.x-ball.x),end=Math.atan2(target.y-ball.y,target.x-ball.x),way=difference(end,start),radius=Math.max(.62,Math.min(1,gap));
+  // (goal-line freeze, 2026-10-20) The way round is the one he can walk all the way: the short way's next step may be
+  // inside the pitch while its arc leaves it further on (a ball by the line, the stance on its far side). Choosing by
+  // the next step alone, he took one step the short way, found its next point outside, stepped back the long way, and so
+  // on: he stood on the ball by his own goal line to full time. The short way unless its arc leaves the pitch and the
+  // long way's does not.
+  const arcInside=(sweep:number)=>{for(let a=0;Math.abs(a)<Math.abs(sweep);a+=Math.sign(sweep)*.2)if(!inBounds({x:future.x+Math.cos(start+a)*radius,y:future.y+Math.sin(start+a)*radius}))return false;return true;};
+  const turn=!arcInside(way)&&arcInside(way-Math.sign(way)*2*Math.PI)?-Math.sign(way)*.65:clamp(way,-.65,.65);
   target={x:future.x+Math.cos(start+turn)*radius,y:future.y+Math.sin(start+turn)*radius};
   if(!inBounds(target))target={x:future.x+Math.cos(start-Math.sign(turn)*.65)*radius,y:future.y+Math.sin(start-Math.sign(turn)*.65)*radius};
  }
