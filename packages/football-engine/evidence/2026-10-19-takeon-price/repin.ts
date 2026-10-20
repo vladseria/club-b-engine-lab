@@ -55,7 +55,27 @@ function bisector(seed:number,on:boolean){
  const mean=miss.length?miss.reduce((a,b)=>a+b,0)/miss.length:NaN;
  return {shots:miss.length,mean,pass:miss.length>=10&&mean<.9};
 }
+// `tired` (round 5): test/triggered-substitutions.test.mjs "a tired trigger replaces that player at the next stoppage
+// ..." (300 s), ../2026-10-14-r1/repin.mjs tired ported unchanged in substance.
+function tired(seed:number):string|null{
+ const STOPPAGES=['goal','out','foul','offside','half'];
+ const f:any=structuredClone(fixture);f.seed=seed;
+ for(const [side,t] of (f.teams as any[]).entries()){const gk=t.squad.find((p:any)=>p.roles[0]==='GK');
+  t.squad.push({...structuredClone(gk),id:`rgk${side}`,name:`Portar rezervă ${side}`},{...structuredClone(t.squad[3]),id:`r1${side}`,name:`Rezerva unu ${side}`},{...structuredClone(t.squad[4]),id:`r2${side}`,name:`Rezerva doi ${side}`});}
+ const r:any=runMatch({fixture:f,durationSeconds:300,substitutionOrders:[{id:'t',side:0,in:'r10',trigger:{kind:'tired',player:'van',threshold:98}}]} as any).result;
+ const subs=r.events.filter((e:any)=>e.kind==='substitution'),[e]=subs;if(!e||e.outgoing!=='0:van'||e.incoming!=='0:r10'||!(e.substitution.energy<98))return null;
+ for(const s of subs){const i=r.events.indexOf(s);let j=i-1;while(r.events[j].kind==='substitution')j--;
+  if(!STOPPAGES.includes(r.events[j].kind)||r.events[j].time!==s.time)return null;const frame=r.frames.find((x:any)=>x.event>=i);if(!frame?.restart)return null;}
+ const outIndex=r.players.findIndex((p:any)=>p.id==='0:van'),prior=r.events.filter((x:any)=>STOPPAGES.includes(x.kind)&&x.time<e.time).at(-1);if(!prior)return null;
+ const priorFrame=r.frames.filter((x:any)=>x.time<=prior.time).at(-1);if(!(priorFrame.players[outIndex].energy>=98-0.05))return null;
+ const incoming=r.players.find((p:any)=>p.id==='0:r10');if(incoming.energy!==100)return null;
+ const outgoing=r.players[outIndex];if(incoming.number!==outgoing.number||incoming.role!==outgoing.role||incoming.lane!==outgoing.lane)return null;
+ const last=r.frames.at(-1);if(!(last.lineup.includes(r.players.indexOf(incoming))&&!last.lineup.includes(outIndex)))return null;
+ if(r.substitutionNotes.length!==1||r.substitutionNotes[0].status!=='made'||r.substitutionNotes[0].out!=='van'||r.substitutionNotes[0].in!=='r10')return null;
+ return `tired substitution ${e.time.toFixed(2)} s after a stoppage at ${prior.time.toFixed(2)} s`;
+}
 export function play(task:{kind:string;seed:number}){
+ if(task.kind==='tired'){const t0=Date.now(),found=tired(task.seed);return {kind:task.kind,seed:task.seed,found,build:ENGINE_BUILD.slice(0,8),platform:`${process.platform}-${process.arch}-node${process.versions.node}`,ms:Date.now()-t0};}
  if(task.kind==='keeperBisector'||task.kind==='keeperBisectorOff'){
   const t0=Date.now(),k=bisector(task.seed,task.kind==='keeperBisector');
   return {kind:task.kind,seed:task.seed,found:k.pass?`${k.shots} shots, mean lateral miss ${k.mean.toFixed(2)} m`:null,bisector:k,build:ENGINE_BUILD.slice(0,8),platform:`${process.platform}-${process.arch}-node${process.versions.node}`,ms:Date.now()-t0};
