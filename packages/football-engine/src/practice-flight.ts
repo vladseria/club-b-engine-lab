@@ -87,7 +87,7 @@ export function previewGap(p:FlightPlayer,point:FlightSample,reaction:number):nu
   const dt=Math.min(STEP,end-time);
   const dx=tx-x,dy=ty-y,distance=Math.hypot(dx,dy);
   const directionX=distance?dx/distance:0,directionY=distance?dy/distance:0;
-  const speed=Math.min(limit,Math.sqrt(2*acceleration*Math.max(0,distance-.2)));
+  const speed=Math.min(limit,Math.sqrt(2*acceleration*Math.max(0,distance-WORLD.motion.steer.arrivalRadius.v)));
   let desiredX=0+directionX*speed,desiredY=0+directionY*speed;
   const length=Math.hypot(desiredX,desiredY);if(length>limit){desiredX*=limit/length;desiredY*=limit/length;}
   const dvx=desiredX-vx,dvy=desiredY-vy,change=Math.hypot(dvx,dvy),factor=Math.min(1,acceleration*dt/Math.max(change,.00001));

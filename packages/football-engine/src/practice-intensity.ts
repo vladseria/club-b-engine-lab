@@ -38,7 +38,7 @@ import {WORLD} from './world.js';
  * keeper never come here: they stay at full intensity. */
 export const POSITIONAL_KINDS:ReadonlySet<string>=new Set(['support','hold','show','width','track','cover']);
 /** Cruise: the share of his pace, and of his acceleration, he chooses when nothing calls for more. */
-export const CRUISE=.5,CRUISE_PUSH=.45;
+export const CRUISE=WORLD.motion.intensity.CRUISE.v,CRUISE_PUSH=WORLD.motion.intensity.CRUISE_PUSH.v;
 /** How quickly the ball can travel to a place once it is played (m/s), to judge the time he has. */
 export const BALL_REACH=14;
 /** A runner is read as going past him when, within RUN_LOOK s, he will be level with or beyond him. */
@@ -164,7 +164,7 @@ export class SpotDrift{
  * the taker has the ball, and for a run timed to the kick, nothing changes. A
  * quick restart stays as quick as before: nobody who decides when it can be
  * taken slows down. */
-export const RESTART_WALK=1.5,RESTART_EARLY=.7,RESTART_SET=.5;
+export const RESTART_WALK=WORLD.motion.intensity.RESTART_WALK.v,RESTART_EARLY=.7,RESTART_SET=.5;
 /** Seconds until the kick can come: the restart's earliest time, or when the last man it waits for arrives, plus the set moment. */
 export function restartKickIn(ready:number,time:number,waiting:{distance:number;speed:number}[]):number{
  let t=Math.max(0,ready-time);

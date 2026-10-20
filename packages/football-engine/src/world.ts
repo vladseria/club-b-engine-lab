@@ -10,7 +10,7 @@
  * entry, with the step that moved it). */
 
 /** The unit of an entry, as the code uses it. Never converted. */
-export type Unit='1/s'|'Hz'|'deg'|'m'|'m/s'|'m/s2'|'min'|'rad'|'ref m'|'s'|'share of L'|'ticks'|'x';
+export type Unit='1/energy2'|'1/s'|'Hz'|'J/kg/m'|'deg'|'energy'|'energy s2/m2'|'energy2'|'m'|'m/s'|'m/s2'|'min'|'rad'|'rad/s'|'ref m'|'s'|'share of L'|'skill'|'slope'|'ticks'|'x';
 /** body: never scales with the pitch; geometry: tied to the pitch or the goal; free: a share, weight, odds or score. */
 export type Kind='body'|'geometry'|'free';
 /** The pitch probe's axis (L along the pitch or a radius from a goal, W across, G the goal mouth, A the goal angle). Recorded only. */
@@ -504,6 +504,81 @@ export const WORLD=freeze({
    weightPrecision:p(.075,'x','body',['practice-passing.ts:245'],'... plus this times (1 - precision)'),
    weightPressure:p(.09,'x','body',['practice-passing.ts:245'],'... plus this times pressure'),
    weightTired:p(.06,'x','body',['practice-passing.ts:245'],'... plus this times tiredness'),
+  },
+ },
+ /** player motion: pace, acceleration, turning, steering, separation, arrival */
+ motion:{
+  steer:{
+   arrivalRadius:p(.2,'m','body',['movement.ts:22','practice-flight.ts:90'],'a player brakes to arrive within this of his target (steerMotion; previewGap writes the same out)'),
+   separation:p(1.65,'m','body',['movement.ts:29'],'two players closer than this push apart (separation radius)'),
+   separationGain:p(2.8,'1/s','body',['movement.ts:29'],'... at this much speed per metre inside it'),
+   faceFrom:p(.2,'m/s','body',['movement.ts:36'],'a player moving faster than this turns to face where he runs'),
+   turnRateBack:p(-4,'rad/s','body',['movement.ts:36','practice.ts:1379','practice.ts:1383'],'... turning at most this fast (the negative bound)'),
+   turnRate:p(4,'rad/s','body',['movement.ts:36','practice.ts:1379','practice.ts:1383'],'his body turns at most this fast (positive bound; the facing turns of practice.ts read the same)'),
+  },
+  legs:{
+   keeperPaceBase:p(4.5,'m/s','body',['practice.ts:155','practice.ts:634','practice.ts:658'],'a keeper\'s top speed: this plus keeperPacePer per point of pace'),
+   keeperPacePer:p(.34,'m/s','body',['practice.ts:155','practice.ts:634','practice.ts:658'],'... per point of pace'),
+   paceBase:p(4.75,'m/s','body',['practice.ts:155','practice.ts:634','practice.ts:658'],'an outfielder\'s top speed: this plus pacePer per point of pace'),
+   pacePer:p(.35,'m/s','body',['practice.ts:155','practice.ts:634','practice.ts:658'],'... per point of pace'),
+   keeperAccelBase:p(3.1,'m/s2','body',['practice.ts:158','practice.ts:637','practice.ts:662'],'a keeper\'s acceleration: this plus keeperAccelPer per point of pace'),
+   keeperAccelPer:p(.19,'m/s2','body',['practice.ts:158','practice.ts:637','practice.ts:662'],'... per point of pace'),
+   accelBase:p(3.5,'m/s2','body',['practice.ts:158','practice.ts:637','practice.ts:662'],'an outfielder\'s acceleration: this plus accelPer per point of pace'),
+   accelPer:p(.22,'m/s2','body',['practice.ts:158','practice.ts:637','practice.ts:662'],'... per point of pace'),
+   subPaceFloor:p(.7,'x','body',['practice.ts:637','practice.ts:661'],'a substitute enters at this share of his top speed plus subPaceShare x energy/100 (until the next tick re-reads his legs)'),
+   subPaceShare:p(.3,'x','body',['practice.ts:637','practice.ts:661'],'...'),
+  },
+  arrival:{
+   reach:p(1,'m','body',['practice-arrival.ts:12'],'arrivalTime: a player is there once within this of the point'),
+   runShare:p(.94,'x','body',['practice-arrival.ts:13','practice-passing.ts:114'],'the arrival model: a player races to a point at this share of his (tired) pace (arrivalTime and the receiver\'s copy in practice-passing)'),
+  },
+  intensity:{
+   CRUISE:p(.5,'x','body',['practice-intensity.ts:41'],'Cruise: the share of his pace, and of his acceleration, he chooses when nothing calls for more.'),
+   CRUISE_PUSH:p(.45,'x','body',['practice-intensity.ts:41'],'Cruise: the share of his pace, and of his acceleration, he chooses when nothing calls for more (CRUISE pace, CRUISE_PUSH acceleration).'),
+   RESTART_WALK:p(1.5,'m/s','body',['practice-intensity.ts:167'],'walking to a restart position: never slower than this'),
+  },
+ },
+ /** fatigue: running cost, critical speed, drain, reserves, energy */
+ fatigue:{
+  match:{
+   G_ACC:p(9.81,'m/s2','body',['practice-match.ts:84'],'gravity in the running-cost model (the equivalent slope is acceleration / G_ACC; the same 9.81 as the ball\'s gravity, kept as its own entry)'),
+   HIGH_INTENSITY:p(5.5,'m/s','body',['practice-match.ts:84'],'the high-intensity running speed the metabolic surcharge is scaled at'),
+   speedCost:p(.0006,'energy s2/m2','body',['practice-match.ts:84','practice-match.ts:134'],'energy cost per second of speed squared (base cost: speed x speed x this)'),
+   flatCost:p(3.6,'J/kg/m','body',['practice-match.ts:84','practice-match.ts:85','practice-match.ts:133'],'Minetti\'s cost of running on the flat (J/kg/m): the polynomial\'s constant, and what the surcharge subtracts'),
+   slopeMin:p(-.45,'slope','body',['practice-match.ts:85'],'the running-cost polynomial holds for equivalent slopes from this'),
+   slopeMax:p(.45,'slope','body',['practice-match.ts:85'],'... to this'),
+   minetti5:p(155.4,'J/kg/m','body',['practice-match.ts:85'],'Minetti\'s running cost (J/kg/m) on the equivalent slope e: this x e^5'),
+   minetti4:p(30.4,'J/kg/m','body',['practice-match.ts:85'],'... minus this x e^4'),
+   minetti3:p(43.3,'J/kg/m','body',['practice-match.ts:85'],'... minus this x e^3'),
+   minetti2:p(46.3,'J/kg/m','body',['practice-match.ts:85'],'... plus this x e^2'),
+   minetti1:p(19.5,'J/kg/m','body',['practice-match.ts:85'],'... plus this x e (plus the flat cost)'),
+   criticalBase:p(.74,'x','body',['practice-match.ts:127'],'critical speed: this share of top pace'),
+   criticalPer:p(.01,'x','body',['practice-match.ts:127'],'... plus this per point of stamina'),
+   INTENSITY_SHARE:p(.42,'x','body',['practice-match.ts:128'],'Intensity is what costs (with `topPace`): the same drain is split so that running above the player\'s own critical speed carries INTENSITY_SHARE of a stamina-6 outfielder\'s match drain in the neutral mirror. Efforts above 20 W/kg are 26% ...'),
+   INTENSITY_COST:p(.4108,'x','body',['practice-match.ts:128'],'Intensity is what costs (with `topPace`): the same drain is split so that running above the player\'s own critical speed carries INTENSITY_SHARE of a stamina-6 outfielder\'s match drain in the neutral mirror. Efforts above 20 W/kg are 26% ...'),
+   STAMINA6_DRAIN:p(.98,'x','body',['practice-match.ts:129'],'the energy drain of a stamina-6 player (re-centred to 0.98 on 2026-10-12) ...'),
+   STAMINA_DRAIN_SLOPE:p(.11,'x','body',['practice-match.ts:129'],'... less this share per point of stamina above 6 (more below) ...'),
+   STAMINA_DRAIN_FLOOR:p(.3,'x','body',['practice-match.ts:129'],'... never under this share of a stamina-6 player\'s drain'),
+   drainCentre:p(6,'skill','body',['practice-match.ts:130'],'the drain is STAMINA6_DRAIN at this stamina, less per point above it, more below'),
+   halfTimeRest:p(6,'energy','body',['practice-match.ts:142'],'half-time gives back this much energy'),
+   SPRINT_SHARE:p(.825,'x','body',['practice-match.ts:194'],'the sprint threshold: this share of his top pace (times his energy\'s top-speed factor); faster draws the reserve'),
+   RESERVE_SIZE:p(13,'m','body',['practice-match.ts:196'],'the sprint reserve: metres above the threshold a fresh reserve holds'),
+   RESERVE_HALF_LIFE_FRESH:p(34,'s','body',['practice-match.ts:197'],'the reserve refills with this half-life when fresh ...'),
+   RESERVE_FATIGUE_SLOWER:p(1.2,'x','body',['practice-match.ts:197'],'... and up to this much slower when exhausted'),
+   RESERVE_TOP:p(.15,'x','body',['practice-match.ts:231'],'a spent reserve costs up to this share of top speed ...'),
+   RESERVE_ACCELERATION:p(.6,'x','body',['practice-match.ts:231'],'... and this share of acceleration (centred on TYPICAL_SPENT so a typical outfielder is unchanged)'),
+   TYPICAL_SPENT:p(.32,'x','body',['practice-match.ts:231'],'the typical spent-reserve square the legs are centred on'),
+   keeperAccelFloor:p(.8,'x','body',['practice-match.ts:236'],'a keeper\'s acceleration: this share plus keeperAccelShare x energy/100 (keepers never draw the reserve)'),
+   keeperAccelShare:p(.2,'x','body',['practice-match.ts:236'],'...'),
+   ENERGY_TOP_MEAN:p(.9729,'x','body',['practice-match.ts:265'],'energy\'s top-speed factor at the mean spent energy square ...'),
+   ENERGY_ACCELERATION_MEAN:p(.9819,'x','body',['practice-match.ts:265'],'... and its acceleration factor there'),
+   ENERGY_SPENT_SQ_MEAN:p(425,'energy2','body',['practice-match.ts:265'],'the mean square of spent energy both factors are centred on'),
+   ENERGY_TOP_LOSS:p(.9e-4,'1/energy2','body',['practice-match.ts:266'],'top speed lost per unit of spent energy squared'),
+   ENERGY_ACCELERATION_LOSS:p(1.2e-4,'1/energy2','body',['practice-match.ts:266'],'acceleration lost per unit of spent energy squared'),
+   keeperTopFloor:p(.7,'x','body',['practice-match.ts:268'],'a keeper\'s top speed: this share plus keeperTopShare x energy/100'),
+   keeperTopShare:p(.3,'x','body',['practice-match.ts:268'],'...'),
+   topFloor:p(.5,'x','body',['practice-match.ts:268'],'an outfielder\'s top speed never falls under this share'),
+   accelerationFloor:p(.5,'x','body',['practice-match.ts:269'],'an outfielder\'s acceleration never falls under this share'),
   },
  },
 });

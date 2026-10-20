@@ -111,7 +111,7 @@ export function receiverLead(q:PracticePlayer,flight:number):Vec{
 export function receptionTime(p:PracticePlayer,aim:Vec):number{
  const d=distance(p,aim),ux=d>1e-6?(aim.x-p.x)/d:0,uy=d>1e-6?(aim.y-p.y)/d:0;
  const along=p.vx*ux+p.vy*uy,gap=Math.max(0,d-(along<-.5?0:RECEIVING_REACH));
- const speed=p.pace*.94,v=clamp(along,-speed,speed),a=p.acceleration;
+ const speed=p.pace*WORLD.motion.arrival.runShare.v,v=clamp(along,-speed,speed),a=p.acceleration;
  const accelerate=(speed-v)/a,covered=v*accelerate+.5*a*accelerate*accelerate;
  return gap<=covered?(-v+Math.sqrt(v*v+2*a*gap))/a:accelerate+(gap-covered)/speed;
 }

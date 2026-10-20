@@ -152,10 +152,10 @@ export function practicePlayers(f:Fixture):PracticePlayer[]{
    const p=structuredClone(source) as Player&{archetype?:string;temperament?:string},[role,lane]=shapes[t.tactics.formation][i];
    if(!Object.values(p.skills).every(n=>Number.isFinite(n)&&n>=0&&n<=12)||!Number.isFinite(p.energy)||p.energy<0||p.energy>100)throw Error('Invalid practice attributes');
    const x=role==='GK'?X(6):role==='CB'?X(24):role==='FB'?X(28):role==='DM'?X(37):role==='CM'?X(43):role==='AM'?X(46):X(48);
-   const y=lane*(role==='FB'||role==='W'?Y(27):role==='CB'?Y(10):Y(13)),basePace=role==='GK'?4.5+p.skills.pace*.34:4.75+p.skills.pace*.35;
+   const y=lane*(role==='FB'||role==='W'?Y(27):role==='CB'?Y(10):Y(13)),basePace=role==='GK'?WORLD.motion.legs.keeperPaceBase.v+p.skills.pace*WORLD.motion.legs.keeperPacePer.v:WORLD.motion.legs.paceBase.v+p.skills.pace*WORLD.motion.legs.pacePer.v;
    // duelAt is declared (undefined) from the start, not added at the first duel: a property added mid-match gives
    // players (and every {...p} copy) a second shape and made the whole engine ~8% slower (evidence/2026-10-15-contest-cost)
-   return {...p,id:`${side}:${p.id}`,side:side as Side,number:i+1,role,lane,x:world(side as Side,x),y,vx:0,vy:0,angle:side?Math.PI:0,basePace,pace:basePace,acceleration:role==='GK'?3.1+p.skills.pace*.19:3.5+p.skills.pace*.22,job:'',duty:'hold' as Duty,archetype:p.archetype??'',temperament:p.temperament??'',duelAt:undefined};
+   return {...p,id:`${side}:${p.id}`,side:side as Side,number:i+1,role,lane,x:world(side as Side,x),y,vx:0,vy:0,angle:side?Math.PI:0,basePace,pace:basePace,acceleration:role==='GK'?WORLD.motion.legs.keeperAccelBase.v+p.skills.pace*WORLD.motion.legs.keeperAccelPer.v:WORLD.motion.legs.accelBase.v+p.skills.pace*WORLD.motion.legs.accelPer.v,job:'',duty:'hold' as Duty,archetype:p.archetype??'',temperament:p.temperament??'',duelAt:undefined};
   });
  });
 }
@@ -631,10 +631,10 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    const change=chooseReplacement(f.teams[team],sidePlayers(team),used);if(!change){subCounts[team]=SUB_MINUTES.length;break;}
    const {outgoing,incoming}=change,source=structuredClone(incoming) as Player&{archetype?:string;temperament?:string};
    // keeper formulas only for a keeper, as in the triggered path (applyOrders) and practicePlayers
-   const gk=outgoing.role==='GK',basePace=gk?4.5+source.skills.pace*.34:4.75+source.skills.pace*.35;
+   const gk=outgoing.role==='GK',basePace=gk?WORLD.motion.legs.keeperPaceBase.v+source.skills.pace*WORLD.motion.legs.keeperPacePer.v:WORLD.motion.legs.paceBase.v+source.skills.pace*WORLD.motion.legs.pacePer.v;
    const replacement:PracticePlayer={...outgoing,...source,id:`${team}:${source.id}`,role:outgoing.role,lane:outgoing.lane,side:team,
     number:f.teams[team].squad.findIndex(q=>q.id===source.id)+1,archetype:source.archetype??'',temperament:source.temperament??'',
-    vx:0,vy:0,basePace,pace:basePace*(.7+.3*source.energy/100),acceleration:gk?3.1+source.skills.pace*.19:3.5+source.skills.pace*.22,duty:'restart',job:'Intră în joc'};
+    vx:0,vy:0,basePace,pace:basePace*(WORLD.motion.legs.subPaceFloor.v+WORLD.motion.legs.subPaceShare.v*source.energy/100),acceleration:gk?WORLD.motion.legs.keeperAccelBase.v+source.skills.pace*WORLD.motion.legs.keeperAccelPer.v:WORLD.motion.legs.accelBase.v+source.skills.pace*WORLD.motion.legs.accelPer.v,duty:'restart',job:'Intră în joc'};
    players[players.indexOf(outgoing)]=replacement;byId.set(replacement.id,replacement);used.add(replacement.id);subCounts[team]++;
    rosterIndex.set(replacement.id,roster.length);roster.push(structuredClone(replacement));lineup=players.map(p=>rosterIndex.get(p.id)!);
    say('substitution',`${f.teams[team].name}: ${outgoing.name} iese, ${replacement.name} intră cu energie proaspătă.`,replacement,outgoing);
@@ -655,11 +655,11 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    if('wait' in decision){note.detail=decision.wait;return;}
    if('impossible' in decision){Object.assign(note,{status:'impossible',time,detail:decision.impossible});return;}
    const outgoing=decision.outgoing,source=structuredClone(f.teams[team].squad.find(p=>p.id===order.in)!) as Player&{archetype?:string;temperament?:string};
-   const gk=outgoing.role==='GK',basePace=gk?4.5+source.skills.pace*.34:4.75+source.skills.pace*.35;
+   const gk=outgoing.role==='GK',basePace=gk?WORLD.motion.legs.keeperPaceBase.v+source.skills.pace*WORLD.motion.legs.keeperPacePer.v:WORLD.motion.legs.paceBase.v+source.skills.pace*WORLD.motion.legs.pacePer.v;
    // Same role/lane/slot number: slot-addressed plans and standing instructions pass to the newcomer.
    const replacement:PracticePlayer={...outgoing,...source,id:`${team}:${source.id}`,role:outgoing.role,lane:outgoing.lane,side:team,number:outgoing.number,
-    archetype:source.archetype??'',temperament:source.temperament??'',vx:0,vy:0,basePace,pace:basePace*(.7+.3*source.energy/100),
-    acceleration:gk?3.1+source.skills.pace*.19:3.5+source.skills.pace*.22,duty:'restart',job:'Intră în joc'};
+    archetype:source.archetype??'',temperament:source.temperament??'',vx:0,vy:0,basePace,pace:basePace*(WORLD.motion.legs.subPaceFloor.v+WORLD.motion.legs.subPaceShare.v*source.energy/100),
+    acceleration:gk?WORLD.motion.legs.keeperAccelBase.v+source.skills.pace*WORLD.motion.legs.keeperAccelPer.v:WORLD.motion.legs.accelBase.v+source.skills.pace*WORLD.motion.legs.accelPer.v,duty:'restart',job:'Intră în joc'};
    players[players.indexOf(outgoing)]=replacement;byId.set(replacement.id,replacement);used.add(replacement.id);gone.add(outgoing.id);madeCounts[team]++;
    for(const [id,target] of [...marks])if(id===outgoing.id||target===outgoing.id)marks.delete(id);
    rosterIndex.set(replacement.id,roster.length);roster.push(structuredClone(replacement));lineup=players.map(p=>rosterIndex.get(p.id)!);
@@ -1376,11 +1376,11 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    const speed=Math.hypot(p.vx,p.vy);p.energy=fatigueEnergy(p.energy,speed,p.skills.stamina,STEP,(speed-previous.speed)/STEP,p.role==='GK'?undefined:p.basePace);reserves.set(p.id,reserveBalance(reserveOf(p),speed,p.energy,p.basePace,STEP));
    if(kind==='press')stats[p.side].pressSeconds+=STEP;if(kind==='cover'||kind==='hold'||kind==='track')stats[p.side].coverSeconds+=STEP;
    if(!physicalOwner&&p.id===owner?.id&&(prepared||firstTouch)){
-    const target=prepared?.option.aim??firstTouch!.aim;p.angle=facing;const a=Math.atan2(target.y-p.y,target.x-p.x);p.angle+=clamp(angleDiff(a,p.angle),-4*STEP,4*STEP);
+    const target=prepared?.option.aim??firstTouch!.aim;p.angle=facing;const a=Math.atan2(target.y-p.y,target.x-p.x);p.angle+=clamp(angleDiff(a,p.angle),WORLD.motion.steer.turnRateBack.v*STEP,WORLD.motion.steer.turnRate.v*STEP);
    }
    // (keeper with the ball in his hands) walking with it, he keeps turned to the team-mate he means to find
    else if(inHands&&p.id===owner?.id&&!restart){p.angle=facing;if(keeperLook){const a=Math.atan2(keeperLook.y-p.y,keeperLook.x-p.x);p.angle+=clamp(angleDiff(a,p.angle),-KEEPER_TURN*STEP,KEEPER_TURN*STEP);}}
-   else if(restart&&!liningUp){p.angle=facing;const a=Math.atan2(restart.spot.y-p.y,restart.spot.x-p.x);p.angle+=clamp(angleDiff(a,p.angle),-4*STEP,4*STEP);}
+   else if(restart&&!liningUp){p.angle=facing;const a=Math.atan2(restart.spot.y-p.y,restart.spot.x-p.x);p.angle+=clamp(angleDiff(a,p.angle),WORLD.motion.steer.turnRateBack.v*STEP,WORLD.motion.steer.turnRate.v*STEP);}
    if((owner||restart)&&!physicalOwner)receivingContact(p,old.get(p.id)!,ball,ball,controlFor(p),time,STEP,false);
   }
   if(!restart)separateTeamMates();
