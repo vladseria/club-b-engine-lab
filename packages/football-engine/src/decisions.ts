@@ -1,6 +1,7 @@
 import {L,W} from './pitch.js';
 import {clamp,rng} from './model.js';
 import {STEP, contact, steer, movementCast, Cover, Vec, MovingPlayer, MovingBall, MovementEvent, MovementFrame, MovementResult} from './movement.js';
+import {WORLD} from './world.js';
 
 export interface DecisionConfig {
   seed:number;cover:Cover;striker:'channels'|'feet';passer:'inventive'|'careful';
@@ -23,7 +24,7 @@ export function receptionTarget(p:MovingPlayer,ball:MovingBall):Vec {
  const speed=Math.hypot(ball.vx,ball.vy),direction=unit({x:ball.vx,y:ball.vy});
  let best={x:ball.x,y:ball.y},bestGap=Infinity;
  for(let lead=.15;lead<=2.55;lead+=.15){
-  const travel=Math.max(0,speed*lead-.3*lead*lead);
+  const travel=Math.max(0,speed*lead-WORLD.ball.flight.receptionDecay.v*lead*lead);
   const aim={x:ball.x+direction.x*travel,y:ball.y+direction.y*travel};
   if(aim.x<.3||aim.x>L-.3||Math.abs(aim.y)>W/2-.3)continue;
   const preview={...p};

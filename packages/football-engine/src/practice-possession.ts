@@ -394,6 +394,6 @@ export function strikeClearance(p:PracticePlayer,ball:Vec,aim:Vec,pressure:numbe
   const speed=clamp(Math.sqrt(81+2*PASS_DRAG*distance(ball,aim)),9,14.5);
   return {vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,vz:5.5+p.skills.strength*.08};
  }
- const speed=22+p.skills.strength*.25,out=intent!=='long';
+ const speed=WORLD.ball.kick.clearBase.v+p.skills.strength*WORLD.ball.kick.clearPer.v,out=intent!=='long';
  return {vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,vz:out?1.2:6.5+p.skills.strength*.15};
 }

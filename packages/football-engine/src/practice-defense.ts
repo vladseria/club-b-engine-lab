@@ -244,8 +244,8 @@ export function assignFlight(players:PracticePlayer[],ball:import('./movement.js
  const airborne=ball.z>.05||Math.abs(ball.vz)>.5,samples=airborne?flightSamples(ball):undefined;
  const speed=Math.hypot(ball.vx,ball.vy),ux=ball.vx/Math.max(.001,speed),uy=ball.vy/Math.max(.001,speed);
  const points=[0,.05,.1,...Array.from({length:16},(_,i)=>.15*(i+1))].map(time=>{
-  const moving=Math.min(time,speed/.65),travel=speed*moving-.325*moving*moving;
-  return {time,x:ball.x+ux*Math.max(0,travel),y:ball.y+uy*Math.max(0,travel),z:Math.max(0,ball.z+ball.vz*time-4.905*time*time)};
+  const moving=Math.min(time,speed/WORLD.ball.flight.PASS_DRAG.v),travel=speed*moving-WORLD.ball.flight.halfDrag.v*moving*moving;
+  return {time,x:ball.x+ux*Math.max(0,travel),y:ball.y+uy*Math.max(0,travel),z:Math.max(0,ball.z+ball.vz*time-WORLD.ball.flight.halfGravity.v*time*time)};
  }).filter(q=>q.x>=0&&q.x<=L&&Math.abs(q.y)<=W/2&&q.z<1.1);
  if(!points.length&&!airborne)return result;
  // Read the opposition's interception opportunity before deciding whether a

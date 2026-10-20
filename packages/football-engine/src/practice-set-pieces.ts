@@ -8,6 +8,7 @@ import {STEP} from './movement.js';
 import {PASS_DRAG} from './practice-flight.js';
 import {goalAngle} from './practice-football.js';
 import type {RestartInfo} from './practice-restarts.js';
+import {WORLD} from './world.js';
 
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
 const depth=(side:Side,x:number)=>side===0?x:L-x;
@@ -68,18 +69,18 @@ const flightTime=(length:number,speed:number)=>{
  const initial=speed+PASS_DRAG*STEP/2,remaining=initial*initial-2*PASS_DRAG*length;
  return remaining>0?2*length/(initial+Math.sqrt(remaining)):Infinity;
 };
-const heightAt=(vz:number,time:number)=>Math.max(0,vz*time-9.81*time*(time-STEP)/2);
+const heightAt=(vz:number,time:number)=>Math.max(0,vz*time-WORLD.ball.flight.gravity.v*time*(time-STEP)/2);
 
 /** Compare straight, physically reachable goal trajectories; there is no invented curl. */
 export function assessFreeKick(p:PracticePlayer,players:PracticePlayer[],spot:Vec=p):DirectFreeKickPlan|null {
  const goalX=p.side===0?L:0,length=distance(spot,{x:goalX,y:0}),angle=goalAngle({...p,...spot});
- if(length<5||length>36||angle<.14)return null;
+ if(length<WORLD.ball.freeKick.shotMin.v||length>WORLD.ball.freeKick.shotMax.v||angle<WORLD.ball.freeKick.shotAngleMin.v)return null;
  const opponents=players.filter(q=>q.side!==p.side),keeper=opponents.find(q=>q.role==='GK');
  const technique=clamp((p.skills.setPieces*.65+p.skills.finishing*.35)/10,0,1);
- const deviation=.019+(1-technique)*.064+(1-p.energy/100)*.012;
- const power=(21+p.skills.strength*.25+p.skills.finishing*.12)*(.94+.06*p.energy/100);
+ const deviation=WORLD.error.freeKick.base.v+(1-technique)*WORLD.error.freeKick.technique.v+(1-p.energy/100)*WORLD.error.freeKick.tired.v;
+ const power=(WORLD.ball.freeKick.powerBase.v+p.skills.strength*WORLD.ball.freeKick.powerStrength.v+p.skills.finishing*WORLD.ball.freeKick.powerFinishing.v)*(WORLD.ball.freeKick.tiredFloor.v+WORLD.ball.freeKick.tiredShare.v*p.energy/100);
  let best:DirectFreeKickPlan|null=null,bestValue=-Infinity;
- for(const y of [-2.7,-1.4,0,1.4,2.7].map(G))for(const speed of [power,power*.88]){
+ for(const y of [-2.7,-1.4,0,1.4,2.7].map(G))for(const speed of [power,power*WORLD.ball.freeKick.softShare.v]){
   const aim={x:goalX,y},dx=goalX-spot.x,dy=y-spot.y,d=Math.hypot(dx,dy),flight=flightTime(d,speed);
   const bodies=opponents.filter(q=>q.role!=='GK').map(q=>{
    const fraction=((q.x-spot.x)*dx+(q.y-spot.y)*dy)/(d*d);
@@ -88,8 +89,8 @@ export function assessFreeKick(p:PracticePlayer,players:PracticePlayer[],spot:Ve
   }).filter(q=>q.fraction>0&&q.fraction<1&&q.gap<1.4);
   // A low route and a descending route compete. The latter may clear a wall at
   // the existing 1.1m body-contact height, but gives the keeper more time.
-  for(const vz of [2.2,.8/flight+9.81*(flight-STEP)/2]){
-   const goalHeight=heightAt(vz,flight);if(goalHeight>HEIGHT-.19||vz>8.5)continue;
+  for(const vz of [WORLD.ball.freeKick.lowLift.v,WORLD.ball.freeKick.dropArrival.v/flight+WORLD.ball.flight.gravity.v*(flight-STEP)/2]){
+   const goalHeight=heightAt(vz,flight);if(goalHeight>HEIGHT-WORLD.ball.freeKick.underBar.v||vz>WORLD.ball.freeKick.liftMax.v)continue;
    let blocked=0,wallHeight=0;
    for(const q of bodies){
     const height=heightAt(vz,q.time),margin=deviation*d*q.fraction;

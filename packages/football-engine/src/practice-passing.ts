@@ -182,12 +182,12 @@ export function activePassRun(support:SupportPlan|null,owner:PracticePlayer,targ
 
 /** The same moving target and kick speed are used when weighing and releasing a ground pass. */
 /** The comfortable arrival speed of a ground pass of this length (practice-flight), and its firm end. */
-export const firmArrival=(length:number)=>Math.min(19,preferredArrival(length)+4);
+export const firmArrival=(length:number)=>Math.min(WORLD.ball.pass.firmMax.v,preferredArrival(length)+WORLD.ball.pass.firmAbove.v);
 export function groundPassCandidates(p:PracticePlayer,q:PracticePlayer,through:boolean,run?:PassRun,from:Vec=p,opponents:PracticePlayer[]=[],space?:ReceivingSpace,read?:PasserRead):GroundPass[]{
  const initialDistance=distance(from,q),preferred=preferredArrival(initialDistance);
  // Comfortable planned power is separate from precision. An overhit kick may exceed it.
  const candidates:({plan:GroundPass;cost:number})[]=[];
- for(const [weight,arrival] of [['soft',Math.max(4,preferred-3)],['measured',preferred],['firm',firmArrival(initialDistance)]] as const){
+ for(const [weight,arrival] of [['soft',Math.max(WORLD.ball.pass.softMin.v,preferred-WORLD.ball.pass.softBelow.v)],['measured',preferred],['firm',firmArrival(initialDistance)]] as const){
   let powerLimit=strikePowerLimit(p,from,q);
   let speed=Math.min(powerLimit,Math.sqrt(arrival*arrival+2*PASS_DRAG*initialDistance));
   let flight=passFlightTime(initialDistance,speed),aim:Vec=q,receiver={...q};
@@ -221,10 +221,10 @@ export function groundPassCandidates(p:PracticePlayer,q:PracticePlayer,through:b
   // its length: never arriving harder than that length's firm pass. Meeting
   // him sooner by driving it at him arrived at up to ~22 m/s over 12 m and
   // bounced off his foot (silly-moments, 2026-10-01).
-  if(length<2||arrivalSpeed<2.5||arrivalSpeed>firmArrival(length)+1e-9||speed>strikePowerLimit(p,from,aim))continue;
+  if(length<WORLD.ball.pass.minLength.v||arrivalSpeed<WORLD.ball.pass.minArrival.v||arrivalSpeed>firmArrival(length)+1e-9||speed>strikePowerLimit(p,from,aim))continue;
   const risk=groundPassRisk(from,aim,opponents,speed,q,read),reachMargin=flight-receptionTime(q,aim)-RECEIVER_REACTION;
   const controlRisk=1-groundControlChance(receiver,{vx:(aim.x-from.x)/length*arrivalSpeed,vy:(aim.y-from.y)/length*arrivalSpeed});
-  const weight=arrivalSpeed<preferred-1.5?'soft':arrivalSpeed>preferred+1.5?'firm':'measured';
+  const weight=arrivalSpeed<preferred-WORLD.ball.pass.weightBand.v?'soft':arrivalSpeed>preferred+WORLD.ball.pass.weightBand.v?'firm':'measured';
   candidates.push({plan:{aim,speed,flight,arrivalSpeed,risk,controlRisk,reachMargin,weight,meetingTime:flight},cost:risk*(.8-p.traits.risk*.2)+controlRisk*.85+Math.max(0,-reachMargin)*.18+Math.abs(arrivalSpeed-preferred)*.012+flight*.012});
  }
  const ranked=candidates.sort((a,b)=>a.cost-b.cost).map(c=>c.plan);
@@ -240,9 +240,9 @@ export function strikeGroundPass(p:PracticePlayer,ball:Vec,q:PracticePlayer,thro
  const plan=groundPass(p,q,through,run,ball,opponents,space,meetingTime,weight),precision=clamp(p.skills.passing/10,0,1);
  // Ordinary technique gives a competent short pass even at middling ratings.
  // Range, pressure and fatigue still expose differences in execution.
- const range=clamp(distance(ball,plan.aim)/24,0,1),error=(.1+(1-precision)*.9)*(.65+.35*range)+pressure*.7;
+ const range=clamp(distance(ball,plan.aim)/WORLD.error.pass.range.v,0,1),error=(WORLD.error.pass.base.v+(1-precision)*WORLD.error.pass.precision.v)*(WORLD.error.pass.near.v+WORLD.error.pass.far.v*range)+pressure*WORLD.error.pass.pressure.v;
  const aim=bound({x:plan.aim.x+(random()-.5)*error,y:plan.aim.y+(random()-.5)*error});
- const weightError=.012+(1-precision)*.075+pressure*.09+(1-p.energy/100)*.06;
+ const weightError=WORLD.error.pass.weightBase.v+(1-precision)*WORLD.error.pass.weightPrecision.v+pressure*WORLD.error.pass.weightPressure.v+(1-p.energy/100)*WORLD.error.pass.weightTired.v;
  const speed=plan.speed*(1+(random()*2-1)*weightError);
  const length=distance(ball,aim)||1;
  return {aim,vx:(aim.x-ball.x)/length*speed,vy:(aim.y-ball.y)/length*speed,vz:0,plan};
@@ -273,7 +273,7 @@ export function readDelivery(p:PracticePlayer,q:PracticePlayer,aim:Vec,players:P
  const next={connectionGain:connection.gain,connectionTarget:connection.target,continuation:connection.continuation};
  const opponents=players.filter(d=>d.side!==p.side&&d.role!=='GK');
  const value=(player:PracticePlayer,context:PracticePlayer[])=>{
-  const shot=assessShot(player,context),blocked=laneRisk(player,shot.aim,opponents,22+player.skills.finishing*.3);
+  const shot=assessShot(player,context),blocked=laneRisk(player,shot.aim,opponents,WORLD.ball.kick.shotBase.v+player.skills.finishing*WORLD.ball.kick.shotPer.v);
   return shot.quality*(1-blocked)*(.65+clamp(player.skills.finishing/10,0,1)*.35);
  };
  // R3 P2: when the carrier himself has a shot on, a pass that lowers the
@@ -326,7 +326,7 @@ export function groundOptions(p:PracticePlayer,q:PracticePlayer,players:Practice
    const advance=passAdvance(p,p,aim),threat=clamp((depth(p,aim.x)-X(65))/X(32),0,1)*(1-Math.abs(aim.y)/Y(40));
    const delivery=readDelivery(p,q,aim,players,risk,laneRisk,pass.flight,context);
    const next=passProspects(p,from,q,aim,players,pass.flight,own)*(1-risk);
-   const score=-caught+next-teammatePassObstruction(p,q,aim,players,pass.flight)*.75+.25+advance*(.24+p.traits.risk*.15)*(1-risk)+space*.14+threat*.21-(risk+(1-skill(p.skills.passing))*d/75)*deliveryLossWeight(p,lossCost)-(1-space)*.12-d*.002-(q.id===lastFrom&&held<1.2?.035:0)+(through?.06*p.traits.risk:0)+(pressure*.2*space)
+   const score=-caught+next-teammatePassObstruction(p,q,aim,players,pass.flight)*.75+.25+advance*(.24+p.traits.risk*.15)*(1-risk)+space*.14+threat*.21-(risk+(1-skill(p.skills.passing))*d/WORLD.error.choice.valueRange.v)*deliveryLossWeight(p,lossCost)-(1-space)*.12-d*.002-(q.id===lastFrom&&held<1.2?.035:0)+(through?.06*p.traits.risk:0)+(pressure*.2*space)
     +delivery.shotGain*(.55+skill(p.skills.reading)*.2)*(delivery.shotGain>0?(1-risk)*space:1)
     +delivery.connectionGain*(.22+skill(p.skills.reading)*.16+p.traits.comesShort*.08)*(1-risk)*(1-pass.controlRisk)*clamp(1+pass.reachMargin,0,1)-pass.controlRisk*.45-Math.max(0,-pass.reachMargin)*.18;
    const reason=delivery.shotGain>.1&&delivery.kind==='cutback'?'Întoarce mingea din lateral spre un coleg cu un unghi de șut mai bun.'

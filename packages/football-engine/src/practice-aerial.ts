@@ -6,6 +6,7 @@ import type {PracticePlayer,Option} from './practice.js';
 import {PASS_DRAG,flightSamples,flightContact,advanceFlight} from './practice-flight.js';
 import type {FlightSample} from './practice-flight.js';
 import {jumpReach,STANDING_HEAD,airReaction} from './practice-air-duel.js';
+import {WORLD} from './world.js';
 
 export type AerialTechnique='chest'|'header'|'volley';
 export const aerialContactShape={
@@ -105,31 +106,31 @@ export function readAerialKick(p:PracticePlayer,ball:MovingBall,technique:'heade
  const ux=dx/distance,uy=dy/distance,incoming=Math.hypot(ball.vx-p.vx,ball.vy-p.vy,ball.vz);
  const heading=technique==='header',accuracy=option.kind==='shoot'?p.skills.finishing:p.skills.passing;
  const ability=heading?p.skills.aerial*.75+accuracy*.25:p.skills.control*.45+accuracy*.55;
- const momentum=Math.max(0,(ball.vx-p.vx)*ux+(ball.vy-p.vy)*uy)*.35;
- const maxSpeed=(heading?5.5:10)+p.skills.strength*.3+ability*.4+momentum;
+ const momentum=Math.max(0,(ball.vx-p.vx)*ux+(ball.vy-p.vy)*uy)*WORLD.ball.aerialKick.momentumShare.v;
+ const maxSpeed=(heading?WORLD.ball.aerialKick.headerBase.v:WORLD.ball.aerialKick.volleyBase.v)+p.skills.strength*WORLD.ball.aerialKick.strengthPer.v+ability*WORLD.ball.aerialKick.abilityPer.v+momentum;
  const shot=option.kind==='shoot',clearing=option.kind==='clear';
- const speed=shot||clearing?maxSpeed:Math.min(maxSpeed,5+distance*.45);
- const flight=distance/speed;if(flight>(heading?1.8:2.5))return null;
- const targetHeight=shot?.55:clearing?1.2:.08;
- const vz=(targetHeight-ball.z)/flight+9.81*(flight-STEP)/2;
- if(Math.abs(vz)>(heading?7:10)||Math.hypot(speed,vz)>maxSpeed*1.25)return null;
+ const speed=shot||clearing?maxSpeed:Math.min(maxSpeed,WORLD.ball.aerialKick.passBase.v+distance*WORLD.ball.aerialKick.passPer.v);
+ const flight=distance/speed;if(flight>(heading?WORLD.ball.aerialKick.headerMaxFlight.v:WORLD.ball.aerialKick.volleyMaxFlight.v))return null;
+ const targetHeight=shot?WORLD.ball.aerialKick.shotHeight.v:clearing?WORLD.ball.aerialKick.clearHeight.v:WORLD.ball.aerialKick.passHeight.v;
+ const vz=(targetHeight-ball.z)/flight+WORLD.ball.flight.gravity.v*(flight-STEP)/2;
+ if(Math.abs(vz)>(heading?WORLD.ball.aerialKick.headerLiftMax.v:WORLD.ball.aerialKick.volleyLiftMax.v)||Math.hypot(speed,vz)>maxSpeed*WORLD.ball.aerialKick.speedSlack.v)return null;
  const turn=Math.abs(difference(Math.atan2(dy,dx),p.angle));
  if(turn>(heading?2.7:2.25))return null;
  const horizontal=speed+PASS_DRAG*(flight-STEP)/2;
  const impulse=Math.hypot(ux*horizontal-ball.vx,uy*horizontal-ball.vy,vz-ball.vz);
- if(impulse>(heading?13:21)+p.skills.strength*.65+ability*.5)return null;
+ if(impulse>(heading?WORLD.ball.aerialKick.headerImpulse.v:WORLD.ball.aerialKick.volleyImpulse.v)+p.skills.strength*WORLD.ball.aerialKick.impulseStrength.v+ability*WORLD.ball.aerialKick.impulseAbility.v)return null;
  // a header met above standing height (a jump) is harder to direct
- const difficulty=clamp((incoming-5)/22+(10-ability)*.035+turn/Math.PI*.12+(shot?.08:0)+(heading?Math.max(0,ball.z-STANDING_HEAD)*JUMP_DIFFICULTY:0),0,1);
+ const difficulty=clamp((incoming-WORLD.error.aerial.incomingFrom.v)/WORLD.error.aerial.incomingSpan.v+(10-ability)*WORLD.error.aerial.difficultyAbility.v+turn/Math.PI*WORLD.error.aerial.difficultyTurn.v+(shot?WORLD.error.aerial.difficultyShot.v:0)+(heading?Math.max(0,ball.z-STANDING_HEAD)*JUMP_DIFFICULTY:0),0,1);
  return {aim:{...option.aim},vx:ux*horizontal,vy:uy*horizontal,vz,flight,difficulty,ability};
 }
 
 /** Execution changes velocity at contact. It never moves the ball to the target. */
 export function strikeAerial(p:PracticePlayer,ball:MovingBall,technique:'header'|'volley',plan:AerialKick,pressure:number,random:()=>number):Pick<MovingBall,'vx'|'vy'|'vz'>{
  const ability=plan.ability;
- const error=.012+Math.max(0,10-ability)*.004+plan.difficulty*.035+pressure*.035;
+ const error=WORLD.error.aerial.base.v+Math.max(0,10-ability)*WORLD.error.aerial.ability.v+plan.difficulty*WORLD.error.aerial.difficulty.v+pressure*WORLD.error.aerial.pressure.v;
  const angle=Math.atan2(plan.vy,plan.vx)+(random()-.5)*2*error;
- const speed=Math.hypot(plan.vx,plan.vy)*(1+(random()-.5)*error*1.8);
- return {vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,vz:plan.vz+(random()-.5)*error*8};
+ const speed=Math.hypot(plan.vx,plan.vy)*(1+(random()-.5)*error*WORLD.error.aerial.paceShare.v);
+ return {vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,vz:plan.vz+(random()-.5)*error*WORLD.error.aerial.liftShare.v};
 }
 
 /** Absorb a chest-high ball with a bounded impulse, letting it fall for a later

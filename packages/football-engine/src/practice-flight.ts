@@ -3,10 +3,11 @@ import {clamp} from './model.js';
 import {contact,STEP} from './movement.js';
 import type {MovingBall,MovingPlayer,Vec} from './movement.js';
 import {goalBoundFlight,keeperReach} from './practice-football.js';
+import {WORLD} from './world.js';
 
-export const PASS_DRAG=.65;
+export const PASS_DRAG=WORLD.ball.flight.PASS_DRAG.v;
 /** The comfortable arrival speed of a ground pass of this length (the passer's weighting, practice-passing). */
-export const preferredArrival=(length:number)=>clamp(5.5+length*.24,6,14);
+export const preferredArrival=(length:number)=>clamp(WORLD.ball.flight.arrivalBase.v+length*WORLD.ball.flight.arrivalPer.v,WORLD.ball.flight.arrivalMin.v,WORLD.ball.flight.arrivalMax.v);
 /** Honest-reads round (2026-10-10): how long a team-mate expects a ground pass
  * of this length to take, to time his run or judge his room. Before, every
  * such read assumed a ball travelling at a steady 14 + 0.5 x passing m/s
@@ -16,7 +17,7 @@ export const preferredArrival=(length:number)=>clamp(5.5+length*.24,6,14);
  * between the passer's measured and firm weights. EXPECTED_FIRMNESS m/s above
  * the comfortable arrival speed reproduces them within about 0.4 m/s; the
  * flight then decelerates with PASS_DRAG as the ball does. */
-export const EXPECTED_FIRMNESS=3;
+export const EXPECTED_FIRMNESS=WORLD.ball.flight.EXPECTED_FIRMNESS.v;
 export function expectedPassFlight(length:number):number{
  if(length<=0)return 0;
  const arrival=preferredArrival(length)+EXPECTED_FIRMNESS,speed=Math.sqrt(arrival*arrival+2*PASS_DRAG*length);
@@ -36,13 +37,13 @@ export function advanceFlight(ball:MovingBall,dt=STEP):MovingBall {
  ball.x+=ball.vx*dt;ball.y+=ball.vy*dt;
  const speed=Math.hypot(ball.vx,ball.vy),factor=Math.max(0,speed-PASS_DRAG*dt)/Math.max(.001,speed);
  ball.vx*=factor;ball.vy*=factor;
- ball.z=Math.max(0,ball.z+ball.vz*dt);ball.vz-=9.81*dt;
- if(ball.z===0)ball.vz=Math.abs(ball.vz)>.8?-ball.vz*.15:0;
+ ball.z=Math.max(0,ball.z+ball.vz*dt);ball.vz-=WORLD.ball.flight.gravity.v*dt;
+ if(ball.z===0)ball.vz=Math.abs(ball.vz)>WORLD.ball.flight.bounceAbove.v?-ball.vz*WORLD.ball.flight.bounceKeep.v:0;
  return ball;
 }
 
 /** Keep regular samples and both ticks around changes in legal contact height/area. */
-export function flightSamples(ball:MovingBall,horizon=4.8,interval=.12):FlightSample[] {
+export function flightSamples(ball:MovingBall,horizon=WORLD.ball.flight.forecastHorizon.v,interval=WORLD.ball.flight.forecastInterval.v):FlightSample[] {
  const state={...ball},samples:FlightSample[]=[];
  const sample=(time:number,point:Omit<FlightSample,'time'>=state)=>{if(samples.at(-1)?.time!==time)samples.push({time,x:point.x,y:point.y,z:point.z,vx:point.vx,vy:point.vy,vz:point.vz});};
  const crosses=(a:number,b:number,edge:number)=>a!==b&&(a-edge)*(b-edge)<=0;
@@ -113,8 +114,8 @@ function findMeeting(player:FlightPlayer,ball:MovingBall,reaction:number,samples
  // the fallback to its first low tick instead of chasing a high, early position.
  if(!fallback){
   const state={...ball};let time=0;
-  const fall=(Math.max(0,ball.vz)+Math.sqrt(ball.vz*ball.vz+2*9.81*Math.max(0,ball.z)))/9.81;
-  const end=Math.max(delay,fall)+2;
+  const fall=(Math.max(0,ball.vz)+Math.sqrt(ball.vz*ball.vz+2*WORLD.ball.flight.gravity.v*Math.max(0,ball.z)))/WORLD.ball.flight.gravity.v;
+  const end=Math.max(delay,fall)+WORLD.ball.flight.fallbackExtra.v;
   while(time<end){
    if(time+1e-9>=delay&&state.z<=reachAt(player,state).height){fallback={time,x:state.x,y:state.y,z:state.z,vx:state.vx,vy:state.vy,vz:state.vz};break;}
    advanceFlight(state);time+=STEP;

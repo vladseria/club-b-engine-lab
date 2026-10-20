@@ -40,10 +40,10 @@ export function assessShot(p:PracticePlayer,players:PracticePlayer[]):ShotAssess
  const nearest=Math.min(...opponents.filter(q=>q.role!=='GK').map(q=>distance(q,p)));
  const pressure=clamp((4-nearest)/4,0,1),running=clamp(Math.hypot(p.vx,p.vy)/p.basePace,0,1);
  // Error is angular: the same striking error spreads farther over a longer flight.
- const deviation=.045+(1-clamp(p.skills.finishing/10,0,1))*.08+(1-clamp(p.skills.control/10,0,1))*.03+pressure*.035+running*.012+(1-p.energy/100)*.015;
+ const deviation=WORLD.error.shot.base.v+(1-clamp(p.skills.finishing/10,0,1))*WORLD.error.shot.finishing.v+(1-clamp(p.skills.control/10,0,1))*WORLD.error.shot.control.v+pressure*WORLD.error.shot.pressure.v+running*WORLD.error.shot.running.v+(1-p.energy/100)*WORLD.error.shot.tired.v;
  let aim={x:goalX,y:0},best=-Infinity,keeperCoverage=0;
  for(const y of [-2.6,-1.3,0,1.3,2.6].map(G)){
-  const dx=goalX-p.x,dy=y-p.y,d=Math.hypot(dx,dy),flight=d/(22+p.skills.finishing*.3);
+  const dx=goalX-p.x,dy=y-p.y,d=Math.hypot(dx,dy),flight=d/(WORLD.ball.kick.shotBase.v+p.skills.finishing*WORLD.ball.kick.shotPer.v);
   // Read the visible keeper's coverage at the shot crossing, including a
   // bounded reaction and lateral reach. This is an estimate, not a save roll.
   const k=keeper?(keeper.x-p.x)/(dx||.01):-1;
@@ -77,8 +77,8 @@ const gaussian=(random:()=>number)=>Math.sqrt(-2*Math.log(Math.max(1e-9,random()
  * softer (placement and pace, never a wilder miss). */
 export function strikeShot(p:PracticePlayer,ball:Vec,assessment:ShotAssessment,random:()=>number,hurry=0,offBalance=0):{vx:number;vy:number;vz:number}{
  const angle=Math.atan2(assessment.aim.y-ball.y,assessment.aim.x-ball.x)+gaussian(random)*assessment.deviation;
- const speed=(22+p.skills.finishing*.3)*(1-HURRIED_SOFT*hurry-OFF_BALANCE_SOFT*offBalance);
- return {vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,vz:Math.max(.4,2.7+gaussian(random)*(1.0+assessment.pressure*.65))};
+ const speed=(WORLD.ball.kick.shotBase.v+p.skills.finishing*WORLD.ball.kick.shotPer.v)*(1-HURRIED_SOFT*hurry-OFF_BALANCE_SOFT*offBalance);
+ return {vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,vz:Math.max(WORLD.error.shot.liftMin.v,WORLD.error.shot.lift.v+gaussian(random)*(WORLD.error.shot.liftSpread.v+assessment.pressure*WORLD.error.shot.liftPressure.v))};
 }
 /** Hands and a timed extension; no teleporting to the destination of a shot. A keeper's edge for this shot
  * (keeperEdge) shortens his reaction and adds reach that is there at once (his stance and spread), not only at full
@@ -117,10 +117,10 @@ export function goalBoundFlight(keeper:Pick<PracticePlayer,'side'|'x'|'y'>,ball:
  if(ball.owner)return null;
  const goalX=keeper.side===0?0:L,dx=goalX-ball.x,speed=Math.hypot(ball.vx,ball.vy);
  if(dx*ball.vx<=0||Math.abs(ball.vx)<.1||speed<1)return null;
- const path=dx/ball.vx*speed,discriminant=speed*speed-2*.65*path;
+ const path=dx/ball.vx*speed,discriminant=speed*speed-2*WORLD.ball.flight.PASS_DRAG.v*path;
  if(discriminant<=0)return null;
- const time=(speed-Math.sqrt(discriminant))/.65,y=ball.y+ball.vy/ball.vx*dx;
- const height=Math.max(0,ball.z+ball.vz*time-4.905*time*time);
+ const time=(speed-Math.sqrt(discriminant))/WORLD.ball.flight.PASS_DRAG.v,y=ball.y+ball.vy/ball.vx*dx;
+ const height=Math.max(0,ball.z+ball.vz*time-WORLD.ball.flight.halfGravity.v*time*time);
  if(Math.abs(y)>GH+1.34||height>HEIGHT+.66)return null;
  const ownDepth=keeper.side===0?keeper.x:L-keeper.x,ballDepth=keeper.side===0?ball.x:L-ball.x;
  const x=ownDepth<ballDepth-.3?keeper.x:goalX+(keeper.side===0?.3:-.3);

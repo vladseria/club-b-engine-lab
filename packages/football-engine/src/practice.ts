@@ -235,14 +235,14 @@ export function practiceOptions(p:PracticePlayer,players:PracticePlayer[],runnin
  const options:Option[]=[],offsides=new Set(planningLine===undefined?offsidePlayers(players,p.side,p):players.filter(q=>q.side===p.side&&perceivedOffside(p,q,planningLine)).map(q=>q.id));
  options.push(...carryOptions(p,players,held,laneRisk,plan,time));
  for(const q of players.filter(q=>q.side===p.side&&q.id!==p.id)){
-  const d=dist(p,q),progress=depth(p.side,q.x)-forward;if(d<2.8||d>40||progress< WORLD.geometry.practice.groundBackMax.v||offsides.has(q.id))continue;
+  const d=dist(p,q),progress=depth(p.side,q.x)-forward;if(d<WORLD.ball.pass.groundMin.v||d>WORLD.ball.pass.groundMax.v||progress< WORLD.geometry.practice.groundBackMax.v||offsides.has(q.id))continue;
   const run=activePassRun(support,p,q,time);
   for(const through of running.has(q.id)||run?[false,true]:[false]){
    options.push(groundOptions(p,q,players,through,run,p,laneRisk,lastFrom,held,undefined,{support,time})[0]);
   }
  }
  for(const q of players.filter(q=>q.side===p.side&&q.id!==p.id&&q.role!=='GK')){
-  const d=dist(p,q),progress=depth(p.side,q.x)-forward;if(d<8||d>55||progress< WORLD.geometry.practice.loftBackMax.v||offsides.has(q.id))continue;
+  const d=dist(p,q),progress=depth(p.side,q.x)-forward;if(d<WORLD.ball.pass.loftMin.v||d>WORLD.ball.pass.loftMax.v||progress< WORLD.geometry.practice.loftBackMax.v||offsides.has(q.id))continue;
   const run=activePassRun(support,p,q,time),ground=options.filter(o=>o.target===q.id&&o.pass).sort((a,b)=>b.score-a.score)[0];
   // A clear short ground route needs no aerial alternative. Runs, distance and
   // blocked lanes are reasons to compare height with the existing pass choices.
@@ -275,7 +275,7 @@ export function practiceOptions(p:PracticePlayer,players:PracticePlayer[],runnin
   // (priced as a loss where he shoots from), though their keeper's restart
   // buys us back some of the seconds (SHOT_RESTART). Read as he reads it.
   const given=(1-clamp(quality*.6,0,.9))*SHOT_RESTART*turnoverPrice(p,players,p);
-  options.push({kind:'shoot',quality,aim:assessment.aim,score:SHOT_BASE+quality*SHOT_WORTH+shotTemper(p,contest.pressure)-laneRisk(p,assessment.aim,outfield,22+p.skills.finishing*.3)*.22+(uncovered?.22:0)-given,reason:uncovered?'Portarul e ieșit; încearcă să profite de poarta expusă.':'Găsește un unghi și încearcă poarta.'});
+  options.push({kind:'shoot',quality,aim:assessment.aim,score:SHOT_BASE+quality*SHOT_WORTH+shotTemper(p,contest.pressure)-laneRisk(p,assessment.aim,outfield,WORLD.ball.kick.shotBase.v+p.skills.finishing*WORLD.ball.kick.shotPer.v)*.22+(uncovered?.22:0)-given,reason:uncovered?'Portarul e ieșit; încearcă să profite de poarta expusă.':'Găsește un unghi și încearcă poarta.'});
  }
  // Keep one best duel in ordinary selection; the lesson may prefer another
  // exit toward its taught destination without multiplying random chances.
