@@ -10,9 +10,10 @@
 // Honest thin: the number is shown only beside an anchor from the same
 // player's own matches (the opponent in the same match, or their other setup
 // against the same opponent), never against a league norm, never as odds.
-// It is never shown when the match was played on another engine build than
-// the table's, or when any shot lacks a read (a replay stored before 4 Oct):
-// null, and the caller shows nothing.
+// It is never shown when the match was played on an engine build the table
+// does not hold (the build it was measured on, or one proven byte-identical
+// to it: `builds`), or when any shot lacks a read (a replay stored before
+// 4 Oct): null, and the caller shows nothing.
 //
 // Pure: no I/O, no React.
 import {CHANCE_TABLE} from './chances-table';
@@ -21,6 +22,9 @@ import type {ReplayEvent,ReplayHeader} from './replay';
 
 export interface ChanceTable {
  /** The ENGINE_BUILD the table was measured on (full hash). */ build:string;
+ /** Every build the table holds for (full hashes): the measured `build` first, then each build whose engine was
+  * proven byte-identical to it (the same matches, frame for frame: engine as data, 2026-10-21). A table without the
+  * list holds for its `build` alone. */ builds?:readonly string[];
  /** Monotone fit of goal rate on the engine's quality read: knots [q, rate],
   * q ascending; linear between knots, flat beyond the ends. */ knots:readonly (readonly [number,number])[];
  /** Goal rate of the shots without a read: 1 header, 2 volley, 3 direct free kick. */ kinds:Readonly<Record<1|2|3,number>>;
@@ -51,10 +55,13 @@ const sideOf=(e:Pick<ReplayEvent,'s'|'a'>,players:Pick<ReplayHeader,'players'>['
  return p?p.side:null;
 };
 
+/** The builds a table holds for: its `builds`, or its measured `build` alone. */
+export const tableBuilds=(table:ChanceTable=CHANCE_TABLE):readonly string[]=>table.builds??[table.build];
+
 /** Both sides' good chances in one match, [side 0, side 1]; null unless the
- * match was played on the table's build and every shot carries a read. */
+ * match was played on a build the table holds for and every shot carries a read. */
 export function matchChances(events:readonly Pick<ReplayEvent,'k'|'q'|'sk'|'s'|'a'>[],header:Pick<ReplayHeader,'players'>,build:string|null|undefined,table:ChanceTable=CHANCE_TABLE):[number,number]|null{
- if(!build||build!==table.build)return null;
+ if(!build||!tableBuilds(table).includes(build))return null;
  const sum:[number,number]=[0,0];
  for(const e of events){
   if(e.k!=='shot')continue;
