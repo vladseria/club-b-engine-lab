@@ -46,7 +46,7 @@ export const WORLD=freeze({
   core:{
    length:p(48,'m','geometry',['pitch.ts:7'],'pitch length, goal line to goal line','L'),
    width:p(30,'m','geometry',['pitch.ts:7'],'pitch width, touchline to touchline','W'),
-   goalHalf:p(3,'m','geometry',['pitch.ts:7'],'half the goal width (the goal is 5 m wide)','G'),
+   goalHalf:p(2.5,'m','geometry',['pitch.ts:7'],'half the goal width (the goal is 5 m wide)','G'),
    goalHeight:p(2,'m','body',['pitch.ts:7'],'goal height (the probe\'s decision: a body measure, it never scales with the pitch)','body'),
    boxDepth:p(8,'m','geometry',['pitch.ts:7'],'penalty area depth from the goal line','L'),
    boxHalf:p(8,'m','geometry',['pitch.ts:7'],'half the penalty area width','W'),
