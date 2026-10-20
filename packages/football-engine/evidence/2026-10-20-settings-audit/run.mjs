@@ -3,7 +3,9 @@
 // most 4 single matches, 1 worker, with MATCHES=<n> declared.
 //   node run.mjs --label a @A:0-39                  Block A: every ordered pairing of the 8 set-ups -> results/a.jsonl
 //   node run.mjs --label b @B:0-59                  Block B: every arm x the 4 opponents (base / 2-2 cells are Block A's)
+//   node run.mjs --label b @Bnew:0-59 @Bshared:40-59  the same without replaying Block A's seeds 0-39 (the lab dispatch)
 //   node run.mjs --label par --parity @par:0-3      sa.ts v computeMatch on the same input (2 matches a task)
+//   MATCHES=2 node run.mjs --label strips --watch A.di121vco121:0,B.c5vsh:1   rows with the compact frames -> results/watch-<label>.jsonl (render.mjs)
 // Arms are canonicalised (sa.ts canonical), so a Block B base or 2-2 cell is played and stored under its Block A name.
 import {Worker,isMainThread,parentPort,workerData} from 'node:worker_threads';
 import {existsSync,readFileSync,appendFileSync,mkdirSync} from 'node:fs';
@@ -18,6 +20,7 @@ const SETUPS=ST.flatMap(s=>FM.map(f=>s+f));
 const CH=['base','f22','pgpat','pgdir','wnar','wwid','ldeep','lhigh','psel','pagg','tsec','tcou','olcp','c3','c5','kline','kswp','fksh','fkdel'];
 const expand=a=>a==='@A'?SETUPS.flatMap(x=>SETUPS.map(y=>`A.${x}v${y}`))
  :a==='@B'?CH.flatMap(c=>ST.map(o=>`B.${c}v${o}`))
+ :a==='@Bnew'?CH.slice(2).flatMap(c=>ST.map(o=>`B.${c}v${o}`)):a==='@Bshared'?CH.slice(0,2).flatMap(c=>ST.map(o=>`B.${c}v${o}`))
  :a==='@par'?['A.ba121vdi121','B.kswpvco','B.fkdelvsh']:[a];
 
 if(!isMainThread){
@@ -33,7 +36,7 @@ if(!isMainThread){
  const arg=(k,d)=>{const i=argv.indexOf(`--${k}`);return i>=0?argv[i+1]:d;};
  const range=s=>s.split(',').flatMap(p=>{const [a,b]=p.split('-').map(Number);return b===undefined?[a]:Array.from({length:b-a+1},(_,i)=>a+i);});
  const label=arg('label');if(!label)throw Error('--label is required');
- const parity=argv.includes('--parity');
+ const parity=argv.includes('--parity'),watch=argv.includes('--watch');
  const flagVals=new Set(['label','revs','workers'].map(k=>arg(k)).filter(Boolean));
  const blocks=argv.filter(a=>a.includes(':')&&!a.startsWith('--')&&!flagVals.has(a)).map(b=>{const i=b.lastIndexOf(':');return {arms:b.slice(0,i).split(',').flatMap(expand),seeds:range(b.slice(i+1))};});
  if(!blocks.length)throw Error('give at least one <arm,arm>:<seeds> block');
@@ -46,10 +49,10 @@ if(!isMainThread){
  for(const b of blocks){b.arms=[...new Set(b.arms.map(a=>chk.canonical(a)))];for(const a of b.arms)chk.armTreatment(a);}// throws on an unknown arm
 
  const uniq=new Map();
- for(const b of blocks)for(const seed of b.seeds)for(const arm of b.arms)uniq.set(`${arm}:${seed}`,{label,arm,seed,rev,parity});
+ for(const b of blocks)for(const seed of b.seeds)for(const arm of b.arms)uniq.set(`${arm}:${seed}`,{label,arm,seed,rev,parity,...(watch?{watch:true}:{})});
  const every=[...uniq.values()];
  const key=j=>`${j.arm}:${j.seed}:${j.rev}`;
- const out=path.join(outDir,`${label}.jsonl`);
+ const out=path.join(outDir,watch?`watch-${label}.jsonl`:`${label}.jsonl`);
  const done=new Set(existsSync(out)?readFileSync(out,'utf8').trim().split('\n').filter(Boolean).map(l=>key(JSON.parse(l))):[]);
  const tasks=shardTasks(every).filter(t=>!done.has(key(t)));
  const local=!process.env.SHARD_TOTAL&&!process.env.GITHUB_ACTIONS;

@@ -82,7 +82,7 @@ export function plain(t:{arm:string;seed:number}){
  const c=computeMatch(inputOf(t.arm,t.seed));
  return {arm:t.arm,seed:t.seed,score:c.compact.score,print:print(c.compact)};
 }
-export function play(t:{label:string;arm:string;seed:number;rev:string}){
+export function play(t:{label:string;arm:string;seed:number;rev:string;watch?:boolean}){
  const inp=inputOf(t.arm,t.seed),ours=t.seed%2,t0=performance.now();
  const {run,c}=runIt(inp),ms=Math.round(performance.now()-t0),R=run.result;
  const ev=c.chunks.flatMap((ch:any)=>ch.e),chances=matchChances(ev,c.header,run.engineBuild);
@@ -90,5 +90,6 @@ export function play(t:{label:string;arm:string;seed:number;rev:string}){
  return {label:t.label,kind:'sa',arm:t.arm,seed:t.seed,rev:t.rev,ours,kickoff:inp.kickoff,
   plat:`${process.platform}-${process.arch}-node${process.versions.node}`,build:run.engineBuild.slice(0,8),
   score:c.score,st,sp:spells(R),chances:chances?chances.map(r3):null,print:print(c),ms,
-  tac:inp.sides.map((s:any)=>[s.formation,s.approach.striker,s.approach.commit])};
+  tac:inp.sides.map((s:any)=>[s.formation,s.approach.striker,s.approach.commit]),
+  ...(t.watch?{header:c.header,frames:c.chunks.flatMap((ch:any)=>ch.f)}:{})};
 }
