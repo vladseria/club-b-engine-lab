@@ -227,6 +227,40 @@ export const COMMIT={
  holdPer:{v:.8,unit:'x',kind:'multiplier',at:['practice-rest-defence.ts:117'],says:'the rest of it, by discipline'},
 } as const satisfies Record<string,Effect>;
 
+// ------------------------------------------------------------------ Progression (off the ball: S6)
+export interface ProgressionOption{
+ runBypass:Effect;runReturn:Effect;runOther:Effect;supportCredit:Effect;
+ forwardDiagonals:Effect<boolean>;extraOutlet:Effect<boolean>;depthRunAnywhere:Effect<boolean>;
+ depthRunAhead:Effect;frontAhead:Effect;attackValue:Effect;
+}
+const GAT={
+ run:['practice-coordination.ts:224 (runStyle)'],support:['practice-coordination.ts:777'],diag:['practice-coordination.ts:690'],
+ outlet:['practice-coordination.ts:888'],anywhere:['practice-coordination.ts:986'],ahead:['practice-coordination.ts:990'],
+ front:['practice-shape.ts:122 (teamShape in possession)'],value:['practice-attacking-space.ts:78'],
+} as const;
+const progressionOption=(o:{runBypass:number;runReturn:number;runOther:number;supportCredit:number;forwardDiagonals:boolean;extraOutlet:boolean;depthRunAnywhere:boolean;depthRunAhead:number;frontAhead:number;attackValue:number}):ProgressionOption=>({
+ runBypass:{v:o.runBypass,unit:'B',kind:'jobCredit',at:GAT.run,says:'a run that bypasses (in behind, or a break not under Keep it)'},
+ runReturn:{v:o.runReturn,unit:'B',kind:'jobCredit',at:GAT.run,says:'the give-and-go return run'},
+ runOther:{v:o.runOther,unit:'B',kind:'jobCredit',at:GAT.run,says:'any other run'},
+ supportCredit:{v:o.supportCredit,unit:'B',kind:'jobCredit',at:GAT.support,says:'every non-run support job'},
+ forwardDiagonals:{v:o.forwardDiagonals,unit:'flag',kind:'jobOffered',at:GAT.diag,says:'close support is also offered 5-7 m ahead of the ball'},
+ extraOutlet:{v:o.extraOutlet,unit:'flag',kind:'jobOffered',at:GAT.outlet,says:'a short outlet job whenever no exit is planned'},
+ depthRunAnywhere:{v:o.depthRunAnywhere,unit:'flag',kind:'jobOffered',at:GAT.anywhere,says:'the run in behind is offered wherever the ball is (otherwise only past the threshold)'},
+ depthRunAhead:{v:o.depthRunAhead,unit:'ref',kind:'positionOffset',axis:'L',at:GAT.ahead,says:'the run in behind aims this far ahead of the ball'},
+ frontAhead:{v:o.frontAhead,unit:'ref',kind:'positionOffset',axis:'L',at:GAT.front,says:'the front line stands this far ahead of midfield'},
+ attackValue:{v:o.attackValue,unit:'x',kind:'multiplier',at:GAT.value,says:'value of a reception in attacking space'},
+});
+/** Progression: how the team moves the ball forward. Values exactly as the code had them at b107e7b2. */
+export const PROGRESSION:Readonly<Record<Tactics['progression'],ProgressionOption>>={
+ patient:progressionOption({runBypass:-.18,runReturn:.15,runOther:0,supportCredit:.15,forwardDiagonals:true,extraOutlet:true,depthRunAnywhere:false,depthRunAhead:23,frontAhead:16,attackValue:.7}),
+ mixed:progressionOption({runBypass:0,runReturn:0,runOther:0,supportCredit:0,forwardDiagonals:false,extraOutlet:false,depthRunAnywhere:false,depthRunAhead:23,frontAhead:16,attackValue:.9}),
+ direct:progressionOption({runBypass:.18,runReturn:.18,runOther:.18,supportCredit:0,forwardDiagonals:false,extraOutlet:false,depthRunAnywhere:true,depthRunAhead:30,frontAhead:20,attackValue:1.1}),
+};
+/** Progression's off-ball coefficients shared by every option. */
+export const PROGRESSION_COMMON={
+ depthRunFrom:{v:32,unit:'ref',kind:'jobOffered',axis:'L',at:['practice-coordination.ts:986'],says:'otherwise the run in behind is offered only with the ball past this'},
+} as const satisfies Record<string,Effect>;
+
 // ------------------------------------------------------------------ views (old names survive, rule 1.3.6)
 type Scalar<O>={[K in keyof O]:O[K] extends Effect<infer V>?K:never}[keyof O];
 /** {option: entry.v} for one scalar effect, keys in the table's own order. */

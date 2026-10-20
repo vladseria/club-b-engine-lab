@@ -221,7 +221,7 @@ const running=(purpose:JobPurpose)=>['break','give-and-go','depth','overlap','ne
  * so patience does not tax it again. */
 export function runStyle(t:Pick<Tactics,'progression'|'commit'|'transition'>,purpose:JobPurpose):number{
  const bypassing=purpose==='depth'||purpose==='break'&&t.transition!=='secure';
- const progression=t.progression==='direct'?.18:t.progression==='patient'?(bypassing?-.18:purpose==='give-and-go'?.15:0):0;
+ const progression=bypassing?S.PROGRESSION[t.progression].runBypass.v:purpose==='give-and-go'?S.PROGRESSION[t.progression].runReturn.v:S.PROGRESSION[t.progression].runOther.v;
  return progression+(purpose==='give-and-go'?0:(t.commit-S.COMMIT.neutral.v)*S.COMMIT.runCredit.v);
 }
 
@@ -687,7 +687,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   if(nineAnchor)pivots[side]=nineAnchor;
   // A combining (patient) side also offers close support on a forward
   // diagonal, between the lines; every outlet below competes on the same reads.
-  const closeSupport=(p:PracticePlayer)=>shortSupportPoints(p,focus,t.progression==='patient');
+  const closeSupport=(p:PracticePlayer)=>shortSupportPoints(p,focus,S.PROGRESSION[t.progression].forwardDiagonals.v);
   const mates=players.filter(p=>p.side===side&&p.id!==receiver.id&&p.role!=='GK'&&!unavailable.has(p.id)),opponents=players.filter(p=>p.side!==side);
   const transition=readTransition(players,focus,t,time-context.recoveredAt,previous?.attacking===side?Object.values(previous.jobs).filter(j=>j.purpose==='break'):[],time);
   const actualLine=L;
@@ -774,7 +774,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
      // Continuity belongs to the actual movement, not every new destination
      // carrying the same job label. Otherwise a short-support label can keep
      // winning after the reason to stay short has disappeared.
-     const style=run?runStyle(t,spec.purpose):(t.progression==='patient'?.15:0);
+     const style=run?runStyle(t,spec.purpose):S.PROGRESSION[t.progression].supportCredit.v;
      const roleFit=run&&(p.role==='CB'||p.role==='DM')?-.25:0;
      // Seven metres describes a short outlet, not the preferred distance of
      // every run. Applying it to depth candidates quietly favoured staying
@@ -885,7 +885,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   const wide=Math.abs(focus.y)>Y(14);
   // Patient play raises the value of short angles; they still compete
   // with runs and cover using ordinary lane and arrival checks.
-  if(t.progression==='patient'&&!hasPlannedExit())offerJob({purpose:'outlet',kind:'support',point:focus,points:p=>closeSupport(p),range:13,eligible:p=>p.role!=='CB'&&distance(p,focus)<20,fit:p=>1+p.traits.comesShort*.3+p.skills.reading*.025,target:receiver.id,reason:'Joc scurt: oferă un unghi apropiat pentru a lega următoarele pase.'});
+  if(S.PROGRESSION[t.progression].extraOutlet.v&&!hasPlannedExit())offerJob({purpose:'outlet',kind:'support',point:focus,points:p=>closeSupport(p),range:13,eligible:p=>p.role!=='CB'&&distance(p,focus)<20,fit:p=>1+p.traits.comesShort*.3+p.skills.reading*.025,target:receiver.id,reason:'Joc scurt: oferă un unghi apropiat pentru a lega următoarele pase.'});
   // Launch from the recovery itself, before ordinary build-up depth gates.
   // Remaining players attack distinct lanes. Exposure is priced by the same
   // evaluator as other runs; there is no separate permission-to-run rule.
@@ -983,11 +983,11 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
    // centre-back arriving late should know he leaves one fewer behind).
    const rest=restDefence(focus,players),leaving=LOSS_SCALE*(lossDanger(rest.depth/L,rest.deficit+1)-lossDanger(rest.depth/L,rest.deficit));
    if(t.commit>=S.COMMIT.neutral.v)offerJob({purpose:'cutback',kind:'run',point:{x:world(side,clamp(bd-3,X(78),X(88))),y:-flank*1},eligible:()=>true,fit:p=>.95+p.skills.reading*.03-(isRest(side,focus,p)?leaving*lossRead(p,focus):0),reason:'Vine în urma atacanților, disponibil pentru pasa întoarsă.'});
-  }else if(bd>X(32)||t.progression==='direct'){
+  }else if(bd>X(S.PROGRESSION_COMMON.depthRunFrom.v)||S.PROGRESSION[t.progression].depthRunAnywhere.v){
    // No offside line in this small-sided game is not an instruction to run
    // straight to the end line. Stay within a usable next-pass distance.
    // (Drops deep's own link post and the run beyond it: LINK_*, above.)
-   offerJob({purpose:'depth',kind:'run',point:{x:world(side,Math.min(X(96),bd+X(t.progression==='direct'?30:23))),y:0},points:()=>[-Y(18),0,Y(18)].map(y=>({x:world(side,Math.min(X(96),bd+X(t.progression==='direct'?30:23))),y})),eligible:p=>p.id!==runnerId,fit:p=>.8+p.traits.runs*.6+(p.id===striker&&t.striker==='run'?.3:0),reason:'Oferă profunzime la distanță de pasă, pe un alt culoar.',range:26});
+   offerJob({purpose:'depth',kind:'run',point:{x:world(side,Math.min(X(96),bd+X(S.PROGRESSION[t.progression].depthRunAhead.v))),y:0},points:()=>[-Y(18),0,Y(18)].map(y=>({x:world(side,Math.min(X(96),bd+X(S.PROGRESSION[t.progression].depthRunAhead.v))),y})),eligible:p=>p.id!==runnerId,fit:p=>.8+p.traits.runs*.6+(p.id===striker&&t.striker==='run'?.3:0),reason:'Oferă profunzime la distanță de pasă, pe un alt culoar.',range:26});
    if(wide&&bd<X(83)&&t.fullbacks!=='hold'&&(t.commit>=S.COMMIT.neutral.v||t.fullbacks==='overlap'))offerJob({purpose:'overlap',kind:'run',point:{x:focus.x+s*X(9),y:Math.sign(focus.y)*Y(30)},eligible:p=>p.role==='FB'&&p.y*focus.y>0,fit:p=>1+p.traits.runs*.3,reason:'Trece pe exterior și oferă o continuare pe flanc.'});
   }
   // Two different passing angles, using the same lane assessment as the

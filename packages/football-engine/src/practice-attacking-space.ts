@@ -75,7 +75,7 @@ export function attackingSpaceReader(players:PracticePlayer[],carrier:PracticePl
  // opens such a reception is a combination, the thing a patient side plays
  // for, so patience never discounts it: connection() values it on the
  // neutral scale unless the side's own eagerness (direct) values it more.
- const weight=tactics.progression==='direct'?1.1:tactics.progression==='patient'?.7:.9;
+ const weight=S.PROGRESSION[tactics.progression].attackValue.v;
  const combination=Math.max(weight,.9);
  const worth=(point:Vec)=>{
   const progress=clamp((depth(point)-depth(carrier))/12,0,1);

@@ -119,7 +119,7 @@ export function teamShape(players:PracticePlayer[],ball:MovingBall,attacking:Sid
   // and high support the attack from behind the ball, held back only by
   // their cushion to the opponents' deepest forward (drops, below).
   back=clamp(middle-X(15),X(6),LINE_SHAPE_CAP[tactics.line]);
-  front=Math.min(X(96),middle+(tactics.progression==='direct'?X(20):X(16)),actualMiddle+X(26));
+  front=Math.min(X(96),middle+X(S.PROGRESSION[tactics.progression].frontAhead.v),actualMiddle+X(26));
   shift=clamp(focus.y*.38,-Y(11),Y(11));
   const progressing=previous&&bd-depth(side,previous.focus.x)>1;
   phase=bd<X(35)?'build':progressing||transition?'advance':'circulate';
