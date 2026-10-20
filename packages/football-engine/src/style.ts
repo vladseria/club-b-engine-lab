@@ -422,6 +422,38 @@ export const ON_WIN_COMMON={
  winnerSpread:{v:.5,unit:'trait',kind:'triggerWindow',at:['practice-coordination.ts:332 (WINNER_SPREAD)'],says:'how noisy the lead forward\'s read of a free ball-winner is in Counter\'s window'},
 } as const satisfies Record<string,Effect>;
 
+// ------------------------------------------------------------------ On losing it (onLoss: S11)
+/** One entry per option. `onLoss` is OPTIONAL: a missing value plays as Balanced at every read site (the coordinator
+ * already reads tactics.onLoss??'balanced'), so sites read S.ON_LOSS[onLoss??'balanced']. */
+export interface OnLossOption{regroups:Effect<boolean>;goesAlways:Effect<boolean>}
+const onLossOption=(o:{regroups:boolean;goesAlways:boolean}):OnLossOption=>({
+ regroups:{v:o.regroups,unit:'flag',kind:'triggerWindow',at:['practice-coordination.ts:154','practice-coordination.ts:166','practice-coordination.ts:516','practice-coordination.ts:527'],says:'Regroup (retired from the board, still played): nobody engages; the nearest man delays and the others drop behind the ball'},
+ goesAlways:{v:o.goesAlways,unit:'flag',kind:'triggerWindow',at:['practice-coordination.ts:155','practice-coordination.ts:168'],says:'the nearest man goes whatever the numbers (otherwise he goes with a man over, by his own read)'},
+});
+/** On losing it. Values exactly as the code had them at b107e7b2. */
+export const ON_LOSS:Readonly<Record<NonNullable<Tactics['onLoss']>,OnLossOption>>={
+ regroup:onLossOption({regroups:true,goesAlways:false}),
+ balanced:onLossOption({regroups:false,goesAlways:false}),
+ counterpress:onLossOption({regroups:false,goesAlways:true}),
+};
+/** The counter-press and Regroup mechanics shared by every option. */
+export const ON_LOSS_COMMON={
+ window:{v:3,unit:'s',kind:'triggerWindow',at:['practice-coordination.ts:135 (COUNTER_PRESS_WINDOW)'],says:'the first seconds after a loss that "On losing it" governs'},
+ near:{v:8,unit:'m',kind:'triggerWindow',axis:'body',at:['practice-coordination.ts:135 (COUNTER_PRESS_NEAR)'],says:'men within this of the ball are counted, ours and theirs'},
+ zone:{v:10,unit:'m',kind:'triggerWindow',axis:'body',at:['practice-coordination.ts:135 (COUNTER_PRESS_ZONE)'],says:'it ends once the ball is carried this far from where it was lost'},
+ own:{v:16,unit:'m',kind:'triggerWindow',axis:'L',at:['practice-coordination.ts:137 (COUNTER_PRESS_OWN)'],says:'no counter-press nor Regroup drop for a ball lost within this of our goal line'},
+ goerReach:{v:4,unit:'m',kind:'triggerWindow',axis:'body',at:['practice-coordination.ts:522','practice-coordination.ts:588'],says:'the goer comes from within near plus this'},
+ numbersSpread:{v:1.5,unit:'men',kind:'triggerWindow',at:['practice-coordination.ts:164 (NUMBERS_SPREAD)'],says:'how many men a player who cannot read the game miscounts'},
+ eagerMen:{v:3,unit:'men',kind:'triggerWindow',at:['practice-coordination.ts:164 (EAGER_MEN)'],says:'how far an eager, undisciplined player leans on the count'},
+ readThreshold:{v:-.5,unit:'men',kind:'triggerWindow',at:['practice-coordination.ts:171'],says:'he goes when the margin he sees is at least this'},
+ goerPressesAs:{v:'aggressive' as const,unit:'flag',kind:'traitOverride',at:['practice-coordination.ts:599'],says:'the goer (counter-press or trap) presses as hard as Aggressive; the rest decide around him'},
+ regroupBehind:{v:5,unit:'m',kind:'positionOffset',axis:'L',at:['practice-defending.ts:240 (REGROUP_BEHIND)'],says:'Regroup: the others drop this far behind the ball'},
+ regroupNarrow:{v:.7,unit:'x',kind:'positionOffset',axis:'W',at:['practice-defending.ts:1310','practice-defending.ts:1446'],says:'Regroup: a dropping man\'s width is scaled by this'},
+ dropPace:{v:.35,unit:'x',kind:'multiplier',at:['practice-defending.ts:1447'],says:'Regroup: a loose player runs back up to this share slower'},
+ dropDiscipline:{v:.9,unit:'trait',kind:'multiplier',at:['practice-defending.ts:1447'],says:'... measured from this much team-following'},
+ dropFloor:{v:.75,unit:'x',kind:'multiplier',at:['practice-defending.ts:1447'],says:'... and never below this share of his pace'},
+};
+
 // ------------------------------------------------------------------ views (old names survive, rule 1.3.6)
 type Scalar<O>={[K in keyof O]:O[K] extends Effect<infer V>?K:never}[keyof O];
 /** {option: entry.v} for one scalar effect, keys in the table's own order. */

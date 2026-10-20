@@ -237,7 +237,7 @@ export const SAG_CLEAR=2.2;
 /** In midfield, the marker of a man level with or behind the ball keeps BALL_CLEAR m off the carrier, goal-side. */
 export const BALL_CLEAR=3.5;
 /** Regroup ("On losing it"): everyone not yet this far goal-side of the ball drops behind it first. */
-export const REGROUP_BEHIND=5;
+export const REGROUP_BEHIND=S.ON_LOSS_COMMON.regroupBehind.v;
 
 type View=(reader:PracticePlayer,target:PracticePlayer,before?:number)=>PracticePlayer;
 export type Matter='ball'|'danger'|'watch'|'spare';
@@ -1307,7 +1307,7 @@ export function defendOutOfPossession(given:DefendInput):DefendPlan{
     'Omul lui e departe de minge: între el și poartă, strâns spre mijloc, cât să-l prindă la o pasă.';
   }
   let purpose:DefendJob['purpose']='mark';
-  if(input.regroup&&depth(defending,aim.x)>regroupLine){aim={x:world(defending,regroupLine),y:aim.y*.7};purpose='drop';reason='Regrupare: aleargă înapoi, în spatele mingii, cât colegul întârzie purtătorul.';}
+  if(input.regroup&&depth(defending,aim.x)>regroupLine){aim={x:world(defending,regroupLine),y:aim.y*S.ON_LOSS_COMMON.regroupNarrow.v};purpose='drop';reason='Regrupare: aleargă înapoi, în spatele mingii, cât colegul întârzie purtătorul.';}
   const far=distance(q,aim)>2.5,moving=Math.hypot(r.v.vx,r.v.vy)>2;
   const tt=closing?0:threatTightness(r.threat);
   const share=Math.max(r.running?RUN_VELOCITY_SHARE:VELOCITY_SHARE,THREAT_SHARE*tt);
@@ -1443,8 +1443,8 @@ export function defendOutOfPossession(given:DefendInput):DefendPlan{
   if(j.purpose==='press'||j.purpose==='cover')continue;
   const q=byId.get(j.player)!;if(depth(defending,q.x)<=regroupLine)continue;
   j.purpose='drop';j.kind='recover';j.velocity=undefined;
-  j.aim={x:world(defending,Math.min(depth(defending,j.aim.x),regroupLine)),y:j.aim.y*.7};
-  j.speed=q.pace*clamp(1-.35*(.9-followsTeam(q)),.75,1);
+  j.aim={x:world(defending,Math.min(depth(defending,j.aim.x),regroupLine)),y:j.aim.y*S.ON_LOSS_COMMON.regroupNarrow.v};
+  j.speed=q.pace*clamp(1-S.ON_LOSS_COMMON.dropPace.v*(S.ON_LOSS_COMMON.dropDiscipline.v-followsTeam(q)),S.ON_LOSS_COMMON.dropFloor.v,1);
   j.reason='Regrupare: aleargă înapoi, în spatele mingii, cât colegul întârzie purtătorul.';
  }
 

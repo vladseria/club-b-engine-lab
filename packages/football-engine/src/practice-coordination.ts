@@ -132,9 +132,9 @@ export function seesTrigger(p:PracticePlayer,strength:number,at:Vec,time:number,
  * into it; players under an explicit instruction keep it. It ends for good the
  * moment the ball escapes the zone: whoever pressed is then out of position
  * and runs back like anyone else. */
-export const COUNTER_PRESS_WINDOW=3,COUNTER_PRESS_NEAR=8,COUNTER_PRESS_ZONE=10;
+export const COUNTER_PRESS_WINDOW=S.ON_LOSS_COMMON.window.v,COUNTER_PRESS_NEAR=S.ON_LOSS_COMMON.near.v,COUNTER_PRESS_ZONE=S.ON_LOSS_COMMON.zone.v;
 /** No counter-press (nor Regroup's drop) for a ball lost within COUNTER_PRESS_OWN m of our own goal line (defending-close round). */
-export const COUNTER_PRESS_OWN=16;
+export const COUNTER_PRESS_OWN=S.ON_LOSS_COMMON.own.v;
 export interface CounterPress {side:Side;at:number;spot:Vec;mode:'engage'|'delay'|null;over:boolean;
  /** Regroup: for the whole window, even once the ball has left the zone,
   * everyone but the delayer and his cover who is not yet clearly goal-side of
@@ -151,8 +151,8 @@ export interface CounterPress {side:Side;at:number;spot:Vec;mode:'engage'|'delay
  * behind him (delay and cover), and attackers ahead of the ball are left to
  * be picked up once the block is set: fewer counters, fewer balls won back. */
 export function counterPressFires(onLoss:Tactics['onLoss'],ours:number,theirs:number,trapped:boolean):boolean{
- if(onLoss==='regroup'||ours<1)return false;
- return onLoss==='counterpress'||ours+(trapped?1:0)-theirs>=1;
+ if(S.ON_LOSS[onLoss??'balanced'].regroups.v||ours<1)return false;
+ return S.ON_LOSS[onLoss??'balanced'].goesAlways.v||ours+(trapped?1:0)-theirs>=1;
 }
 /** Whether the counter-press goes is the call of the man who would go (R2),
  * not a perfect team count: he counts the men around the ball by his own
@@ -161,14 +161,14 @@ export function counterPressFires(onLoss:Tactics['onLoss'],ours:number,theirs:nu
  * as far as his discipline lets it (a keen, undisciplined player goes a man
  * short; a reluctant one waits for more; a disciplined one follows the rule
  * the manager set). Regroup never engages. */
-export const NUMBERS_SPREAD=1.5,EAGER_MEN=3;
+export const NUMBERS_SPREAD=S.ON_LOSS_COMMON.numbersSpread.v,EAGER_MEN=S.ON_LOSS_COMMON.eagerMen.v;
 export function counterPressRead(onLoss:Tactics['onLoss'],ours:number,theirs:number,trapped:boolean,presser:PracticePlayer,ball:Vec,time:number):boolean{
- if(onLoss==='regroup'||ours<1)return false;
+ if(S.ON_LOSS[onLoss??'balanced'].regroups.v||ours<1)return false;
  // (Counter-press is not a count: the man nearest the ball goes)
- if(onLoss==='counterpress')return true;
+ if(S.ON_LOSS[onLoss??'balanced'].goesAlways.v)return true;
  const margin=ours+(trapped?1:0)-theirs-1;
  const seen=perceive(presser,'numbers',margin,NUMBERS_SPREAD,ball,{time,salt:'counter-press',bias:(1-followsTeam(presser))*eagerness(presser)*EAGER_MEN});
- return seen>=-.5;
+ return seen>=S.ON_LOSS_COMMON.readThreshold.v;
 }
 /** Instruction producers can inspect coordination, but only the coordinator
  * publishes jobs. Keep this read-only boundary even for future tactics. */
@@ -513,18 +513,18 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   const spot=held?.spot??{x:ball.x,y:ball.y},near=depth(defending,ball.x)<COUNTER_PRESS_OWN,over=!!held?.over||distance(ball,spot)>COUNTER_PRESS_ZONE||near;
   let mode=over?null:held?.mode??null;
   if(!mode&&!over&&owner&&owner.role!=='GK'){
-   if(onLoss==='regroup')mode='delay';
+   if(S.ON_LOSS[onLoss].regroups.v)mode='delay';
    else{
     const near=(side:Side)=>players.filter(p=>p.side===side&&p.role!=='GK'&&!(side===defending&&unavailable.has(p.id))&&distance(p,ball)<COUNTER_PRESS_NEAR).length;
     // The man who would go at the ball makes the call (counterPressRead).
     const bd=depth(defending,ball.x),outfield=players.filter(p=>p.side===defending&&p.role!=='GK');
     const deepest=outfield.slice().sort((a,b)=>depth(defending,a.x)-depth(defending,b.x)||a.id.localeCompare(b.id))[0];
-    const goer=outfield.filter(p=>!unavailable.has(p.id)&&!instructed.has(p.id)&&p.id!==deepest?.id&&depth(defending,p.x)>=bd-REST_MARGIN&&distance(p,ball)<COUNTER_PRESS_NEAR+4)
+    const goer=outfield.filter(p=>!unavailable.has(p.id)&&!instructed.has(p.id)&&p.id!==deepest?.id&&depth(defending,p.x)>=bd-REST_MARGIN&&distance(p,ball)<COUNTER_PRESS_NEAR+S.ON_LOSS_COMMON.goerReach.v)
      .sort((a,b)=>arrivalTime(a,owner)-arrivalTime(b,owner)||a.id.localeCompare(b.id))[0];
     if(goer?counterPressRead(onLoss,near(defending),near(attacking),Math.abs(ball.y)>W/2-3,goer,spot,lostAt):counterPressFires(onLoss,near(defending),near(attacking),Math.abs(ball.y)>W/2-3))mode='engage';
    }
   }
-  counterPress={side:defending,at:lostAt,spot,mode,over,...(onLoss==='regroup'&&!near?{drop:true}:{})};
+  counterPress={side:defending,at:lostAt,spot,mode,over,...(S.ON_LOSS[onLoss].regroups.v&&!near?{drop:true}:{})};
  }
  // Selective's trap (see Trap).
  const possession=owner?(previous?.possession?.owner===owner.id?previous.possession:{owner:owner.id,since:time}):undefined;
@@ -585,7 +585,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   if(owner&&pressing){
    const bd=depth(defending,ball.x),outfield=players.filter(p=>p.side===defending&&p.role!=='GK');
    const deepest=outfield.slice().sort((a,b)=>depth(defending,a.x)-depth(defending,b.x)||a.id.localeCompare(b.id))[0];
-   const eligible=outfield.filter(p=>!ordinaryUnavailable.has(p.id)&&p.id!==deepest?.id&&depth(defending,p.x)>=bd-REST_MARGIN&&distance(p,ball)<COUNTER_PRESS_NEAR+4)
+   const eligible=outfield.filter(p=>!ordinaryUnavailable.has(p.id)&&p.id!==deepest?.id&&depth(defending,p.x)>=bd-REST_MARGIN&&distance(p,ball)<COUNTER_PRESS_NEAR+S.ON_LOSS_COMMON.goerReach.v)
     .sort((a,b)=>arrivalTime(a,owner)-arrivalTime(b,owner)||a.id.localeCompare(b.id));
    if(!pressers.length&&eligible[0])pressers=[eligible[0].id];
    screener=eligible.find(p=>!pressers.includes(p.id));
@@ -596,7 +596,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   const fixedOwn=new Map<string,string>(fixedMarks);
   if(owner&&fixedPresser&&!instructed.has(fixedPresser.id)){
    // the goer (counter-press, trap) presses here; the rest decide around him
-   const move=containMovement(fixedPresser,owner,players,{...tactics[defending],press:'aggressive'},owner,'engage');
+   const move=containMovement(fixedPresser,owner,players,{...tactics[defending],press:S.ON_LOSS_COMMON.goerPressesAs.v},owner,'engage');
    // (settings close-out) the reason says what the numbers are: Counter-press goes whatever they are
    const around=(side:Side)=>players.filter(p=>p.side===side&&p.role!=='GK'&&distance(p,ball)<COUNTER_PRESS_NEAR).length,up=around(defending)>around(attacking);
    put(fixedPresser,springing?'trap':'counter-press',move.kind,move.aim,move.speed,springing?'Capcana: mingea a intrat unde o așteptam; atacă purtătorul, colegul închide ieșirea.':up?'Tocmai am pierdut-o, suntem mai mulți lângă minge: atacă imediat purtătorul.':'Tocmai am pierdut-o: atacă imediat purtătorul, deși nu suntem mai mulți lângă minge; cei din spate rămân în spatele mingii.',owner.id,move.velocity);
