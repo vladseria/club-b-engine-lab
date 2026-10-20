@@ -93,8 +93,9 @@ test('each trigger kind reads score, margin, clock and energy as specified',()=>
 
 test('a tired trigger replaces that player at the next stoppage; the newcomer inherits slot and role',()=>{
  // A seeded passage (evidence/2026-10-14-r1/repin.mjs tired): seed 2026 until the decide round (2026-10-15: plans
- // carried through the reception) moved its stoppages; 2027 is the next.
- const f=withBench(2027);
+ // carried through the reception) moved its stoppages; 2027 is the next. The take-on price (2026-10-20, round 5) lost it;
+ // 2028 is the next (evidence/2026-10-19-takeon-price/repin.mjs tired 2027-2086, public lab).
+ const f=withBench(2028);
  const r=runMatch({fixture:f,durationSeconds:300,substitutionOrders:[{id:'t',side:0,in:'r10',trigger:{kind:'tired',player:'van',threshold:98}}]}).result;
  const [e]=subs(r);assert(e,'the order fired');
  assert.equal(e.outgoing,'0:van');assert.equal(e.incoming,'0:r10');assert.equal(e.side,0);

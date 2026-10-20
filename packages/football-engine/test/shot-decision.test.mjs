@@ -39,7 +39,11 @@ test('a real ~0.5 chance is taken by a composed, a nervous and a daring player a
   for(const [name,traits] of Object.entries(temperaments)){
    const d=decide(at,traits);reads.add(d.read);
    assert.ok(d.read>.55,`${scene}: a decent chance (${d.read})`);
-   assert.ok(d.shoot>.9,`${scene}: the ${name} player shoots (P ${d.shoot.toFixed(2)})`);
+   // Pressed, the bar is 0.7, not 0.9 (owner, 2026-10-20): since the take-on price round 5 (bf768100) the take-on is
+   // read where his run actually ends, so even the typical dribbler sometimes takes the man rushing him on first (the
+   // nervous one shoots about 0.77). A behaviour change, not a lost claim: he still takes the chance far more often than not.
+   const bar=scene==='pressed'?.7:.9;
+   assert.ok(d.shoot>bar,`${scene}: the ${name} player shoots (P ${d.shoot.toFixed(2)})`);
   }
   // Free, the same skills read the same chance whatever the temperament. Pressed, composure is part of his poise
  // (how much of the press reaches the strike, shotContest), so the chance itself differs a little.
