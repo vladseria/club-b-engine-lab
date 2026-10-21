@@ -37,7 +37,7 @@ import {turnoverPrice} from './practice-rest-defence.js';
 import {HALF_SECONDS,LAST_ATTACK_MAX,SUB_MINUTES,attackAtFullTime,chooseReplacement,energyTop,fatigueEnergy,halfEnergy,lastAttackOver,legs,reserveBalance} from './practice-match.js';
 import {validateSubstitutionOrders,triggerHolds,resolveOrder,triggerText,MAX_TRIGGERED_SUBSTITUTIONS} from './practice-substitutions.js';
 import type {SubstitutionOrder,SubstitutionNote,SubstitutionRecord} from './practice-substitutions.js';
-import {validateTacticsSwitches,switchDue,applyTacticsSwitch} from './practice-switch.js';
+import {validateTacticsSwitches,switchDue,applyTacticsSwitch,slotsPlaceable} from './practice-switch.js';
 import type {TacticsSwitch,SwitchNote,SwitchRecord} from './practice-switch.js';
 import {assignSupport,complementarySupportAim,SupportPlan,SupportContext} from './practice-support.js';
 import {teamShape,TeamShape} from './practice-shape.js';
@@ -721,9 +721,11 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
   switches.forEach((order,i)=>{
    const note=switchNotes[i],team=order.side;
    if(note.status!=='waiting'||!switchDue(order,time,duration,score,players))return;
-   const moved=applyTacticsSwitch(order,f,players);
+   if(!slotsPlaceable(order,players)){Object.assign(note,{status:'skipped',time,detail:'Echipa nu își are cei cinci pe posturile din formație.'});return;}
+   const shapeBefore=f.teams[team].tactics.formation,moved=applyTacticsSwitch(order,f,players);
    say('switch',`${f.teams[team].name} își schimbă planul de joc (${triggerText(order.trigger)}).`);
-   Object.assign(events.at(-1)!,{side:team,switch:{order:order.id,trigger:structuredClone(order.trigger),score:[score[team],score[other(team)]],...(moved?{formation:order.tactics.formation,players:moved}:{})}});
+   Object.assign(events.at(-1)!,{side:team,switch:{order:order.id,trigger:structuredClone(order.trigger),score:[score[team],score[other(team)]],
+    ...(moved?{...(order.tactics.formation!==shapeBefore?{formation:order.tactics.formation}:{}),players:moved}:{})}});
    Object.assign(note,{status:'made',time});
   });
  };

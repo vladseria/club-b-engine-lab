@@ -52,13 +52,13 @@ describe('the marker and the line',()=>{
  const r:EngineResult={duration:900,players,frames:[frame(0),frame(339.75),frame(900)],stats:[{} as never,{} as never],score:[0,1],
   events:[{time:0,kind:'start',text:'Start'},{time:100,kind:'goal',text:'Gol',side:1},{time:339.75,kind:'out',text:'Afară'},
    {time:339.75,kind:'switch',text:'Club AA își schimbă planul de joc (echipa e în urmă).',side:0,switch:{order:'sw',trigger:{kind:'score',state:'losing'},score:[0,1],formation:'2-2',
-    players:input.sides[0].lineup.map((id,i)=>({id:`0:${id}`,role:['GK','CB','W','W','CB'][i]}))}},{time:900,kind:'end',text:'Final'}],
+    players:input.sides[0].lineup.map((id,i)=>({id:`0:${id}`,role:['GK','CB','W','W','CB'][i],lane:[0,-1,-1,1,1][i]}))}},{time:900,kind:'end',text:'Final'}],
   switchNotes:[{order:'sw',side:0,status:'made',time:339.75}]};
  const c=compact(input,r),events=c.chunks.flatMap(ch=>ch.e);
  it('the replay carries the moment, the trigger, the style and the new roles, never the plan’s name',()=>{
   // If this fails: the match page can't show the switch, or it shows the manager's private plan name to everyone.
   const e=events.find(x=>x.k==='switch')!;
-  expect(e).toMatchObject({t:339750,s:0,sw:{k:'score',st:'losing',y:'direct',f:'2-2',ro:[[0,'GK'],[1,'CB'],[2,'W'],[3,'W'],[4,'CB']]}});
+  expect(e).toMatchObject({t:339750,s:0,sw:{k:'score',st:'losing',y:'direct',f:'2-2',ro:[[0,'GK',0],[1,'CB',-1],[2,'W',-1],[3,'W',1],[4,'CB',1]]}});
   expect(JSON.stringify(c)).not.toContain('Direct plan');
   expect(c.header.teams[0]).toMatchObject({formation:'1-2-1',style:'combinations'});
   expect(c.switchNotes).toEqual([{order:'sw',side:0,status:'made',time:339.75}]);

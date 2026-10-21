@@ -62,7 +62,8 @@ export interface ReplaySub {k:'tired'|'score'|'margin'|'half';st?:string;n?:numb
  * style; the plan's own name is the manager's and never in the replay), plus f / ro when the formation changes.
  * Optional, so the version stays 2. */
 export interface ReplaySwitch {k:'score'|'margin'|'half';st?:string;n?:number;d?:string;y:string;
- /** A formation change: the new formation and [player index, new role] for each man of that side. */ f?:string;ro?:[number,string][]}
+ /** Men moved to new places (every switch can, owner 21 Oct): [player index, new role, lane] for each man of that side, and
+  * f the new formation when it changed. */ f?:string;ro?:[number,string,number?][]}
 export interface ReplayEvent {t:number;k:string;x:string;a?:number;g?:number;s?:0|1;lt?:number;rk?:string;sh?:{o:[number,number];a:[number,number]};sb?:ReplaySub;sw?:ReplaySwitch;q?:number;sk?:1|2|3}
 export interface ReplayChunk {v:typeof REPLAY_VERSION;i:number;t0:number;t1:number;f:ReplayFrame[];e:ReplayEvent[]}
 
@@ -80,7 +81,7 @@ export interface CompactMatch {header:ReplayHeader;chunks:ReplayChunk[];score:[n
  /** Owner-only (P5): the engine's substitutionNotes per side, each with its order's trigger. */
  substitutionNotes?:{side:0|1;notes:unknown[]}[];
  /** Owner-only, like the substitution notes: the engine's switchNotes (made or waiting, and when). Present only when a side carried a switch. */
- switchNotes?:{order:string;side:0|1;status:'made'|'waiting';time?:number}[]}
+ switchNotes?:{order:string;side:0|1;status:'made'|'waiting'|'skipped';time?:number;detail?:string}[]}
 
 export const cm=(metres:number)=>Math.round(metres*100);
 export const mrad=(rad:number)=>Math.round(rad*1000);

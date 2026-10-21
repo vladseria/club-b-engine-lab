@@ -79,7 +79,7 @@ export function createSimulationRequest(input: SimulationInput): SimulationReque
  if(switches.length&&input.kind!=='match')throw Error('Tactics switches belong to matches.');
  if(switches.length&&input.coaching)throw Error('Choose a coaching intention or a tactics switch.');
  if(switches.length&&input.substitutions==='planned')throw Error('Choose planned substitutions or a tactics switch.');
- if(switches.some(s=>s.slots)&&(input.playbook||input.playbooks?.length))throw Error('A formation switch cannot run with slot-addressed plans drawn for the old shape.');
+ if(switches.some(s=>s.slots)&&(input.playbook||input.playbooks?.length))throw Error('A switch that moves men to new slots cannot run with slot-addressed plans drawn for the old places.');
  const normalized: NormalizedInput={kind:input.kind,fixture:structuredClone(input.fixture),durationSeconds,record:input.record??true,policy:input.policy??'coordinated',substitutions:input.substitutions??'none',...(input.kind==='training'?{setup:structuredClone(input.setup)}:{}),...(input.coaching?{coaching:structuredClone(input.coaching)}:{}),...(input.playbook?{playbook:structuredClone(input.playbook)}:{}),...(input.playbooks?{playbooks:structuredClone(input.playbooks)}:{}),...(orders.length?{substitutionOrders:orders}:{}),...(switches.length?{tacticsSwitches:switches}:{})} as NormalizedInput;
  return {schemaVersion:INPUT_SCHEMA_VERSION,engineBuild:ENGINE_BUILD,input:normalized};
 }

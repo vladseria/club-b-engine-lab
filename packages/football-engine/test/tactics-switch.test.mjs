@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {withBench} from './constructed-scenes.mjs';
 import {runMatch,createSimulationRequest,validateTacticsSwitches,MAX_TACTICS_SWITCHES} from '../dist/index.js';
-import {applyTacticsSwitch} from '../dist/practice-switch.js';
+import {applyTacticsSwitch,slotsPlaceable} from '../dist/practice-switch.js';
 import {practicePlayers} from '../dist/practice.js';
 import {shapes} from '../dist/model.js';
 
@@ -32,7 +32,10 @@ test('a switch is validated: one per side, a trigger that is not a player, real 
  assert.throws(()=>validateTacticsSwitches([sw({tactics:two,slots:[1,0,2,3,4]})],f),/keeper staying/);
  assert.throws(()=>validateTacticsSwitches([sw({tactics:two,slots:[0,1,1,3,4]})],f),/distinct/);
  assert.throws(()=>validateTacticsSwitches([sw({tactics:{...own(0),formation:'4-3-3'},slots:[0,1,2,3,4]})],f),/five-a-side/);
- assert.throws(()=>validateTacticsSwitches([sw({slots:[0,1,2,3,4]})],f),/belong to a formation switch/);
+ // the same formation: a map that moves nobody is dropped; one that moves men is kept (owner, 21 Oct: the slot rule in every switch)
+ assert(!('slots' in validateTacticsSwitches([sw({slots:[0,1,2,3,4]})],f)[0]));
+ assert.deepEqual(validateTacticsSwitches([sw({slots:[0,1,3,2,4]})],f)[0].slots,[0,1,3,2,4]);
+ assert.throws(()=>validateTacticsSwitches([sw({slots:[1,0,2,3,4]})],f),/keeper staying/);
  assert.deepEqual(validateTacticsSwitches([sw({tactics:two,slots:[0,1,3,4,2]})],f)[0].slots,[0,1,3,4,2]);
  assert.throws(()=>createSimulationRequest({kind:'match',fixture:f,playbooks:[{side:1,plans:[]}],tacticsSwitches:[sw({tactics:two,slots:[0,1,3,4,2]})]}),/slot-addressed/);
  assert.throws(()=>createSimulationRequest({kind:'match',fixture:f,substitutions:'planned',tacticsSwitches:[sw()]}),/planned/);
@@ -121,4 +124,58 @@ test('a formation switch moves every man to his new slot at the same stoppage',(
  const golusor=players.find(p=>p.id==='0:golusor');
  assert.deepEqual([golusor.role,golusor.lane,golusor.number],['CB',1,3]);
  assert.equal(f.teams[0].tactics.formation,'2-2');
+});
+
+// (review of e0eebe3b) The slot map is by the slot a man holds, so a substitute moves with the slot he inherited.
+const two={...own(0),...DIRECT,formation:'2-2'},SLOTS=[0,1,3,4,2];
+const where=(e,id)=>e.switch.players.find(p=>p.id===id);
+test('a substitute who came on before a formation switch takes his slot’s new place',()=>{
+ // If this fails: after a change the switch moves the man who went off (or nobody) instead of the one now in his shirt.
+ const r=runMatch({...RUN,substitutionOrders:[{id:'s',side:0,in:'r20',out:'golusor',trigger:{kind:'score',state:'drawing'}}],
+  tacticsSwitches:[sw({trigger:{kind:'half'},tactics:two,slots:SLOTS})]}).result;
+ const sub=r.events.find(e=>e.kind==='substitution'),[e]=switches(r);
+ assert(sub&&e,'both happen');assert(sub.time<=e.time,'the substitution first (or at the same stoppage)');
+ // golusor started in slot 5 (striker); r20 inherited slot 5, so he takes slots[4] = 2 (slot 3 of 2-2, a centre-back)
+ assert.deepEqual([where(e,'0:r20').role,where(e,'0:r20').number],[shapes['2-2'][SLOTS[4]][0],SLOTS[4]+1]);
+ assert(!where(e,'0:golusor'),'the man who went off is not moved');
+ assert.equal(r.switchNotes[0].status,'made');
+});
+test('a substitution and a formation switch at the same stoppage: the change first, then the shape',()=>{
+ const r=runMatch({...RUN,substitutionOrders:[{id:'s',side:0,in:'r20',out:'golusor',trigger:{kind:'half'}}],
+  tacticsSwitches:[sw({trigger:{kind:'half'},tactics:two,slots:SLOTS})]}).result;
+ const sub=r.events.find(e=>e.kind==='substitution'),[e]=switches(r);
+ assert(sub&&e);assert.equal(sub.time,e.time,'the same stoppage');
+ assert(r.events.indexOf(sub)<r.events.indexOf(e),'the substitution is made first');
+ assert.equal(where(e,'0:r20').number,SLOTS[4]+1,'the newcomer is moved with the slot');
+});
+test('the full-time guard: a stoppage after full time never carries out a switch',t=>{
+ // If this fails: a switch fires at a stoppage in the last attack's played-out seconds (nobody plays after it).
+ // The guard needs a match that plays out a last attack ending in a stoppage. Up to four seeds are tried (one 120 s
+ // match each); the switch is due only from full time, so it is the guard, not the clock, that holds it.
+ let seed=null,base=null;
+ for(const s of [13009,2026,7,41]){const r=runMatch({fixture:withBench(s),durationSeconds:120}).result;
+  if(r.events.some(e=>STOPPAGES.includes(e.kind)&&e.time>=120)){seed=s;base=r;break;}}
+ if(seed===null)return t.skip('none of the four seeds ends in a stoppage after full time on this platform');
+ const r=runMatch({fixture:withBench(seed),durationSeconds:120,tacticsSwitches:[sw({trigger:{kind:'half'},notBefore:120,tactics:{...own(0),...DIRECT}})]}).result;
+ assert.equal(switches(r).length,0,'no switch in the last attack');assert.deepEqual(r.switchNotes.map(n=>n.status),['waiting']);
+ for(const k of ['events','frames','stats','score'])assert.deepEqual(r[k],base[k],k);
+});
+test('a formation switch never throws inside a match: one that cannot place the side is skipped (the caller notes it)',()=>{
+ const f=withBench(),players=practicePlayers(f);players.find(p=>p.id==='0:van').number=7;
+ assert.equal(slotsPlaceable({side:0,slots:SLOTS},players),false);
+ assert.equal(slotsPlaceable({side:0,slots:SLOTS},practicePlayers(withBench())),true);
+ assert.equal(slotsPlaceable({side:0},players),true,'a same-shape switch needs no slots');
+});
+
+test('the slot rule in every switch: a same-shape switch with the wingers swapped moves them, nothing else',()=>{
+ // If this fails: plan B lines the men up differently in the same formation and the match ignores it, or moves others.
+ const r=runMatch({...RUN,tacticsSwitches:[sw({trigger:{kind:'half'},tactics:{...own(0)},slots:[0,1,3,2,4]})]}).result,[e]=switches(r);
+ assert(e,'made');assert(!('formation' in e.switch),'no formation change is recorded');
+ const start=practicePlayers(RUN.fixture).filter(p=>p.side===0);
+ for(const p of start){const now=where(e,p.id),slot=[0,1,3,2,4][p.number-1];
+  assert.deepEqual([now.role,now.lane,now.number],[...shapes[own(0).formation][slot],slot+1],p.id);}
+ // the two wingers changed lanes; keeper, centre-back and striker kept theirs
+ const w1=start.find(p=>p.number===3),w2=start.find(p=>p.number===4);
+ assert.equal(where(e,w1.id).lane,w2.lane);assert.equal(where(e,w2.id).lane,w1.lane);
+ assert.deepEqual(at(r,e.time),at(plain,e.time),'the same match up to the stoppage');
 });

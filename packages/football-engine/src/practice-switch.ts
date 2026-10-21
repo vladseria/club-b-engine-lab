@@ -18,11 +18,13 @@ import {triggerHolds} from './practice-substitutions.js';
  *    the next read; at a stoppage none is in flight anyway (startRestart clears the regain clock).
  *  - optionally the keepers' sweep habit (`keepers`: squad id -> keeperSweep, or null for the
  *    keeper's own trait), on the pitch and on the bench, as Ballers' keeper call is a squad trait.
- *  - when the tactics name another formation (owner, 21 Oct: "the plan changes but the players stay"),
- *    the formation, after the tactics: every man on the pitch keeps his place in the side and takes a new
+ *  - the men's places, after the tactics, whenever `slots` moves anyone (owner, 21 Oct: "the plan changes but
+ *    the players stay"; and, the same day, the slot rule in every switch, same formation included): every
+ *    man on the pitch keeps his place in the side and takes a new
  *    slot, `slots[his slot now] = his new slot` (slot = lineup position, 0 the keeper; a man who came on
- *    holds the slot of the man he replaced), so his role, lane and shirt slot become that slot's in the new
- *    shape. Everything the engine reads from roles and lanes (the shape in and out of possession, box
+ *    holds the slot of the man he replaced), so his role, lane and shirt slot become that slot's in the
+ *    (new or same) shape. Another formation needs slots; in the same formation they are optional, and a map
+ *    that moves nobody is dropped at validation, so such a switch is exactly a tactics-only one. Everything the engine reads from roles and lanes (the shape in and out of possession, box
  *    arrivals, the lead forward, keeper support, restart spots) reads the live values, and the restart the
  *    switch fires at is laid out after it. A later substitution's newcomer takes the outgoing man's new
  *    slot, as always. Refused together with that side's playbook (slot-addressed moves and routines were
@@ -39,14 +41,16 @@ export interface TacticsSwitch {
  notBefore?:number;
  /** The side's complete tactics from the switch on. */
  tactics:Tactics;
- /** Only when `tactics.formation` is not the side's: new slot by current slot (0..4; slots[0] is 0, the keeper). */
+ /** New slot by current slot (0..4; slots[0] is 0, the keeper). Required for another formation; in the same
+  * formation only when it moves someone (an identity map is dropped). */
  slots?:number[];
  /** Squad id -> the keeper's sweep habit from the switch on (0..1), or null for his own trait. */
  keepers?:Record<string,number|null>;
 }
-export interface SwitchNote {order:string;side:Side;status:'made'|'waiting';time?:number}
+/** `skipped`: due, but a switch with slots found the side not in its five lineup slots (it never throws mid-match). */
+export interface SwitchNote {order:string;side:Side;status:'made'|'waiting'|'skipped';time?:number;detail?:string}
 export interface SwitchRecord {order:string;trigger:SwitchTrigger;score:[number,number];
- /** A formation change: the new formation and where each man of the side now plays. */
+ /** Men moved to new slots: where each man of the side now plays, and the new formation when it changed. */
  formation?:Tactics['formation'];players?:{id:string;role:Role;lane:number;number:number}[]}
 
 const ID=/^[A-Za-z0-9_.:@+-]{1,64}$/;
@@ -87,9 +91,11 @@ export function validateTacticsSwitches(value:unknown,fixture:Fixture):TacticsSw
   if(tactics.formation!==team.tactics.formation){
    if(typeof tactics.formation!=='string'||shapes[tactics.formation as Tactics['formation']]?.length!==5)throw Error('Invalid switch tactics: a five-a-side formation.');
    const s=o.slots;
-   if(!Array.isArray(s)||s.length!==5||s[0]!==0||!s.every(n=>Number.isInteger(n)&&n>=0&&n<=4)||new Set(s).size!==5)throw Error('A formation switch needs a slot for every man: five distinct slots, the keeper staying in goal.');
-   slots=[...s] as number[];
-  }else if(o.slots!==undefined)throw Error('Slots belong to a formation switch.');
+   slots=checkSlots(s);
+  }else if(o.slots!==undefined){
+   // the same formation: the men line up as plan B says; a map that moves nobody is no map at all
+   const s=checkSlots(o.slots);if(s.some((n,i)=>n!==i))slots=s;
+  }
   for(const [field,options,required] of ONE_OF){
    const v=tactics[field];
    if(v===undefined&&!required)continue;
@@ -112,14 +118,25 @@ export function validateTacticsSwitches(value:unknown,fixture:Fixture):TacticsSw
  });
 }
 
+function checkSlots(s:unknown):number[]{
+ if(!Array.isArray(s)||s.length!==5||s[0]!==0||!s.every(n=>Number.isInteger(n)&&n>=0&&n<=4)||new Set(s).size!==5)throw Error('A switch needs a slot for every man: five distinct slots, the keeper staying in goal.');
+ return [...s] as number[];
+}
+
 /** Is the switch due at this stoppage? (Its note is still waiting; the caller checks that.) */
 export function switchDue(order:TacticsSwitch,time:number,duration:number,score:readonly [number,number],players:readonly PracticePlayer[]):boolean{
  return (order.notBefore??0)<=time&&triggerHolds(order.trigger,order.side,time,duration,score,players);
 }
 
+/** Can a switch with slots place this side's men? Every man must hold one of the five lineup slots (1..5). */
+export function slotsPlaceable(order:TacticsSwitch,players:readonly PracticePlayer[]):boolean{
+ if(!order.slots)return true;
+ const mine=players.filter(p=>p.side===order.side);
+ return mine.length===5&&new Set(mine.map(p=>p.number)).size===5&&mine.every(p=>p.number>=1&&p.number<=5);
+}
 /** Carry out a due switch: the side's base tactics replaced whole, then (a formation switch) each man's slot,
  * role and lane, and the keepers' habit where it is given. Returns where the side's men now play when the
- * formation changed. */
+ * formation changed. The caller checks slotsPlaceable first: nothing here throws inside a match. */
 export function applyTacticsSwitch(order:TacticsSwitch,fixture:Fixture,players:PracticePlayer[]):SwitchRecord['players']{
  const team=fixture.teams[order.side];
  team.tactics=structuredClone(order.tactics);
@@ -127,7 +144,6 @@ export function applyTacticsSwitch(order:TacticsSwitch,fixture:Fixture,players:P
  if(order.slots){
   const shape=shapes[order.tactics.formation],slots=order.slots;
   const mine=players.filter(p=>p.side===order.side);
-  if(mine.length!==5||new Set(mine.map(p=>p.number)).size!==5||!mine.every(p=>p.number>=1&&p.number<=5))throw Error('A formation switch needs the five in their lineup slots.');
   for(const p of mine){const slot=slots[p.number-1],[role,lane]=shape[slot];p.role=role;p.lane=lane;p.number=slot+1;}
   moved=mine.map(p=>({id:p.id,role:p.role,lane:p.lane,number:p.number}));
  }

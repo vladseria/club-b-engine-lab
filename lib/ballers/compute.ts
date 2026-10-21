@@ -91,7 +91,9 @@ export function sideSwitches(input:FrozenInput,teams:[Team,Team]):{switches:Tact
    // Another formation: the target's shape with the frozen slot map (the engine refuses it beside a playbook,
    // which Ballers' game-plan clubs never carry; such a switch is left out and reported, never the match).
    const formation=sw.to.formation&&sw.to.formation!==s.formation?sw.to.formation:s.formation;
-   if(formation!==s.formation&&input.sides.some(x=>x.plans.length))throw Error('formation switch beside plans');
+   // the slot map applies in every switch (owner, 21 Oct); one that moves anyone can't run beside slot-addressed moves
+   const moves=formation!==s.formation||!!sw.to.slots?.some((n,i)=>n!==i);
+   if(moves&&input.sides.some(x=>x.plans.length))throw Error('a switch that moves men beside plans');
    const tactics:Tactics=settingsTactics({...engineApproach(playedApproach(formation,sw.to.approach)),formation,setPiece:'mixed',fullbacks:'balanced',marking:'balanced'} as unknown as Tactics,next);
    const keepers:Record<string,number|null>={};
    for(const p of s.players){
@@ -99,7 +101,7 @@ export function sideSwitches(input:FrozenInput,teams:[Team,Team]):{switches:Tact
     const was=now.keeper?KEEPER_SWEEP[now.keeper]:p.traits.keeperSweep,will=next.keeper?KEEPER_SWEEP[next.keeper]:p.traits.keeperSweep;
     if(was!==will)keepers[p.id]=will??null;
    }
-   switches.push(...validateTacticsSwitches([{id:sw.id,side,trigger:sw.trigger,...(sw.notBefore!==undefined?{notBefore:sw.notBefore}:{}),tactics,...(formation!==s.formation?{slots:sw.to.slots}:{}),...(Object.keys(keepers).length?{keepers}:{})}],{seed:0,kickoff:0,teams} as never));
+   switches.push(...validateTacticsSwitches([{id:sw.id,side,trigger:sw.trigger,...(sw.notBefore!==undefined?{notBefore:sw.notBefore}:{}),tactics,...(sw.to.slots?{slots:sw.to.slots}:{}),...(Object.keys(keepers).length?{keepers}:{})}],{seed:0,kickoff:0,teams} as never));
   }
   catch{dropped.push(`switch:${side}`);}
  });
@@ -133,7 +135,7 @@ export function computeMatch(input:FrozenInput,progress?:(t:number)=>void):Compu
 // compaction can be unit-tested with a synthetic result).
 interface EngineFrame {time:number;cut?:boolean;lineup?:number[];players:{x:number;y:number;angle:number;duty?:string}[];ball:{x:number;y:number;z:number;owner:string|null};score:[number,number];restart:boolean;restartInfo?:{taker:string};side:0|1;control?:{owner:string}}
 interface EngineEvent {time:number;kind:string;text:string;actor?:string;target?:string;side?:0|1;lastTouch?:string;restartKind?:string;shot?:{aim:{x:number;y:number};origin:{x:number;y:number};assessment?:{quality:number}};technique?:string;freeKick?:unknown;
- substitution?:{order:string;trigger:SubstitutionTrigger;energy:number;score:[number,number]};switch?:{order:string;trigger:SwitchTrigger;score:[number,number];formation?:string;players?:{id:string;role:string}[]}}
+ substitution?:{order:string;trigger:SubstitutionTrigger;energy:number;score:[number,number]};switch?:{order:string;trigger:SwitchTrigger;score:[number,number];formation?:string;players?:{id:string;role:string;lane:number}[]}}
 interface EngineSelection {time:number;planId:string|null;name:string;status:string;endedAt?:number;endReason?:string;endDetail?:string;side?:0|1;trace?:{time:number;stepId:string;phase:string;intent?:string;actor?:string;target?:string;responsibility?:string;evidence?:{spaceId?:string}}[]}
 export interface EngineResult {duration:number;played?:number;players:{id:string;side:0|1;role:string}[];frames:EngineFrame[];events:EngineEvent[];stats:[TeamStats,TeamStats];score:[number,number];playbookSelections?:EngineSelection[];substitutionNotes?:SubstitutionNote[];switchNotes?:SwitchNote[]}
 
@@ -198,8 +200,8 @@ export function compact(input:FrozenInput,r:EngineResult):CompactMatch{
   // The plan switch's marker: the trigger and the style now played (never the plan's name).
   if(e.switch&&e.side!==undefined){const t=e.switch.trigger;
    out.sw={k:t.kind,...(t.kind==='score'?{st:t.state}:t.kind==='margin'?{n:t.atLeast,d:t.direction}:{}),y:input.sides[e.side].switch?.to.style??'',
-    // a formation change: the new formation and each man's new role (replay indices), public from that minute
-    ...(e.switch.formation?{f:e.switch.formation,ro:(e.switch.players??[]).map(p=>[idx(p.id),p.role] as [number,string])}:{})};}
+    // men moved to new places: each man's new role and lane (replay indices), and the new formation when it changed
+    ...(e.switch.formation?{f:e.switch.formation}:{}),...(e.switch.players?{ro:e.switch.players.map(p=>[idx(p.id),p.role,p.lane] as [number,string,number])}:{})};}
   return out;
  });
  const chunks:ReplayChunk[]=[];
