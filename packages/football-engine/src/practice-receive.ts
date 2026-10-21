@@ -230,14 +230,12 @@ type LaneRisk=(from:Vec,to:Vec,defenders:PracticePlayer[],speed?:number,delay?:n
  * defence standing still cost a touch nothing (decide notes: the touch cost
  * was exactly 0 in 88% of free reads), though a defence given time turns its
  * heads and steps across. */
-/** (first-time capabilities, 2026-10-21) ... plus WORLD.contact.touch.baseCost (0: none), a flat price on the touch itself for a
- * kick plan, whatever the picture; question 5 lever 1 (evidence/2026-10-22-whatif/question-5.md). Carries and feints keep 0. */
 export function touchCost(p:PracticePlayer,o:Option,meeting:Vec,seen:readonly PracticePlayer[],room:number,lane:LaneRisk):number{
  const late=roomLate(p,room),need=touchTime(p),body={...p,x:meeting.x,y:meeting.y,vx:0,vy:0};
  if(o.kind==='shoot'){
   const now=hurryTruth(shotContest(body,seen,o.aim).hurry),later=hurryTruth(shotContest(body,seen,o.aim,{lead:need}).hurry);
   const keeper=seen.find(q=>q.side!==p.side&&q.role==='GK'),moving=keeper?clamp(Math.hypot(keeper.vx,keeper.vy)/KEEPER_STILL,0,1):0;
-  return Math.max(late,clamp(later-now+KEEPER_SET_WORTH*hurryTruth(1)*moving,0,1))+WORLD.contact.touch.baseCost.v;
+  return Math.max(late,clamp(later-now+KEEPER_SET_WORTH*hurryTruth(1)*moving,0,1));
  }
  if(o.kind==='carry'||o.kind==='feint')return 0;
  const reach=o.kind==='clear'&&(o.clearance==='long'||o.clearance==='channel'||o.clearance==='mate')?1.6:4;
@@ -247,7 +245,7 @@ export function touchCost(p:PracticePlayer,o:Option,meeting:Vec,seen:readonly Pr
   const opponents=all.filter(q=>q.side!==p.side),later=projectOpponents(opponents,p.side,meeting,need),open=lane(body,o.aim,opponents,o.pass.speed);
   closing=Math.max(lane(body,o.aim,later,o.pass.speed),lane(body,o.aim,opponents,o.pass.speed,need))-open;
  }
- return Math.max(late,clamp(blocked,0,1),clamp(closing,0,1))+WORLD.contact.touch.baseCost.v;
+ return Math.max(late,clamp(blocked,0,1),clamp(closing,0,1));
 }
 /** What striking it first time costs him, on the same scale (see PASS_LOAD); `late` is how late his plan will be at
  * the strike (lateStrike of the time he will have held it), priced as the points it costs (LATE_POINTS). */
