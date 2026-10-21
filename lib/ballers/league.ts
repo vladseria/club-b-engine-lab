@@ -7,7 +7,6 @@ import type {Voice} from './voice';
 import type {Player as EnginePlayer, Role} from '../../packages/football-engine/src/model';
 import {LOCK_MS} from './schedule';
 import {LAST_ATTACK_MAX} from '../../packages/football-engine/src/practice-match';
-import {BREAK_SECONDS} from './replay';
 export {ON_LOSS,boardApproach,boardFormation,engineApproach,onLossOf,playedApproach,widthChosen,withOnLoss,type Approach,type OnLoss,type StoredApproach} from './approach';
 
 /** Every formation a stored row, frozen input or replay may carry (the engine plays all three). */
@@ -312,12 +311,7 @@ export const MATCH_SECONDS=900;
  * at most LAST_ATTACK_MAX (engine practice-match.ts). A match's real end is its
  * replay header's `duration`; this is only for screens that don't hold it. */
 export {LAST_ATTACK_MAX};
-/** The broadcast as scheduled (deliverables/ballers-half-time/DESIGN.md 2.1): the match and its half-time break
- * (BREAK_SECONDS, shared by every viewer), 20:00 of live time for a 15-minute match. */
-export const BROADCAST_SECONDS=MATCH_SECONDS+BREAK_SECONDS;
-/** The longest a broadcast can run: plus a first half that overran (its attack played out, the second half then a
- * full half) and full time's own last attack, each at most LAST_ATTACK_MAX. */
-export const BROADCAST_MAX_SECONDS=BROADCAST_SECONDS+2*LAST_ATTACK_MAX;
+export const BROADCAST_MAX_SECONDS=MATCH_SECONDS+LAST_ATTACK_MAX;
 /** Timeline minute marks: every minute up to a Quick match (and its last attack), else every 3. */
 export const tickEvery=(duration:number)=>duration<=QUICK_SECONDS+LAST_ATTACK_MAX?60:180;
 /** A practice match's short length. Named "Quick", never "Short": Short is a style. */

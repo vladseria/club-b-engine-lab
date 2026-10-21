@@ -124,9 +124,8 @@ function checkSlots(s:unknown):number[]{
 }
 
 /** Is the switch due at this stoppage? (Its note is still waiting; the caller checks that.) */
-/** `clock`: the time the match shows (half-time: the second half from 7:30 at its kickoff), what notBefore reads. */
-export function switchDue(order:TacticsSwitch,time:number,duration:number,score:readonly [number,number],players:readonly PracticePlayer[],clock=time):boolean{
- return (order.notBefore??0)<=clock&&triggerHolds(order.trigger,order.side,time,duration,score,players);
+export function switchDue(order:TacticsSwitch,time:number,duration:number,score:readonly [number,number],players:readonly PracticePlayer[]):boolean{
+ return (order.notBefore??0)<=time&&triggerHolds(order.trigger,order.side,time,duration,score,players);
 }
 
 /** Can a switch with slots place this side's men? Every man must hold one of the five lineup slots (1..5). */

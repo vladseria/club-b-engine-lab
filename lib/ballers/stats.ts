@@ -24,6 +24,7 @@
 // (visible_from <= now()). A null means the result predates this record.
 import {buildIncidents,creditGoal} from './incidents';
 import type {ReplayEvent, ReplayFrame, ReplayHeader} from './replay';
+import type {RatingRole} from './ratings';
 
 /** The match detail (short keys). Keeper keys only for a player who stood in goal. */
 export interface LineDetail {
@@ -40,8 +41,13 @@ export interface PlayerLine extends Partial<LineDetail> {
  /** 0 = home, 1 = away (at the time of the match). */ side:0|1;
  /** Started (1) or came on (0). */ st:0|1;
  g:number;a:number;sh:number;sv:number;og:number;
+ /** His match mark (lib/ballers/ratings.ts matchRatings, one decimal, 3–10), stored at submission from version 3;
+  * absent on older lines and when he had no mark (under a ninth of the match). Growth reads it at the round close. */ mk?:number;
+ /** The role his mark was read in (the formation slot he played), stored with it. */ rl?:RatingRole;
 }
-export const PLAYER_STATS_VERSION=2;
+/** 3 (21 Oct 2026): lines stored at submission carry `mk` and `rl` (match-lines.ts markedLines). */
+export const PLAYER_STATS_VERSION=3;
+const ROLES:readonly RatingRole[]=['GK','CB','W','ST'];
 /** The detail keys, in stored order. */
 export const DETAIL_KEYS=['m','ps','pc','kp','so','tk','it','dr','fc','cl','gt','ca','sf','ss','cs'] as const;
 const KEEPER_KEYS=['gt','ca','sf','ss','cs'] as const;
@@ -196,6 +202,9 @@ export function readPlayerStats(v:unknown):PlayerLine[]|null{
    for(const k of DETAIL_KEYS){if(KEEPER_KEYS.includes(k as never)&&o.gt===undefined)continue;l[k]=count(o[k],k==='m'||k==='gt'?100000:1000);}
    if(l.cs!==undefined)l.cs=l.cs?1:0;
   }
+  // the stored mark (version 3): a number on the mark's scale, kept to one decimal; anything else is no mark
+  if(typeof o.mk==='number'&&Number.isFinite(o.mk)&&o.mk>=3&&o.mk<=10)l.mk=Math.round(o.mk*10)/10;
+  if(ROLES.includes(o.rl as RatingRole))l.rl=o.rl as RatingRole;
   out.push(l);
  }
  return out;

@@ -20,21 +20,13 @@ export const pack=(value:unknown)=>gzipSync(Buffer.from(JSON.stringify(value)),{
  * owner-only notes table, readable from full time. */
 export function submission(c:Computed,input:FrozenInput){
  const header={...c.compact.header,engineBuild:c.engineBuild};
- // Half-time (deliverables/ballers-half-time/DESIGN.md 2.2): the second half's chunks open on the LIVE clock, a break
- // after their match second (ballers_submit stores visible_from = live_from + t0 - 15 s from the payload's t0), and the
- // payload says when the whistle went and how long the break is, so ballers_submit (from migration
- // 20261022090000_ballers_submit_half_time) can hold the result, the substitution notes and the second half's idea
- // markers back by the break too. A match without a half-time sends exactly what it always did.
- const halfEv=c.compact.chunks.flatMap(ch=>ch.e).find(e=>e.k==='half'),halfS=halfEv?halfEv.t/1000:null,brk=header.interval??0;
- const live=(sec:number)=>halfS!==null&&sec>=halfS?sec+brk:sec;
  const planKey=(side:0|1,planId:string|null)=>planId===null?null:input.sides[side].plans.find(p=>{const id=(p.plan as {id?:unknown}).id;return id===planId||p.key===planId;})?.key??planId;
  return {
   // `duration` is the match length (ballers_submit checks it against the input);
   // `played`, only when the last attack ran past it, is when the whistle went.
   engine_build:c.engineBuild,duration:input.duration,...(header.duration>input.duration?{played:header.duration}:{}),score:c.compact.score,stats:c.compact.stats,
   header:pack(header),
-  chunks:c.compact.chunks.map(ch=>({i:ch.i,t0:live(ch.t0/1000),t1:halfS!==null&&ch.t1/1000>halfS?ch.t1/1000+brk:ch.t1/1000,data:pack(ch)})),
-  ...(halfS!==null&&brk?{half:halfS,interval:brk}:{}),
+  chunks:c.compact.chunks.map(ch=>({i:ch.i,t0:ch.t0/1000,t1:ch.t1/1000,data:pack(ch)})),
   ideas:c.compact.ideas.map(i=>({seq:i.seq,side:i.side,t:i.t/1000,ended_at:i.endedAt===null?null:i.endedAt/1000,status:i.status,end_reason:i.endReason,progress:i.progress,
    plan_key:planKey(i.side,i.planId),name:i.planId===null?null:i.name,
    // The classifier's word only (ran/partly/broke): public on the marker row.
@@ -42,14 +34,15 @@ export function submission(c:Computed,input:FrozenInput){
    ...(i.planId!==null&&i.detail&&Object.keys(i.detail).length?{detail:i.detail}:{})})),
   sub_notes:c.compact.substitutionNotes??[],
   // Per-player lines (lib/ballers/stats.ts), stored on the result row so they
-  // share its full-time gate. Omitted if the derivation fails: a missing
-  // record never costs the match.
+  // share its full-time gate, each with his mark and role (version 3: what
+  // growth reads at the round close). Omitted if the derivation fails: a
+  // missing record never costs the match.
   ...playerLines(c),
   dropped:c.dropped,
  };
 }
 
 function playerLines(c:Computed):{players?:PlayerLine[]}{
- const players=computedPlayerLines(c);
+ const players=computedPlayerLines(c,{marks:true});
  return players?{players}:{};
 }
