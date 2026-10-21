@@ -34,7 +34,7 @@ import {perceive,Sightings,sightLag,inView,lookingAt} from './practice-perceptio
 import {POSITIONAL_KINDS,CUE_LOOSE,INTENSITY_EVERY,SpotDrift,offBallIntensity,intensityLimit,intensityPush,readCue,restartKickIn,restartWalk} from './practice-intensity.js';
 import type {Sight} from './practice-shape.js';
 import {turnoverPrice} from './practice-rest-defence.js';
-import {HALF_SECONDS,LAST_ATTACK_MAX,SUB_MINUTES,attackAtFullTime,chooseReplacement,energyTop,fatigueEnergy,halfEnergy,lastAttackOver,legs,reserveBalance} from './practice-match.js';
+import {halfTimeAt,LAST_ATTACK_MAX,SUB_MINUTES,attackAtFullTime,chooseReplacement,energyTop,fatigueEnergy,halfEnergy,lastAttackOver,legs,reserveBalance} from './practice-match.js';
 import {validateSubstitutionOrders,triggerHolds,resolveOrder,triggerText,MAX_TRIGGERED_SUBSTITUTIONS} from './practice-substitutions.js';
 import type {SubstitutionOrder,SubstitutionNote,SubstitutionRecord} from './practice-substitutions.js';
 import {assignSupport,complementarySupportAim,SupportPlan,SupportContext} from './practice-support.js';
@@ -402,6 +402,9 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
  let half:1|2=1,lineup:number[]|undefined,needsFrame=false,cut=false;
  // Set when full time finds a side in an attack (the loop below, practice-match.ts attackAtFullTime).
  let lastAttack:{side:Side;shot:boolean}|null=null;
+ // Half-time (practice-match.ts halfTimeAt): the tick it is due (none for a short run), the attack it waits for, whether it is past.
+ const halfDue=halfTimeAt(duration),halfTick=halfDue===null?null:Math.round(halfDue/STEP);
+ let halfAttack:{side:Side;shot:boolean}|null=null,halfDone=false;
  const frameStride=duration>900?30:6;
  const get=(id:string)=>byId.get(id)!,sidePlayers=(side:Side)=>players.filter(p=>p.side===side);
  const random=rng(f.seed^0x884411),execution=rng(f.seed^0x547293),duelDraw=rng(f.seed^0x2d1e75),airRandom=rng(f.seed^0x3a1f07),balanceDraw=rng(f.seed^0x6b1a4d),aerialDuels:AerialDuelRecord[]=[],stats:[PracticeStats,PracticeStats]=[blank(),blank()],score:[number,number]=[0,0];
@@ -713,7 +716,8 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
  const startRestart=(kind:Restart['kind'],team:Side,spot:Vec,opening?:{taker:string;force:boolean})=>{
   for(const b of playbooks)b.end(time,'restart');
   // A stoppage after full time ends the match: nobody comes on for no seconds.
-  if(!lastAttack){applySubstitutions();applyOrders();}
+  // One that ends the first half's last attack: the changes wait for the interval's kickoff.
+  if(!lastAttack&&!halfAttack){applySubstitutions();applyOrders();}
   awareness.clear();coordination=null;
   feintMemory.clear();
   challenge=null;firstTouch=null;recovering.clear();blocks.clear();wrongfoot.clear();dives.clear();controls.clear();noHandsSide=null;noHandsKeeper='';
@@ -941,10 +945,21 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    if(tick>regular+1&&lastAttackOver(lastView(),lastAttack.side,lastAttack.shot)||tick>regular+Math.round(LAST_ATTACK_MAX/STEP))break;
   }
   time=tick*STEP;
-  if(duration>HALF_SECONDS&&tick===HALF_SECONDS/STEP){
-   frame();half=2;cut=true;reserves.clear();for(const p of players){p.energy=halfEnergy(p.energy);p.vx=0;p.vy=0;}
-   say('half','Pauză. Echipele își trag sufletul, schimbă porțile și pregătesc repriza a doua.');
-   startRestart('kickoff',other(f.kickoff),{x:(L/2),y:0});
+  // Half-time (practice-match.ts halfTimeAt): at the midpoint, unless a side is in an attack, which plays out as at
+  // full time (matches only); then the whistle. The interval itself takes no match time: the last first-half frame,
+  // then a cut to the second half's kickoff, everyone on his spot (the walk off and back out is the watch screens'
+  // picture, lib/ballers/interval.ts), rested, the other side to kick off. Coordinates stay team-relative.
+  if(halfTick!==null&&!halfDone&&tick>=halfTick){
+   if(tick===halfTick&&options.lastAttack&&attackAtFullTime(lastView()))halfAttack={side,shot:false};
+   if(halfAttack&&ball.mode==='shot')halfAttack.shot=true;
+   if(!halfAttack||tick>halfTick+1&&lastAttackOver(lastView(),halfAttack.side,halfAttack.shot)||tick>halfTick+Math.round(LAST_ATTACK_MAX/STEP)){
+    halfAttack=null;halfDone=true;
+    frame();half=2;cut=true;reserves.clear();downs.clear();for(const p of players){p.energy=halfEnergy(p.energy);p.vx=0;p.vy=0;}
+    say('half','Pauză. Echipele își trag sufletul, schimbă porțile și pregătesc repriza a doua.');
+    startRestart('kickoff',other(f.kickoff),{x:(L/2),y:0});
+    for(const p of players){const spot=restart?.positions[p.id];if(spot){p.x=spot.x;p.y=spot.y;}p.angle=Math.atan2(-p.y,L/2-p.x);}
+    frame();
+   }
   }
   const old=new Map(players.map(p=>[p.id,{x:p.x,y:p.y,angle:p.angle,speed:Math.hypot(p.vx,p.vy)}])),owner=ball.owner?get(ball.owner):null;
   // A restart repositions everyone: the memory starts afresh after it.
