@@ -25,6 +25,7 @@
 import {buildIncidents,creditGoal} from './incidents';
 import type {ReplayEvent, ReplayFrame, ReplayHeader} from './replay';
 import type {RatingRole} from './ratings';
+import {matchClock,shownTime} from './match-clock';
 
 /** The match detail (short keys). Keeper keys only for a player who stood in goal. */
 export interface LineDetail {
@@ -56,7 +57,7 @@ export const CLEAN_SHEET_SHARE=2/3;
 
 /** The match's player lines, from the replay (header + every event and frame).
  * Every player who stood on the pitch gets a line; nobody else does. */
-export function matchPlayerStats(header:Pick<ReplayHeader,'players'|'duration'|'fullTime'>,events:ReplayEvent[],frames:ReplayFrame[]):PlayerLine[]{
+export function matchPlayerStats(header:Pick<ReplayHeader,'players'|'duration'|'fullTime'|'length'>,events:ReplayEvent[],frames:ReplayFrame[]):PlayerLine[]{
  const lines=new Map<number,PlayerLine>();
  const line=(i:number|undefined)=>{
   if(i===undefined)return undefined;const p=header.players[i];if(!p)return undefined;
@@ -88,11 +89,12 @@ const SHOT_OVER=new Set(['pass','receive','clearance','turnover','tackle','resta
 const SHOT_MS=5000;
 
 /** The detail per replay player index, for every player who stood on the pitch. */
-export function matchDetail(header:Pick<ReplayHeader,'players'|'duration'|'fullTime'>,events:ReplayEvent[],frames:ReplayFrame[]):Map<number,LineDetail>{
+export function matchDetail(header:Pick<ReplayHeader,'players'|'duration'|'fullTime'|'length'>,events:ReplayEvent[],frames:ReplayFrame[]):Map<number,LineDetail>{
  const out=new Map<number,LineDetail>(),end=header.duration*1000;
  // Time on the pitch counts up to the match length: a last attack played out past 15:00 (header.fullTime) is
  // still one full match, which is what growth reads (ballers_growth_config fullMatch: 900, per second of `m`/`gt`).
- const full=(header.fullTime??header.duration)*1000;
+ // (half-time) on the clock the match shows: the first half's overrun and the second kickoff's set-up are not match minutes
+ const clk=matchClock(header,events),full=(header.fullTime??header.duration)*1000;
  const side=(i:number|undefined)=>i===undefined?undefined:header.players[i]?.side;
  const d=(i:number|undefined)=>{if(i===undefined||!header.players[i])return undefined;let x=out.get(i);if(!x){x=emptyDetail();out.set(i,x);}return x;};
  const inGoal=(i:number)=>{const x=d(i)!;x.gt??=0;x.ca??=0;x.sf??=0;x.ss??=0;return x;};
@@ -103,7 +105,7 @@ export function matchDetail(header:Pick<ReplayHeader,'players'|'duration'|'fullT
  for(const i of pos){d(i);since.set(i,0);}
  // (contest combine, 2026-10-15) each spell is clipped at full time too, not only the total: a substitute on the pitch
  // during a last attack was credited its seconds past full time while the men who played the whole match were not
- const clip=(t:number)=>Math.min(t,full);
+ const clip=(t:number)=>clk.half===null?Math.min(t,full):Math.round(shownTime(t/1000,clk).main*1000);
  const leave=(i:number,t:number)=>{const x=d(i),from=since.get(i);if(x&&from!==undefined){x.m+=clip(t)-clip(from);since.delete(i);}};
  const leaveGoal=(s:0|1,t:number)=>{inGoal(pos[s*5]).gt!+=clip(t)-clip(goalFrom[s]);goalFrom[s]=t;};
  /** Who was in goal for side s at each substitution time (for goals conceded). */
