@@ -17,7 +17,7 @@ function side(tag:string):FrozenSide{
 const input:FrozenInput={v:1,match:'m',seed:1,kickoff:0,duration:900,sides:[side('aa'),side('bb')]};
 const ids=input.sides.flatMap((s,k)=>s.lineup.map(id=>({id:`${k}:${id}`,side:k as 0|1,role:'CM'})));
 const pose={x:24,y:0,angle:0};
-/** A 900 s result: a whistle at `half` (s) after an overrun, a change made at the interval, full time a full half later. */
+/** A 900 s result (frames every 0.2 s; give `half` off that grid, as the engine's whistle pair is): a whistle at `half` (s) after an overrun, a change made at the interval, full time a full half later. */
 function stub(half:number|null,played:number){
  const frames:EngineResult['frames']=[],events:EngineResult['events']=[{time:0,kind:'start',text:''}];
  for(let n=0;n*.2<=played+1e-9;n++){const t=Math.round(n*.2*1000)/1000;
@@ -31,29 +31,29 @@ function stub(half:number|null,played:number){
 }
 
 describe('a replay with a half-time',()=>{
- const c=stub(453.2,903.2);
+ const c=stub(453.25,903.25);
  it('says it has a break, and full time a full half after the whistle',()=>{
   expect(c.header.interval).toBe(BREAK_SECONDS);
-  expect(c.header).toMatchObject({duration:903.2,fullTime:903.2,chunks:15});
+  expect(c.header).toMatchObject({duration:903.25,fullTime:903.25,chunks:15});
  });
  it('cuts the chunks at the whistle: no chunk holds both halves, the count stays 15',()=>{
   expect(c.chunks).toHaveLength(15);
-  expect([c.chunks[7].t0,c.chunks[7].t1,c.chunks[8].t0,c.chunks[8].t1]).toEqual([420000,453200,453200,540000]);
+  expect([c.chunks[7].t0,c.chunks[7].t1,c.chunks[8].t0,c.chunks[8].t1]).toEqual([420000,453250,453250,540000]);
   expect(c.chunks[7].e.map(e=>e.k)).toContain('half');
   expect(c.chunks[7].f.every(f=>!f.c)).toBe(true);
-  expect(c.chunks[7].f.at(-1)!.t).toBe(453200);// the whistle frame itself: the live edge reaches the whistle before the break
-  expect(c.chunks[8].f[0]).toMatchObject({t:453200,c:1});
+  expect(c.chunks[7].f.at(-1)!.t).toBe(453250);// the whistle frame itself: the live edge reaches the whistle before the break
+  expect(c.chunks[8].f[0]).toMatchObject({t:453250,c:1});
   expect(c.chunks[8].e.map(e=>e.k)).toContain('restart');
-  for(const ch of c.chunks.slice(0,8))expect(ch.f.every(f=>f.t<=453200)).toBe(true);
-  for(const ch of c.chunks.slice(8))expect(ch.f.every(f=>f.t>=453200)).toBe(true);
+  for(const ch of c.chunks.slice(0,8))expect(ch.f.every(f=>f.t<=453250)).toBe(true);
+  for(const ch of c.chunks.slice(8))expect(ch.f.every(f=>f.t>=453250)).toBe(true);
   expect(c.chunks.at(-1)!.f.at(-1)!.t).toBe(903200);
  });
  it('sends the second half\'s chunks on the live clock, and the whistle and the break for ballers_submit',()=>{
   const s=submission({compact:c,dropped:[],engineBuild:'x'.repeat(8).replace(/x/g,'a')},input) as unknown as {chunks:{i:number;t0:number;t1:number}[];half:number;interval:number;played:number;duration:number};
-  expect(s.chunks[7]).toMatchObject({t0:420,t1:453.2});
-  expect(s.chunks[8]).toMatchObject({t0:753.2,t1:840});
+  expect(s.chunks[7]).toMatchObject({t0:420,t1:453.25});
+  expect(s.chunks[8]).toMatchObject({t0:753.25,t1:840});
   expect(s.chunks[14].t0).toBe(1140);
-  expect({half:s.half,interval:s.interval,played:s.played,duration:s.duration}).toEqual({half:453.2,interval:300,played:903.2,duration:900});
+  expect({half:s.half,interval:s.interval,played:s.played,duration:s.duration}).toEqual({half:453.25,interval:300,played:903.25,duration:900});
  });
 });
 describe('a replay without one is exactly what it was',()=>{

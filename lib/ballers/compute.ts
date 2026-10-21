@@ -225,7 +225,7 @@ export function compact(input:FrozenInput,r:EngineResult):CompactMatch{
  const lookup=(t:number)=>{const i=bounds.findIndex(b=>t>=b.t0&&(t<b.t1||b.final));return i<0?bounds.length-1:i;};
  const chunkOf=(t:number,first:boolean)=>first&&halfMs!==null&&t>=halfMs?lookup(halfMs-1):lookup(t);
  const chunks:ReplayChunk[]=bounds.map((b,i)=>({v:REPLAY_VERSION,i,t0:b.t0,t1:b.t1,f:[],e:[]}));
- frames.forEach((f,n)=>chunks[chunkOf(f.t,cutAt<0||n<cutAt)].f.push(f));
+ frames.forEach((f,n)=>chunks[chunkOf(f.t,halfMs===null||(cutAt<0?f.t<halfMs:n<cutAt))].f.push(f));
  events.forEach(e=>chunks[chunkOf(e.t,halfMs===null||e.t<halfMs||e.t===halfMs&&e.k==='half')].e.push(e));
  // A set-piece routine chosen at a stoppage that was never kicked (full time
  // came first) did not run: it is left out, not counted as broke.
