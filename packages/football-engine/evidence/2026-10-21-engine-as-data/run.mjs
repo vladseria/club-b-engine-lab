@@ -7,8 +7,7 @@
 //   laptop: MATCHES=4 node run.mjs --label laptop --revs base=working --block T                (the 4 traces, 1 worker)
 //   check:  MATCHES=1 node run.mjs --label build --revs base=working --build-only              (all 512 inputs built and validated by
 //           createSimulationRequest, no simulation: the harness's own smoke test; MATCHES=1 only satisfies the hook)
-// Filters: --block A,B (blocks), --only <regex> (task ids). --entry <file> / --set <file>: another row entry wrapping
-// parity.ts and another task list (the what-if harness, ../2026-10-22-whatif/README.md); both default to this folder's. Laptop: MATCHES must be declared and the played count
+// Filters: --block A,B (blocks), --only <regex> (task ids). Laptop: MATCHES must be declared and the played count
 // (tasks x revisions) may not pass 4; everything bigger goes to the public lab.
 import {Worker,isMainThread,parentPort,workerData} from 'node:worker_threads';
 import {existsSync,readFileSync,appendFileSync,mkdirSync} from 'node:fs';
@@ -17,6 +16,7 @@ import {fileURLToPath,pathToFileURL} from 'node:url';
 import path from 'node:path';
 import {shardTasks,simWorkers,shardNote} from '../_ci/shard.mjs';
 import {bundleRevs,parseRevs} from '../_ci/revs.mjs';
+import {tasks as allTasks} from './set.mjs';
 
 const here=path.dirname(fileURLToPath(import.meta.url));
 
@@ -41,7 +41,7 @@ if(!isMainThread){
   for(const n of order)by[n]=mods[n].play(task);
   const first=by[names[0]];
   const same=names.every(n=>JSON.stringify(by[n].print)===JSON.stringify(first.print)&&by[n].full===first.full);
-  const strip=r=>({ms:r.ms,cpuMs:r.cpuMs,score:r.score,print:r.print,full:r.full,build:r.build,...(r.extra!==undefined?{extra:r.extra}:{})});
+  const strip=r=>({ms:r.ms,cpuMs:r.cpuMs,score:r.score,print:r.print,full:r.full,build:r.build});
   parentPort.postMessage({ok:true,line:{label:task.label,id:task.id,block:task.block,kind:task.kind,order,same,score:first.score,runs:first.runs,frames:first.frames,plat:first.plat,
    revs:Object.fromEntries(names.map(n=>[n,strip(by[n])])),dropped:first.dropped,tactics:first.tactics,variety:first.variety,...(task.option?{option:task.option,tested:task.tested}:{})}});
  }catch(e){parentPort.postMessage({ok:false,task,error:String(e?.stack??e)});}});
@@ -52,11 +52,7 @@ if(!isMainThread){
  const sides=loadSides();
  const revs=parseRevs(arg('revs','base=working'));
  const outDir=path.join(here,'results');mkdirSync(outDir,{recursive:true});
- // --entry / --set (the what-if harness, ../2026-10-22-whatif): another row entry that wraps parity.ts, another task
- // list that contains this one. Both default to this folder's, so every earlier command runs exactly as before.
- const entry=path.resolve(here,arg('entry','parity.ts')),setFile=path.resolve(here,arg('set','set.mjs'));
- const {tasks:allTasks}=await import(pathToFileURL(setFile).href);
- const bundles=await bundleRevs({entry,revs,outDir,tag:entry===path.join(here,'parity.ts')?'parity':path.basename(entry).replace(/\W/g,'')});
+ const bundles=await bundleRevs({entry:path.join(here,'parity.ts'),revs,outDir,tag:'parity'});
  const blocks=arg('block')?new Set(arg('block').split(',')):null,only=arg('only')?new RegExp(arg('only')):null;
  let rot=0;
  const every=allTasks().filter(t=>(!blocks||blocks.has(t.block))&&(!only||only.test(t.id))).map(t=>({...t,label,rot:rot++%Object.keys(revs).length}));
