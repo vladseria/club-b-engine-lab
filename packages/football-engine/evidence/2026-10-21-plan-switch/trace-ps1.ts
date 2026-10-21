@@ -1,6 +1,6 @@
 // Plan switch, formation step 0: ONE match with a formation-changing switch, through the app's own path
 // (lib/ballers/compute.ts computeMatch: engineTeam, sideSwitches, runMatch, compact). The input is the engine-as-data
-// trace T1 (RAP 1-2-1 Combinations v UMA Direct, seed 7, kickoff away; 0-4 without a switch) plus a switch for RAP:
+// trace T1 (RAP 1-2-1 Combinations v UMA Direct, seed 7, kickoff away) without its two moves, plus a switch for RAP:
 // losing, from 5:00, to a Direct plan in 2-2. Plan B's own five (for the slot map) is RAP's keeper, centre-back and
 // two wingers in 2-2's slots 1, 3 and 4 and a bench man at 2, so the striker is the one man plan B doesn't place: the
 // fill-in rule (DESIGN §2.4, SQL private.ballers_switch_slots, mirrored by slotMap below) puts him at centre-back.
@@ -43,6 +43,9 @@ init({scen:load(path.join(here,'../2026-10-09-scenarios/sides')),g7:load(path.jo
 export function runTrace():string[]{
  const t=(TRACES as any[]).find(x=>x.id.startsWith('T1'));
  const sides=t.sides.map((s:any)=>sideOf(s,null));
+ // a formation switch never runs beside slot-addressed moves (the engine refuses it; Ballers' game-plan clubs carry none),
+ // so T1's two moves are left out of this trace
+ for(const x of sides)x.plans=[];
  const rap=sides[0],L5=rap.lineup as string[];
  const planB=[L5[0],L5[1],rap.bench[0]??L5[4],L5[2],L5[3]];
  const slots=slotMap(L5,planB,'2-2',rap.players);
