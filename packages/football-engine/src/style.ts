@@ -16,6 +16,7 @@ export type Unit=
  |'x'      // multiplier on an existing read
  |'A'      // the carrier's option score
  |'B'      // an off-ball job's score
+ |'m/s'    // metres per second (a ball's speed relative to a receiver)
  |'men'|'trait'|'count'|'flag';
 /** The pitch probe's class, recorded only. */
 export type Axis='L'|'W'|'G'|'body'|'none';
@@ -23,7 +24,8 @@ export type Axis='L'|'W'|'G'|'body'|'none';
 export type EffectKind=
  |'optionCreditByFeature'|'optionCreditByTarget'|'situationalOptionCost'|'clockRule'
  |'jobCredit'|'jobOffered'|'fixedPost'|'positionOffset'|'arrangementConstraint'
- |'multiplier'|'defendingThreshold'|'triggerWindow'|'traitOverride'|'recentring';
+ |'multiplier'|'defendingThreshold'|'triggerWindow'|'traitOverride'|'recentring'
+ |'receptionGate';
 /** One effect. `v` is the exact value the code uses (a number, null, Infinity or a flag). */
 export interface Effect<V=number>{v:V;unit:Unit;kind:EffectKind;axis?:Axis;
  /** every read site, file:line at the commit that last moved it */
@@ -234,13 +236,15 @@ export interface ProgressionOption{
  depthRunAhead:Effect;frontAhead:Effect;attackValue:Effect;
  /** on the ball (S7): team-approach.ts purposeClock and approachOptions */
  clockStartsAfter:Effect;readsBlock:Effect<boolean>;clockDeliveryTerms:Effect<boolean>;delivery:Effect<'none'|'patient'|'direct'>;
+ /** the first-time reception (question 6, branch engine-first-time-capabilities): practice.ts, added to the world's values */
+ touchPrice:Effect;strikeSpeed:Effect;
 }
 const GAT={
  run:['practice-coordination.ts:224 (runStyle)'],support:['practice-coordination.ts:777'],diag:['practice-coordination.ts:690'],
  outlet:['practice-coordination.ts:888'],anywhere:['practice-coordination.ts:986'],ahead:['practice-coordination.ts:990'],
  front:['practice-shape.ts:122 (teamShape in possession)'],value:['practice-attacking-space.ts:78'],
 } as const;
-const progressionOption=(o:{runBypass:number;runReturn:number;runOther:number;supportCredit:number;forwardDiagonals:boolean;extraOutlet:boolean;depthRunAnywhere:boolean;depthRunAhead:number;frontAhead:number;attackValue:number;clockStartsAfter:number;readsBlock:boolean;clockDeliveryTerms:boolean;delivery:'none'|'patient'|'direct'}):ProgressionOption=>({
+const progressionOption=(o:{runBypass:number;runReturn:number;runOther:number;supportCredit:number;forwardDiagonals:boolean;extraOutlet:boolean;depthRunAnywhere:boolean;depthRunAhead:number;frontAhead:number;attackValue:number;clockStartsAfter:number;readsBlock:boolean;clockDeliveryTerms:boolean;delivery:'none'|'patient'|'direct';touchPrice:number;strikeSpeed:number}):ProgressionOption=>({
  runBypass:{v:o.runBypass,unit:'B',kind:'jobCredit',at:GAT.run,says:'a run that bypasses (in behind, or a break not under Keep it)'},
  runReturn:{v:o.runReturn,unit:'B',kind:'jobCredit',at:GAT.run,says:'the give-and-go return run'},
  runOther:{v:o.runOther,unit:'B',kind:'jobCredit',at:GAT.run,says:'any other run'},
@@ -255,12 +259,14 @@ const progressionOption=(o:{runBypass:number;runReturn:number;runOther:number;su
  readsBlock:{v:o.readsBlock,unit:'flag',kind:'optionCreditByFeature',at:['team-approach.ts:207'],says:'the passer reads the defending block even before the purpose clock runs'},
  clockDeliveryTerms:{v:o.clockDeliveryTerms,unit:'flag',kind:'clockRule',at:['team-approach.ts:211'],says:'once the clock runs, passes gain its penetration and switch credits here (a patient side has them in its own credit)'},
  delivery:{v:o.delivery,unit:'flag',kind:'optionCreditByFeature',at:['team-approach.ts:221','team-approach.ts:223','team-approach.ts:227'],says:'which delivery credit applies: none (neutral), the patient one, the direct one'},
+ touchPrice:{v:o.touchPrice,unit:'x',kind:'receptionGate',at:['practice.ts:1098'],says:'a receiver of this side prices a controlling touch this much more (share of the chance) in the first-time read, on top of WORLD.contact.touch.baseCost; 0 = as the world'},
+ strikeSpeed:{v:o.strikeSpeed,unit:'m/s',kind:'receptionGate',at:['practice.ts:1798'],says:'a receiver of this side strikes a planned first-time ball arriving this much faster (m/s) than the world allows (WORLD.contact.strike.speedBase + control x speedPerControl); 0 = as the world'},
 });
 /** Progression: how the team moves the ball forward. Values exactly as the code had them at b107e7b2. */
 export const PROGRESSION:Readonly<Record<Tactics['progression'],ProgressionOption>>={
- patient:progressionOption({runBypass:-.18,runReturn:.15,runOther:0,supportCredit:.15,forwardDiagonals:true,extraOutlet:true,depthRunAnywhere:false,depthRunAhead:23,frontAhead:16,attackValue:.7,clockStartsAfter:1,readsBlock:true,clockDeliveryTerms:false,delivery:'patient'}),
- mixed:progressionOption({runBypass:0,runReturn:0,runOther:0,supportCredit:0,forwardDiagonals:false,extraOutlet:false,depthRunAnywhere:false,depthRunAhead:23,frontAhead:16,attackValue:.9,clockStartsAfter:0,readsBlock:false,clockDeliveryTerms:true,delivery:'none'}),
- direct:progressionOption({runBypass:.18,runReturn:.18,runOther:.18,supportCredit:0,forwardDiagonals:false,extraOutlet:false,depthRunAnywhere:true,depthRunAhead:30,frontAhead:20,attackValue:1.1,clockStartsAfter:0,readsBlock:false,clockDeliveryTerms:true,delivery:'direct'}),
+ patient:progressionOption({runBypass:-.18,runReturn:.15,runOther:0,supportCredit:.15,forwardDiagonals:true,extraOutlet:true,depthRunAnywhere:false,depthRunAhead:23,frontAhead:16,attackValue:.7,clockStartsAfter:1,readsBlock:true,clockDeliveryTerms:false,delivery:'patient',touchPrice:0,strikeSpeed:0}),
+ mixed:progressionOption({runBypass:0,runReturn:0,runOther:0,supportCredit:0,forwardDiagonals:false,extraOutlet:false,depthRunAnywhere:false,depthRunAhead:23,frontAhead:16,attackValue:.9,clockStartsAfter:0,readsBlock:false,clockDeliveryTerms:true,delivery:'none',touchPrice:0,strikeSpeed:0}),
+ direct:progressionOption({runBypass:.18,runReturn:.18,runOther:.18,supportCredit:0,forwardDiagonals:false,extraOutlet:false,depthRunAnywhere:true,depthRunAhead:30,frontAhead:20,attackValue:1.1,clockStartsAfter:0,readsBlock:false,clockDeliveryTerms:true,delivery:'direct',touchPrice:0,strikeSpeed:0}),
 };
 /** Progression's off-ball coefficients shared by every option. */
 export const PROGRESSION_COMMON={
