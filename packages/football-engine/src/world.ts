@@ -556,7 +556,7 @@ export const WORLD=freeze({
    criticalPer:p(.01,'x','body',['practice-match.ts:147'],'... plus this per point of stamina'),
    INTENSITY_SHARE:p(.42,'x','body',['practice-match.ts:148'],'Intensity is what costs (with `topPace`): the same drain is split so that running above the player\'s own critical speed carries INTENSITY_SHARE of a stamina-6 outfielder\'s match drain in the neutral mirror. Efforts above 20 W/kg are 26% ...'),
    INTENSITY_COST:p(.4108,'x','body',['practice-match.ts:148'],'Intensity is what costs (with `topPace`): the same drain is split so that running above the player\'s own critical speed carries INTENSITY_SHARE of a stamina-6 outfielder\'s match drain in the neutral mirror. Efforts above 20 W/kg are 26% ...'),
-   STAMINA6_DRAIN:p(.98,'x','body',['practice-match.ts:149'],'the energy drain of a stamina-6 player (re-centred to 0.98 on 2026-10-12) ...'),
+   STAMINA6_DRAIN:p(0.98,'x','body',['practice-match.ts:149'],'the energy drain of a stamina-6 player (re-centred to 0.98 on 2026-10-12) ...'),
    STAMINA_DRAIN_SLOPE:p(.11,'x','body',['practice-match.ts:149'],'... less this share per point of stamina above 6 (more below) ...'),
    STAMINA_DRAIN_FLOOR:p(.3,'x','body',['practice-match.ts:149'],'... never under this share of a stamina-6 player\'s drain'),
    drainCentre:p(6,'skill','body',['practice-match.ts:150'],'the drain is STAMINA6_DRAIN at this stamina, less per point above it, more below'),
