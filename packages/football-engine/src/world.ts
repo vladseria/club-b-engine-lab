@@ -33,6 +33,7 @@ export const WORLD=freeze({
     ninety:p(5400,'s','free',['practice-match.ts:27'],'the three standard match lengths (5, 15 and 90 minutes); read nowhere in the engine (only by the unused type MatchLength), any duration from 10 to 5400 s is accepted'),
    },
    HALF_SECONDS:p(2700,'s','free',['practice-match.ts:29'],'half-time comes at this second in matches longer than it (a 90-minute match)'),
+   HALF_FROM:p(600,'s','free',['practice-match.ts:30'],'a match this long or longer has a half-time at its midpoint, with the ends swapped and the other side kicking off (Ballers: the full 15-minute match; the 5-minute quick match plays straight through)'),
    SUB_MINUTES:{
     first:p(60,'min','free',['practice-match.ts:30'],'the match minutes of the planned substitutions (options.substitutions planned)'),
     second:p(70,'min','free',['practice-match.ts:30'],'the match minutes of the planned substitutions (options.substitutions planned)'),

@@ -7,7 +7,7 @@ import type {Player as EnginePlayer,Team,Tactics} from '../../packages/football-
 import {engineApproach,playedApproach,type StoredApproach} from './approach';
 import {validateSubstitutionOrders,type SubstitutionNote,type SubstitutionOrder,type SubstitutionTrigger} from '../../packages/football-engine/src/practice-substitutions';
 import {validateTacticsSwitches,type TacticsSwitch,type SwitchTrigger,type SwitchNote} from '../../packages/football-engine/src/practice-switch';
-import {CHUNK_SECONDS,FRAME_STEP,REPLAY_VERSION,cm,mrad,ms,type CompactMatch,type ReplayChunk,type ReplayEvent,type ReplayFrame,type ReplayHeader,type ReplayIdea,type ReplayPlayer,type TeamStats} from './replay';
+import {BREAK_SECONDS,CHUNK_SECONDS,FRAME_STEP,REPLAY_VERSION,cm,mrad,ms,type CompactMatch,type ReplayChunk,type ReplayEvent,type ReplayFrame,type ReplayHeader,type ReplayIdea,type ReplayPlayer,type TeamStats} from './replay';
 import {resolveIdea} from './ideas';
 import {classifyIdeaRun,routineUnkicked,type IdeaRun} from './idea-run';
 import type {LessonSpec} from '../../packages/football-engine/src/practice-lesson';
@@ -162,7 +162,10 @@ export function compact(input:FrozenInput,r:EngineResult):CompactMatch{
  // is when the whistle went (the watch screens' timeline); the chunk count stays
  // the match length's (what ballers_submit checks), and the last chunk holds the rest.
  const played=r.played===undefined?r.duration:Math.round(r.played*1000)/1000;
- const header:ReplayHeader={v:REPLAY_VERSION,engineBuild:'',duration:played,...(played>r.duration?{fullTime:r.duration}:{}),chunkSeconds:CHUNK_SECONDS,chunks:Math.ceil(r.duration/CHUNK_SECONDS),
+ // Half-time: a first half that overran (its last attack played out) moves the clock's full time by as much, since the
+ // second half is a full half from the whistle (the clock shows 7:30 at its kickoff: lib/ballers/match-clock.ts).
+ const halfEvent=r.events.find(e=>e.kind==='half'),clockFull=halfEvent?Math.round((r.duration+Math.max(0,halfEvent.time-r.duration/2))*1000)/1000:r.duration;
+ const header:ReplayHeader={v:REPLAY_VERSION,engineBuild:'',duration:played,...(played>r.duration?{fullTime:clockFull}:{}),chunkSeconds:CHUNK_SECONDS,chunks:Math.ceil(r.duration/CHUNK_SECONDS),
   teams:input.sides.map(s=>{const voice=normalizeVoice(s.voice);
    // No voice = the key is omitted: the header is byte-identical to before.
    return {club:s.club.id,name:s.club.name,code:s.club.code,color:s.club.color,formation:s.formation,style:s.style,...(voice?{voice}:{})};}) as ReplayHeader['teams'],players};
@@ -204,12 +207,23 @@ export function compact(input:FrozenInput,r:EngineResult):CompactMatch{
     ...(e.switch.formation?{f:e.switch.formation}:{}),...(e.switch.players?{ro:e.switch.players.map(p=>[idx(p.id),p.role,p.lane] as [number,string,number])}:{})};}
   return out;
  });
- const chunks:ReplayChunk[]=[];
- for(let i=0;i<header.chunks;i++){
-  const final=i===header.chunks-1,t0=i*CHUNK_SECONDS*1000,t1=(final?played:Math.min((i+1)*CHUNK_SECONDS,r.duration))*1000;
-  const inside=(t:number)=>t>=t0&&(t<t1||final);
-  chunks.push({v:REPLAY_VERSION,i,t0,t1,f:frames.filter(f=>inside(f.t)),e:events.filter(e=>inside(e.t))});
- }
+ // Half-time (deliverables/ballers-half-time/DESIGN.md 2.2): the chunk that holds the whistle ends at it and the
+ // next one starts at it, so no chunk mixes the halves and the live clock can release the second half's chunks after
+ // the break (simulation.ts sends their t0 on the live clock). The count stays the match length's. The whistle's own
+ // frame and the `half` event belong to the first half; the cut frame and whatever else happens at that instant (a
+ // change made at the interval, the kickoff) to the second.
+ const halfMs=events.find(e=>e.k==='half')?.t??null,cutAt=halfMs===null?-1:frames.findIndex(f=>f.t===halfMs&&f.c===1);
+ if(halfMs!==null)header.interval=BREAK_SECONDS;
+ const bounds=Array.from({length:header.chunks},(_,i)=>{
+  const final=i===header.chunks-1;let t0=i*CHUNK_SECONDS*1000,t1=(final?played:Math.min((i+1)*CHUNK_SECONDS,r.duration))*1000;
+  if(halfMs!==null&&t0<halfMs&&halfMs<t1&&!final){t1=halfMs;}else if(halfMs!==null&&i>0&&(i-1)*CHUNK_SECONDS*1000<halfMs&&halfMs<i*CHUNK_SECONDS*1000)t0=halfMs;
+  return {t0,t1,final};
+ });
+ const lookup=(t:number)=>{const i=bounds.findIndex(b=>t>=b.t0&&(t<b.t1||b.final));return i<0?bounds.length-1:i;};
+ const chunkOf=(t:number,first:boolean)=>first&&halfMs!==null&&t>=halfMs?lookup(halfMs-1):lookup(t);
+ const chunks:ReplayChunk[]=bounds.map((b,i)=>({v:REPLAY_VERSION,i,t0:b.t0,t1:b.t1,f:[],e:[]}));
+ frames.forEach((f,n)=>chunks[chunkOf(f.t,cutAt<0||n<cutAt)].f.push(f));
+ events.forEach(e=>chunks[chunkOf(e.t,halfMs===null||e.t<halfMs||e.t===halfMs&&e.k==='half')].e.push(e));
  // A set-piece routine chosen at a stoppage that was never kicked (full time
  // came first) did not run: it is left out, not counted as broke.
  const ideas:ReplayIdea[]=(r.playbookSelections??[]).flatMap((sel,seq)=>sel.planId!==null&&routineUnkicked(sel as never,lessonOf(input,sel))?[]:[{seq,side:(sel.side??0) as 0|1,t:ms(sel.time),endedAt:sel.endedAt===undefined?null:ms(sel.endedAt),

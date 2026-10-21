@@ -8,15 +8,10 @@
 # a harness that opts in (packages/football-engine/evidence/_ci/shard.mjs)
 # keeps only tasks i % SHARD_TOTAL == SHARD_INDEX.
 name: sims
-run-name: "${{ inputs.title || 'sims' }} · ${{ inputs.label }} (${{ inputs.ref }}, ${{ inputs.shards }} shards)"
+run-name: "sims ${{ inputs.label }} (${{ inputs.ref }}, ${{ inputs.shards }} shards)"
 on:
   workflow_dispatch:
     inputs:
-      title:
-        description: What this run is for, in words (shown as the run name)
-        required: false
-        default: ""
-        type: string
       ref:
         description: Snapshot to check out and run (a p-<sha12> tag or a commit of this repo)
         required: true
