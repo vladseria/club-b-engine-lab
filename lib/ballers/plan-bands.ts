@@ -49,7 +49,7 @@ export interface SettingDef {key:SettingKey;label:string;about:string;options:re
  * what it read before; adopt these in league.ts when plans reach everyone. */
 export const PLAN_LINES:Partial<Record<keyof Approach,Record<string,string>>>={
  press:{balanced:'Presses when a team-mate is close enough to help, and doesn’t chase every ball. Fits any squad.'},
- transition:{balanced:'Counter-attacks when there’s space ahead, otherwise keeps the ball. Fits any squad.'},
+ transition:{balanced:'Counter-attacks when there’s space ahead, otherwise plays the way your Progression says. Fits any squad.'},
 };
 const fromLeague=(k:keyof Approach):SettingDef=>{const f=APPROACH_FIELDS.find(x=>x.key===k)!;
  return {key:k,label:f.label,about:f.about,options:f.options.map(o=>({...o,line:PLAN_LINES[k]?.[o.value]??o.line}))};};

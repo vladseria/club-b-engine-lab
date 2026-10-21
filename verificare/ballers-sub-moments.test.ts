@@ -30,7 +30,7 @@ describe('a substitution on the pitch, from an engine match',()=>{
   expect(moments.length).toBe(tl.events.filter(e=>e.k==='substitution').length);
   // (Lane C, 2026-10-21) every order the engine made is found, however many this seed makes (it was ">= 3", seed 777's
   // count); at least one, because the half-time order needs only one stoppage in the last 150 s
-  const made=(c.compact.substitutionNotes??[]).flatMap(s=>s.notes).filter(n=>n.status==='made').length;
+  const made=(c.compact.substitutionNotes??[]).flatMap(s=>s.notes as {status?:string}[]).filter(n=>n.status==='made').length;
   expect(moments.length).toBe(made);expect(made).toBeGreaterThan(0);
   for(const m of moments){expect(m.dead).toBeGreaterThan(1500);expect(sample(tl.frames,m.t).lineup?.[m.pos]).toBe(m.on);}
  },60000);
