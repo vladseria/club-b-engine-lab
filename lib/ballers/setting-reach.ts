@@ -29,7 +29,10 @@ export interface Reach {
   * Engine as data (2026-10-21): where two comparisons with options became one lookup into style.ts the count fell
   * (progression in attacking space, press in defense, striker, transition, setPiece in practice.ts) or rose (three
   * lookups on one coordination line where there were two comparisons); the engine plays byte-identical matches, so
-  * no reach changed. style.ts and world.ts are data and are not counted (their notes name the fields). */
+  * no reach changed. style.ts and world.ts are data and are not counted (their notes name the fields).
+  * Plan switch (2026-10-21): practice-switch.ts's reads are bookkeeping, not play: commit x4 is the switch's own check
+  * that a target plan's commit is 1-5 (one line), keeper x4 the doc line and the writer that sets or clears the keepers'
+  * habit at the switch. The setting acts through its existing sites after that, so no phase or Also line changed. */
  sites:Readonly<Record<string,number>>;
  /** Plain words for what the reads do, for whoever reviews a change here. */
  why:string;
@@ -52,7 +55,7 @@ export const REACH:Readonly<Record<ReachKey,Reach>>={
   sites:{'practice-support.ts':2,'practice-coordination.ts':6,'practice-attacking-space.ts':1,'practice.ts':2,'team-approach.ts':2},
   why:'Where the striker (or the furthest-forward winger in 2-2) looks to receive, also in a counter’s first seconds (a Pivot or Drops deep keeps his job there).'},
  commit:{phases:['build','attack'],
-  sites:{'practice-shape.ts':1,'practice-build-up.ts':1,'practice-coordination.ts':5,'practice-exposure.ts':1,'practice-arrangements.ts':2,'practice-job-selection.ts':1,'practice-support.ts':2,'practice-attacking-space.ts':1,'practice.ts':1,'team-approach.ts':1},
+  sites:{'practice-shape.ts':1,'practice-build-up.ts':1,'practice-coordination.ts':5,'practice-exposure.ts':1,'practice-arrangements.ts':2,'practice-job-selection.ts':1,'practice-support.ts':2,'practice-attacking-space.ts':1,'practice.ts':1,'team-approach.ts':1,'practice-switch.ts':4},
   why:'How many join an attack and how many stay back while you have the ball.'},
  transition:{phases:['build','attack'],
   sites:{'team-approach.ts':5,'practice-coordination.ts':2,'practice-transition.ts':1,'index.ts':2},
@@ -62,7 +65,7 @@ export const REACH:Readonly<Record<ReachKey,Reach>>={
   sites:{'practice-coordination.ts':1,'practice-shape.ts':1},
   why:'Chase the ball or get back, in the 3 seconds after losing it.'},
  keeper:{phases:['build','loss','defend','set'],
-  sites:{'practice-keeper.ts':3,'practice-keeper-support.ts':1,'practice.ts':1,'practice-carry.ts':3},
+  sites:{'practice-keeper.ts':3,'practice-keeper-support.ts':1,'practice.ts':1,'practice-carry.ts':3,'practice-switch.ts':4},
   why:'How eager the keeper is to come for balls in behind and high balls, how deep he stands to help the build-up, (stays on his line) that he never offers a pass back from outside his area, and how much he minds the goal he leaves open when he carries the ball at his feet (keeperNetWeight; R1, 14 Oct: two of the three counted reads are its doc comment and type; since 15 Oct that price alone keeps a keeper who stays on his line from carrying it out of his area, the old hard guard is gone).'},
  setPiece:{phases:['set'],
   sites:{'practice-set-pieces.ts':5,'practice.ts':4},

@@ -23,7 +23,10 @@
 //      {home} {away}  the two clubs, home first
 //      {score}   the score, home first, e.g. 3–2
 //      {min}     the match clock, e.g. 7:31
-//      {reason}  why a substitution was made (SUB_REASON below)
+//      {reason}  why a substitution was made (SUB_REASON below), or why the
+//                plan changed (SWITCH_REASON below)
+//      {style}   the style a club switches to (SWITCH_STYLE below)
+//      {shape}   the formation it switches to, e.g. 2-2
 //    A slot the moment doesn't have makes that variant unusable, so a
 //    line with {other} is simply skipped when there is no second player.
 //  - Names are all male players: "lui {player}" and "pe {player}" read right.
@@ -193,6 +196,25 @@ export const LINES:Record<string,string[]>={
   'Mișcare pe bancă la {club}: {other} lasă locul lui {player}.',
  ],
 
+ // ---------- a change of plan (the manager's one switch, set before the match) ----------
+ // {style} is the style the new plan is based on (SWITCH_STYLE), never the plan's own name.
+ plan_switch:[
+  'Schimbare de plan la {club}: de acum se joacă {style}. {reason}',
+  '{club} schimbă macazul și trece pe {style}. {reason}',
+  'Antrenorul de la {club} schimbă abordarea: {style}. {reason}',
+ ],
+ // the new plan has another formation: the same men, new places
+ plan_switch_shape:[
+  '{club} trece pe {shape}: aceiași jucători, alte locuri. {reason}',
+  'Se mută piesele la {club}: de acum {shape}. {reason}',
+  '{club} schimbă așezarea în {shape}. {reason}',
+ ],
+ plan_switch_plain:[
+  '{club} își schimbă planul de joc.',
+  'Antrenorul de la {club} schimbă abordarea.',
+  'Se schimbă ceva la {club}: alt plan de acum.',
+ ],
+
  // ---------- ideas (a prepared move comes off) ----------
  idea:[
   'Asta s-a antrenat! {club} execută exact ce a pregătit.',
@@ -219,6 +241,25 @@ export const SUB_REASON:Record<string,string>={
  down:'Scorul cere schimbări.',
  up:'Avantajul e liniștitor, titularii mai respiră.',
  half:'Schimbarea stabilită pentru a doua jumătate.',
+};
+
+// ---------------------------------------------------------------------
+//  WHY THE PLAN CHANGED: the {reason} of the change-of-plan lines, by the
+//  condition the manager set. Leave one empty ('') to drop it.
+// ---------------------------------------------------------------------
+export const SWITCH_REASON:Record<string,string>={
+ losing:'E nevoie de o reacție.',
+ drawing:'Se caută golul care rupe egalitatea.',
+ winning:'Acum se apără avantajul.',
+ down:'Scorul cere altceva.',
+ up:'Avantajul permite altă abordare.',
+};
+/** The style a club switches to, as the line says it ({style}). */
+export const SWITCH_STYLE:Record<string,string>={
+ balanced:'un joc echilibrat',
+ combinations:'combinații scurte',
+ direct:'joc direct',
+ counter:'contraatac',
 };
 
 // ---------------------------------------------------------------------

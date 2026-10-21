@@ -197,8 +197,10 @@ describe('on this engine build, Lab watches classify every start',()=>{
   // then engine as data 6c8b7c82 (every style setting and world constant read
   // from style.ts / world.ts, and a clear failure at the entrance for a
   // missing line, press or progression; match results byte-identical to
-  // b767cca3; idea code unchanged).
-  expect(ENGINE_BUILD.slice(0,8)).toBe('6c8b7c82');
+  // b767cca3; idea code unchanged),
+  // then the in-match plan switch 58a06b82 (an opt-in tactics switch; every
+  // match without one byte-identical to 6c8b7c82; idea code unchanged).
+  expect(ENGINE_BUILD.slice(0,8)).toBe('58a06b82');
   const side=demoSide(),seen:Record<string,number>={};
   for(const st of STARTERS)for(const seed of [3,11,2026]){
    const fixture=withDefensiveApproach(trialFixture(side.team,seed),1,'original');fixture.seed=seed;

@@ -30,7 +30,7 @@ import {fileURLToPath} from 'node:url';
 export const SUITES=['ballers-approach','ballers-board-trim','ballers-chances','ballers-idea-run','ballers-lab',
  'ballers-match-settings','ballers-orders-squad13','ballers-p5','ballers-pipeline','ballers-practice-tally',
  'ballers-routines','ballers-save','ballers-starters','ballers-stats','ballers-sub-moments','ballers-voice',
- 'gp-board-truth','gp-wp2-clips','gp-wp2','gp-wp3','gp-wp4','gp-wp5'];
+ 'gp-board-truth','gp-wp2-clips','gp-wp2','gp-wp3','gp-wp4','gp-wp5','ballers-plan-switch-match'];
 const SPLIT='gp-board-truth';
 // Tests that cannot run on the lab, by suite: [title substring, why]. Each is reported as "not on the lab".
 export const LAB_SKIPS={
@@ -42,7 +42,7 @@ export const WEIGHT={
  'ballers-approach':75,'ballers-board-trim':5,'ballers-chances':20,'ballers-idea-run':35,'ballers-lab':15,
  'ballers-match-settings':250,'ballers-orders-squad13':5,'ballers-p5':30,'ballers-pipeline':10,'ballers-practice-tally':5,
  'ballers-routines':5,'ballers-save':5,'ballers-starters':70,'ballers-stats':5,'ballers-sub-moments':5,'ballers-voice':15,
- 'gp-wp2-clips':5,'gp-wp2':10,'gp-wp3':5,'gp-wp4':25,'gp-wp5':5,
+ 'gp-wp2-clips':5,'gp-wp2':10,'gp-wp3':5,'gp-wp4':25,'gp-wp5':5,'ballers-plan-switch-match':20,
  'gp-board-truth#0':10,'gp-board-truth#1':230,'gp-board-truth#2':295,'gp-board-truth#3':370,'gp-board-truth#4':240,
  'gp-board-truth#5':225,'gp-board-truth#6':235,'gp-board-truth#7':235,'gp-board-truth#8':230,'gp-board-truth#9':235,
  'gp-board-truth#10':30,'gp-board-truth#*':240,

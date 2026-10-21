@@ -24,7 +24,7 @@
 // (back-pass, clearance, cross, a shot going wide) = autogol.
 import type {ReplayEvent, ReplayFrame, ReplayHeader} from './replay';
 
-export type IncidentKind='kickoff'|'goal'|'own_goal'|'save'|'wide'|'blocked'|'chance'|'beat'|'key_pass'|'tackle'|'turnover'|'foul'|'half'|'end'|'quiet'|'idea'|'substitution';
+export type IncidentKind='kickoff'|'goal'|'own_goal'|'save'|'wide'|'blocked'|'chance'|'beat'|'key_pass'|'tackle'|'turnover'|'foul'|'half'|'end'|'quiet'|'idea'|'substitution'|'switch';
 export type GoalState='opens'|'equalises'|'leads'|'extends'|'pulls_back';
 export interface Incident {
  /** Stable across viewers and horizons: `${kind}@${t}` (+ `#n` on a clash). */ id:string;
@@ -38,10 +38,11 @@ export interface Incident {
  /** The engine's own Romanian line for the key event: the commentary's fallback. */ engine:string;
  /** Facts the lines may use (all read from events at or before t). */
  facts:{state?:GoalState;late?:'lead'|'equaliser';dist?:number;big?:boolean;finally?:boolean;shooter?:number;assist?:number;goalAt?:number;
-  /** A substitution's trigger (P5): tired | losing | drawing | winning | up | down | half. */ sub?:string};
+  /** A substitution's trigger (P5): tired | losing | drawing | winning | up | down | half; a plan switch's too. */ sub?:string;
+  /** A plan switch (in-match plan switch): the style key it goes to, and the new formation when it changes. */ style?:string;shape?:string};
 }
 export const MUST_WEIGHT=90;
-const W:Record<IncidentKind,number>={kickoff:95,goal:100,own_goal:100,end:95,key_pass:62,save:48,chance:56,idea:55,substitution:92,half:50,blocked:42,wide:34,beat:36,turnover:28,foul:32,tackle:26,quiet:12};
+const W:Record<IncidentKind,number>={kickoff:95,goal:100,own_goal:100,end:95,key_pass:62,save:48,chance:56,idea:55,substitution:92,switch:92,half:50,blocked:42,wide:34,beat:36,turnover:28,foul:32,tackle:26,quiet:12};
 export const weightOf=(k:IncidentKind)=>W[k];
 
 /** When a late goal counts as late (s from the end). */
@@ -154,6 +155,13 @@ export function buildIncidents(input:IncidentInput):Incident[]{
     if(e.a===undefined)break;
     const k=e.sb?.k,sub=k==='score'?e.sb?.st:k==='margin'?e.sb?.d:k;
     add({t:e.t,kind:'substitution',side:(e.s??side(e.a)??0) as 0|1,actors:e.g!==undefined?[e.a,e.g]:[e.a],engine:e.x,facts:{sub}});
+    break;
+   }
+   case 'switch':{
+    // the plan switch (DESIGN deliverables/ballers-plan-switch): s = the side, sw = the trigger, the style and any new shape
+    if(e.s===undefined)break;
+    const k=e.sw?.k,sub=k==='score'?e.sw?.st:k==='margin'?e.sw?.d:k;
+    add({t:e.t,kind:'switch',side:e.s,actors:[],engine:e.x,facts:{sub,style:e.sw?.y,shape:e.sw?.f}});
     break;
    }
    case 'beat':if(e.a!==undefined&&e.g!==undefined)add({t:e.t,kind:'beat',side:(e.s??side(e.a)??0) as 0|1,actors:[e.a,e.g],engine:e.x,facts:{}});break;
