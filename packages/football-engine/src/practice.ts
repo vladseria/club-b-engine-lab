@@ -936,9 +936,9 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
  for(let tick=1;;tick++){
   if(ball.mode!=='shot')shotEdge=null;
   if(tick>regular){
-   if(!lastAttack){if(!options.lastAttack)break;lastAttack={side,shot:false};}
+   if(!lastAttack){if(!options.lastAttack||!attackAtFullTime(lastView()))break;lastAttack={side,shot:false};}
    if(ball.mode==='shot')lastAttack.shot=true;
-   if(tick>regular+Math.round(2*LAST_ATTACK_MAX/STEP))break;
+   if(tick>regular+1&&lastAttackOver(lastView(),lastAttack.side,lastAttack.shot)||tick>regular+Math.round(LAST_ATTACK_MAX/STEP))break;
   }
   time=tick*STEP;
   if(duration>HALF_SECONDS&&tick===HALF_SECONDS/STEP){
