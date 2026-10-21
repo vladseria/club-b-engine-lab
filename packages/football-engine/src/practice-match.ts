@@ -27,6 +27,7 @@ const FATIGUE_MATCH_TOP_FLOOR=WORLD.fatigue.match.topFloor.v;
 export const MATCH_LENGTHS=[WORLD.clock.match.MATCH_LENGTHS.five.v,WORLD.clock.match.MATCH_LENGTHS.fifteen.v,WORLD.clock.match.MATCH_LENGTHS.ninety.v] as const;
 export type MatchLength=typeof MATCH_LENGTHS[number];
 export const HALF_SECONDS=WORLD.clock.match.HALF_SECONDS.v;
+export const HALF_FROM=WORLD.clock.match.HALF_FROM.v;
 export const SUB_MINUTES=[WORLD.clock.match.SUB_MINUTES.first.v,WORLD.clock.match.SUB_MINUTES.second.v,WORLD.clock.match.SUB_MINUTES.third.v] as const;
 
 /**
@@ -46,10 +47,22 @@ export const SUB_MINUTES=[WORLD.clock.match.SUB_MINUTES.first.v,WORLD.clock.matc
  *  - LAST_ATTACK_MAX seconds past full time, whatever is happening.
  * The engine's play before full time is untouched: a match that ends in an
  * attack is the same match up to the clock, plus these seconds.
- * Half-time (matches over 2700 s) is left alone: delaying it would shift the
- * whole second half's clock.
+ * Half-time (halfTimeAt below) ends the same way: an attack in progress at the
+ * midpoint plays out under these rules (matches only, never more than
+ * LAST_ATTACK_MAX), then the whistle; the second half starts from that second
+ * and full time stays where it was.
  */
 export const LAST_ATTACK_MAX=WORLD.clock.match.LAST_ATTACK_MAX.v;
+/**
+ * (half-time, deliverables/ballers-half-time/DESIGN.md) When half-time comes in a
+ * run of `duration` s: its midpoint, for runs of HALF_FROM s or more; none for a
+ * shorter run (the 5-minute quick match, trainings and scenes play straight
+ * through, exactly as before). At the whistle the sides swap ends (the engine's
+ * coordinates stay team-relative: side 0 always attacks +x, so only a renderer
+ * turns the picture round), rest (halfEnergy), and the side that did not kick
+ * off the first half kicks off the second from the centre.
+ */
+export const halfTimeAt=(duration:number):number|null=>duration>=HALF_FROM?duration/2:null;
 export interface LastAttackView {restart:{kind:string}|null;side:0|1;ball:{x:number;mode:'control'|'pass'|'shot'|'loose'}}
 const ownHalf=(side:0|1,x:number)=>(side===0?x:L-x)<=L/2;
 /** At full time: is `view.side` in an attack worth playing out? */
