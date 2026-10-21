@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {runMatch,runTraining,createTrainingSetup} from '../dist/index.js';
+import {runMatch,runTraining} from '../dist/index.js';
 import {defaultPlans} from '../dist/practice-playbook.js';
+import {bothStarts} from './constructed-scenes.mjs';
 const fixture=JSON.parse(await readFile(new URL('./fixture.json',import.meta.url),'utf8'));
 test('one-team playbook remains identical through the multi-team API',()=>{
  const common={fixture,durationSeconds:45},playbook={side:0,plans:defaultPlans(),adaptive:true};
@@ -12,8 +13,8 @@ test('one-team playbook remains identical through the multi-team API',()=>{
 // and its mirror image with side 1's #3 on it. A team chooses an idea when it wins the ball, so each start makes its own
 // team choose at once. Before, both checks played 240 s from kickoff (durations raised four times since 2026-10-01 so
 // that side 0's first idea fitted inside) and the single-playbook check 140 s (raised three times).
-const home=createTrainingSetup('middle');
-const away={...home,poses:home.poses.map(p=>({...p,side:1-p.side,x:48-p.x,y:-p.y,angle:p.angle+Math.PI})),ball:{...home.ball,side:1,x:48-home.ball.x,y:-home.ball.y}};
+// (seed sweep: each team chooses one of its own ideas from its start on 20 of 20 seeds)
+const [home,away]=bothStarts();
 const playbooks=[0,1].map(side=>({side,adaptive:true,plans:defaultPlans().map(p=>({...p,id:`team-${side}-${p.id}`,name:`Team ${side} ${p.name}`}))}));
 const both=[home,away].map(setup=>runTraining({fixture,setup,durationSeconds:10,playbooks}).result);
 test('both teams pursue their own playbooks; duplicate sides are rejected',()=>{

@@ -1,14 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {runMatch,practicePlayers,createRestartSetup} from '../dist/index.js';
+import {runMatch,practicePlayers} from '../dist/index.js';
 import {keeperHandling} from '../dist/practice-keeper.js';
 import {advanceFlight} from '../dist/practice-flight.js';
 import {securePossessionOptions,strikeClearance,launchRisk} from '../dist/practice-possession.js';
 import {carryOptions} from '../dist/practice-carry.js';
 import {laneRisk} from '../dist/practice.js';
 import {L,W,GH,BOX_HALF,BOX_DEPTH} from '../dist/pitch.js';
-import {play,clearShot,squareBall} from './constructed-scenes.mjs';
+import {play,clearShot,squareBall,ownThrowIn} from './constructed-scenes.mjs';
 const fixture=JSON.parse(readFileSync(new URL('./fixture.json',import.meta.url)));
 
 // Side 0 defends the goal at x = 0. A set keeper, facing the play, reacted in time.
@@ -69,7 +69,7 @@ test('a keeper dives only at the opponents\' ball: a team-mate\'s back-pass or t
  // flying at his goal dives there). (Lane C, 2026-10-21: replaces the default fixture's 300 s match, whose passage
  // moved twice.)
  let dived=0;
- const throwIn=createRestartSetup('throw',practicePlayers(structuredClone(fixture)),{side:'right',zone:'defensive'});
+ const throwIn=ownThrowIn();// (seed sweep: a dive in these three scenes on 20 of 20 seeds, never at his own side's ball)
  for(const r of [play(clearShot()),play(squareBall()),play(throwIn)]){
   // a ball an opponent won with a turnover and ran at goal is the opponents' even with no release event, so a turnover
   // counts as the last owner too (threat-defending round, 2026-10-10)

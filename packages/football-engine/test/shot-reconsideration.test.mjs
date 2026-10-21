@@ -93,18 +93,21 @@ test('release review preserves an ordinary shot when its opportunity remains use
  // passes instead of shooting, or a strike leaves with no foot on it. Enough: nothing in either scene argues against
  // shooting, so a review that drops these shots drops shots as a class; with his back to goal he turns first, so the
  // review does look at that shot (a quick strike is committed before it can). The square ball adds a first-time strike.
- // (Lane C, 2026-10-21: replaces seed 13013's 75 s match, re-pinned ten times since 2026-09-29.)
+ // (Lane C, 2026-10-21: replaces seed 13013's 75 s match, re-pinned ten times since 2026-09-29. Seed sweep: both shooters
+ // strike on 20 of 20 seeds, the square ball is struck first time on 20 of 20, so one seed is enough.)
  const runs=[clearShot(),turnShot()].map(s=>play(s));
  for(const r of runs){
   const shooter=r.players.findIndex(p=>p.side===0&&p.number===5),id=r.players[shooter].id;
   const shot=r.events.find(e=>e.kind==='shot');
   assert.equal(shot?.actor,id,'the man on the ball shoots');
   assert(!shot.firstTime&&!shot.technique&&!shot.freeKick,'an ordinary prepared foot shot');
-  // the shot he prepares is the one he strikes: one preparation, released within 2 s, no touch between
-  const preparations=r.choices.filter(c=>c.player===shooter&&c.kind==='prepare'&&c.action&&c.time<shot.time);
-  assert.deepEqual(preparations.map(c=>c.action),['shoot'],`prepared once, as a shot (${preparations.map(c=>`${c.action}@${c.time.toFixed(2)}`)})`);
-  assert(shot.time-preparations[0].time<2,'and released, not reviewed away');
-  assert(!r.events.some(e=>e.actor===id&&e.kind==='receive'&&e.time>preparations[0].time&&e.time<shot.time));
+  // the shot he prepares is the one he strikes: one shot preparation, the last thing he prepares (a lay-off he looked at
+  // first is fair), released within 2 s, no touch between
+  const preparations=r.choices.filter(c=>c.player===shooter&&c.kind==='prepare'&&c.action&&c.time<shot.time),said=preparations.map(c=>`${c.action}@${c.time.toFixed(2)}`).join(', ');
+  assert.equal(preparations.filter(c=>c.action==='shoot').length,1,`one shot preparation (${said})`);
+  const last=preparations.at(-1);assert.equal(last.action,'shoot',`prepared as a shot (${said})`);
+  assert(shot.time-last.time<2,'and released, not reviewed away');
+  assert(!r.events.some(e=>e.actor===id&&e.kind==='receive'&&e.time>last.time&&e.time<shot.time));
  }
  for(const run of [...runs,play(squareBall())])for(const shot of run.events.filter(e=>e.kind==='shot')){
   assert(shot.shot);if(shot.freeKick)continue;

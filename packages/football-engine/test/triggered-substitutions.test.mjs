@@ -1,23 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFile} from 'node:fs/promises';
+import {withBench,subOrders} from './constructed-scenes.mjs';
 import {runMatch,createSimulationRequest,validateSubstitutionOrders,createTrainingSetup,MAX_TRIGGERED_SUBSTITUTIONS} from '../dist/index.js';
 import {triggerHolds,resolveOrder,halfTime} from '../dist/practice-substitutions.js';
 import {practicePlayers,laneRisk} from '../dist/practice.js';
 import {defaultPlans,PracticePlaybook} from '../dist/practice-playbook.js';
 
-const base=JSON.parse(await readFile(new URL('./fixture.json',import.meta.url),'utf8'));
-// The shared fixture has no bench. Add a keeper and two outfield players per side.
-const withBench=(seed=2026)=>{
- const f=structuredClone(base);f.seed=seed;
- for(const [side,t] of f.teams.entries()){
-  const gk=t.squad.find(p=>p.roles[0]==='GK');
-  t.squad.push({...structuredClone(gk),id:`rgk${side}`,name:`Portar rezervă ${side}`},
-   {...structuredClone(t.squad[3]),id:`r1${side}`,name:`Rezerva unu ${side}`},
-   {...structuredClone(t.squad[4]),id:`r2${side}`,name:`Rezerva doi ${side}`});
- }
- return f;
-};
+// The shared fixture has no bench: constructed-scenes withBench adds a keeper and two outfield players per side.
 const STOPPAGES=['goal','out','foul','offside','half'];
 const subs=r=>r.events.filter(e=>e.kind==='substitution');
 // Every substitution is made during the stoppage its preceding event created.
@@ -95,23 +84,26 @@ test('each trigger kind reads score, margin, clock and energy as specified',()=>
 // the tired order, 2032 for score, margin, half and chain, 2028 for slot plans, about ten re-pins between them): at each
 // stoppage before full time, in list order, a waiting order is made exactly when its notBefore has passed, its trigger
 // holds on the score, clock and energies of that moment, its side has room, and the change is possible; otherwise it
-// keeps waiting or becomes impossible. Energies are read from the last frame before the stoppage, so a tired trigger
-// within 0.05 of its threshold there is not judged.
+// keeps waiting or becomes impossible. Energies are read at the stoppage tick, as the engine reads them there: the frame
+// of that tick for the men still on, and the energy the substitution recorded for a man taken off at it (the frame is
+// drawn after the change). The frame is the end of the tick, so a tired trigger within 0.01 of its threshold there is
+// not judged.
 function checkOrders(r,fixture,orders,duration){
  const status=new Map(orders.map(o=>[o.id,'waiting'])),made=[0,0],gone=new Set(),score=[0,0];
  const subAt=new Map(subs(r).map(e=>[e.substitution.order,e]));
  r.events.forEach((e,i)=>{
   if(e.kind==='goal')score[e.side]++;
   if(!STOPPAGES.includes(e.kind)||e.time<=0||e.time>duration+1e-9)return;
-  const before=r.frames.findLast(f=>f.time<e.time);
-  const on=before.players.map((pose,k)=>({...r.players[before.lineup?.[k]??k],energy:pose.energy}));
+  const tick=r.frames.findLast(f=>f.time<=e.time+1e-9);
+  const on=tick.players.map((pose,k)=>({...r.players[tick.lineup?.[k]??k],energy:pose.energy}));
+  for(const s of subs(r).filter(s=>s.time===e.time&&r.events.indexOf(s)>i))on[on.findIndex(p=>p.id===s.incoming)]={...r.players.find(p=>p.id===s.outgoing),energy:s.substitution.energy};
   const swap=sub=>{status.set(sub.substitution.order,'made');made[sub.side]++;gone.add(sub.outgoing);
    on[on.findIndex(p=>p.id===sub.outgoing)]={...r.players.find(p=>p.id===sub.incoming)};};
   for(const o of orders){
    if(status.get(o.id)!=='waiting'||(o.notBefore??0)>e.time)continue;
    const sub=subAt.get(o.id),here=!!sub&&sub.time===e.time&&r.events.indexOf(sub)>i;
    const tired=o.trigger.kind==='tired'&&on.find(p=>p.id===`${o.side}:${o.trigger.player}`);
-   if(tired&&Math.abs(tired.energy-o.trigger.threshold)<.05){if(here)swap(sub);continue;}
+   if(tired&&Math.abs(tired.energy-o.trigger.threshold)<.01){if(here)swap(sub);continue;}
    const holds=triggerHolds(o.trigger,o.side,e.time,duration,score,on);
    const decision=!holds?null:made[o.side]>=MAX_TRIGGERED_SUBSTITUTIONS?{impossible:true}:resolveOrder(o,fixture,on,gone);
    assert.equal(here,!!decision?.outgoing,`order ${o.id} at the ${e.kind} at ${e.time.toFixed(2)} s: trigger ${holds?'holds':'does not hold'}`);
@@ -125,15 +117,9 @@ function checkOrders(r,fixture,orders,duration){
  return status;
 }
 
-// One set of orders covers every trigger kind; the 120 s runs below play it.
-const ORDERS=[
- {id:'h',side:0,in:'r10',trigger:{kind:'half'}},
- {id:'chain',side:0,in:'r20',out:'r10',trigger:{kind:'tired',player:'r10',threshold:99.9}},
- {id:'k',side:0,in:'rgk0',trigger:{kind:'score',state:'winning'}},
- {id:'t',side:1,in:'r11',trigger:{kind:'tired',player:'van',threshold:99.5}},
- {id:'m',side:1,in:'r21',trigger:{kind:'margin',atLeast:1,direction:'down'},notBefore:30},
- {id:'d',side:1,in:'rgk1',trigger:{kind:'score',state:'drawing'}},
-];
+// One set of orders covers every trigger kind (constructed-scenes subOrders); the 120 s runs below play it. Seed sweep
+// on the lab (seeds 1-20, one 120 s match each): order t, van tired under 99.5, is made on 20 of 20, between 11 and 80 s.
+const ORDERS=subOrders(99.5);
 const RUN={fixture:withBench(13009),durationSeconds:120};
 const played=runMatch({...RUN,substitutionOrders:ORDERS});
 
@@ -143,7 +129,7 @@ test('a tired trigger replaces that player at the next stoppage; the newcomer in
  const r=played.result,status=checkOrders(r,RUN.fixture,ORDERS,120);
  assertAtStoppage(r);
  const e=subs(r).find(x=>x.substitution.order==='t');
- assert.equal(!!e,status.get('t')==='made');if(!e)return;
+ assert.equal(status.get('t'),'made','order t is made (van tires within the 120 s, and a stoppage follows)');assert(e);
  assert.equal(e.outgoing,'1:van');assert.equal(e.incoming,'1:r11');assert.equal(e.side,1);
  assert(e.substitution.energy<99.5,'the player was below the threshold when he went off');
  const incoming=r.players.find(p=>p.id==='1:r11'),outIndex=r.players.findIndex(p=>p.id==='1:van'),outgoing=r.players[outIndex];

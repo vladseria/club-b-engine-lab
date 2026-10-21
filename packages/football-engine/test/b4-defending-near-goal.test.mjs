@@ -8,7 +8,7 @@ import {PracticePlaybook} from '../dist/practice-playbook.js';
 import {runMatch} from '../dist/index.js';
 import {L,GH} from '../dist/pitch.js';
 import {KEEPER_SPREAD} from '../dist/practice-keeper.js';
-import {constructed,play} from './constructed-scenes.mjs';
+import {play,runsAtGoal,SEEDS} from './constructed-scenes.mjs';
 const fixture=JSON.parse(readFileSync(new URL('./fixture.json',import.meta.url)));
 const place=(players,at)=>players.forEach((p,i)=>Object.assign(p,{x:at[i][0],y:at[i][1],vx:0,vy:0}));
 
@@ -98,26 +98,25 @@ test('in a match, late pick-ups happen, are short, and only ever for a runner af
 // near the line bisecting the posts (before: ~1.1 m off on average).
 test('the defending keeper is set near the bisector of the posts when the shot comes',()=>{
  // If this fails: keepers are caught standing off the angle when a shot comes, and shots beat them across goal.
- // Enough: five attackers run at goal from 18-23 m out (left, middle, right, wide) at a keeper who starts a metre and a
- // half off his line and off-centre, so every strike tests whether he re-set himself as the ball moved.
+ // Enough: five attackers run at goal from 18-23 m out (left, middle, right, wide) at a keeper who starts 2 m off his line
+ // and off-centre (46, 1.5), so every strike tests whether he re-set himself as the ball moved; each run's first shot
+ // only (a rebound comes while he is still getting up from the save), on five seeds.
+ // The typical strike (the median) finds him within his own read spread of the angle (KEEPER_SPREAD: he finds the angle
+ // with an error drawn from it). A keeper may plant up to SET_PLANT off his spot, and one seed's five strikes are too
+ // few: the seed sweep found a single-seed median over the spread on 2 of 20 seeds, while every group of five seeds pooled
+ // read 0.17-0.27 m. Mutation check: his ready spot moved 1 m sideways reads 0.82-0.88 m pooled, on every group.
  // (Lane C, 2026-10-21: replaces seed 2057's 300 s match, re-pinned about sixteen times since 2026-10-03; the old match
- // read 0.30-1.00 m by seed, a pooled 0.60 m on the lab. Shots from a standing start, struck before he can move,
- // are not the question; these all come after a carry, so only each run's first shot counts: a rebound comes while he is
- // still getting up from the save.) The typical strike (the median) finds him within his own read spread of the angle
- // (KEEPER_SPREAD: he finds the angle with an error drawn from it); a keeper may plant up to SET_PLANT off his spot, which
- // is why single strikes are not judged. Mutation check: his ready spot moved 1 m sideways takes the median from 0.05 m
- // to 0.74 m; the old mean bar alone missed that (0.63 -> 0.87 m).
- const facing=(x,y)=>Math.atan2(-y,48-x),miss=[];
- for(const [x,y] of [[28,0],[27,-6],[29,7],[30,-10],[25,-2]]){
-  const r=play(constructed([[3,0],[8,0],[14,-8],[14,8],[x,y,facing(x,y)],[46,1.5],[16,2],[14,-4],[10,6],[9,-3]]));
-  const e=r.events.find(e=>e.kind==='shot'&&e.actor);if(!e)continue;
+ // read 0.30-1.00 m by seed, a pooled 0.60 m on the lab.)
+ const miss=[];
+ for(const seed of SEEDS)for(const start of runsAtGoal()){
+  const r=play(start,{seed}),e=r.events.find(e=>e.kind==='shot'&&e.actor);if(!e)continue;
   const s=r.players.find(p=>p.id===e.actor).side,d=1-s,g=r.players.findIndex(p=>p.side===d&&p.role==='GK');
   const frame=r.frames.findLast(x=>x.time<=e.time-.02),from=frame.players[r.players.findIndex(p=>p.id===e.actor)],k=frame.players[g];
   const dd=q=>d===0?q.x:L-q.x,bx=dd(from),a=(Math.atan2(GH-from.y,-bx)+Math.atan2(-GH-from.y,-bx))/2;
   miss.push(Math.abs((dd(k)-bx)*Math.sin(a)-(k.y-from.y)*Math.cos(a)));
  }
- assert(miss.length>=3,`the runs at goal end in shots (${miss.length})`);
- const mean=miss.reduce((a,b)=>a+b,0)/miss.length,median=[...miss].sort((a,b)=>a-b)[Math.floor(miss.length/2)];
- assert(mean<.9,`mean lateral miss ${mean.toFixed(2)} m over ${miss.length} shots`);
- assert(median<=KEEPER_SPREAD,`median lateral miss ${median.toFixed(2)} m (his read spread ${KEEPER_SPREAD} m)`);
+ // (sweep: at least 3 of the 5 runs end in a shot on 20 of 20 seeds)
+ assert(miss.length>=3*SEEDS.length,`the runs at goal end in shots (${miss.length} of ${5*SEEDS.length})`);
+ const median=[...miss].sort((a,b)=>a-b)[Math.floor(miss.length/2)];
+ assert(median<=KEEPER_SPREAD,`median lateral miss ${median.toFixed(2)} m over ${miss.length} strikes (his read spread ${KEEPER_SPREAD} m)`);
 });

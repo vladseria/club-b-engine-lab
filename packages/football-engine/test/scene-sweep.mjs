@@ -48,9 +48,9 @@ for(const where of ['front','side']){
   const vi=r.players.findIndex(p=>p.id===e.target),ban=e.balance.victim.challenge,ch=r.choices.filter(c=>c.player===vi&&c.kind==='challenge'&&c.time>e.time+1e-6);
   return {hit:ch.some(c=>c.time>=e.time+ban-.01),ok:!ch.some(c=>c.time<e.time+ban-.01)};});
 }
-for(const where of ['side','behind','behindLeft','sideBack','run'])
- sweep(`tackle ${where}`,'the beaten man is next on the ball',seed=>{const {r,e}=duel(H.tackle(where),H.mismatch)(seed);if(!e)return;const n=H.nextOnBall(r,e);
-  return {hit:n?.who===e.target,ok:!!n&&n.after>=e.balance.victim.touch-1e-6};});
+for(const where of ['side','behind'])
+ sweep(`tackle ${where}, poked loose`,'the beaten man is next on the ball (any tackle)',seed=>{const r=H.play(H.tackle(where),{seed,edit:H.pokeLoose}),won=H.wonTackles(r);if(!won.length)return;
+  const back=won.map(e=>[e,H.nextOnBall(r,e)]).filter(([e,n])=>n?.who===e.target);return {hit:back.length>0,ok:back.every(([e,n])=>n.after>=e.balance.victim.touch-1e-6)};});
 for(const kind of ['chase','meet'])
  sweep(`through ${kind}`,'a hit through the man (tackle or foul, hit > 0)',seed=>{const r=H.play(H.through(kind),{seed,edit:H.throughEdit(kind)});
   const e=r.events.find(e=>(e.kind==='tackle'||e.kind==='foul')&&e.balance?.victim&&e.balance.hit>0);return {hit:!!e,ok:!e||e.balance.victim.challenge>e.balance.victim.touch};});

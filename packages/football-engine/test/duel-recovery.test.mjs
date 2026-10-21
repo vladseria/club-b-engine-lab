@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {contactLoad,felt,struck,lunged,STEP,FALL_FROM} from '../dist/practice-balance.js';
-import {play,tackle,mismatch,wonTackles} from './constructed-scenes.mjs';
+import {play,tackle,pokeLoose,wonTackles,nextOnBall,SWEEP} from './constructed-scenes.mjs';
 
 // Duel recovery (2026-10-16): each man's time out of the play follows what happened to his body in the duel
 // (practice-balance.ts). Before: the beaten man 0.72 s at strength 6 whatever happened, the tackler 1.4 s from the start
@@ -42,17 +42,19 @@ test('strength rides a hit and lands one; defending keeps the tackler over his l
 // and nobody reads him as first to it meanwhile.
 test('the tackled man never re-collects the loose ball inside his touch ban',()=>{
  // If this fails: a tackle that wins nothing, the beaten man picking the loose ball straight back up (before the ban he
- // was next on it 0.05 s later in about 40% of such tackles). Enough: each duel knocks the ball loose at both men's feet;
- // in the side duel it comes to rest nearer the beaten man (0.59 m against 0.85 m), so only his ban keeps him off it.
- // (Lane C, 2026-10-21: replaces seed 2027's 300 s match, its "six or more" and the 20% share, which was a statistic of
- // that one passage.)
- for(const where of ['front','side']){
-  const r=play(tackle(where),{edit:mismatch}),frames=r.frames,won=wonTackles(r);
-  assert(won.length,`${where}: the top tackler knocks it loose`);
-  for(const e of won){
-   const k=frames.findIndex(x=>x.time>e.time+1e-6),next=frames.slice(k).find(x=>x.time>e.time+3||x.restart||(x.control?.owner??x.ball.owner));
-   const who=next&&!next.restart&&next.time<=e.time+3?next.control?.owner??next.ball.owner:null;
-   if(who===e.target)assert(next.time-e.time>=e.balance.victim.touch-1e-6,`${e.target} re-collected ${(next.time-e.time).toFixed(2)} s after the tackle at ${e.time.toFixed(2)}`);
+ // was next on it 0.05 s later in about 40% of such tackles). Enough: each duel knocks the ball loose at both men's feet
+ // and the beaten man wants it back: a clumsy tackler pokes it loose from a quick, strong carrier, from his side and from
+ // behind. That the beaten man is first to it once his ban is over still happens on few seeds (seed sweep: side 3, behind
+ // 3 of 20), so both starts are played on the sweep's 20 seeds: he is next on the ball in at least one, and never before
+ // his touch ban ends. (Lane C, 2026-10-21: replaces seed 2027's 300 s match, its "six or more" and the 20% share, which
+ // was a statistic of that one passage.)
+ let tackles=0,back=0;
+ for(const where of ['side','behind'])for(const seed of SWEEP){
+  const r=play(tackle(where),{seed,edit:pokeLoose});
+  for(const e of wonTackles(r)){
+   tackles++;const n=nextOnBall(r,e);if(n?.who!==e.target)continue;back++;
+   assert(n.after>=e.balance.victim.touch-1e-6,`${where}, seed ${seed}: ${e.target} re-collected ${n.after.toFixed(2)} s after the tackle at ${e.time.toFixed(2)}`);
   }
  }
+ assert(tackles>0&&back>0,`the beaten man is first to the ball after his ban at least once (${back} of ${tackles} tackles)`);
 });

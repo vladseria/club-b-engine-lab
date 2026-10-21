@@ -65,6 +65,13 @@ export const mismatch=f=>{
  const c=f.teams[0].squad.find(p=>p.id==='crocodinho');Object.assign(c.skills,{control:1,strength:2,passing:1,pace:3});Object.assign(c.traits,{dribble:.9,risk:.9});
  const d=f.teams[1].squad.find(p=>p.id==='motanescu');Object.assign(d.skills,{defending:10,strength:9,pace:8,reading:9});Object.assign(d.traits,{engagement:1,discipline:.5});
 };
+/** A poke rather than a clean tackle: a modest, clumsy tackler (defending 6, control 1, pace 4) against a quick, strong
+ * carrier (pace 9, strength 9), so the ball is more often knocked loose for both men to chase. */
+export const pokeLoose=f=>{
+ mismatch(f);
+ Object.assign(f.teams[0].squad.find(p=>p.id==='crocodinho').skills,{pace:9,strength:9});
+ Object.assign(f.teams[1].squad.find(p=>p.id==='motanescu').skills,{defending:6,control:1,pace:4});
+};
 /** Tackles that took the ball (a 'tackle' event naming the victim's balance; a ridden tackle names none, a foul is a 'foul'). */
 export const wonTackles=r=>r.events.filter(e=>e.kind==='tackle'&&e.balance?.victim);
 /** Who is next on the ball after a tackle (within 3 s, before any restart), and when. */
