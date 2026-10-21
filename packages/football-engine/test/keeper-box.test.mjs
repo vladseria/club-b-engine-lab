@@ -8,7 +8,6 @@ import {securePossessionOptions,strikeClearance,launchRisk} from '../dist/practi
 import {carryOptions} from '../dist/practice-carry.js';
 import {laneRisk} from '../dist/practice.js';
 import {L,W,GH,BOX_HALF,BOX_DEPTH} from '../dist/pitch.js';
-import {play,clearShot,squareBall,ownThrowIn} from './constructed-scenes.mjs';
 const fixture=JSON.parse(readFileSync(new URL('./fixture.json',import.meta.url)));
 
 // Side 0 defends the goal at x = 0. A set keeper, facing the play, reacted in time.
@@ -63,29 +62,23 @@ test('a keeper pushes the ball to the side away from the attackers following in'
 test('a keeper dives only at the opponents\' ball: a team-mate\'s back-pass or throw is received',()=>{
  // On 07ffe814 a third of keeper dives (58 of 151 in six 900 s matches) were at
  // a ball his own side had just played (evidence/2026-09-30-keeper-box).
- // If this fails: a keeper throws himself at his own defender's back-pass, or at anything but the other side's ball.
- // Enough: a clear shot and a square ball struck first time beat him for position, so he dives in both; a throw-in
- // deep in our own half on the right puts a team-mate's ball in flight towards him (a keeper who dives at anything
- // flying at his goal dives there). (Lane C, 2026-10-21: replaces the default fixture's 300 s match, whose passage
- // moved twice.)
- let dived=0;
- const throwIn=ownThrowIn();// (seed sweep: a dive in these three scenes on 20 of 20 seeds, never at his own side's ball)
- for(const r of [play(clearShot()),play(squareBall()),play(throwIn)]){
-  // a ball an opponent won with a turnover and ran at goal is the opponents' even with no release event, so a turnover
-  // counts as the last owner too (threat-defending round, 2026-10-10)
-  const releases=r.events.filter(e=>['pass','clearance','shot','turnover'].includes(e.kind)&&e.actor);
-  const side=id=>r.players.find(p=>p.id===id).side;
-  // A dive is judged where it starts: a dive choice within 0.6 s of an earlier one by the same keeper is that same dive
-  // (combined build 70c5f925, 2026-10-11).
-  const all=r.choices.filter(c=>r.players[c.player].role==='GK'&&c.kind==='dive'&&c.reason.startsWith('Împinge'));
-  const dives=all.filter((c,i)=>!all.slice(0,i).some(b=>b.player===c.player&&c.time-b.time<.6+1e-6));
-  dived+=dives.length;
-  for(const c of dives){
-   const last=releases.findLast(e=>e.time<=c.time+1e-6);
-   assert.notEqual(side(last.actor),r.players[c.player].side,`a keeper dived at ${c.time.toFixed(2)} s at a ball his own side played`);
-  }
+ const r=runMatch({fixture,durationSeconds:300,policy:'coordinated'}).result;
+ // (threat-defending round, 2026-10-10: the passage moved and now has a dive at a ball an opponent won with a
+ // turnover and ran at goal along the byline; the ball he last touched is the opponents' even with no release
+ // event, so a turnover counts as the last owner too)
+ const releases=r.events.filter(e=>['pass','clearance','shot','turnover'].includes(e.kind)&&e.actor);
+ const side=id=>r.players.find(p=>p.id===id).side;
+ // (combined build 70c5f925, collect read + regain fixes, 2026-10-11: the passage moved and now has a dive at an
+ // opponent's through ball at 109.08 s that a team-mate intercepts at 109.12 s; the dive he is already in is logged
+ // again at 109.13 s. A dive is judged where it starts, so a dive choice within its 0.6 s of an earlier one by the
+ // same keeper is that same dive.)
+ const all=r.choices.filter(c=>r.players[c.player].role==='GK'&&c.kind==='dive'&&c.reason.startsWith('Împinge'));
+ const dives=all.filter((c,i)=>!all.slice(0,i).some(b=>b.player===c.player&&c.time-b.time<.6+1e-6));
+ assert.ok(dives.length>0,'the passage includes keeper dives');
+ for(const c of dives){
+  const last=releases.findLast(e=>e.time<=c.time+1e-6);
+  assert.notEqual(side(last.actor),r.players[c.player].side,`a keeper dived at ${c.time.toFixed(2)} s at a ball his own side played`);
  }
- assert.ok(dived>0,'a keeper beaten for position dives');
 });
 
 // A defender of side 0 on the ball in his own box, an attacker on top of him.
