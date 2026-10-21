@@ -877,7 +877,7 @@ export const WORLD=freeze({
    speedPerControl:p(.75,'m/s','body',['practice.ts:1798'],'... plus this per point of control (m/s)'),
   },
   touch:{
-   baseCost:p(0,'x','free',['practice-receive.ts:240','practice-receive.ts:250'],'a flat price on a controlling touch, as a share of the chance (the scale touchCost and firstTimeCost share), added to the touch cost of every kick plan whatever the picture; 0 = none (today). Question 5 lever 1: with nobody near, a touch otherwise costs exactly nothing in the read'),
+   baseCost:p(0.06,'x','free',['practice-receive.ts:240','practice-receive.ts:250'],'a flat price on a controlling touch, as a share of the chance (the scale touchCost and firstTimeCost share), added to the touch cost of every kick plan whatever the picture; 0 = none (today). Question 5 lever 1: with nobody near, a touch otherwise costs exactly nothing in the read'),
   },
  },
  /** the keeper: reach, edge, positioning, claiming, handling, holding */
