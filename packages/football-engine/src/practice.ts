@@ -1795,7 +1795,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
       // contact); the physical gates: a plan he has had at least a reaction's time (SHAPE_MIN; one held for less than
       // the switch deadline is struck less accurately: lateStrike, below), a ball he can strike through, and a stance
       // from which the kick is on. (decide round: before, a plan held 0.13 s + 0.012 s a reading point short of 10.)
-      let direct=!!viable&&!switched&&viable.kind!=='carry'&&!!plan&&plan.first&&time-plan.since>=SHAPE_MIN&&relativeSpeed<WORLD.contact.strike.speedBase.v+p.skills.control*WORLD.contact.strike.speedPerControl.v&&controlStrikeReady(hit.meeting.body,ball,state,viable.aim,viable.kind==='shoot'?'shot':viable.kind==='clear'?'clearance':'pass');
+      let direct=!!viable&&!switched&&viable.kind!=='carry'&&!!plan&&plan.first&&time-plan.since>=SHAPE_MIN&&relativeSpeed<7+p.skills.control*.75&&controlStrikeReady(hit.meeting.body,ball,state,viable.aim,viable.kind==='shoot'?'shot':viable.kind==='clear'?'clearance':'pass');
       const planLate=direct&&plan?lateStrike(time-plan.since):0;
       // (contest round) a team-mate's pass met with a defender's foot able to get to it: the touch is a duel
       // (practice-duel.ts). A planned first-time ball is gone before the man can contest the touch.
