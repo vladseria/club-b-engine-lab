@@ -64,7 +64,7 @@ export interface Idea {id:string;club_id:string;plan_key:string;name:string;plan
 export const FORMATIONS:Record<Formation,{slots:[string,string,string,string,string];line:string;points:[number,number][]}>={
  // Engine-metre positions (x 0..48 attacking right, y -15..15) for the lineup pitch.
  '1-2-1':{slots:['Goalkeeper','Centre-back','Left winger','Right winger','Striker'],line:'A centre-back, two wingers side by side and a striker. One man stays back; the wingers hold the flanks and attack the box.',points:[[3.6,0],[12.5,0],[24,-7],[24,7],[35,0]]},
- '2-2':{slots:['Goalkeeper','Left centre-back','Right centre-back','Left winger','Right winger'],line:'Two centre-backs and two wingers. Two stay back; the wingers do the attacking, and whichever is further forward follows your Striker setting.',points:[[3.6,0],[12.5,-5.5],[13,5.5],[29,-6],[31,5]]},
+ '2-2':{slots:['Goalkeeper','Left centre-back','Right centre-back','Left winger','Right winger'],line:'Two centre-backs and two wingers. Two stay back, though at Bodies forward 5 one of them joins attacks in their half; the wingers do the attacking, and whichever is further forward follows your Striker setting.',points:[[3.6,0],[12.5,-5.5],[13,5.5],[29,-6],[31,5]]},
  '2-1-1':{slots:['Goalkeeper','Left centre-back','Right centre-back','Midfielder','Striker'],line:'Two centre-backs, a midfielder and a striker, one behind the other. The only shape with a man in the middle to link play.',points:[[3.6,0],[12.5,-5.5],[13,5.5],[24,0],[35.5,0]]},
 };
 /** What the formation is about (the plan page, above its options). */
@@ -179,10 +179,13 @@ export const APPROACH_FIELDS:ApproachField[]=[
  // within 12 s, direct split 8ae8dc61; pooled borderline), so it claims none. 5: still two or more back about half
  // the time (settings audit), so neither "only one is back" nor "everyone piles forward"; its goals trade was
  // measured only on b0174c30, so 4 and 5 say what the players do (commitBounds), no outcome.
+ // (2026-10-21, COPY-TRUTH) 4 and 5 now name their cost, which is what happens, not an outcome: an opponent
+ // left free behind the ball weighs less in their arrangement (practice-exposure.ts, COMMIT.exposureBase/Per:
+ // x0.76 at 4, x0.60 at 5).
  {key:'commit',label:'Bodies forward',about:'Once you are in their half: how many join the attack and how many stay back.',options:[
   {value:'3',label:'3',line:'Your players decide how many join each attack. Fits any squad.'},
-  {value:'4',label:'4',line:'More of your players join each attack, so the man on the ball has company.'},
-  {value:'5',label:'5',line:'Your players join the attack in numbers, the most of any setting.'}]},
+  {value:'4',label:'4',line:'More of your players join each attack, so the man on the ball has company. They worry less about free opponents behind them.'},
+  {value:'5',label:'5',line:'Your players join the attack in numbers, the most of any setting. They worry least about free opponents behind them.'}]},
  // team-approach.ts approachInPossession / counterOn / approachForSituation; practice-transition.ts threshold.
  // (pre-push, 4 Oct) Counter no longer promises "your striker ready on their last defender's shoulder": a Pivot or
  // Drops deep striker keeps his own job in the counter window (approachInPossession), so it holds only for two of four.
