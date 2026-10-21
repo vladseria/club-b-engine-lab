@@ -7,6 +7,8 @@ import {runnerPickupDelay,runnerBehindShoulder,RUNNER_LAPSE_MAX} from '../dist/p
 import {PracticePlaybook} from '../dist/practice-playbook.js';
 import {runMatch} from '../dist/index.js';
 import {L,GH} from '../dist/pitch.js';
+import {KEEPER_SPREAD} from '../dist/practice-keeper.js';
+import {play,runsAtGoal,SEEDS} from './constructed-scenes.mjs';
 const fixture=JSON.parse(readFileSync(new URL('./fixture.json',import.meta.url)));
 const place=(players,at)=>players.forEach((p,i)=>Object.assign(p,{x:at[i][0],y:at[i][1],vx:0,vy:0}));
 
@@ -74,6 +76,10 @@ test('a runner from behind a closing defender\'s shoulder is picked up late, les
  assert(!runnerBehindShoulder(d,{x:18,y:1,vx:.5,vy:0}),'barely moving');
 });
 test('in a match, late pick-ups happen, are short, and only ever for a runner after a press',()=>{
+ // (Seed 2057 since the recon fixes, 2026-10-16, after about sixteen re-pins; the history sat above the keeper test until
+ // lane C, 2026-10-21: git show 1d094d96:packages/football-engine/test/b4-defending-near-goal.test.mjs. Lane C left this
+ // one seeded: positions-only starts reach a runner already moving behind a presser only by seed; see
+ // evidence/2026-10-21-lane-c/README.md.)
  const f=structuredClone(fixture);f.seed=2057;
  const r=runMatch({fixture:f,durationSeconds:300}).result;
  // (track the runner, 2026-10-11) The pick-up is the marker's first move that is no longer the old press: following
@@ -88,50 +94,29 @@ test('in a match, late pick-ups happen, are short, and only ever for a runner af
  assert(lapses>0,'some runners leave from behind a shoulder');
 });
 
-// (Seed 2027 since the defending rebuild, 2026-10-03: evidence/2026-10-03-defending-build/repin.mjs b4;
-// 2028 since the step-across round, 2026-10-04: 2027 had 7 shots, evidence/2026-10-04-stepacross-giveaways/repin.mjs b4;
-// 2029 since the passing-and-control round, 2026-10-10: 2028 had 9 shots, evidence/2026-10-10-passing-control/repin.mjs b4;
-// still 2029 after the threat-defending round, 2026-10-10: evidence/2026-10-10-threat-defending/repin.mjs b4 confirms it;
-// 2030 since the regain fixes, 2026-10-11: 2029 had 8 shots, evidence/2026-10-11-regain-fixes/repin.mjs b4;
-// 2031 since the pre-push fixes, 2026-10-12: evidence/2026-10-12-prepush-fixes/repin.mjs b4, 13 shots, keeper miss 0.41 m;
-// still 2031 on the combined build with stamina as lasting and box defending (b0174c30, 2026-10-13):
-// evidence/2026-10-12-box-defending/repin.mjs b4, 4 late pick-ups, 14 shots, keeper miss 0.40 m;
-// 2037 since the keeper upgrade and the keeper with the ball in his hands, 2026-10-13: 2031-2036 no longer meet it,
-// evidence/2026-10-13-keeper-2/repin.mjs b4, 7 late pick-ups, 15 shots, keeper miss 0.79 m: he now plants for the strike
-// where he is when he is within SET_PLANT of his spot, rather than finishing the step onto the bisector; 2038 once his
-// throw read allowed for an arriving presser: 2037 no longer met it, repin.mjs b4, 7 late pick-ups, 12 shots, keeper
-// miss 0.59 m; 2039 since the r1 mechanics (2026-10-14: no pass into the passer's own moving body, the held carry
-// route no longer lowering the bar for a clearance, channel clearances landed where a team-mate gets there first):
-// 2038 had 9 shots, evidence/2026-10-14-r1-mech/repin.mjs b4, 7 late pick-ups, 10 shots, keeper miss 0.55 m; 2041 on
-// the contest combine (2026-10-15: reception duels, contests in the air, pressure on the shooter): 2039 had 7 shots,
-// evidence/2026-10-14-r1/repin.mjs b4, 4 late pick-ups, 13 shots, keeper miss 0.37 m; 2042 once the shooter's read of
-// the hurry is his own (2026-10-15, hurryCost): 2041 had a keeper miss of 1.00 m, repin.mjs b4, 11 late pick-ups,
-// 12 shots, keeper miss 0.46 m; 2043 once the shot decision reads the chance once and puts temperament on the choice
-// (2026-10-15): 2042 had 8 shots, repin.mjs b4, 7 late pick-ups, 11 shots, keeper miss 0.50 m; 2045 once the shooter
-// sees more of what a man on him costs (2026-10-15, shot fix): 2043 had 8 shots, repin.mjs b4 2043, 8 late pick-ups,
-// 12 shots, keeper miss 0.32 m; 2051 once receivers read their reception in flight (2026-10-15, receive round): 2045 had 9
-// shots, evidence/2026-10-14-r1/repin.mjs b4 2045, 4 late pick-ups, 15 shots, keeper miss 0.70 m; 2054 once a committed pass is looked at again when its lane
-// shuts (2026-10-15, decide round): 2051 had a keeper miss of 1.00 m, repin.mjs b4 2051, 8 late pick-ups, 15 shots,
-// keeper miss 0.71 m; 2055 once recovery follows the duel (2026-10-16, duel recovery): 2054's keeper miss no longer
-// passed, repin.mjs b4 2054, 6 late pick-ups, 10 shots, keeper miss 0.59 m; 2057 once defenders read the shot lanes the
-// shooter aims at, inside the posts (2026-10-16, recon fixes): 2055 had 7 shots, repin.mjs b4 2055, 4 late pick-ups, 11
-// shots, keeper miss 0.30 m. The late pick-up test
-// above shares the seed.)
 // The keeper keeps setting himself against the ball: at the shot he stands
 // near the line bisecting the posts (before: ~1.1 m off on average).
 test('the defending keeper is set near the bisector of the posts when the shot comes',()=>{
- // The take-on price (2026-10-19, centred flair) keeps seed 2057 on the lab (15 shots, 0.67 m); macOS may differ
- // (evidence/2026-10-19-takeon-price/repin.mjs keeperBisector, public lab: the pooled mean miss over seeds 2057-2116 is
- // 0.60 m with the price, 0.59 m without).
- const f=structuredClone(fixture);f.seed=2057;
- const r=runMatch({fixture:f,durationSeconds:300}).result,miss=[];
- for(const e of r.events.filter(e=>e.kind==='shot'&&e.actor)){
+ // If this fails: keepers are caught standing off the angle when a shot comes, and shots beat them across goal.
+ // Enough: five attackers run at goal from 18-23 m out (left, middle, right, wide) at a keeper who starts 2 m off his line
+ // and off-centre (46, 1.5), so every strike tests whether he re-set himself as the ball moved; each run's first shot
+ // only (a rebound comes while he is still getting up from the save), on five seeds.
+ // The typical strike (the median) finds him within his own read spread of the angle (KEEPER_SPREAD: he finds the angle
+ // with an error drawn from it). A keeper may plant up to SET_PLANT off his spot, and one seed's five strikes are too
+ // few: the seed sweep found a single-seed median over the spread on 2 of 20 seeds, while every group of five seeds pooled
+ // read 0.17-0.27 m. Mutation check: his ready spot moved 1 m sideways reads 0.82-0.88 m pooled, on every group.
+ // (Lane C, 2026-10-21: replaces seed 2057's 300 s match, re-pinned about sixteen times since 2026-10-03; the old match
+ // read 0.30-1.00 m by seed, a pooled 0.60 m on the lab.)
+ const miss=[];
+ for(const seed of SEEDS)for(const start of runsAtGoal()){
+  const r=play(start,{seed}),e=r.events.find(e=>e.kind==='shot'&&e.actor);if(!e)continue;
   const s=r.players.find(p=>p.id===e.actor).side,d=1-s,g=r.players.findIndex(p=>p.side===d&&p.role==='GK');
   const frame=r.frames.findLast(x=>x.time<=e.time-.02),from=frame.players[r.players.findIndex(p=>p.id===e.actor)],k=frame.players[g];
   const dd=q=>d===0?q.x:L-q.x,bx=dd(from),a=(Math.atan2(GH-from.y,-bx)+Math.atan2(-GH-from.y,-bx))/2;
   miss.push(Math.abs((dd(k)-bx)*Math.sin(a)-(k.y-from.y)*Math.cos(a)));
  }
- assert(miss.length>=10,`${miss.length} shots`);
- const mean=miss.reduce((a,b)=>a+b,0)/miss.length;
- assert(mean<.9,`mean lateral miss ${mean.toFixed(2)} m`);
+ // (sweep: at least 3 of the 5 runs end in a shot on 20 of 20 seeds)
+ assert(miss.length>=3*SEEDS.length,`the runs at goal end in shots (${miss.length} of ${5*SEEDS.length})`);
+ const median=[...miss].sort((a,b)=>a-b)[Math.floor(miss.length/2)];
+ assert(median<=KEEPER_SPREAD,`median lateral miss ${median.toFixed(2)} m over ${miss.length} strikes (his read spread ${KEEPER_SPREAD} m)`);
 });
