@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {runMatch,teamApproaches,defensiveApproaches} from '../dist/index.js';
+import {play,clearShot,turnShot,squareBall} from './constructed-scenes.mjs';
 const base=JSON.parse(readFileSync(new URL('./feint-release-scene.json',import.meta.url))).fixture;
 function match(seed,opponent,durationSeconds,style='balanced'){const fixture=structuredClone(base);fixture.seed=seed;fixture.teams[0].lineup[1]='motanescu';Object.assign(fixture.teams[0].tactics,teamApproaches[style].settings);Object.assign(fixture.teams[1].tactics,defensiveApproaches[opponent].tactics);return runMatch({fixture,durationSeconds}).result;}
 
@@ -88,27 +89,32 @@ test.skip('a prepared shot yields to a better option and must prepare again if s
 });
 
 test('release review preserves an ordinary shot when its opportunity remains useful',()=>{
- // Live restart setups (2026-09-29) removed the qualifying shot from 13001; 13003 had one.
- // Styles choosing which pass (2026-09-30) removed it again; 13004 has one.
- // Silly moments (2026-10-01) removed it again; 13005 has one.
- // The defending rebuild (2026-10-03) removed it again; 13007 has one
- // (evidence/2026-10-03-defending-build/repin.mjs ordinary). The step-across round
- // (2026-10-04) removed it again; 13008 has one (evidence/2026-10-04-stepacross-giveaways/repin.mjs ordinary).
- // The tiredness bite (2026-10-11) removed it again; 13009 has one (evidence/2026-10-11-tiredness-bite-build/repin.mjs ordinary).
- // The collect read (2026-10-11) removed it again; 13010 has one (evidence/2026-10-11-collect-read/repin.mjs ordinary).
- // Track the runner (2026-10-11) removed it again; 13011 has one (evidence/2026-10-11-track-runner/repin.mjs ordinary).
- // The combined build with stamina as lasting and box defending (b0174c30, 2026-10-13) removed it again; 13012 has
- // one (evidence/2026-10-12-box-defending/repin.mjs ordinary).
- // The keeper fix (2026-10-19) removed it again; 13013 has one (evidence/2026-10-19-keeper-fix/repin.mjs ordinary).
- const r=match(13013,'press',75),shots=r.events.filter(e=>e.kind==='shot');
- assert(shots.length,'The review must not suppress shooting as a class');
- assert(shots.some(e=>{const index=r.players.findIndex(p=>p.id===e.actor),preparation=r.choices.findLast(c=>c.player===index&&c.action&&c.time<e.time);return !e.firstTime&&!e.technique&&!e.freeKick&&preparation?.action==='shoot'&&e.time-preparation.time<2&&!r.events.some(n=>n.actor===e.actor&&n.kind==='receive'&&n.time>preparation.time&&n.time<e.time);}), 'An ordinary prepared foot shot must still release');
- for(const shot of shots){
+ // If this fails: an attacker alone 10 m out with the goal in front of him dawdles, sets himself again and again, or
+ // passes instead of shooting, or a strike leaves with no foot on it. Enough: nothing in either scene argues against
+ // shooting, so a review that drops these shots drops shots as a class; with his back to goal he turns first, so the
+ // review does look at that shot (a quick strike is committed before it can). The square ball adds a first-time strike.
+ // (Lane C, 2026-10-21: replaces seed 13013's 75 s match, re-pinned ten times since 2026-09-29. Seed sweep: both shooters
+ // strike on 20 of 20 seeds, the square ball is struck first time on 20 of 20, so one seed is enough.)
+ const runs=[clearShot(),turnShot()].map(s=>play(s));
+ for(const r of runs){
+  const shooter=r.players.findIndex(p=>p.side===0&&p.number===5),id=r.players[shooter].id;
+  const shot=r.events.find(e=>e.kind==='shot');
+  assert.equal(shot?.actor,id,'the man on the ball shoots');
+  assert(!shot.firstTime&&!shot.technique&&!shot.freeKick,'an ordinary prepared foot shot');
+  // the shot he prepares is the one he strikes: one shot preparation, the last thing he prepares (a lay-off he looked at
+  // first is fair), released within 2 s, no touch between
+  const preparations=r.choices.filter(c=>c.player===shooter&&c.kind==='prepare'&&c.action&&c.time<shot.time),said=preparations.map(c=>`${c.action}@${c.time.toFixed(2)}`).join(', ');
+  assert.equal(preparations.filter(c=>c.action==='shoot').length,1,`one shot preparation (${said})`);
+  const last=preparations.at(-1);assert.equal(last.action,'shoot',`prepared as a shot (${said})`);
+  assert(shot.time-last.time<2,'and released, not reviewed away');
+  assert(!r.events.some(e=>e.actor===id&&e.kind==='receive'&&e.time>last.time&&e.time<shot.time));
+ }
+ for(const run of [...runs,play(squareBall())])for(const shot of run.events.filter(e=>e.kind==='shot')){
   assert(shot.shot);if(shot.freeKick)continue;
   // A first-time contact is swept within the tick; its event is emitted at
   // the tick boundary. Ordinary prepared strikes retain exact contact times.
   const tolerance=shot.firstTime||shot.technique?1/60:1e-6;
-  const contact=r.controlContacts.find(c=>c.actor===shot.actor&&c.kind==='shot'&&c.technique===shot.technique&&Math.abs(c.time-shot.time)<tolerance);
-  assert(contact);if(!shot.technique)assert(contact.foot);
+  const contact=run.controlContacts.find(c=>c.actor===shot.actor&&c.kind==='shot'&&c.technique===shot.technique&&Math.abs(c.time-shot.time)<tolerance);
+  assert(contact,`the shot at ${shot.time.toFixed(2)} s has its contact`);if(!shot.technique)assert(contact.foot);
  }
 });
