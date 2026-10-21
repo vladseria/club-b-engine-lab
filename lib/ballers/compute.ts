@@ -6,13 +6,12 @@ import {runMatch,ENGINE_BUILD,validatePlans,playbookProgress,type PlaybookConfig
 import type {Player as EnginePlayer,Team,Tactics} from '../../packages/football-engine/src/model';
 import {engineApproach,playedApproach,type StoredApproach} from './approach';
 import {validateSubstitutionOrders,type SubstitutionNote,type SubstitutionOrder,type SubstitutionTrigger} from '../../packages/football-engine/src/practice-substitutions';
-import {validateTacticsSwitches,type TacticsSwitch,type SwitchTrigger,type SwitchNote} from '../../packages/football-engine/src/practice-switch';
-import {BREAK_SECONDS,CHUNK_SECONDS,FRAME_STEP,REPLAY_VERSION,cm,mrad,ms,type CompactMatch,type ReplayChunk,type ReplayEvent,type ReplayFrame,type ReplayHeader,type ReplayIdea,type ReplayPlayer,type TeamStats} from './replay';
+import {CHUNK_SECONDS,FRAME_STEP,REPLAY_VERSION,cm,mrad,ms,type CompactMatch,type ReplayChunk,type ReplayEvent,type ReplayFrame,type ReplayHeader,type ReplayIdea,type ReplayPlayer,type TeamStats} from './replay';
 import {resolveIdea} from './ideas';
 import {classifyIdeaRun,routineUnkicked,type IdeaRun} from './idea-run';
 import type {LessonSpec} from '../../packages/football-engine/src/practice-lesson';
 import {engineOrder,type PrepOrder} from './subs';
-import {KEEPER_SWEEP,normalizeSettings,settingsSquad,settingsTactics,type MatchSettings} from './match-settings';
+import {normalizeSettings,settingsSquad,settingsTactics,type MatchSettings} from './match-settings';
 import {normalizeVoice,type Voice} from './voice';
 
 export interface FrozenPlayer {id:string;name:string;short:string;number:number;roles:EnginePlayer['roles'];skills:EnginePlayer['skills'];traits:EnginePlayer['traits'];energy:number;archetype:string;temperament:string;note:string;portrait:string}
@@ -24,9 +23,7 @@ export interface FrozenPlan {idea:string;key:string;name:string;plan:Record<stri
  * `voice`: the club's commentary lines (lib/ballers/voice.ts), frozen at the lock, present only when it has any.
  * `approach.onLoss` ("On losing it", lib/ballers/approach.ts): frozen with the prep once
  * the club has one; absent in every input frozen before it, which means 'balanced'. */
-import type {FrozenSwitch} from './switch-input';
-export type {FrozenSwitch};
-export interface FrozenSide {club:{id:string;name:string;code:string;color:string};formation:'1-2-1'|'2-2'|'2-1-1';style:string;approach:StoredApproach;captain:string;lineup:string[];bench:string[];players:FrozenPlayer[];plans:FrozenPlan[];substitutions?:PrepOrder[];settings?:MatchSettings;voice?:Voice;switch?:FrozenSwitch}
+export interface FrozenSide {club:{id:string;name:string;code:string;color:string};formation:'1-2-1'|'2-2'|'2-1-1';style:string;approach:StoredApproach;captain:string;lineup:string[];bench:string[];players:FrozenPlayer[];plans:FrozenPlan[];substitutions?:PrepOrder[];settings?:MatchSettings;voice?:Voice}
 /** private.ballers_build_input() output, version 1. */
 export interface FrozenInput {v:1;match:string;seed:number;kickoff:0|1;duration:number;sides:[FrozenSide,FrozenSide]}
 
@@ -76,38 +73,6 @@ export function sideOrders(input:FrozenInput,teams:[Team,Team]):{orders:Substitu
  return {orders,dropped};
 }
 
-/** Both sides' tactics switches as the engine takes them. The target tactics are built exactly as engineTeam builds a
- * side's (same formation, the target's approach and free-kick call, this side's own taker); the keepers' habit is
- * the target's keeper call, or each keeper's own trait when the target has none, given only where it differs from
- * what the side started with. Each side is validated on its own: a bad switch is left out and reported. */
-export function sideSwitches(input:FrozenInput,teams:[Team,Team]):{switches:TacticsSwitch[];dropped:string[]}{
- const switches:TacticsSwitch[]=[],dropped:string[]=[];
- input.sides.forEach((s,side)=>{
-  const sw=s.switch;if(!sw)return;
-  try{
-   const now=s.settings?normalizeSettings(s.settings,s.lineup):{};
-   const {taker:_t,...calls}=(sw.to.settings??{}) as MatchSettings;void _t;
-   const next=normalizeSettings({...calls,...(now.taker?{taker:now.taker}:{})},s.lineup);
-   // Another formation: the target's shape with the frozen slot map (the engine refuses it beside a playbook,
-   // which Ballers' game-plan clubs never carry; such a switch is left out and reported, never the match).
-   const formation=sw.to.formation&&sw.to.formation!==s.formation?sw.to.formation:s.formation;
-   // the slot map applies in every switch (owner, 21 Oct); one that moves anyone can't run beside slot-addressed moves
-   const moves=formation!==s.formation||!!sw.to.slots?.some((n,i)=>n!==i);
-   if(moves&&input.sides.some(x=>x.plans.length))throw Error('a switch that moves men beside plans');
-   const tactics:Tactics=settingsTactics({...engineApproach(playedApproach(formation,sw.to.approach)),formation,setPiece:'mixed',fullbacks:'balanced',marking:'balanced'} as unknown as Tactics,next);
-   const keepers:Record<string,number|null>={};
-   for(const p of s.players){
-    if(!p.roles.includes('GK'))continue;
-    const was=now.keeper?KEEPER_SWEEP[now.keeper]:p.traits.keeperSweep,will=next.keeper?KEEPER_SWEEP[next.keeper]:p.traits.keeperSweep;
-    if(was!==will)keepers[p.id]=will??null;
-   }
-   switches.push(...validateTacticsSwitches([{id:sw.id,side,trigger:sw.trigger,...(sw.notBefore!==undefined?{notBefore:sw.notBefore}:{}),tactics,...(sw.to.slots?{slots:sw.to.slots}:{}),...(Object.keys(keepers).length?{keepers}:{})}],{seed:0,kickoff:0,teams} as never));
-  }
-  catch{dropped.push(`switch:${side}`);}
- });
- return {switches,dropped};
-}
-
 export function validateInput(value:unknown):FrozenInput{
  const v=value as FrozenInput;
  if(!v||v.v!==1||!Number.isInteger(v.seed)||v.seed<0||v.seed>0xffffffff||![0,1].includes(v.kickoff)||!Array.isArray(v.sides)||v.sides.length!==2)throw Error('invalid_input');
@@ -125,19 +90,17 @@ export function computeMatch(input:FrozenInput,progress?:(t:number)=>void):Compu
  const playbooks=plans.flatMap((p,side)=>p.plans.length?[{side:side as 0|1,plans:p.plans,adaptive:true}]:[]) as PlaybookConfig[];
  // No orders = the key is omitted: the engine input is byte-identical to P2's.
  const subs=sideOrders(input,teams);
- // No switch = the key is omitted: the engine input is byte-identical to before the plan switch.
- const sw=sideSwitches(input,teams);
- const run=runMatch({fixture:{teams,seed:input.seed,kickoff:input.kickoff},durationSeconds:input.duration,policy:'coordinated',substitutions:'none',record:true,...(playbooks.length?{playbooks}:{}),...(subs.orders.length?{substitutionOrders:subs.orders}:{}),...(sw.switches.length?{tacticsSwitches:sw.switches}:{})},progress);
- return {compact:compact(input,run.result as unknown as EngineResult),dropped:[...plans.flatMap(p=>p.dropped),...subs.dropped,...sw.dropped],engineBuild:run.engineBuild};
+ const run=runMatch({fixture:{teams,seed:input.seed,kickoff:input.kickoff},durationSeconds:input.duration,policy:'coordinated',substitutions:'none',record:true,...(playbooks.length?{playbooks}:{}),...(subs.orders.length?{substitutionOrders:subs.orders}:{})},progress);
+ return {compact:compact(input,run.result as unknown as EngineResult),dropped:[...plans.flatMap(p=>p.dropped),...subs.dropped],engineBuild:run.engineBuild};
 }
 
 // The slice of PracticeResult this module reads (kept structural so the
 // compaction can be unit-tested with a synthetic result).
 interface EngineFrame {time:number;cut?:boolean;lineup?:number[];players:{x:number;y:number;angle:number;duty?:string}[];ball:{x:number;y:number;z:number;owner:string|null};score:[number,number];restart:boolean;restartInfo?:{taker:string};side:0|1;control?:{owner:string}}
 interface EngineEvent {time:number;kind:string;text:string;actor?:string;target?:string;side?:0|1;lastTouch?:string;restartKind?:string;shot?:{aim:{x:number;y:number};origin:{x:number;y:number};assessment?:{quality:number}};technique?:string;freeKick?:unknown;
- substitution?:{order:string;trigger:SubstitutionTrigger;energy:number;score:[number,number]};switch?:{order:string;trigger:SwitchTrigger;score:[number,number];formation?:string;players?:{id:string;role:string;lane:number}[]}}
+ substitution?:{order:string;trigger:SubstitutionTrigger;energy:number;score:[number,number]}}
 interface EngineSelection {time:number;planId:string|null;name:string;status:string;endedAt?:number;endReason?:string;endDetail?:string;side?:0|1;trace?:{time:number;stepId:string;phase:string;intent?:string;actor?:string;target?:string;responsibility?:string;evidence?:{spaceId?:string}}[]}
-export interface EngineResult {duration:number;played?:number;players:{id:string;side:0|1;role:string}[];frames:EngineFrame[];events:EngineEvent[];stats:[TeamStats,TeamStats];score:[number,number];playbookSelections?:EngineSelection[];substitutionNotes?:SubstitutionNote[];switchNotes?:SwitchNote[]}
+export interface EngineResult {duration:number;played?:number;players:{id:string;side:0|1;role:string}[];frames:EngineFrame[];events:EngineEvent[];stats:[TeamStats,TeamStats];score:[number,number];playbookSelections?:EngineSelection[];substitutionNotes?:SubstitutionNote[]}
 
 export function compact(input:FrozenInput,r:EngineResult):CompactMatch{
  // Engine roster ids are `${side}:${playerId}`. Replay indices: 0-9 the
@@ -162,13 +125,7 @@ export function compact(input:FrozenInput,r:EngineResult):CompactMatch{
  // is when the whistle went (the watch screens' timeline); the chunk count stays
  // the match length's (what ballers_submit checks), and the last chunk holds the rest.
  const played=r.played===undefined?r.duration:Math.round(r.played*1000)/1000;
- // Half-time: the second half is a full half from its kick (the clock shows 7:30 there: lib/ballers/match-clock.ts), so
- // the clock's full time is that kick + half the match length.
- const halfEvent=r.events.find(e=>e.kind==='half'),kick2=halfEvent?r.events.find(e=>e.time>=halfEvent.time&&e.restartKind==='kickoff'&&e.kind!=='restart'):undefined;
- const clockFull=kick2?Math.round((kick2.time+r.duration/2)*1000)/1000:r.duration;
- // The header is readable from kickoff, so it holds the match length only: when the whistles really went (a first half
- // played on, a last attack) arrives in the last chunk's `end` (replay.ts), released with the chunk that holds them.
- const header:ReplayHeader={v:REPLAY_VERSION,engineBuild:'',duration:r.duration,chunkSeconds:CHUNK_SECONDS,chunks:Math.ceil(r.duration/CHUNK_SECONDS),
+ const header:ReplayHeader={v:REPLAY_VERSION,engineBuild:'',duration:played,...(played>r.duration?{fullTime:r.duration}:{}),chunkSeconds:CHUNK_SECONDS,chunks:Math.ceil(r.duration/CHUNK_SECONDS),
   teams:input.sides.map(s=>{const voice=normalizeVoice(s.voice);
    // No voice = the key is omitted: the header is byte-identical to before.
    return {club:s.club.id,name:s.club.name,code:s.club.code,color:s.club.color,formation:s.formation,style:s.style,...(voice?{voice}:{})};}) as ReplayHeader['teams'],players};
@@ -176,10 +133,7 @@ export function compact(input:FrozenInput,r:EngineResult):CompactMatch{
  let last=-Infinity;
  const frames:ReplayFrame[]=[];
  r.frames.forEach((f,n)=>{
-  // the whistle at half-time (the frame a same-instant cut follows) is always kept: the first half ends on it, and the
-  // live edge must reach it for the half-time line to show at the whistle (only the half-time has such a pair)
-  const whistle=!!r.frames[n+1]?.cut&&r.frames[n+1].time===f.time;
-  const keep=n===0||f.cut||whistle||f.time>=last+FRAME_STEP-1e-9||n===r.frames.length-1;if(!keep)return;last=f.time;
+  const keep=n===0||f.cut||f.time>=last+FRAME_STEP-1e-9||n===r.frames.length-1;if(!keep)return;last=f.time;
   const owner=f.control?.owner??(f.restart?f.restartInfo?.taker:undefined)??f.ball.owner;
   const frame:ReplayFrame={t:ms(f.time),p:f.players.map(p=>[cm(p.x),cm(p.y),mrad(p.angle)]),b:[cm(f.ball.x),cm(f.ball.y),cm(f.ball.z)],o:idx(owner),ps:f.side,s:[f.score[0],f.score[1]]};
   if(f.restart)frame.r=1;if(f.cut)frame.c=1;
@@ -206,37 +160,20 @@ export function compact(input:FrozenInput,r:EngineResult):CompactMatch{
    if(q!==undefined&&Number.isFinite(q))out.q=Math.round(q*1000)/1000;else if(e.technique==='header')out.sk=1;else if(e.technique==='volley')out.sk=2;else if(e.freeKick)out.sk=3;}
   if(e.substitution){const t=e.substitution.trigger;
    out.sb={k:t.kind,...(t.kind==='score'?{st:t.state}:t.kind==='margin'?{n:t.atLeast,d:t.direction}:{}),e:Math.round(e.substitution.energy)};}
-  // The plan switch's marker: the trigger and the style now played (never the plan's name).
-  if(e.switch&&e.side!==undefined){const t=e.switch.trigger;
-   out.sw={k:t.kind,...(t.kind==='score'?{st:t.state}:t.kind==='margin'?{n:t.atLeast,d:t.direction}:{}),y:input.sides[e.side].switch?.to.style??'',
-    // men moved to new places: each man's new role and lane (replay indices), and the new formation when it changed
-    ...(e.switch.formation?{f:e.switch.formation}:{}),...(e.switch.players?{ro:e.switch.players.map(p=>[idx(p.id),p.role,p.lane] as [number,string,number])}:{})};}
   return out;
  });
- // Half-time (deliverables/ballers-half-time/DESIGN.md 2.2): the chunk that holds the whistle ends at it and the
- // next one starts at it, so no chunk mixes the halves and the live clock can release the second half's chunks after
- // the break (simulation.ts sends their t0 on the live clock). The count stays the match length's. The whistle's own
- // frame and the `half` event belong to the first half; the cut frame and whatever else happens at that instant (a
- // change made at the interval, the kickoff) to the second.
- const halfMs=events.find(e=>e.k==='half')?.t??null,cutAt=halfMs===null?-1:frames.findIndex(f=>f.t===halfMs&&f.c===1);
- if(halfMs!==null)header.interval=BREAK_SECONDS;
- const bounds=Array.from({length:header.chunks},(_,i)=>{
-  const final=i===header.chunks-1;let t0=i*CHUNK_SECONDS*1000,t1=(final?played:Math.min((i+1)*CHUNK_SECONDS,r.duration))*1000;
-  if(halfMs!==null&&t0<halfMs&&halfMs<t1&&!final){t1=halfMs;}else if(halfMs!==null&&i>0&&(i-1)*CHUNK_SECONDS*1000<halfMs&&halfMs<i*CHUNK_SECONDS*1000)t0=halfMs;
-  return {t0,t1,final};
- });
- const lookup=(t:number)=>{const i=bounds.findIndex(b=>t>=b.t0&&(t<b.t1||b.final));return i<0?bounds.length-1:i;};
- const chunkOf=(t:number,first:boolean)=>first&&halfMs!==null&&t>=halfMs?lookup(halfMs-1):lookup(t);
- const chunks:ReplayChunk[]=bounds.map((b,i)=>({v:REPLAY_VERSION,i,t0:b.t0,t1:b.t1,f:[],e:[],...(i===bounds.length-1&&(played!==r.duration||clockFull!==r.duration)?{end:{played,fullTime:clockFull}}:{})}));
- frames.forEach((f,n)=>chunks[chunkOf(f.t,halfMs===null||(cutAt<0?f.t<halfMs:n<cutAt))].f.push(f));
- events.forEach(e=>chunks[chunkOf(e.t,halfMs===null||e.t<halfMs||e.t===halfMs&&e.k==='half')].e.push(e));
+ const chunks:ReplayChunk[]=[];
+ for(let i=0;i<header.chunks;i++){
+  const final=i===header.chunks-1,t0=i*CHUNK_SECONDS*1000,t1=(final?played:Math.min((i+1)*CHUNK_SECONDS,r.duration))*1000;
+  const inside=(t:number)=>t>=t0&&(t<t1||final);
+  chunks.push({v:REPLAY_VERSION,i,t0,t1,f:frames.filter(f=>inside(f.t)),e:events.filter(e=>inside(e.t))});
+ }
  // A set-piece routine chosen at a stoppage that was never kicked (full time
  // came first) did not run: it is left out, not counted as broke.
  const ideas:ReplayIdea[]=(r.playbookSelections??[]).flatMap((sel,seq)=>sel.planId!==null&&routineUnkicked(sel as never,lessonOf(input,sel))?[]:[{seq,side:(sel.side??0) as 0|1,t:ms(sel.time),endedAt:sel.endedAt===undefined?null:ms(sel.endedAt),
   status:sel.status,endReason:sel.endReason??null,progress:playbookProgress(sel as never),planId:sel.planId,name:sel.name,
   detail:ideaDetail(sel,idx,sel.planId===null?null:classifyIdeaRun(sel as never,lessonOf(input,sel))??'broke')}]);
- // The switch's note (owner-facing, like the substitution notes): present only when a side carried one.
- return {header,chunks,score:[r.score[0],r.score[1]],stats:r.stats,ideas,substitutionNotes:subNotes(input,r.substitutionNotes),...(r.switchNotes?{switchNotes:r.switchNotes}:{})};
+ return {header,chunks,score:[r.score[0],r.score[1]],stats:r.stats,ideas,substitutionNotes:subNotes(input,r.substitutionNotes)};
 }
 
 /** The lesson a selection ran (job kinds and drawn spaces are the frozen
