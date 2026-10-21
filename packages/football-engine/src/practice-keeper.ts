@@ -114,7 +114,7 @@ export function keeperSweepNeed(sweep:number):number{
 /** Extra metres off his line a keeper stands while the ball is far away: a
  * sweeper stands higher, a keeper who stays on his line deeper. Zero at the
  * engine's default trait (0.2), so untouched keepers stand where they did. */
-export function keeperSweepDepth(sweep:number,ballDepth:number,ownBall:boolean):number{if(sweep>=0)return 0;
+export function keeperSweepDepth(sweep:number,ballDepth:number,ownBall:boolean):number{
  const s=clamp(sweep,0,1)-SKILLS_KEEPER_SWEEP_DEFAULT;
  return ownBall?s*clamp((ballDepth-GEOMETRY_KEEPER_HOME_OWN_FROM)/GEOMETRY_KEEPER_HOME_OWN_SPAN,0,1)*GEOMETRY_KEEPER_HOME_OWN_MAX:s*clamp((ballDepth-GEOMETRY_KEEPER_HOME_THEIRS_FROM)/GEOMETRY_KEEPER_HOME_THEIRS_SPAN,0,1)*GEOMETRY_KEEPER_HOME_THEIRS_MAX;
 }

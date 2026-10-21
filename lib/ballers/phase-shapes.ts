@@ -39,7 +39,7 @@ export function phaseShapes(tl:{header:ReplayHeader;frames:readonly ReplayFrame[
  const {header,frames,events}=tl;
  const labels=phaseLabels(frames,events,side,pitchLength);
  const ids=header.players.map(p=>p.id);
- const mx=(x:number)=>side===0?x:pitchLength-x,my=(y:number)=>side===0?y:-y;
+ const mx=(x:number)=>x,my=(y:number)=>y;
  const per=Object.fromEntries(PHASES.map(p=>[p,{seconds:0,slots:[0,1,2,3,4].map(()=>acc()),who:[0,1,2,3,4].map(()=>({} as Record<string,number>)),ball:acc()}])) as Record<Phase,{seconds:number;slots:Acc[];who:Record<string,number>[];ball:Acc}>;
  for(let i=0;i+1<frames.length;i++){
   const f=frames[i],dt=(frames[i+1].t-f.t)/1000;if(!(dt>0))continue;
