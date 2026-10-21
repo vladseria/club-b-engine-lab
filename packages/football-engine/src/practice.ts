@@ -37,6 +37,8 @@ import {turnoverPrice} from './practice-rest-defence.js';
 import {HALF_SECONDS,LAST_ATTACK_MAX,SUB_MINUTES,attackAtFullTime,chooseReplacement,energyTop,fatigueEnergy,halfEnergy,lastAttackOver,legs,reserveBalance} from './practice-match.js';
 import {validateSubstitutionOrders,triggerHolds,resolveOrder,triggerText,MAX_TRIGGERED_SUBSTITUTIONS} from './practice-substitutions.js';
 import type {SubstitutionOrder,SubstitutionNote,SubstitutionRecord} from './practice-substitutions.js';
+import {validateTacticsSwitches,switchDue,applyTacticsSwitch} from './practice-switch.js';
+import type {TacticsSwitch,SwitchNote,SwitchRecord} from './practice-switch.js';
 import {assignSupport,complementarySupportAim,SupportPlan,SupportContext} from './practice-support.js';
 import {teamShape,TeamShape} from './practice-shape.js';
 import {groundPass,groundOptions,strikeGroundPass,activePassRun,readDelivery,DeliveryRead,PassRun,GroundPass} from './practice-passing.js';
@@ -142,11 +144,11 @@ export type Duty='hold'|'support'|'run'|'show'|'width'|'press'|'jockey'|'challen
 export const dutyNames:Record<Duty,string>={hold:'Protejează spațiul',support:'Oferă o pasă',run:'Atacă spațiul',show:'Vine la picior',width:'Ține lățimea',press:'Închide purtătorul',jockey:'Îl ține în față',challenge:'Încearcă deposedarea',block:'Acoperă șutul',track:'Urmărește o cursă',cover:'Acoperă un coleg',intercept:'Atacă mingea',recover:'Revine în apărare',carry:'Conduce mingea',prepare:'Pregătește lovitura',receive:'Iese la primire',feint:'Încearcă o fentă',wrongfoot:'Își reface echilibrul',keeper:'Închide unghiul',dive:'Plonjează după minge',sweep:'Iese din poartă',restart:'Pregătește reluarea',down:'E la pământ'};
 export interface PracticePlayer extends MovingPlayer {role:Role;skills:Skills;traits:Traits;energy:number;archetype:string;temperament:string;lane:number;basePace:number;duty:Duty;/** (contest: pressure on the shooter) when he last rode a tackle and kept the ball (s): a moment off balance (practice-shot-contest DUEL_FADE). */duelAt?:number}
 export interface Pose {x:number;y:number;vx:number;vy:number;angle:number;energy:number;duty:Duty}
-export type Incident='start'|'pass'|'clearance'|'receive'|'turnover'|'tackle'|'feint'|'beat'|'shot'|'save'|'block'|'goal'|'out'|'offside'|'foul'|'restart'|'half'|'substitution'|'end';
+export type Incident='start'|'pass'|'clearance'|'receive'|'turnover'|'tackle'|'feint'|'beat'|'shot'|'save'|'block'|'goal'|'out'|'offside'|'foul'|'restart'|'half'|'substitution'|'switch'|'end';
 /** Goal side is the beneficiary; actor/lastTouch identifies the final contact,
  * not an adjudication of scorer versus own goal. Shot assessment is a utility
  * heuristic, not xG; it is present only for ordinary foot strikes. */
-export interface PracticeEvent {substitution?:SubstitutionRecord;lastTouch?:string;shot?:{aim:Vec;origin:Vec&{z:number};velocity:{vx:number;vy:number;vz:number};assessment?:ShotAssessment;/** (contest) what the defence did to it at the strike (practice-shot-contest). */contest?:Pick<ShotContest,'rush'|'shadow'|'balance'|'poise'|'hurry'|'closer'>};technique?:AerialTechnique;firstTime?:boolean;time:number;kind:Incident;text:string;actor?:string;target?:string;side?:Side;challengeContact?:ChallengeContact;restartKind?:RestartKind;restartSpot?:Vec;restartPlayers?:{id:string;x:number;y:number;vx:number;vy:number}[];incoming?:string;outgoing?:string;pass?:{meetingTime?:number;weight:GroundPass['weight'];aim:Vec;intendedSpeed:number;actualSpeed:number;arrivalSpeed:number};freeKick?:DirectFreeKickPlan;aerial?:{meetingTime?:number;kind:LoftPass['kind'];aim:Vec;intendedSpeed:number;actualSpeed:number;intendedVz:number;actualVz:number;flight:number;apex:number;risk:number}}
+export interface PracticeEvent {substitution?:SubstitutionRecord;switch?:SwitchRecord;lastTouch?:string;shot?:{aim:Vec;origin:Vec&{z:number};velocity:{vx:number;vy:number;vz:number};assessment?:ShotAssessment;/** (contest) what the defence did to it at the strike (practice-shot-contest). */contest?:Pick<ShotContest,'rush'|'shadow'|'balance'|'poise'|'hurry'|'closer'>};technique?:AerialTechnique;firstTime?:boolean;time:number;kind:Incident;text:string;actor?:string;target?:string;side?:Side;challengeContact?:ChallengeContact;restartKind?:RestartKind;restartSpot?:Vec;restartPlayers?:{id:string;x:number;y:number;vx:number;vy:number}[];incoming?:string;outgoing?:string;pass?:{meetingTime?:number;weight:GroundPass['weight'];aim:Vec;intendedSpeed:number;actualSpeed:number;arrivalSpeed:number};freeKick?:DirectFreeKickPlan;aerial?:{meetingTime?:number;kind:LoftPass['kind'];aim:Vec;intendedSpeed:number;actualSpeed:number;intendedVz:number;actualVz:number;flight:number;apex:number;risk:number}}
 /** (contest round) one reception duel, recorded with `record`: who, where, the reads and the outcome. */
 export interface ReceptionDuelRecord {time:number;receiver:string;defender:string;outcome:DuelResult['outcome'];commit:boolean;layoff:boolean;access:number;screen:number;front:number;goalTight:number;closing:number;nick:number;seenNick:number;flight:number;from?:Vec;at:Vec;defenderAt:Vec}
 export interface Choice {assignment?:Pick<FootballJob,'purpose'|'since'|'until'|'target'> & {aim:Vec};time:number;player:number;kind:Duty;reason:string;action?:Action;carry?:CarryAssessment&{aim:Vec;continuing:boolean;committedUntil:number};challenge?:ChallengeRead&{opponent:string;resolvesAt:number}}
@@ -156,7 +158,7 @@ export interface PracticeStats {passes:number;completed:number;clearances:number
  * carried the match past `duration` (practice-match.ts LAST_ATTACK_MAX); otherwise the match ended at `duration`. */
 /** A contest in the air (practice-air-duel), recorded with the match when record is on. */
 export interface AerialDuelRecord {time:number;x:number;y:number;z:number;attacker:string;defender:string;toucher:string;winner:string;outcome:'clean'|'knock'|'foul';result:string;way:'up'|'nip';chance:number}
-export interface PracticeResult {version:string;seed:number;duration:number;played?:number;teams:[string,string];players:PracticePlayer[];frames:PracticeFrame[];events:PracticeEvent[];choices:Choice[];stats:[PracticeStats,PracticeStats];score:[number,number];controlContacts?:ControlContact[];receptionDuels?:ReceptionDuelRecord[];aerialDuels?:AerialDuelRecord[];aerialChallenges?:{time:number;id:string;result:string}[];playbookSelections?:PlaybookSelection[];standingNotes?:StandingNote[];coachingNotes?:CoachingNote[];substitutionNotes?:SubstitutionNote[]}
+export interface PracticeResult {version:string;seed:number;duration:number;played?:number;teams:[string,string];players:PracticePlayer[];frames:PracticeFrame[];events:PracticeEvent[];choices:Choice[];stats:[PracticeStats,PracticeStats];score:[number,number];controlContacts?:ControlContact[];receptionDuels?:ReceptionDuelRecord[];aerialDuels?:AerialDuelRecord[];aerialChallenges?:{time:number;id:string;result:string}[];playbookSelections?:PlaybookSelection[];standingNotes?:StandingNote[];coachingNotes?:CoachingNote[];substitutionNotes?:SubstitutionNote[];switchNotes?:SwitchNote[]}
 type Action='pass'|'through'|'loft'|'carry'|'shoot'|'feint'|'clear';
 export interface Option {/** What the receiver can do next, already in `score` (receiverProspects). */next?:number;/** A delivery's pass-only pressure credits (relief, retreat, pressure x space), already in `score`: what the purpose clock decays (R3). */relief?:number;/** A shot: the shooter's own read of his chance (R2), already in `score`. */quality?:number;/** Interception risk of a planned throw (throw-ins only). */throwRisk?:number;/** A throw that leads a run: where the receiver meets it. */throwLead?:Vec;kind:Action;clearance?:ClearanceIntent;target?:string;aim:Vec;score:number;reason:string;carry?:CarryAssessment;continuing?:boolean;delivery?:DeliveryRead;run?:PassRun;pass?:GroundPass;loft?:LoftPass;freeKick?:DirectFreeKickPlan;teachingStep?:string;teachingPlan?:string;teachingFit?:number;teachingSpace?:boolean;receivingSpace?:ReceivingSpace;/** (decide round) played hurried by a pressed man: half the preparation, struck worse (practice-possession priceCaught). */hurried?:boolean;/** (take-on price) a take-on whose loss is already priced where he is (practice-feints): the possession urgency charge is not laid on it again. */lossPriced?:boolean}
 interface Intent {kind:Duty;aim:Vec;speed:number;until:number;since:number;reason:string;teamSide:Side;shapeOffset?:Vec;
@@ -371,7 +373,7 @@ export function throwIntoMan(p:Vec,aim:Vec,men:readonly (Vec&{vx?:number;vy?:num
 }
 export function foulRestartFor(attacking:Side,spot:Vec):'penalty'|'freeKick'{const x=depth(attacking,spot.x);return x>=(L-BOX_DEPTH)&&x<=L&&Math.abs(spot.y)<=BOX_HALF?'penalty':'freeKick';}
 
-export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,progress?:(seconds:number)=>void,record=true,options:{policy?:'classic'|'coordinated';substitutions?:'none'|'planned';initialRestart?:{kind:RestartKind;side:Side;spot:Vec};playbook?:PlaybookConfig;playbooks?:PlaybookConfig[];trainingSetup?:TrainingSetup;coaching?:CoachingIntent;substitutionOrders?:SubstitutionOrder[];lastAttack?:boolean}={}):PracticeResult{
+export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,progress?:(seconds:number)=>void,record=true,options:{policy?:'classic'|'coordinated';substitutions?:'none'|'planned';initialRestart?:{kind:RestartKind;side:Side;spot:Vec};playbook?:PlaybookConfig;playbooks?:PlaybookConfig[];trainingSetup?:TrainingSetup;coaching?:CoachingIntent;substitutionOrders?:SubstitutionOrder[];tacticsSwitches?:TacticsSwitch[];lastAttack?:boolean}={}):PracticeResult{
  if(!Number.isInteger(fixture.seed)||fixture.seed<0||fixture.seed>0xffffffff||!Number.isFinite(duration)||duration<10||duration>5400||options.substitutions!==undefined&&!['none','planned'].includes(options.substitutions))throw Error('Invalid practice duration or seed');
  if(options.initialRestart&&(!['kickoff','penalty','freeKick','indirect','throw','corner','goalKick'].includes(options.initialRestart.kind)||![0,1].includes(options.initialRestart.side)||!Number.isFinite(options.initialRestart.spot.x)||!Number.isFinite(options.initialRestart.spot.y)))throw Error('Invalid opening scenario');
  if(options.policy!==undefined&&!['classic','coordinated'].includes(options.policy))throw Error('Invalid practice policy');
@@ -380,6 +382,8 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
  // Opt-in prepared substitutions. Absent or empty, none of their code runs.
  const orders=options.substitutionOrders?.length?validateSubstitutionOrders(options.substitutionOrders,f):[];
  if(orders.length&&options.substitutions==='planned')throw Error('Choose planned or triggered substitutions, not both.');
+ // Opt-in tactics switch (practice-switch.ts). Absent or empty, none of its code runs.
+ const switches=options.tacticsSwitches?.length?validateTacticsSwitches(options.tacticsSwitches,f):[];
  if(options.trainingSetup&&options.initialRestart)throw Error('Choose a recovery setup or a restart, not both.');
  const trainingSetup=options.trainingSetup?validateTrainingSetup(options.trainingSetup,players):undefined;
  if(trainingSetup)for(const pose of trainingSetup.poses){const p=players.find(p=>p.side===pose.side&&p.number===pose.number)!;Object.assign(p,{x:pose.x,y:pose.y,angle:pose.angle,vx:0,vy:0});}
@@ -710,10 +714,23 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    Object.assign(note,{status:'made',time,out:outgoing.id.slice(2),detail:`${outgoing.name} → ${replacement.name}: ${reason}.`});
   });
  };
+ // Tactics switch: checked at stoppages after the orders, never at the opening kickoff; each fires at most once.
+ const switchNotes:SwitchNote[]=switches.map(o=>({order:o.id,side:o.side,status:'waiting'}));
+ const applySwitches=()=>{
+  if(!switches.length||time<=0)return;
+  switches.forEach((order,i)=>{
+   const note=switchNotes[i],team=order.side;
+   if(note.status!=='waiting'||!switchDue(order,time,duration,score,players))return;
+   const moved=applyTacticsSwitch(order,f,players);
+   say('switch',`${f.teams[team].name} își schimbă planul de joc (${triggerText(order.trigger)}).`);
+   Object.assign(events.at(-1)!,{side:team,switch:{order:order.id,trigger:structuredClone(order.trigger),score:[score[team],score[other(team)]],...(moved?{formation:order.tactics.formation,players:moved}:{})}});
+   Object.assign(note,{status:'made',time});
+  });
+ };
  const startRestart=(kind:Restart['kind'],team:Side,spot:Vec,opening?:{taker:string;force:boolean})=>{
   for(const b of playbooks)b.end(time,'restart');
   // A stoppage after full time ends the match: nobody comes on for no seconds.
-  if(!lastAttack){applySubstitutions();applyOrders();}
+  if(!lastAttack){applySubstitutions();applyOrders();applySwitches();}
   awareness.clear();coordination=null;
   feintMemory.clear();
   challenge=null;firstTouch=null;recovering.clear();blocks.clear();wrongfoot.clear();dives.clear();controls.clear();noHandsSide=null;noHandsKeeper='';
@@ -1897,7 +1914,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
  }
  for(const b of playbooks)b.end(time,'end');
  say('end',`Fluier final. ${span(duration)}, destule povești pentru marginea terenului.`);frame();
- return {version:PRACTICE_VERSION,seed:f.seed,duration,...(lastAttack?{played:time}:{}),teams:[f.teams[0].name,f.teams[1].name],players:roster,frames,events,choices,stats,score,controlContacts:record?controlContacts:undefined,...(record?{receptionDuels}:{}),...(record&&aerialDuels.length?{aerialDuels}:{}),...(record&&airChallenges.length?{aerialChallenges:airChallenges}:{}),...(playbooks.length?{playbookSelections:playbooks.flatMap(b=>b.selections.map(sel=>({...sel,side:b.config.side}))),...(playbooks.some(b=>b.standing.notes.length)?{standingNotes:playbooks.flatMap(b=>b.standing.notes)}:{})}:{}),...(coaching?{coachingNotes:coaching.notes}:{}),...(orders.length?{substitutionNotes:orderNotes}:{})};
+ return {version:PRACTICE_VERSION,seed:f.seed,duration,...(lastAttack?{played:time}:{}),teams:[f.teams[0].name,f.teams[1].name],players:roster,frames,events,choices,stats,score,controlContacts:record?controlContacts:undefined,...(record?{receptionDuels}:{}),...(record&&aerialDuels.length?{aerialDuels}:{}),...(record&&airChallenges.length?{aerialChallenges:airChallenges}:{}),...(playbooks.length?{playbookSelections:playbooks.flatMap(b=>b.selections.map(sel=>({...sel,side:b.config.side}))),...(playbooks.some(b=>b.standing.notes.length)?{standingNotes:playbooks.flatMap(b=>b.standing.notes)}:{})}:{}),...(coaching?{coachingNotes:coaching.notes}:{}),...(orders.length?{substitutionNotes:orderNotes}:{}),...(switches.length?{switchNotes}:{})};
 }
 export function samplePractice(r:PracticeResult,t:number):PracticeFrame{
  const time=clamp(t,0,r.played??r.duration);let lo=0,hi=r.frames.length-1;
