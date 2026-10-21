@@ -86,8 +86,8 @@ export function phaseTracker(side:0|1,pitchLength=PITCH_LENGTH){
   }
   prevPs=f.ps;
   if(sets.step(f)===side)return 'set';
-  if(f.ps===side)return theirHalf||f.t-wonAt<WIN_WINDOW*1000?'attack':'build';
-  return f.t-lostAt<LOSS_WINDOW*1000?'loss':'defend';
+  if(f.ps===side)return theirHalf||f.t-wonAt<WIN_WINDOW*1000?'defend':'build';
+  return f.t-lostAt<LOSS_WINDOW*1000?'loss':'attack';
  }};
 }
 
