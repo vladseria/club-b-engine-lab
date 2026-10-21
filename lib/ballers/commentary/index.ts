@@ -14,7 +14,7 @@
 //     tell a 15-minute match without a transcript.
 import type {ReplayHeader} from '../replay';
 import {MUST_WEIGHT,type Incident} from '../incidents';
-import {AT_HOME,FLAVOUR,LINES,REPORT,SUB_REASON,SWITCH_REASON,SWITCH_STYLE,type FlavourOn,type HomeOn} from './ro';
+import {AT_HOME,FLAVOUR,LINES,REPORT,SUB_REASON,type FlavourOn,type HomeOn} from './ro';
 import {normalizeVoice,type Voice} from '../voice';
 
 export const MIN_GAP=4000;
@@ -47,10 +47,8 @@ export function fill(template:string,slots:Record<string,string|undefined>):stri
 export function slotsFor(x:Incident,header:Header):Record<string,string|undefined>{
  const name=(i:number|undefined)=>i===undefined?undefined:header.players[i]?.name;
  const club=x.side===null?undefined:header.teams[x.side]?.name,opp=x.side===null?undefined:header.teams[1-x.side]?.name;
- const reason=x.kind==='substitution'&&x.facts.sub?fill(SUB_REASON[x.facts.sub]??'',{player:name(x.actors[0]),other:name(x.actors[1])})??undefined
-  :x.kind==='switch'&&x.facts.sub?SWITCH_REASON[x.facts.sub]:undefined;
- const style=x.kind==='switch'&&x.facts.style?SWITCH_STYLE[x.facts.style]:undefined,shape=x.kind==='switch'?x.facts.shape:undefined;
- return {player:name(x.actors[0]),other:name(x.actors[1]),club,opp,home:header.teams[0].name,away:header.teams[1].name,score:`${x.score[0]}–${x.score[1]}`,min:mmss(x.t),reason:reason||undefined,style:style||undefined,shape:shape||undefined};
+ const reason=x.kind==='substitution'&&x.facts.sub?fill(SUB_REASON[x.facts.sub]??'',{player:name(x.actors[0]),other:name(x.actors[1])})??undefined:undefined;
+ return {player:name(x.actors[0]),other:name(x.actors[1]),club,opp,home:header.teams[0].name,away:header.teams[1].name,score:`${x.score[0]}–${x.score[1]}`,min:mmss(x.t),reason:reason||undefined};
 }
 /** The template key for an incident. */
 export function lineKey(x:Incident):string{
@@ -62,8 +60,6 @@ export function lineKey(x:Incident):string{
   case 'idea':return x.facts.finally?'idea_finally':'idea';
   // With the reason when there is one worth saying, else the plain change.
   case 'substitution':return x.facts.sub&&SUB_REASON[x.facts.sub]?'substitution':'substitution_plain';
-  // a change of plan: the new shape when there is one, else the new style; the plain line when neither is known
-  case 'switch':return x.facts.shape?'plan_switch_shape':x.facts.style&&SWITCH_STYLE[x.facts.style]?'plan_switch':'plan_switch_plain';
   default:return x.kind;
  }
 }

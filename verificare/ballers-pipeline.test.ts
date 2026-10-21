@@ -23,8 +23,6 @@ describe('official computation → compact replay v2',()=>{
  // (Lane C, 2026-10-21) Any seed serves here. From 13 Oct to 21 Oct the seed had to end its 120 s in an attack at full
  // time for the chunk test (4242 -> 4244 -> 4252 -> 4253 -> 4256 -> 4257, five re-pins); that case is now checked on a
  // result stub below, and the last attack itself is the engine's own test (packages/football-engine/test/last-attack.test.mjs).
- // Plan switch, build 58a06b82: a match without a switch is byte-identical to 6c8b7c82 (512/512 on the public lab), so 4257
- // holds unchanged, not re-pinned.
  const SEED=4257,inp=input(120,SEED);const c=computeMatch(validateInput(inp));const sub=submission(c,inp);
  const unpack=(b64:string)=>JSON.parse(gunzipSync(Buffer.from(b64,'base64')).toString());
  it('is deterministic for the same frozen input',()=>{

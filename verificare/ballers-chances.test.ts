@@ -64,13 +64,11 @@ describe('good chances: the sum over a match\'s shots',()=>{
   expect(matchChances(ev,header,'b',L)).toEqual(matchChances(ev,header,'b',T));
   expect(matchChances(ev,header,'c',L)).toEqual(matchChances(ev,header,'b',T));
   expect(matchChances(ev,header,'other',L)).toBeNull();
-  // the live table: release 6's measured build b767cca3, the engine-as-data build 6c8b7c82 and the plan-switch build
-  // 58a06b82 (the same matches without a switch, 512/512 on the lab); an unknown build shows none, nor 5a4f09a2 (the
-  // close's first stamp, never live, replaced)
+  // the live table: release 6's measured build b767cca3 and the engine-as-data build 6c8b7c82 (the same matches,
+  // 512/512 on the lab); an unknown build shows none, nor 5a4f09a2 (the close's first stamp, never live, replaced)
   const both=matchChances(ev,header,'b767cca328914f99912cbdffa3d193bd2c485127a4b7f324d91dcaa0463ff3f2');
   expect(both).not.toBeNull();
   expect(matchChances(ev,header,'6c8b7c820eec889d0a4c4e09b2cea5b70f0c7a1a4b851f82230406fcede00d5b')).toEqual(both);
-  expect(matchChances(ev,header,'58a06b823ca1e0efdcff2017c079b9f791d8968c402376aec8c4966e906dd816')).toEqual(both);
   expect(matchChances(ev,header,'5a4f09a2416f6e4df321ed1387b3d157761371cb56aec13c35319dfd50089aeb')).toBeNull();
   expect(matchChances(ev,header,'8168a1a6263120ce989a84f88444dd798c96ffbff5403294d25698cf1cce7fde')).toBeNull();
   expect(matchChances(ev,header,'0'.repeat(64))).toBeNull();
