@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {runMatch,teamApproaches,defensiveApproaches} from '../dist/index.js';
 import {advanceFlight} from '../dist/practice-flight.js';
-import {play,clearShot,squareBall} from './constructed-scenes.mjs';
 const fixture=JSON.parse(readFileSync(new URL('./feint-release-scene.json',import.meta.url))).fixture;
 // Live restart setups (2026-09-29) change the old 13009 passage; 13028 is the
 // first later seed whose 100 s again includes a goal after an opponent's touch.
@@ -86,8 +85,6 @@ const fixture=JSON.parse(readFileSync(new URL('./feint-release-scene.json',impor
 // The striker outlet round (2026-10-17) changed it; searching from 13826, 13878 is the next (same repin.mjs shotTrace).
 // Release 3 (2026-10-16) changed it; searching from 13878, 13893 is the next (evidence/2026-10-16-release-3/repin.mjs).
 // The keeper fix (2026-10-19) changed it; searching from 13894, 13900 is the next (evidence/2026-10-19-keeper-fix/repin.mjs).
-// (Lane C, 2026-10-21) Only the goal check below still reads this passage; a goal after an opponent's touch needs a
-// deflection, which no constructed start can promise without a ball already in flight (left for a resume-from-moment input).
 fixture.seed=13900;fixture.teams[0].lineup[1]='motanescu';Object.assign(fixture.teams[0].tactics,teamApproaches.balanced.settings);Object.assign(fixture.teams[1].tactics,defensiveApproaches.press.tactics);
 const result=runMatch({fixture,durationSeconds:100}).result;
 
@@ -103,24 +100,16 @@ test('goal events identify the beneficiary even when an opponent made the last t
 });
 
 test('shot traces describe the actual released ball rather than a selected but unexecuted plan',()=>{
- // If this fails: the replay draws a shot (its line, its chance read) that is not the ball that actually left his foot.
- // Enough: the clear shot is an ordinary prepared strike and the square ball a first-time one, the two ways a trace is
- // recorded. (Lane C, 2026-10-21: replaces the shots of seed 13900's 100 s match below, which the goal check still uses.)
- const runs=[play(clearShot()),play(squareBall())];
- const shots=runs.flatMap(r=>r.events.filter(e=>e.kind==='shot').map(e=>[r,e]));
- assert(shots.some(([,e])=>!e.firstTime&&!e.technique)&&shots.some(([,e])=>e.firstTime),'both kinds of trace are checked');
- for(const [result,e] of shots){
+ const shots=result.events.filter(e=>e.kind==='shot');assert(shots.length);
+ for(const e of shots){
   assert(e.shot);const frame=result.frames.findLast(f=>f.time<=e.time),s=e.shot;
   assert.equal(frame.time,e.time);assert.equal(frame.ball.mode,'shot');
   if(e.firstTime||e.technique){
    // Swept contact occurs inside the tick. The replay frame is later than the
    // actual launch; verify the foot/contact and the physical flight between.
    const contact=result.controlContacts.find(c=>c.kind==='shot'&&c.actor===e.actor&&c.technique===e.technique&&e.time-c.time>=0&&e.time-c.time<1/60);
-   // Equal to the last float bit is not the property: the seed search above skipped 13051 and 13203 only because a
-   // first-time velocity came out 1 ulp off, and this square ball has one too. A trace within 1e-9 is the same ball.
-   const same=(a,b)=>Math.abs(a-b)<1e-9;
-   assert(contact);assert(same(s.origin.x,contact.x)&&same(s.origin.y,contact.y),'traced from the contact point');
-   assert(same(s.velocity.vx,contact.outgoing.x)&&same(s.velocity.vy,contact.outgoing.y),'with the velocity the contact gave it');
+   assert(contact);assert.equal(s.origin.x,contact.x);assert.equal(s.origin.y,contact.y);
+   assert.equal(s.velocity.vx,contact.outgoing.x);assert.equal(s.velocity.vy,contact.outgoing.y);
    const flight={...s.origin,...s.velocity,owner:null,mode:'shot'};advanceFlight(flight,e.time-contact.time);
    for(const key of ['x','y','z','vx','vy','vz'])assert(Math.abs(flight[key]-frame.ball[key])<1e-8,`Launched ${key} must explain the replay frame`);
   }else{
