@@ -872,13 +872,6 @@ export const WORLD=freeze({
    SHADOW_GAP:p(1.6,'m','body',['practice-defending.ts:982'],'B2, the presser\'s cover shadow (2026-10-09). "I\'m alone on him: I can\'t cover the ball and the pass, so I come at him through the pass." A presser with none of his outfield team-mates within SHADOW_ALONE m of the man on the ball, who ...'),
    SHADOW_PULL:p(.8,'x','body',['practice-defending.ts:982'],'B2, the presser\'s cover shadow (2026-10-09). "I\'m alone on him: I can\'t cover the ball and the pass, so I come at him through the pass." A presser with none of his outfield team-mates within SHADOW_ALONE m of the man on the ball, who ...'),
   },
-  strike:{
-   speedBase:p(7,'m/s','body',['practice.ts:1798'],'a planned first-time strike happens only off a ball coming at under this (m/s, relative to the receiver) plus speedPerControl x his control (11.5 m/s at control 6); faster, he takes a touch whatever the read said'),
-   speedPerControl:p(.75,'m/s','body',['practice.ts:1798'],'... plus this per point of control (m/s)'),
-  },
-  touch:{
-   baseCost:p(0.17,'x','free',['practice-receive.ts:240','practice-receive.ts:250'],'a flat price on a controlling touch, as a share of the chance (the scale touchCost and firstTimeCost share), added to the touch cost of every kick plan whatever the picture; 0 = none (today). Question 5 lever 1: with nobody near, a touch otherwise costs exactly nothing in the read'),
-  },
  },
  /** the keeper: reach, edge, positioning, claiming, handling, holding */
  keeper:{
