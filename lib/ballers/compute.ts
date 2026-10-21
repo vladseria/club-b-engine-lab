@@ -173,7 +173,10 @@ export function compact(input:FrozenInput,r:EngineResult):CompactMatch{
  let last=-Infinity;
  const frames:ReplayFrame[]=[];
  r.frames.forEach((f,n)=>{
-  const keep=n===0||f.cut||f.time>=last+FRAME_STEP-1e-9||n===r.frames.length-1;if(!keep)return;last=f.time;
+  // the whistle at half-time (the frame a same-instant cut follows) is always kept: the first half ends on it, and the
+  // live edge must reach it for the half-time line to show at the whistle (only the half-time has such a pair)
+  const whistle=!!r.frames[n+1]?.cut&&r.frames[n+1].time===f.time;
+  const keep=n===0||f.cut||whistle||f.time>=last+FRAME_STEP-1e-9||n===r.frames.length-1;if(!keep)return;last=f.time;
   const owner=f.control?.owner??(f.restart?f.restartInfo?.taker:undefined)??f.ball.owner;
   const frame:ReplayFrame={t:ms(f.time),p:f.players.map(p=>[cm(p.x),cm(p.y),mrad(p.angle)]),b:[cm(f.ball.x),cm(f.ball.y),cm(f.ball.z)],o:idx(owner),ps:f.side,s:[f.score[0],f.score[1]]};
   if(f.restart)frame.r=1;if(f.cut)frame.c=1;
