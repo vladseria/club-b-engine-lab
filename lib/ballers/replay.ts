@@ -21,6 +21,10 @@ export const REPLAY_VERSION = 2 as const;
 export const CHUNK_SECONDS = 60;
 /** Frames kept at least this far apart (plus every cut and the final frame). */
 export const FRAME_STEP = 0.2;
+/** Half-time (deliverables/ballers-half-time/DESIGN.md): the live break, in real seconds, the same for every viewer.
+ * A match with a half-time says so in its header (`interval`); its replay holds the engine's `half` event (the
+ * whistle) and a cut frame at the same instant (the second half's kickoff, the ends swapped on screen). */
+export const BREAK_SECONDS = 300;
 
 export interface ReplayPlayer {
  /** As above. */ i:number;side:0|1;
@@ -36,6 +40,9 @@ export interface ReplayHeader {
  /** Seconds until the final whistle: the match length, or a few seconds more when the last attack played out. */ duration:number;
  /** The match length (the clock's full time), present only when the whistle came after it (last attack, engine practice-match.ts). */ fullTime?:number;
  chunkSeconds:number;chunks:number;
+ /** Half-time (from the half-time build): the live break in seconds (BREAK_SECONDS). Absent = no half-time (older
+  * replays, quick matches). The whistle's second is NOT here (it would say at kickoff whether an attack was on at
+  * 7:30): read it from the `half` event (halfTime below). */ interval?:number;
  teams:[ReplayTeam,ReplayTeam];players:ReplayPlayer[];
 }
 /** One frame: t ms; p = [x, y, angle] per player; b = ball [x, y, z]; o = ball
