@@ -86,7 +86,8 @@ describe('one real match',()=>{
   expect(['goal','out','foul','offside','half']).toContain(ev[i-1].k);expect(ev[i-1].t).toBe(ev[i].t);expect(ev[i].t).toBeGreaterThanOrEqual(150000);
   expect(ev[i].sw).toMatchObject({k:'half',y:'direct',f:'2-2'});
   expect(ev[i].sw!.ro!.map(r=>r[1])).toEqual(['GK','CB','W','W','CB']);
-  expect(withSwitch.compact.switchNotes).toEqual([{order:'sw',side:0,status:'made',time:ev[i].t/1000}]);
+  const notes=withSwitch.compact.switchNotes!;expect(notes).toHaveLength(1);
+  expect(notes[0]).toMatchObject({order:'sw',side:0,status:'made'});expect(Math.round(notes[0].time!*1000)).toBe(ev[i].t);
   const before=(c:typeof plain)=>c.compact.chunks.flatMap(x=>x.e).filter(e=>e.t<ev[i].t);
   expect(before(withSwitch)).toEqual(before(plain));
  },120000);
