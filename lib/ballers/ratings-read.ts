@@ -17,9 +17,10 @@ import {matchRatings,matchRoles,playerOfTheMatch,SLOT_ROLES,type PlayerRating,ty
 import {readPlayerStats,type PlayerLine} from './stats';
 
 /** What rolesFromLines needs of a replay header. */
-export interface RatingHeader extends RolesHeader {duration:number;fullTime?:number}
+export interface RatingHeader extends RolesHeader {duration:number;fullTime?:number;length?:number}
 /** The match length the marks are read against: the clock's full time, never the last attack past it. */
-export const matchSeconds=(h:Pick<RatingHeader,'duration'|'fullTime'>)=>h.fullTime??h.duration;
+/** The match length: minutes on the pitch are counted on the clock the match shows (stats.ts), so a full match is it. */
+export const matchSeconds=(h:Pick<RatingHeader,'duration'|'fullTime'|'length'>)=>h.length??h.fullTime??h.duration;
 
 /** Every line carries the match detail (`m`): only then can the match be rated. */
 export const ratable=(lines:readonly PlayerLine[]|null|undefined):lines is PlayerLine[]=>!!lines&&lines.length>0&&lines.every(l=>l.m!==undefined);

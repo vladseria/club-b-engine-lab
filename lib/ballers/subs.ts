@@ -6,6 +6,7 @@
 // (private.ballers_check_subs) and the engine agree on what is allowed.
 import {validateSubstitutionOrders,type SubstitutionNote,type SubstitutionOrder,type SubstitutionTrigger} from '../../packages/football-engine/src/practice-substitutions';
 import type {Fixture} from '../../packages/football-engine/src/model';
+import {OPEN_CLOCK, shownClock, type MatchClock} from './match-clock';
 
 export type PrepOrder=Omit<SubstitutionOrder,'side'>;
 export type {SubstitutionNote,SubstitutionTrigger};
@@ -140,11 +141,12 @@ export const newOrderId=()=>`s${Date.now().toString(36)}${(n++).toString(36)}`;
 /** A stored note: the engine's SubstitutionNote plus the order it came from. */
 export interface StoredNote extends SubstitutionNote {trigger?:SubstitutionTrigger;notBefore?:number}
 /** English, owner-facing: what happened to an order. */
-export function noteLine(n:StoredNote,name:Name):{made:boolean;text:string}{
+/** `matchClock`: the match's shown clock (lib/ballers/match-clock.ts) for the moment a change was made. */
+export function noteLine(n:StoredNote,name:Name,matchClock:MatchClock=OPEN_CLOCK):{made:boolean;text:string}{
  const t=n.trigger;
  if(n.status==='made'){
   const why=t?` (${triggerPhrase(t,name).replace(/^if /,'').replace(/^at /,'')})`:'';
-  return {made:true,text:`${n.time!==undefined?clock(n.time)+' ':''}${name(n.in)} on for ${n.out?name(n.out):'a team-mate'}${why}.`};
+  return {made:true,text:`${n.time!==undefined?shownClock(n.time,matchClock)+' ':''}${name(n.in)} on for ${n.out?name(n.out):'a team-mate'}${why}.`};
  }
  const who=`${name(n.in)} for ${n.out?name(n.out):'the most tired player'}`;
  if(n.status==='impossible'){

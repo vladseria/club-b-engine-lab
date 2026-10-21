@@ -23,8 +23,9 @@
 // in last (then it is his); a conceding player redirecting anything else in
 // (back-pass, clearance, cross, a shot going wide) = autogol.
 import type {ReplayEvent, ReplayFrame, ReplayHeader} from './replay';
+import {matchClock, shownClock} from './match-clock';
 
-export type IncidentKind='kickoff'|'goal'|'own_goal'|'save'|'wide'|'blocked'|'chance'|'beat'|'key_pass'|'tackle'|'turnover'|'foul'|'half'|'end'|'quiet'|'idea'|'substitution'|'switch';
+export type IncidentKind='kickoff'|'goal'|'own_goal'|'save'|'wide'|'blocked'|'chance'|'beat'|'key_pass'|'tackle'|'turnover'|'foul'|'half'|'second_half'|'end'|'quiet'|'idea'|'substitution'|'switch';
 export type GoalState='opens'|'equalises'|'leads'|'extends'|'pulls_back';
 export interface Incident {
  /** Stable across viewers and horizons: `${kind}@${t}` (+ `#n` on a clash). */ id:string;
@@ -35,14 +36,16 @@ export interface Incident {
  /** Importance, 0-100. Picks the line when two moments compete; >= MUST_WEIGHT always gets a line. */ weight:number;
  /** Player index whose portrait may show: only goals and the pass that made one. */ portrait?:number;
  /** Score (home, away) once the incident is done. */ score:[number,number];
+ /** The moment on the clock the match shows (lib/ballers/match-clock.ts): "7:31", "7:30 +0:03", "15:00 +0:04". */ min?:string;
  /** The engine's own Romanian line for the key event: the commentary's fallback. */ engine:string;
  /** Facts the lines may use (all read from events at or before t). */
  facts:{state?:GoalState;late?:'lead'|'equaliser';dist?:number;big?:boolean;finally?:boolean;shooter?:number;assist?:number;goalAt?:number;
   /** A substitution's trigger (P5): tired | losing | drawing | winning | up | down | half; a plan switch's too. */ sub?:string;
-  /** A plan switch (in-match plan switch): the style key it goes to, and the new formation when it changes. */ style?:string;shape?:string};
+  /** A plan switch (in-match plan switch): the style key it goes to, and the new formation when it changes. */ style?:string;shape?:string;
+  /** (half) the real whistle at half-time (the engine's `half` event), not the clock's midpoint of a match without one. */ whistle?:boolean};
 }
 export const MUST_WEIGHT=90;
-const W:Record<IncidentKind,number>={kickoff:95,goal:100,own_goal:100,end:95,key_pass:62,save:48,chance:56,idea:55,substitution:92,switch:92,half:50,blocked:42,wide:34,beat:36,turnover:28,foul:32,tackle:26,quiet:12};
+const W:Record<IncidentKind,number>={kickoff:95,goal:100,own_goal:100,end:95,key_pass:62,save:48,chance:56,idea:55,substitution:92,switch:92,half:50,second_half:94,blocked:42,wide:34,beat:36,turnover:28,foul:32,tackle:26,quiet:12};
 export const weightOf=(k:IncidentKind)=>W[k];
 
 /** When a late goal counts as late (s from the end). */
@@ -92,7 +95,7 @@ export function creditGoal(goal:ReplayEvent,before:ReplayEvent[],header:Pick<Rep
 
 export interface IdeaInput {seq:number;side:0|1;t:number;ended_at:number|null;progress:string;end_reason:string|null;free?:boolean;
  /** Whether it played out as drawn (lib/ballers/idea-run.ts; the public marker's `run`). Absent: the older rule below. */ run?:'ran'|'partly'|'broke'|null}
-export interface IncidentInput {header:Pick<ReplayHeader,'players'|'duration'|'fullTime'>;events:ReplayEvent[];frames:ReplayFrame[];
+export interface IncidentInput {header:Pick<ReplayHeader,'players'|'duration'|'fullTime'|'interval'>;events:ReplayEvent[];frames:ReplayFrame[];
  /** Idea markers (seconds, as ballers_match_ideas stores them). Optional. */ ideas?:IdeaInput[];
  /** ms; nothing after it is known yet. Omit = the whole match is held. */ horizon?:number}
 
@@ -117,6 +120,8 @@ export function buildIncidents(input:IncidentInput):Incident[]{
   switch(e.k){
    case 'start':add({t:e.t,kind:'kickoff',side:null,actors:[],engine:e.x,facts:{}});break;
    case 'end':add({t:e.t,kind:'end',side:null,actors:[],engine:e.x,facts:{}});break;
+   // Half-time (from the half-time build): the whistle; the second half's kickoff is told below
+   case 'half':add({t:e.t,kind:'half',side:null,actors:[],engine:e.x,weight:MUST_WEIGHT+3,facts:{whistle:true}});break;
    case 'goal':{
     const s=(e.s??0) as 0|1,credit=creditGoal(e,events.slice(0,i),header);
     score[s]++;
@@ -180,10 +185,13 @@ export function buildIncidents(input:IncidentInput):Incident[]{
   }
  }
 
- // Halfway on the clock (a 15-minute match has no interval, so this is the
- // clock's fact, not an invented half-time).
- const half=Math.round((header.fullTime??header.duration)*1000/2); // half the match length, not of a last attack's extra seconds
- if(dur>=300000&&half<=horizon){const f=frames[Math.max(0,frameIndex(frames,half))];add({t:half,kind:'half',side:null,actors:[],engine:'',score:f?[f.s[0],f.s[1]]:[0,0],facts:{}});}
+ // Halfway on the clock, for a match without a half-time (a quick match, every replay from before the half-time
+ // build): the clock's fact, not an invented interval. A match with one (header.interval) has the real whistle above
+ // and its second half's kickoff here.
+ if(!header.interval){const half=Math.round((header.fullTime??header.duration)*1000/2); // half the match length, not of a last attack's extra seconds
+  if(dur>=300000&&half<=horizon){const f=frames[Math.max(0,frameIndex(frames,half))];add({t:half,kind:'half',side:null,actors:[],engine:'',score:f?[f.s[0],f.s[1]]:[0,0],facts:{}});}}
+ else{const h=events.find(e=>e.k==='half'),kick=h?events.find(e=>e.t>=h.t&&e.rk==='kickoff'&&e.k!=='restart'):undefined;
+  if(kick){const ks=(kick.s??side(kick.a)) as 0|1|undefined;add({t:kick.t,kind:'second_half',side:ks??null,actors:kick.a===undefined?[]:[kick.a],engine:kick.x,facts:{}});}}
 
  // Ideas that came off (P5 names them for their owner; here: that one did).
  if(input.ideas?.length)ideaIncidents(input.ideas,events,horizon).forEach(x=>add({...x,score:scoreAt(out,x.t)}));
@@ -193,6 +201,9 @@ export function buildIncidents(input:IncidentInput):Incident[]{
  // Ids: kind@t, unique.
  const seen=new Map<string,number>();
  for(const x of withQuiet){const base=`${x.kind}@${x.t}`,n=seen.get(base)??0;seen.set(base,n+1);x.id=n?`${base}#${n}`:base;}
+ // the moment as the match's clock shows it (7:30 +0:03, the second half from 7:30, 15:00 +0:04)
+ const clk=matchClock(header,events);
+ for(const x of withQuiet)x.min=shownClock(x.t/1000,clk);
  return withQuiet;
 }
 const order=(a:Incident,b:Incident)=>a.t-b.t||b.weight-a.weight||a.kind.localeCompare(b.kind)||(a.actors[0]??-1)-(b.actors[0]??-1);
