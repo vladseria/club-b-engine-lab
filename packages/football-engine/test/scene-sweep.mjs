@@ -2,7 +2,8 @@
 // seed pin). For every scene: on how many of seeds 1-20 its moment happens, and whether the property held each time.
 //   node packages/football-engine/test/scene-sweep.mjs            training scenes only (10 s runs, no match)
 //   --build   transpile src to dist first (the public lab has esbuild, not tsc)
-//   --rows    append rows to evidence/2026-10-21-lane-c/results/sweep.jsonl (the path the lab collects)
+//   --rows    append one row per scene and moment, with every seed's outcome (perSeed: hit / no / null when the moment
+//             could not happen), to evidence/2026-10-21-lane-c/results/sweep.jsonl (the path the lab collects)
 // The substitution run is a match: scene-sweep-matches.mjs, on the lab only.
 import {mkdirSync,appendFileSync,readdirSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
@@ -17,8 +18,8 @@ const H=await import('./constructed-scenes.mjs');
 const {defaultPlans}=await import('../dist/practice-playbook.js');
 const {L,GH}=await import('../dist/pitch.js');
 const seeds=H.SWEEP,rows=[];
-const record=(scene,moment,hits,n,propertyFailures,note='')=>{rows.push({scene,moment,hits,n,propertyFailures,note});console.log(`${scene.padEnd(34)} ${moment.padEnd(52)} ${String(hits).padStart(2)}/${n}${propertyFailures?`  PROPERTY FAILED ${propertyFailures}`:''}${note?`  ${note}`:''}`);};
-const sweep=(scene,moment,run)=>{let hits=0,n=0,bad=0;for(const seed of seeds){const o=run(seed);if(o===undefined)continue;n++;if(o.hit){hits++;if(o.ok===false)bad++;}}record(scene,moment,hits,n,bad);};
+const record=(scene,moment,hits,n,propertyFailures,perSeed)=>{rows.push({scene,moment,hits,n,propertyFailures,perSeed});console.log(`${scene.padEnd(34)} ${moment.padEnd(52)} ${String(hits).padStart(2)}/${n}${propertyFailures?`  PROPERTY FAILED ${propertyFailures}`:''}`);};
+const sweep=(scene,moment,run)=>{let hits=0,n=0,bad=0;const perSeed={};for(const seed of seeds){const o=run(seed);if(o===undefined){perSeed[seed]=null;continue;}n++;perSeed[seed]=o.hit?(o.ok===false?'hit, property failed':'hit'):'no';if(o.hit){hits++;if(o.ok===false)bad++;}}record(scene,moment,hits,n,bad,perSeed);};
 
 // shots
 const shooter=setup=>seed=>{const r=H.play(setup,{seed}),i=r.players.findIndex(p=>p.side===0&&p.number===5),shot=r.events.find(e=>e.kind==='shot');

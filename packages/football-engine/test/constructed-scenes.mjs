@@ -40,13 +40,13 @@ export const ownThrowIn=()=>createRestartSetup('throw',practicePlayers(structure
 /** #3 on the ball at (14, 0); #5 checks short at (22, 2) with his marker a metre behind him. */
 export const markedReceiver=()=>constructed([[3,0],[8,0],[14,0],[18,10],[22,2,Math.PI],[46,0],[30,-4],[23.2,2.2],[26,9],[20,-7]],[0,3]);
 
-/** A top tackler (side 1's #3, Florin Paznic, defending 10) squared up to a poor carrier (side 0's #3, Crocodinho, control
- * 1) on the ball at (20, 0): 'front' 1.6 m in front of him, 'side' stepping in from his right shoulder, 'run' arriving
- * at speed from 4 m (a tackle through the man). Everyone else is 10 m or more away, so the duel is theirs. Pass
- * `edit: mismatch` to play(). */
+/** A duel for side 0's #3 (Crocodinho) on the ball at (20, 0) facing goal, against side 1's #3 (Florin Paznic):
+ * 'front' 1.6 m in front of him, 'side' stepping in from his right shoulder, 'behind' at his back. Everyone else is 10 m
+ * or more away, so the duel is theirs. Pass `edit: mismatch` (a top tackler on a poor carrier) or `edit: pokeLoose` (a
+ * clumsy tackler on a quick, strong carrier) to play(). */
 export const tackle=where=>constructed([[3,0],[8,0],[20,0],[10,10],[12,-10],[46,0],[34,8],TACKLER[where],[34,-8],[30,0]],[0,3]);
-/** Where the tackler starts, round the carrier at (20, 0) who faces goal ([x, y, facing]). */
-export const TACKLER={front:[21.6,0],side:[20.9,1.1],run:[24,0],behind:[18.2,0.3,0],behindLeft:[19,-.8,.3],sideBack:[19.6,1,-.6]};
+/** Where the tackler starts ([x, y, facing]; facing defaults to side 1's). */
+export const TACKLER={front:[21.6,0],side:[20.9,1.1],behind:[18.2,0.3,0]};
 /** Tackles through the man: 'chase' a fast tackler (pace 10) running in from 3 m behind a carrier at (20, 0) with open
  * grass ahead; 'meet' a carrier at full pace (pace 10) running from (14, 0) at a tackler standing near his line at
  * (28, 0.6). The man is moving or the tackler arrives at speed, so a boot that goes through the ball into his leg hurts. */

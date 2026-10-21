@@ -44,9 +44,9 @@ test('the tackled man never re-collects the loose ball inside his touch ban',()=
  // If this fails: a tackle that wins nothing, the beaten man picking the loose ball straight back up (before the ban he
  // was next on it 0.05 s later in about 40% of such tackles). Enough: each duel knocks the ball loose at both men's feet
  // and the beaten man wants it back: a clumsy tackler pokes it loose from a quick, strong carrier, from his side and from
- // behind. That the beaten man is first to it once his ban is over still happens on few seeds (seed sweep: side 3, behind
- // 3 of 20), so both starts are played on the sweep's 20 seeds: he is next on the ball in at least one, and never before
- // his touch ban ends. (Lane C, 2026-10-21: replaces seed 2027's 300 s match, its "six or more" and the 20% share, which
+ // behind. That the beaten man is first to it once his ban is over still happens on few seeds (seed sweep, of the seeds
+ // with a tackle: side 2 of 17, behind 3 of 9), so both starts are played on the sweep's 20 seeds: he is next on the ball
+ // in at least one, and never before his touch ban ends. (Lane C, 2026-10-21: replaces seed 2027's 300 s match, its "six or more" and the 20% share, which
  // was a statistic of that one passage.)
  let tackles=0,back=0;
  for(const where of ['side','behind'])for(const seed of SWEEP){

@@ -159,10 +159,13 @@ test('a standing mark order survives a counter-press window',()=>{
 test('a player who has just been tackled cannot go straight back in',async()=>{
  // If this fails: tackle ping-pong, the man who just lost the ball lunging straight back in before he has his feet.
  // Enough: a top tackler squared up to a poor carrier takes the ball off him, and the beaten man wants it back: in the
- // front duel he goes in again the moment his ban ends, so the ban is what holds him. Seed sweep (seeds 1-20): the
- // tackler takes the ball on 19 of 20 (front) and 20 of 20 (side); the beaten man goes in again after his ban on 18 of the
- // 19 front duels (2 of 20 side). So each scene is played on five seeds and asserted as "at least 4 of 5" and, for the
- // front duel, "goes in again in at least 3"; whenever a tackle happens, no challenge comes inside the ban.
+ // front duel he goes in again the moment his ban ends, so the ban is what holds him. Seed sweep (seeds 1-20, rows in
+ // evidence/2026-10-21-lane-c/results/sweep.jsonl): the tackler takes the ball on 19 of 20 seeds (front) and 20 of 20
+ // (side); after a front tackle the beaten man goes in again once his ban is over on 18 of 19. So each scene is played on
+ // the five SEEDS and asserted as "takes the ball on at least 4 of 5" and, front, "goes in again on at least 3"; every
+ // won tackle in every run is checked: no challenge inside the ban. On these five seeds the build today has front 5 of 5
+ // tackles and 4 of 5 again, side 5 of 5: each bar sits one below what is observed. At the sweep's rates (0.95 a seed) a
+ // run of five clears 4 of 5 with probability 0.98 and 3 of 5 with 0.999.
  // (Lane C, 2026-10-21: replaces seed 2027's 240 s match and its "five or more tackles"; the ban checked is the one the
  // duel gave him, which is at least STEP.)
  const {STEP}=await import('../dist/practice-balance.js');
@@ -170,12 +173,16 @@ test('a player who has just been tackled cannot go straight back in',async()=>{
  for(const where of ['front','side']){
   let won=0,again=0;
   for(const seed of SEEDS){
-   const r=play(tackle(where),{seed,edit:mismatch}),e=wonTackles(r)[0];if(!e)continue;won++;
-   const ban=e.balance.victim.challenge;assert(ban>=STEP-.01,`his foot must come down first (${ban} s)`);
-   const his=r.choices.filter(c=>r.players[c.player].id===e.target&&c.kind==='challenge'&&c.time>e.time+1e-6);
-   const early=his.find(c=>c.time<e.time+ban-.01);
-   assert(!early,`${where}, seed ${seed}: ${e.target} tackled at ${e.time.toFixed(2)} s went in again at ${early?.time.toFixed(2)} s`);
-   if(his.length)again++;
+   const r=play(tackle(where),{seed,edit:mismatch}),tackles=wonTackles(r);if(!tackles.length)continue;won++;
+   let wentAgain=false;
+   for(const e of tackles){
+    const ban=e.balance.victim.challenge;assert(ban>=STEP-.01,`his foot must come down first (${ban} s)`);
+    const his=r.choices.filter(c=>r.players[c.player].id===e.target&&c.kind==='challenge'&&c.time>e.time+1e-6);
+    const early=his.find(c=>c.time<e.time+ban-.01);
+    assert(!early,`${where}, seed ${seed}: ${e.target} tackled at ${e.time.toFixed(2)} s went in again at ${early?.time.toFixed(2)} s`);
+    if(his.length)wentAgain=true;
+   }
+   if(wentAgain)again++;
   }
   assert(won>=4,`${where}: the top tackler takes the ball (${won} of ${SEEDS.length} seeds)`);
   if(where==='front')assert(again>=3,`front: the beaten man goes in again once his ban ends (${again} of ${won})`);
@@ -184,11 +191,12 @@ test('a player who has just been tackled cannot go straight back in',async()=>{
 
 test('a tackle through the man costs him more than putting his foot down',async()=>{
  // If this fails: a man hit through the leg or the body gets up as fast as one who only lost the ball to a poke (the
- // impact and the fall in practice-balance never reach the match). Enough: a fast tackler chasing a carrier from behind,
- // and a carrier at full pace meeting a standing tackler, are where a boot goes through the ball into the man. That is
- // rare on any one seed (seed sweep: 2 of 20 chase, 3 of 20 meet), so both are played on the sweep's 20 seeds: at least one
- // hit through the man, and every one leaves a challenge ban longer than his touch ban (the impact, or the time on the
- // floor and getting up, on top of the step).
+ // impact and the fall in practice-balance never reach the match), or goes back in before he is steady. Enough: a fast
+ // tackler chasing a carrier from behind, and a carrier at full pace meeting a standing tackler, are where a boot goes
+ // through the ball into the man. That is rare on any one seed (seed sweep: 2 of 20 chase, 3 of 20 meet), so both are
+ // played on the sweep's 20 seeds: at least one hit through the man, and every one leaves a challenge ban longer than his
+ // touch ban (the impact, or the time on the floor and getting up, on top of the step), which the match enforces: he
+ // makes no challenge before it ends.
  const {play,through,throughEdit,SWEEP}=await import('./constructed-scenes.mjs');
  let hits=0;
  for(const kind of ['chase','meet'])for(const seed of SWEEP){
@@ -196,6 +204,8 @@ test('a tackle through the man costs him more than putting his foot down',async(
   for(const e of r.events.filter(e=>(e.kind==='tackle'||e.kind==='foul')&&e.balance?.victim&&e.balance.hit>0)){
    hits++;const v=e.balance.victim;
    assert(v.challenge>v.touch,`${kind}, seed ${seed}: hit ${e.balance.hit} m/s, challenge ban ${v.challenge} s, touch ban ${v.touch} s`);
+   const early=r.choices.find(c=>r.players[c.player].id===e.target&&c.kind==='challenge'&&c.time>e.time+1e-6&&c.time<e.time+v.challenge-.01);
+   assert(!early,`${kind}, seed ${seed}: hit at ${e.time.toFixed(2)} s, went in again at ${early?.time.toFixed(2)} s, inside his ${v.challenge} s ban`);
   }
  }
  assert(hits>0,'a boot goes through the man in at least one of the 40 duels');

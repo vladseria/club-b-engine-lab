@@ -259,7 +259,7 @@ const progressionOption=(o:{runBypass:number;runReturn:number;runOther:number;su
 /** Progression: how the team moves the ball forward. Values exactly as the code had them at b107e7b2. */
 export const PROGRESSION:Readonly<Record<Tactics['progression'],ProgressionOption>>={
  patient:progressionOption({runBypass:-.18,runReturn:.15,runOther:0,supportCredit:.15,forwardDiagonals:true,extraOutlet:true,depthRunAnywhere:false,depthRunAhead:23,frontAhead:16,attackValue:.7,clockStartsAfter:1,readsBlock:true,clockDeliveryTerms:false,delivery:'patient'}),
- mixed:progressionOption({runBypass:0,runReturn:0,runOther:0,supportCredit:0,forwardDiagonals:false,extraOutlet:false,depthRunAnywhere:false,depthRunAhead:-23,frontAhead:-16,attackValue:.9,clockStartsAfter:0,readsBlock:false,clockDeliveryTerms:true,delivery:'none'}),
+ mixed:progressionOption({runBypass:0,runReturn:0,runOther:0,supportCredit:0,forwardDiagonals:false,extraOutlet:false,depthRunAnywhere:false,depthRunAhead:23,frontAhead:16,attackValue:.9,clockStartsAfter:0,readsBlock:false,clockDeliveryTerms:true,delivery:'none'}),
  direct:progressionOption({runBypass:.18,runReturn:.18,runOther:.18,supportCredit:0,forwardDiagonals:false,extraOutlet:false,depthRunAnywhere:true,depthRunAhead:30,frontAhead:20,attackValue:1.1,clockStartsAfter:0,readsBlock:false,clockDeliveryTerms:true,delivery:'direct'}),
 };
 /** Progression's off-ball coefficients shared by every option. */

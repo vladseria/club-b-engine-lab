@@ -22,7 +22,7 @@ export interface MatchSettings {keeper?:KeeperSetting;setPiece?:Exclude<FreeKick
  * wants over the attacker, how far out he goes and how high he stands:
  * `keeperSweepReach` / `keeperSweepDepth` in practice-keeper.ts), and widens
  * (sweeper) or narrows (line) his high-ball claims and build-up depth. */
-export const KEEPER_SWEEP:Record<KeeperSetting,number>={line:.9,sweeper:.08};
+export const KEEPER_SWEEP:Record<KeeperSetting,number>={line:.08,sweeper:.9};
 
 const KEEPERS:readonly KeeperSetting[]=['line','sweeper'];
 const PLAYS:readonly FreeKickPlay[]=['short','mixed','delivery'];
