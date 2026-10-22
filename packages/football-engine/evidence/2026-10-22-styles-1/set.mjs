@@ -44,10 +44,13 @@ export function yTasks(){
 //       might keep a possession side from being caught without defending deeper: 'narrow' (Width Narrow: closer
 //       together with the ball), 'link' (a Drops deep striker: one more man near the ball), 'aggr' (Press Aggressive).
 //       --v-seeds N (default 40).
-const TUNE={base:{},narrow:{width:'narrow'},link:{striker:'link'},aggr:{press:'aggressive'}};
+//       (23 Oct, owner) 'lineStd': Line Standard instead of Short's High; and a third squad, h5 "passers who defend"
+//       (row-trans.ts adds it: passing and touch like h3, strength and defending above the league's means, pace and
+//       aerial kept; NOT an equal budget: these players are simply better).
+const TUNE={base:{},narrow:{width:'narrow'},link:{striker:'link'},aggr:{press:'aggressive'},lineStd:{line:'standard'}};
 export function vTasks(){
  const out=[],n=arg('v-seeds',40);
- for(let seed=0;seed<n;seed++)for(const v of Object.keys(TUNE))for(const squad of ['h3','h4'])for(const home of [true,false]){
+ for(let seed=0;seed<n;seed++)for(const v of Object.keys(TUNE))for(const squad of ['h3','h4','h5'])for(const home of [true,false]){
   const tested={src:'squad',code:home?'H':'A',squad,preset:'combinations',...(Object.keys(TUNE[v]).length?{approach:TUNE[v]}:{})},opp={src:'squad',code:home?'A':'H',squad:'avg',preset:'balanced'};
   out.push({id:`V:${v}.${squad}_${home?'home':'away'}:${seed}`,block:'V',kind:'match',seed:3000+seed,kickoff:seed%2,sides:home?[tested,opp]:[opp,tested]});
  }

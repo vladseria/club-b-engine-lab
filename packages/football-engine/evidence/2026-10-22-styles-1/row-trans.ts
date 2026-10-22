@@ -13,7 +13,18 @@ import {setExtra,anatomy} from '../2026-10-22-whatif/row';
 import {L} from '../../src/pitch';
 import {REST_MARGIN} from '../../src/practice-rest-defence';
 import {shotChance} from '../../../../lib/ballers/chances';
+import {ARCHETYPES} from '../2026-10-19-engine-audits/squads';
 export * from '../2026-10-22-whatif/row';
+
+// A third test squad (owner, 23 Oct: "people can be good at several things"; the Barcelona he has in mind for Short had
+// passers who were strong or good defenders too). h5 "Passers who defend": h3's passing and touch, plus strength and
+// defending above the league's group means, pace and aerial kept at the means. NOT an equal-budget archetype: every
+// outfielder is simply better than average (+5 to +7 skill points), so it is compared with h3 / h4 for what changes,
+// not as a fair fight. Added here, in this row only (the squad-fit study's own table is not edited).
+(ARCHETYPES as any).h5={name:'Passers who defend',story:'Good passers with a good touch who are also strong, solid defenders (not an equal budget).',
+ def:{passing:2.5,control:2,strength:1,defending:1.5},
+ mid:{passing:2.5,control:2,strength:2,defending:2},
+ st: {passing:2,control:2,strength:0.5,defending:1.5}};
 
 const STOP=new Set(['out','foul','offside','half','end','goal','restart']);
 const WIN=new Set(['receive','turnover','save']);
