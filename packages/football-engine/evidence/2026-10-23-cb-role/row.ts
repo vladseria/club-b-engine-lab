@@ -14,6 +14,8 @@
 //  def[role] out of possession (the other side has it), per player-frame: [frames, the side's deepest outfielder]
 //  shots[role] [shots, chance sum (lib/ballers/chances), goals, shots from a set piece, goals from a set piece]
 //            set piece = the spell began with S's restart and is at most 8 s old at the shot
+//  tot       S's shots: [shots, chance sum, goals (shot-linked)]   (added for the candidate runs)
+//  conc      shots AGAINST S from within 9 m of S's goal and |y| <= 4 (central, close): [shots, chance sum, goals]
 //  goalsBy   goals of S by the goal event's actor (last touch): his role, OG for an own goal
 //  shotsMain shots by '<main role>@<slot role>' (main role = his first listed role in the squad): [shots, goals]
 //  goalsCB   one entry per CB goal: [time, spell age s, set piece 0/1, CB depth 10 s before, shot depth, depth where the
@@ -41,7 +43,7 @@ const mark0=()=>({n:0,mk:{} as Record<string,number>,nr:{} as Record<string,numb
 
 export function cbRole(runs:any[],teams:any[]){
  const out=[0,1].map(s=>{const t=teams[s]?.tactics??{};return {team:{fm:t.formation,commit:t.commit,striker:t.striker,line:t.line},
-  att:{} as Record<string,number[]>,attHalf:[0,0],attAll:[0,0],def:{} as Record<string,number[]>,shots:{} as Record<string,number[]>,goalsBy:{} as Record<string,number>,shotsMain:{} as Record<string,number[]>,goalsCB:[] as number[][],
+  att:{} as Record<string,number[]>,attHalf:[0,0],attAll:[0,0],def:{} as Record<string,number[]>,shots:{} as Record<string,number[]>,conc:[0,0,0],tot:[0,0,0],goalsBy:{} as Record<string,number>,shotsMain:{} as Record<string,number[]>,goalsCB:[] as number[][],
   loss:{n:0,role:{} as Record<string,number[]>,noCB:[0,0,0,0],withCB:[0,0,0,0]},
   mark:{A:{M1:mark0(),M2:mark0(),M3:mark0()},B:{M1:mark0(),M2:mark0(),M3:mark0()}}};});
  for(const R of runs){
@@ -124,6 +126,8 @@ export function cbRole(runs:any[],teams:any[]){
    const k=frameAt(s.time),set=spellSet[k]===1&&s.time-spellStart[k]<=8&&poss[k]===S;
    const g=goals.find((x:any)=>x.side===S&&x.time>=s.time-1e-6&&x.time<=s.time+3&&!shots.some((y:any)=>y!==s&&y.side===S&&y.time>s.time+1e-6&&y.time<=x.time));
    const v=vec(out[S].shots,role,5);v[0]++;v[1]+=chanceOf(s);if(g)v[2]++;if(set){v[3]++;if(g)v[4]++;}
+   {const c=chanceOf(s),t=out[S].tot;t[0]++;t[1]+=c;if(g)t[2]++;
+    const o=s.shot?.origin;if(o&&depth(1-S,o.x)<=9&&Math.abs(o.y)<=4){const w=out[1-S].conc;w[0]++;w[1]+=c;if(g)w[2]++;}}
    const mv=vec(out[S].shotsMain,`${mainOf(i)}@${role}`,2);mv[0]++;if(g)mv[1]++;
    if(g&&role==='CB'){
     const k10=frameAt(s.time-10),q10=pos(frames[k10],i),qs=pos(frames[k],i);
@@ -148,6 +152,7 @@ export function cbRole(runs:any[],teams:any[]){
  }
  for(const o of out){
   for(const v of Object.values(o.shots))v[1]=r3(v[1]);
+  o.conc[1]=r3(o.conc[1]);o.tot[1]=r3(o.tot[1]);
   for(const v of Object.values(o.loss.role))v[1]=r3(v[1]);
   o.loss.noCB[2]=r3(o.loss.noCB[2]);o.loss.withCB[2]=r3(o.loss.withCB[2]);
   for(const A of ['A','B'] as const)for(const M of ['M1','M2','M3'] as const)o.mark[A][M].cbd=r3(o.mark[A][M].cbd);
