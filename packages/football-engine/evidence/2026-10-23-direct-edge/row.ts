@@ -24,6 +24,13 @@
 //           (each counted once, against that loss)]
 //  lossHi   the same for losses in their half (ball depth >= 24 m from our goal)
 //  stLast   frames (in our possession, ball in their half) with our ST within 1 m of `last` or beyond it: [frames, n]
+//  (added 23 Oct after the screen, for the kick-time follow-up; rows before it lack these keys)
+//  kick     balls in behind meant for our ST, read at the kick, by where he stood against their last outfielder:
+//           kick.at[b] for b = 0 (level or in front of him), 1 (0-2 m beyond), 2 (more than 2 m beyond):
+//           [n, ST first, their outfielder first, their keeper first, sum of the nearest outfielder's distance to our ST,
+//            sum of their CB's distance to our ST, n with their CB the nearest]
+//  loose    frames (our possession, ball in their half, sampled every 2nd frame) with our ST more than 1 m beyond their
+//           last outfielder and none of them within 3 m of him: [frames, n]
 import {setExtra,setSides} from '../2026-10-21-engine-as-data/parity';
 import {anatomy} from '../2026-10-22-whatif/row';
 import {shotChance} from '../../../../lib/ballers/chances';
@@ -52,7 +59,7 @@ setSides((spec:any)=>{
 
 const z=(n:number)=>Array.from({length:n},()=>0);
 function side0(){return {bib:z(6),bibST:z(6),rec:{behind:z(4),front4:z(4),front:z(4),tight:z(4)},recST:{behind:z(4),front4:z(4),front:z(4),tight:z(4)},
- race:z(4),loss:z(5),lossHi:z(5),stLast:z(2)};}
+ race:z(4),loss:z(5),lossHi:z(5),stLast:z(2),kick:{at:[z(7),z(7),z(7)]},loose:z(2)};}
 
 export function directEdge(runs:any[]){
  const out=[side0(),side0()];
@@ -92,6 +99,11 @@ export function directEdge(runs:any[]){
     if(o&&!(o===e.actor&&g.time<e.time+.3)){const os=sideOf(o);res=os===S?(o===e.target?1:2):(roleOf(o)==='GK'?3:4);break;}}
    const toST=ST[S]>=0&&e.target===roster[ST[S]].id;
    for(const v of toST?[out[S].bib,out[S].bibST]:[out[S].bib]){v[0]++;v[res]++;}
+   if(toST){const sp=pos(f,ST[S]);if(sp){
+    const beyond=depth(S,sp.x)-ll,b=beyond<=0?0:beyond<=2?1:2,v=out[S].kick.at[b];
+    let nd=Infinity,nr='';for(const i of OF[1-S]){const q=pos(f,i);if(!q)continue;const dd=dist(q,sp);if(dd<nd){nd=dd;nr=roster[i].role;}}
+    const cb=OF[1-S].find(i=>roster[i].role==='CB'),cq=cb!==undefined?pos(f,cb):null;
+    v[0]++;if(res===1)v[1]++;if(res===4)v[2]++;if(res===3)v[3]++;v[4]+=Number.isFinite(nd)?nd:0;v[5]+=cq?dist(cq,sp):0;if(nr==='CB')v[6]++;}}
   }
   // ---- receptions in their half, and what follows within 8 s
   for(const e of events){
@@ -128,9 +140,10 @@ export function directEdge(runs:any[]){
   // ---- our ST on (or beyond) their last line, in our possession with the ball in their half
   for(let k=0;k<n;k+=2){const f=frames[k];if(f.restart)continue;const S=poss[k];if(S!==0&&S!==1||ST[S]<0)continue;
    if(depth(S,f.ball.x)<HALF)continue;const q=pos(f,ST[S]);if(!q)continue;
-   out[S].stLast[0]++;if(depth(S,q.x)>=lastLine(f,S)-1)out[S].stLast[1]++;}
+   out[S].stLast[0]++;const ll=lastLine(f,S);if(depth(S,q.x)>=ll-1)out[S].stLast[1]++;
+   out[S].loose[0]++;if(depth(S,q.x)>ll+1&&nearestOpp(f,S,q)>3)out[S].loose[1]++;}
  }
- for(const o of out){for(const g of [o.rec,o.recST])for(const v of Object.values(g) as number[][])v[2]=r3(v[2]);o.loss[3]=r3(o.loss[3]);o.lossHi[3]=r3(o.lossHi[3]);o.race[1]=r3(o.race[1]);}
+ for(const o of out){for(const g of [o.rec,o.recST])for(const v of Object.values(g) as number[][])v[2]=r3(v[2]);o.loss[3]=r3(o.loss[3]);o.lossHi[3]=r3(o.lossHi[3]);o.race[1]=r3(o.race[1]);for(const v of o.kick.at){v[4]=r3(v[4]);v[5]=r3(v[5]);}}
  return out;
 }
 
