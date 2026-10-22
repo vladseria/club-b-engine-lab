@@ -362,7 +362,6 @@ export const IN_BEHIND={
  line:{v:4,unit:'m',kind:'fixedPost',axis:'L',at:['practice-coordination.ts:307 (RUN_LINE)'],says:'back-line defenders: within this of the deepest'},
  alsoTakes:{v:['give-and-go','near-post','far-post','break','link'] as string[],unit:'flag',kind:'jobOffered',at:['practice-coordination.ts:308 (RUN_ALSO)'],says:'the only other jobs he still takes'},
  depthBonus:{v:.3,unit:'B',kind:'jobCredit',at:['practice-coordination.ts:990'],says:'the team\'s run in behind: extra fit for him'},
- jobsOpen:{v:0,unit:'x',kind:'jobOffered',at:['practice-coordination.ts:753'],says:'(what-if switch) 0: only alsoTakes (today); 1: he may take any job, as a Mixed striker does, besides his post and run; 2: also the build-up spots (practice-coordination.ts:717) and pressure arrangements may move him (:1033)'},
 } satisfies Record<string,Effect<unknown>>;
 /** Drops deep: the false nine's post between their lines and the run beyond him. */
 export const DROPS_DEEP={
