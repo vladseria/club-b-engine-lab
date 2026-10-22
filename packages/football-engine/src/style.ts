@@ -396,8 +396,8 @@ export const FORMATION_ROLE:Readonly<Record<NonNullable<Tactics['formation']>,Fo
 export const ROLE_ANCHOR={
  homeUpTo:{v:3,unit:'count',kind:'arrangementConstraint',at:['practice-job-selection.ts (homeShort)'],says:'up to this Bodies forward setting the side keeps a home man behind the ball in their half (above it, the centre-back may join)'},
  homeMen:{v:1,unit:'men',kind:'arrangementConstraint',at:['practice-job-selection.ts (homeShort)'],says:'how many home men, taken in role order (centre-back first, striker last; the man on the ball is not one)'},
- homePrice:{v:0,unit:'B',kind:'arrangementConstraint',at:['practice-job-selection.ts (homeShort)'],says:'what a home man joining the attack costs the arrangement, for a fully disciplined player (a loose one pays Bodies forward\'s hold floor of it)'},
- guardRole:{v:0,unit:'s',kind:'jobCredit',at:['practice-coordination.ts (restGuards)'],says:'the rest guard (goal-side of their most advanced forward while we attack): a player pays this many seconds of arrival per unit of role depth short of a centre-back\'s'},
+ homePrice:{v:1,unit:'B',kind:'arrangementConstraint',at:['practice-job-selection.ts (homeShort)'],says:'what a home man joining the attack costs the arrangement, for a fully disciplined player (a loose one pays Bodies forward\'s hold floor of it)'},
+ guardRole:{v:.6,unit:'s',kind:'jobCredit',at:['practice-coordination.ts (restGuards)'],says:'the rest guard (goal-side of their most advanced forward while we attack): a player pays this many seconds of arrival per unit of role depth short of a centre-back\'s'},
  pivotPref:{v:1,unit:'s',kind:'defendingThreshold',at:['practice-defending.ts (pivot)'],says:'without the ball, taking their lead forward costs a defender this many seconds of run per unit of role depth short of a centre-back\'s (a striker the whole of it, a winger 0.65 of it)'},
 } as const satisfies Record<string,Effect>;
 /** The role anchor's strength for a formation (0 when it has none). */
