@@ -378,31 +378,6 @@ export const STRIKER_COMMON={
  leadHold:{v:1.5,unit:'s',kind:'fixedPost',at:['practice-coordination.ts:236 (LEAD_FORWARD_HOLD)'],says:'... for this long'},
 } as const satisfies Record<string,Effect>;
 
-// ------------------------------------------------------------------ Role anchor (CB role round, 2026-10-23)
-/** A fixo's role (evidence/2026-10-23-cb-role/PAGE.md). Position is a preference each formation holds at its own
- * strength, never an assignment, and no setting of its own: with the ball, Bodies forward still says how many join
- * and role order says who stays home (the centre-back first, the striker last); without it, the opponents' lead
- * forward is the centre-back's man by default, with the ordinary exchanges. Every price is multiplied by the
- * formation's strength; a formation whose players rotate freely sets it low or to 0. All prices 0 (or every
- * strength 0) plays exactly as before the round. A later per-player instruction ("my CB pushes up") would be one
- * more multiplier on the same prices. */
-export interface FormationRoleOption{strength:Effect}
-const formationRole=(strength:number):FormationRoleOption=>({
- strength:{v:strength,unit:'x',kind:'multiplier',at:['practice-job-selection.ts (homeShort)','practice-coordination.ts (restGuards)','practice-defending.ts (pivot)'],says:'how strongly this formation\'s players keep to their positions: multiplies the role anchor\'s prices (0: positions swap freely)'},
-});
-export const FORMATION_ROLE:Readonly<Record<NonNullable<Tactics['formation']>,FormationRoleOption>>={
- '1-2-1':formationRole(1),'2-2':formationRole(1),'2-1-1':formationRole(1),'4-3-3':formationRole(1),'4-2-3-1':formationRole(1),'5-4-1':formationRole(1),
-};
-export const ROLE_ANCHOR={
- homeUpTo:{v:3,unit:'count',kind:'arrangementConstraint',at:['practice-job-selection.ts (homeShort)'],says:'up to this Bodies forward setting the side keeps a home man behind the ball in their half (above it, the centre-back may join)'},
- homeMen:{v:1,unit:'men',kind:'arrangementConstraint',at:['practice-job-selection.ts (homeShort)'],says:'how many home men, taken in role order (centre-back first, striker last; the man on the ball is not one)'},
- homePrice:{v:3,unit:'B',kind:'arrangementConstraint',at:['practice-job-selection.ts (homeShort)'],says:'what a home man joining the attack costs the arrangement, for a fully disciplined player (a loose one pays Bodies forward\'s hold floor of it)'},
- guardRole:{v:1.5,unit:'s',kind:'jobCredit',at:['practice-coordination.ts (restGuards)'],says:'the rest guard (goal-side of their most advanced forward while we attack): a player pays this many seconds of arrival per unit of role depth short of a centre-back\'s'},
- pivotPref:{v:3,unit:'s',kind:'defendingThreshold',at:['practice-defending.ts (pivot)'],says:'without the ball, taking their lead forward costs a defender this many seconds of run per unit of role depth short of a centre-back\'s (a striker the whole of it, a winger 0.65 of it)'},
-} as const satisfies Record<string,Effect>;
-/** The role anchor's strength for a formation (0 when it has none). */
-export const roleStrength=(formation:string|undefined)=>(FORMATION_ROLE as Record<string,FormationRoleOption>)[formation??'']?.strength.v??0;
-
 // ------------------------------------------------------------------ On winning it (transition: S10)
 /** One entry per option. `transition` is OPTIONAL in Tactics: a missing value plays as Balanced at every read site,
  * so sites read S.ON_WIN[t.transition??'balanced']. */

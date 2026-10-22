@@ -297,8 +297,6 @@ export interface DefendInput {
  intent?:'delay'|'engage';
  /** Regroup's drop: everyone not yet goal-side of the ball runs behind it first. */
  regroup?:boolean;
- /** (CB role round) The attacking side's lead forward (practice-coordination leadForward): the centre-back's man by default (S.ROLE_ANCHOR.pivotPref). */
- pivot?:string;
  /** A restart being set up: the taker cannot be tackled; nobody covers or goes for the ball. */
  restart?:{spot:Vec;radius:number};
  /** When the man on the ball got it (the loose-touch trigger). */
@@ -510,7 +508,6 @@ export function solveMen(input:DefendInput,ref:Vec):DefendMemory{
  const due=fresh||time-memory.solvedAt>=SOLVE_EVERY-1e-9||memory.focus!==focus||memory.who!==who||beaten&&time-memory.solvedAt>=.15||idle;
  if(!choosing.length)return memory;
  const keep=KEEP[tactics.marking??'balanced'],watchCost=Math.max(.2,UNOWNED_WATCH[tactics.line]+WATCH_PRESS[tactics.press]);
- const pivotPref=S.ROLE_ANCHOR.pivotPref.v*S.roleStrength(tactics.formation);
  // the man on the ball, or the man a pass is going to (where he meets it): the cover is chosen before he has it
  const receiver=input.receiver?players.find(p=>p.id===input.receiver!.id):undefined;
  const carrier=input.carrier&&input.carrier.role!=='GK'&&!input.restart?input.carrier:receiver&&receiver.role!=='GK'?{...receiver,x:input.receiver!.meet.x,y:input.receiver!.meet.y}:undefined;
@@ -575,12 +572,8 @@ export function solveMen(input:DefendInput,ref:Vec):DefendMemory{
    const run=busy.has(q.id)&&(t.r?.matter==='ball'||!t.r)?RUN_CAP:Math.min(RUN_CAP,arrivalTime(q,t.spot(q))+extra);
    // (role awareness) the soft tie-break: his role depth against the job's
    const fit=ROLE_PREF*Math.abs(roleDepth(q)-(t.r?(t.r.matter==='ball'?clamp(1-(t.r.dg-WORLD.geometry.defending.ballDepthFrom.v)/WORLD.geometry.defending.ballDepthSpan.v,0,1):jobDepth(t.r.dg)):t.id===COVER?.8:.75));
-   // (CB role round, 2026-10-23: S.ROLE_ANCHOR.pivotPref) their lead forward is the centre-back's man by default: anyone
-   // else pays pivotPref x the formation's strength per unit of role depth short of a centre-back's (0: as before). The
-   // exchanges are the ordinary ones (credit, below): a man is handed over when crossed, beaten or clearly better taken.
-   const pivotFit=t.r&&t.id===input.pivot?pivotPref*(1-roleDepth(q)):0;
    // (every option shifted by the same SHIFT, so no term is negative and the search's bound holds)
-   return run+fit+pivotFit-credit(q,t)+SHIFT;
+   return run+fit-credit(q,t)+SHIFT;
   }));
   const unowned=targets.map(t=>t.unowned+SHIFT);
   const order=targets.map((_,k)=>k).sort((a,b)=>targets[b].weight-targets[a].weight||targets[a].id.localeCompare(targets[b].id));

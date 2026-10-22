@@ -8,7 +8,7 @@ import {steerMotion} from './movement.js';
 import {readTeamExposure} from './practice-exposure.js';
 import {readSupportLocation} from './practice-support.js';
 import {laneObstruction} from './practice-lanes.js';
-import {commitBounds,commitmentPrice,constrains,establishedAttack,homeCost,homeRole,isHomeRole,isRest} from './practice-rest-defence.js';
+import {commitBounds,commitmentPrice,constrains,establishedAttack,isRest} from './practice-rest-defence.js';
 
 export interface JobCandidate {job:FootballJob;score:number}
 type Risk=(from:Vec,to:Vec,defenders:PracticePlayer[],speed?:number)=>number;
@@ -24,9 +24,6 @@ export function selectPossessionJobs(players:PracticePlayer[],focus:PracticePlay
  const attack=attackingSpaceReader(players,focus,tactics,risk,striker);
  const carrierPath=[.3,.6,.9,1.2].map(t=>({x:focus.x+focus.vx*t,y:focus.y+focus.vy*t}));
  const bounds=commitBounds(tactics.commit),constrained=establishedAttack(focus)&&constrains(bounds);
- // (CB role round, 2026-10-23) role order says who stays home (practice-rest-defence homeCost); off: need = Infinity
- const homeNeed=homeRole(focus,tactics,mates.map(p=>p.role));
- const homeCandidate=(p:PracticePlayer)=>isHomeRole(p.role,homeNeed);
  const rows=mates.map(p=>{
   // Evaluate football value before pruning. A nearby stationary option must
   // not eliminate a route whose useful reception develops after moving.
@@ -58,7 +55,7 @@ export function selectPossessionJobs(players:PracticePlayer[],focus:PracticePlay
   if(shape&&!fixed.has(p.id)&&!selected.includes(shape))selected.push(shape);
   // Under a committed rest defence each player keeps his best way of staying
   // behind the ball and his best way of joining it, so the bound can be met.
-  if((constrained||homeCandidate(p))&&!fixed.has(p.id)&&p.role!=='GK')for(const behind of [true,false]){
+  if(constrained&&!fixed.has(p.id)&&p.role!=='GK')for(const behind of [true,false]){
    const best=ranked.find(c=>isRest(focus.side,focus,c.job.aim)===behind);
    if(best&&!selected.includes(best))selected.push(best);
   }
@@ -93,7 +90,6 @@ export function selectPossessionJobs(players:PracticePlayer[],focus:PracticePlay
    if(constrained){
     value-=commitmentPrice(bounds,indices.flatMap((k,j)=>outfield[j]?[{rest:place[j][k],discipline:mates[j].traits.discipline}]:[]));
    }
-   if(homeNeed<Infinity)value-=homeCost(focus,tactics,selection.flatMap((r,j)=>outfield[j]?[{aim:r.job.aim,role:mates[j].role,discipline:mates[j].traits.discipline}]:[]));
    if(value>best){best=value;chosen=[...selection];}return;
   }
   rows[i].forEach((row,k)=>{

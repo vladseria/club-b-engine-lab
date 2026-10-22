@@ -146,30 +146,3 @@ export function commitmentCost(focus:Vec&{side:number;role:string},commit:number
  const b=commitBounds(commit);if(!constrains(b))return 0;
  return commitmentPrice(b,rows.map(r=>({rest:isRest(focus.side,focus,r.aim),discipline:r.discipline})));
 }
-
-/** (CB role round, 2026-10-23: S.ROLE_ANCHOR) Role order says who stays home. In an established attack, up to
- * homeUpTo, the side keeps homeMen of the carrier's outfield team-mates behind the ball (isRest), taken in role order
- * (role depth: the centre-back first, the striker last; the man on the ball is never one, so when the centre-back
- * carries it the next in order covers). Each home man short costs homePrice x the formation's strength, charged like
- * Bodies forward's own bounds to the least disciplined of those who could have stayed. The role depth a home man
- * needs is returned by homeRole (Infinity: no home man asked, which is always so when the price or strength is 0). */
-const roleDepthOf=(role:string)=>(WORLD.selection.defending.ROLE_DEPTH as Record<string,{v:number}>)[role]?.v??.5;
-export function homeWeight(focus:Vec&{side:number;role:string},tactics:{commit:number;formation?:string}):number{
- const w=S.ROLE_ANCHOR.homePrice.v*S.roleStrength(tactics.formation);
- return w>0&&establishedAttack(focus)&&tactics.commit<=S.ROLE_ANCHOR.homeUpTo.v?w:0;
-}
-export function homeRole(focus:Vec&{side:number;role:string},tactics:{commit:number;formation?:string},roles:readonly string[]):number{
- if(!homeWeight(focus,tactics))return Infinity;
- const order=roles.filter(r=>r!=='GK').map(roleDepthOf).sort((a,b)=>b-a);
- return order.length?order[Math.min(order.length,S.ROLE_ANCHOR.homeMen.v)-1]:Infinity;
-}
-export const isHomeRole=(role:string,need:number)=>role!=='GK'&&roleDepthOf(role)>=need;
-export function homeCost(focus:Vec&{side:number;role:string},tactics:{commit:number;formation?:string},rows:readonly {aim:Vec;role:string;discipline:number}[]):number{
- const w=homeWeight(focus,tactics);if(!w)return 0;
- const need=homeRole(focus,tactics,rows.map(r=>r.role));
- const cands=rows.filter(r=>isHomeRole(r.role,need));
- const short=Math.max(0,S.ROLE_ANCHOR.homeMen.v-cands.filter(r=>isRest(focus.side,focus,r.aim)).length);
- const joined=cands.filter(r=>!isRest(focus.side,focus,r.aim)).map(r=>r.discipline).sort((a,b)=>a-b);
- let price=0;for(let i=0;i<short&&i<joined.length;i++)price+=w*(S.COMMIT.holdFloor.v+S.COMMIT.holdPer.v*clamp(joined[i],0,1));
- return price;
-}
