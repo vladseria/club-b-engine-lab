@@ -33,7 +33,8 @@ describe('match settings: the rules',()=>{
  it('defaults hand back the very same tactics and squad objects',()=>{
   const t=engineTeam(sides()[0]);
   expect(settingsTactics(t.tactics,{})).toBe(t.tactics);expect(settingsSquad(t.squad,{})).toBe(t.squad);
-  expect(t.tactics).toEqual({...approach,formation:'1-2-1',setPiece:'mixed',fullbacks:'balanced',marking:'balanced'});
+  // (styles as identities, slice 1) the side plays its style's base (Balanced: mixed + balanced), so the engine is told its style
+  expect(t.tactics).toEqual({...approach,style:'balanced',formation:'1-2-1',setPiece:'mixed',fullbacks:'balanced',marking:'balanced'});
   expect(Object.keys(t.tactics)).not.toContain('taker');
  });
  it('the keeper override lands on every keeper and nobody else, at the authored profile values',()=>{
