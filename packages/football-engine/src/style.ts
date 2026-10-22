@@ -555,7 +555,7 @@ const styleIdentity=(o:{progression:Tactics['progression'];transition:NonNullabl
  * match without Short identical). The other three carry no reception trait. */
 export const STYLE:Readonly<Record<NonNullable<Tactics['style']>,StyleIdentity>>={
  balanced:styleIdentity({progression:'mixed',transition:'balanced',touchPrice:0,strikeSpeed:0}),
- combinations:styleIdentity({progression:'patient',transition:'secure',touchPrice:.10,strikeSpeed:4}),
+ combinations:styleIdentity({progression:'patient',transition:'secure',touchPrice:.17,strikeSpeed:4}),
  direct:styleIdentity({progression:'direct',transition:'balanced',touchPrice:0,strikeSpeed:0}),
  counter:styleIdentity({progression:'mixed',transition:'counter',touchPrice:0,strikeSpeed:0}),
 };
