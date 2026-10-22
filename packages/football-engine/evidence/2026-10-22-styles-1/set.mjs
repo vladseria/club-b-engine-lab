@@ -39,4 +39,18 @@ export function yTasks(){
  }
  return out;
 }
-export function tasks(){return [...whatif(),...aiTasks(),...xTasks(),...yTasks()];}
+//   V   (one-touch v2 recon, 23 Oct): Short with the squad-fit study's passers (h3) and big-and-strong (h4) against the
+//       average squad on Balanced, exactly block Q's set-up and seeds, as it is ('base') and with ONE fine-tune that
+//       might keep a possession side from being caught without defending deeper: 'narrow' (Width Narrow: closer
+//       together with the ball), 'link' (a Drops deep striker: one more man near the ball), 'aggr' (Press Aggressive).
+//       --v-seeds N (default 40).
+const TUNE={base:{},narrow:{width:'narrow'},link:{striker:'link'},aggr:{press:'aggressive'}};
+export function vTasks(){
+ const out=[],n=arg('v-seeds',40);
+ for(let seed=0;seed<n;seed++)for(const v of Object.keys(TUNE))for(const squad of ['h3','h4'])for(const home of [true,false]){
+  const tested={src:'squad',code:home?'H':'A',squad,preset:'combinations',...(Object.keys(TUNE[v]).length?{approach:TUNE[v]}:{})},opp={src:'squad',code:home?'A':'H',squad:'avg',preset:'balanced'};
+  out.push({id:`V:${v}.${squad}_${home?'home':'away'}:${seed}`,block:'V',kind:'match',seed:3000+seed,kickoff:seed%2,sides:home?[tested,opp]:[opp,tested]});
+ }
+ return out;
+}
+export function tasks(){return [...whatif(),...aiTasks(),...xTasks(),...yTasks(),...vTasks()];}
