@@ -750,7 +750,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
    return h;
   };
   const offerJob=(spec:JobSpec)=>{
-   const options=mates.filter(p=>!fixed.has(p.id)&&spec.eligible(p)&&(p.id!==pivotId||PIVOT_ALSO.has(spec.purpose))&&(p.id!==runnerId||RUN_ALSO.has(spec.purpose)||spec.shoulder)&&(p.id!==nineId||LINK_ALSO.has(spec.purpose))).flatMap(p=>{
+   const options=mates.filter(p=>!fixed.has(p.id)&&spec.eligible(p)&&(p.id!==pivotId||PIVOT_ALSO.has(spec.purpose))&&(p.id!==runnerId||RUN_ALSO.has(spec.purpose)||spec.shoulder||S.IN_BEHIND.jobsOpen.v>0)&&(p.id!==nineId||LINK_ALSO.has(spec.purpose))).flatMap(p=>{
     const line=Math.max((L/2),bd,context.lineFor?.(p)??actualLine),held=running(spec.purpose)?Infinity:backHeight(p);
     const allowance=running(spec.purpose)?runReleaseAllowance(p,time,context.releaseCue):0;
     if(running(spec.purpose)&&(p.energy<22||depth(side,p.x)>line+.1+allowance))return [];
