@@ -352,7 +352,7 @@ export const PIVOT={
 } satisfies Record<string,Effect<unknown>>;
 /** In behind: the post on the last defender's shoulder and the run beyond him. */
 export const IN_BEHIND={
- gap:{v:.5,unit:'m',kind:'fixedPost',axis:'L',at:['practice-coordination.ts:307 (RUN_GAP)'],says:'between runs he waits this far in front of their deepest outfielder'},
+ gap:{v:6,unit:'m',kind:'fixedPost',axis:'L',at:['practice-coordination.ts:307 (RUN_GAP)'],says:'between runs he waits this far in front of their deepest outfielder'},
  past:{v:3,unit:'m',kind:'fixedPost',axis:'L',at:['practice-coordination.ts:307 (RUN_PAST)'],says:'his run aims this far beyond that defender'},
  channel:{v:2.5,unit:'m',kind:'fixedPost',axis:'W',at:['practice-coordination.ts:307 (RUN_CHANNEL)'],says:'the channel off the nearest back-line defender\'s shoulder'},
  width:{v:6.5,unit:'m',kind:'fixedPost',axis:'W',at:['practice-coordination.ts:307 (RUN_WIDTH)'],says:'within this of the centre'},
@@ -361,7 +361,7 @@ export const IN_BEHIND={
  fit:{v:.5,unit:'B',kind:'jobCredit',at:['practice-coordination.ts:307 (RUN_FIT)'],says:'his run\'s fit per unit of the runs trait'},
  line:{v:4,unit:'m',kind:'fixedPost',axis:'L',at:['practice-coordination.ts:307 (RUN_LINE)'],says:'back-line defenders: within this of the deepest'},
  alsoTakes:{v:['give-and-go','near-post','far-post','break','link'] as string[],unit:'flag',kind:'jobOffered',at:['practice-coordination.ts:308 (RUN_ALSO)'],says:'the only other jobs he still takes'},
- depthBonus:{v:0.6,unit:'B',kind:'jobCredit',at:['practice-coordination.ts:990'],says:'the team\'s run in behind: extra fit for him'},
+ depthBonus:{v:.3,unit:'B',kind:'jobCredit',at:['practice-coordination.ts:990'],says:'the team\'s run in behind: extra fit for him'},
 } satisfies Record<string,Effect<unknown>>;
 /** Drops deep: the false nine's post between their lines and the run beyond him. */
 export const DROPS_DEEP={
