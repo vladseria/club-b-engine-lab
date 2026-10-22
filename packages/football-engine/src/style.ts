@@ -361,7 +361,7 @@ export const IN_BEHIND={
  fit:{v:.5,unit:'B',kind:'jobCredit',at:['practice-coordination.ts:307 (RUN_FIT)'],says:'his run\'s fit per unit of the runs trait'},
  line:{v:4,unit:'m',kind:'fixedPost',axis:'L',at:['practice-coordination.ts:307 (RUN_LINE)'],says:'back-line defenders: within this of the deepest'},
  alsoTakes:{v:['give-and-go','near-post','far-post','break','link'] as string[],unit:'flag',kind:'jobOffered',at:['practice-coordination.ts:308 (RUN_ALSO)'],says:'the only other jobs he still takes'},
- depthBonus:{v:.3,unit:'B',kind:'jobCredit',at:['practice-coordination.ts:990'],says:'the team\'s run in behind: extra fit for him'},
+ depthBonus:{v:0,unit:'B',kind:'jobCredit',at:['practice-coordination.ts:990'],says:'the team\'s run in behind: extra fit for him'},
 } satisfies Record<string,Effect<unknown>>;
 /** Drops deep: the false nine's post between their lines and the run beyond him. */
 export const DROPS_DEEP={
