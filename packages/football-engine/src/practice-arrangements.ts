@@ -2,7 +2,7 @@ import {attackingSpaceReader} from './practice-attacking-space.js';
 import type {AttackingSpace} from './practice-attacking-space.js';
 import {readTeamExposure} from './practice-exposure.js';
 import {laneObstruction} from './practice-lanes.js';
-import {commitmentCost} from './practice-rest-defence.js';
+import {commitmentCost,homeCost} from './practice-rest-defence.js';
 import {clamp} from './model.js';
 import {L,W} from './pitch.js';
 import type {Tactics} from './model.js';
@@ -75,13 +75,15 @@ export function refineReceptionSupport(players:PracticePlayer[],focus:PracticePl
  const pairs=[candidates[0].map(a=>candidates[1].map(b=>pair(a,b))),candidates[0].map(a=>candidates[2].map(b=>pair(a,b))),candidates[1].map(a=>candidates[2].map(b=>pair(a,b)))];
  let baseline=-Infinity,best=-Infinity,selected:Row[]|null=null;
  const discipline=(id:string)=>mates.find(p=>p.id===id)?.traits.discipline??1;
+ const role=(id:string)=>mates.find(p=>p.id===id)?.role??'GK';
  for(let ai=0;ai<candidates[0].length;ai++)for(let bi=0;bi<candidates[1].length;bi++)for(let ci=0;ci<candidates[2].length;ci++){
   const rows=[candidates[0][ai],candidates[1][bi],candidates[2][ci]];
   const score=rows.reduce((sum,r)=>sum+r.score,0)+Math.max(...rows.map(r=>r.access))*.8+
    pairs[0][ai][bi]+pairs[1][ai][ci]+pairs[2][bi][ci]-exposure.cost([carrierCoverage,...rows.map(r=>r.coverage)]);
   // The committed number of bodies forward keeps its price through the
   // refinement (practice-rest-defence commitmentCost).
-  const value=score-commitmentCost(focus,tactics.commit,rows.map(r=>({aim:r.job.aim,discipline:discipline(r.job.player)})));
+  const value=score-commitmentCost(focus,tactics.commit,rows.map(r=>({aim:r.job.aim,discipline:discipline(r.job.player)})))
+   -homeCost(focus,tactics,rows.map(r=>({aim:r.job.aim,role:role(r.job.player),discipline:discipline(r.job.player)})));// (CB role round: who stays home)
   if(ai===0&&bi===0&&ci===0)baseline=value;
   if(value>best){best=value;selected=rows;}
  }
@@ -179,6 +181,7 @@ export function pressureArrangement(players:PracticePlayer[],focus:PracticePlaye
  ];
  let best:Candidate[]|null=null,bestScore=-Infinity,ordinaryScore=-Infinity;
  const discipline=(id:string)=>mates.find(p=>p.id===id)?.traits.discipline??1;
+ const role=(id:string)=>mates.find(p=>p.id===id)?.role??'GK';
  for(let ai=0;ai<candidates[0].length;ai++)for(let bi=0;bi<candidates[1].length;bi++)for(let ci=0;ci<candidates[2].length;ci++){
   const [a,b,c]=[candidates[0][ai],candidates[1][bi],candidates[2][ci]],rows=[a,b,c];let score=a.score+b.score+c.score;
   const outlets=rows.filter(r=>r.gap<=13&&r.forward<4).sort((a,b)=>b.access-a.access);
@@ -188,6 +191,7 @@ export function pressureArrangement(players:PracticePlayer[],focus:PracticePlaye
   // A release from pressure keeps the price of the committed number of
   // bodies forward (practice-rest-defence commitmentCost).
   score-=commitmentCost(focus,tactics.commit,rows.map(r=>({aim:r.job.aim,discipline:discipline(r.job.player)})));
+  score-=homeCost(focus,tactics,rows.map(r=>({aim:r.job.aim,role:role(r.job.player),discipline:discipline(r.job.player)})));// (CB role round: who stays home)
   if(rows.every(r=>ordinary[r.job.player]&&distance(r.job.aim,ordinary[r.job.player].aim)<.1)&&score>ordinaryScore)ordinaryScore=score;
   if(score>bestScore){best=rows;bestScore=score;}
  }

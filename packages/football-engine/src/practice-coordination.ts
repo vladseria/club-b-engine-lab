@@ -23,7 +23,7 @@ import {runReleaseAllowance} from './practice-awareness.js';
 import {LOSS_SCALE,REST_MARGIN,isRest,lossDanger,lossRead,restDefence} from './practice-rest-defence.js';
 import {eagerness,followsTeam,perceive} from './practice-perception.js';
 import {flightSamples,flightMeeting,expectedPassFlight} from './practice-flight.js';
-import {defendOutOfPossession,offGoalLine,REGROUP_BEHIND} from './practice-defending.js';
+import {defendOutOfPossession,offGoalLine,REGROUP_BEHIND,roleDepth} from './practice-defending.js';
 import type {DefendMemory} from './practice-defending.js';
 import {WORLD} from './world.js';
 export {REGROUP_BEHIND};
@@ -424,6 +424,9 @@ export function restGuards(players:readonly PracticePlayer[],side:Side,focus:Vec
  // he wins it he is the ball, and the backs play around him (lineThreat).
  const forwards=players.filter(q=>q.side!==side&&q.role!=='GK'&&!onOurBall(q,focus)).sort((a,b)=>depth(side,a.x)-depth(side,b.x)||a.id.localeCompare(b.id));
  const need=REST_GUARDS(t.commit),cushion=REST_CUSHION[t.line];
+ // (CB role round, 2026-10-23: S.ROLE_ANCHOR.guardRole) the guard is the centre-back's job first: a player pays
+ // guardRole x the formation's strength per unit of role depth short of a centre-back's (0: as before)
+ const guardRole=S.ROLE_ANCHOR.guardRole.v*S.roleStrength(t.formation);
  const out:{player:string;aim:Vec;speed:number;reason:string;target:string}[]=[];
  const used=new Set<string>();
  for(let k=0;k<need;k++){
@@ -437,7 +440,7 @@ export function restGuards(players:readonly PracticePlayer[],side:Side,focus:Vec
   if(already.length>k){for(const p of already.slice(0,1))used.add(p.id);continue;}
   const aim=inside({x:world(side,Math.max(2.5,line)),y:f.y*.6});
   const pick=mates.filter(p=>!used.has(p.id)&&REST_FREE.has(jobs[p.id]?.purpose??'shape'))
-   .map(p=>({p,score:arrivalTime(p,aim)+(p.role==='CB'||p.role==='DM'?0:.6)+(jobs[p.id]?.purpose==='counter-cover'?-.4:0)}))
+   .map(p=>({p,score:arrivalTime(p,aim)+(p.role==='CB'||p.role==='DM'?0:.6)+(jobs[p.id]?.purpose==='counter-cover'?-.4:0)+guardRole*(1-roleDepth(p))}))
    .sort((a,b)=>a.score-b.score||a.p.id.localeCompare(b.p.id))[0]?.p;
   if(!pick)continue;
   used.add(pick.id);
@@ -620,7 +623,8 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
    available:deciding,busy:unavailable,fixed:fixedOwn,locked,view:seen,memory:previous?.defending,intent:engaging?undefined:delaying?'delay':undefined,regroup:!!counterPress?.drop,
    // (press-cover round) the counter-press's or the trap's goer: the plan covers behind him and steps out if he is beaten
    pressing:engaging&&jobs[fixedPresser!.id]?{id:fixedPresser!.id,aim:jobs[fixedPresser!.id].aim}:undefined,
-   restart:context.restart,since:possession?.since,reach:owner?undefined:flight.defenders,theirs:flight.theirs,keeperCall:owner?undefined:context.keeperCall,cue:owner?context.passCue:undefined});
+   restart:context.restart,since:possession?.since,reach:owner?undefined:flight.defenders,theirs:flight.theirs,keeperCall:owner?undefined:context.keeperCall,cue:owner?context.passCue:undefined,
+   pivot:strikers[attacking]?.id});
   defendingMemory=plan.memory;
   for(const j of plan.jobs){const p=players.find(q=>q.id===j.player)!;put(p,j.purpose,j.kind,j.aim,j.speed,j.reason,j.target,j.velocity);if(j.threat!==undefined&&jobs[p.id]&&!instructed.has(p.id))jobs[p.id].threat=j.threat;}
   for(const [id,t] of plan.marks)marks.set(id,t);
