@@ -2,13 +2,13 @@ import type {Fixture,Role,Side,Tactics} from './model.js';
 import {shapes} from './model.js';
 import type {PracticePlayer} from './practice.js';
 import type {SubstitutionTrigger} from './practice-substitutions.js';
-import {triggerHolds} from './practice-substitutions.js';
-import {styleBaseProblem} from './style.js';
+import {triggerHolds,triggerText} from './practice-substitutions.js';
 
 /**
  * Manager-prepared tactics switch (opt-in; Ballers "in-match plan switch", 21 Oct 2026,
  * deliverables/ballers-plan-switch/DESIGN.md). A side may carry at most one: a trigger (the substitution
- * orders' score, margin and half-time kinds; never `tired`, which names a player), an optional earliest
+ * orders' score, margin and half-time kinds; never `tired`, which names a player; and, from 22 Oct, `always`:
+ * no score condition at all, the minute is the whole condition), an optional earliest
  * second, and the complete tactics the side plays from then on.
  *
  * Like a substitution order, it is evaluated only at stoppages (never at the opening kickoff, never
@@ -35,7 +35,8 @@ import {styleBaseProblem} from './style.js';
  * With no switch the engine does not run any of this code.
  */
 export const MAX_TACTICS_SWITCHES=1;
-export type SwitchTrigger=Exclude<SubstitutionTrigger,{kind:'tired'}>;
+/** The substitutions' triggers minus `tired`, plus `always` (a switch's own: it holds from `notBefore` on, whatever the score). */
+export type SwitchTrigger=Exclude<SubstitutionTrigger,{kind:'tired'}>|{kind:'always'};
 export interface TacticsSwitch {
  id:string;side:Side;trigger:SwitchTrigger;
  /** Optional earliest match second at which the trigger may be acted upon. */
@@ -84,6 +85,7 @@ export function validateTacticsSwitches(value:unknown,fixture:Fixture):TacticsSw
    if(!Number.isInteger(t.atLeast)||(t.atLeast as number)<1||(t.atLeast as number)>20||!['up','down'].includes(t.direction as string))throw Error('Margin trigger needs a whole goal margin (1–20) up or down.');
    trigger={kind:'margin',atLeast:t.atLeast as number,direction:t.direction as 'up'|'down'};
   }else if(t.kind==='half')trigger={kind:'half'};
+  else if(t.kind==='always')trigger={kind:'always'};
   else throw Error('Unknown tactics switch trigger.');
   if(o.notBefore!==undefined&&(typeof o.notBefore!=='number'||!Number.isFinite(o.notBefore)||o.notBefore<0||o.notBefore>5400))throw Error('notBefore is a match second between 0 and 5400.');
   const tactics=o.tactics as Record<string,unknown>|undefined;
@@ -103,9 +105,6 @@ export function validateTacticsSwitches(value:unknown,fixture:Fixture):TacticsSw
    if(typeof v!=='string'||!options.includes(v))throw Error(`Invalid switch tactics: ${field} is ${v===undefined?'undefined':JSON.stringify(v)}.`);
   }
   if(typeof tactics.commit!=='number'||!Number.isFinite(tactics.commit)||tactics.commit<1||tactics.commit>5)throw Error('Invalid switch tactics: commit is a number from 1 to 5.');
-  // (styles as identities, slice 1) the target names its style only with that style's base (style.ts STYLE)
-  const base=styleBaseProblem(tactics);
-  if(base)throw Error(`Invalid switch tactics: ${base}.`);
   const squad=new Map(team.squad.map(p=>[p.id,p]));
   if(tactics.taker!==undefined&&(typeof tactics.taker!=='string'||!squad.has(tactics.taker)))throw Error('Invalid switch tactics: the taker must be in the squad.');
   let keepers:Record<string,number|null>|undefined;
@@ -127,10 +126,13 @@ function checkSlots(s:unknown):number[]{
  return [...s] as number[];
 }
 
-/** Is the switch due at this stoppage? (Its note is still waiting; the caller checks that.) */
-export function switchDue(order:TacticsSwitch,time:number,duration:number,score:readonly [number,number],players:readonly PracticePlayer[]):boolean{
- return (order.notBefore??0)<=time&&triggerHolds(order.trigger,order.side,time,duration,score,players);
+/** Is the switch due at this stoppage? (Its note is still waiting; the caller checks that.) `always` holds from its second on. */
+/** `clock`: the time the match shows (half-time: the second half from 7:30 at its kickoff), what notBefore reads. */
+export function switchDue(order:TacticsSwitch,time:number,duration:number,score:readonly [number,number],players:readonly PracticePlayer[],clock=time):boolean{
+ return (order.notBefore??0)<=clock&&(order.trigger.kind==='always'||triggerHolds(order.trigger,order.side,time,duration,score,players));
 }
+/** The reason inside the engine's line, in the substitutions' words; `always` has no score to name: it was arranged. */
+export const switchTriggerText=(trigger:SwitchTrigger):string=>trigger.kind==='always'?'așa cum era stabilit':triggerText(trigger);
 
 /** Can a switch with slots place this side's men? Every man must hold one of the five lineup slots (1..5). */
 export function slotsPlaceable(order:TacticsSwitch,players:readonly PracticePlayer[]):boolean{

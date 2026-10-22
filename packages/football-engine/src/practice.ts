@@ -34,10 +34,10 @@ import {perceive,Sightings,sightLag,inView,lookingAt} from './practice-perceptio
 import {POSITIONAL_KINDS,CUE_LOOSE,INTENSITY_EVERY,SpotDrift,offBallIntensity,intensityLimit,intensityPush,readCue,restartKickIn,restartWalk} from './practice-intensity.js';
 import type {Sight} from './practice-shape.js';
 import {turnoverPrice} from './practice-rest-defence.js';
-import {HALF_SECONDS,LAST_ATTACK_MAX,SUB_MINUTES,attackAtFullTime,chooseReplacement,energyTop,fatigueEnergy,halfEnergy,lastAttackOver,legs,reserveBalance} from './practice-match.js';
+import {halfTimeAt,LAST_ATTACK_MAX,SUB_MINUTES,attackAtFullTime,chooseReplacement,energyTop,fatigueEnergy,halfEnergy,lastAttackOver,legs,reserveBalance} from './practice-match.js';
 import {validateSubstitutionOrders,triggerHolds,resolveOrder,triggerText,MAX_TRIGGERED_SUBSTITUTIONS} from './practice-substitutions.js';
 import type {SubstitutionOrder,SubstitutionNote,SubstitutionRecord} from './practice-substitutions.js';
-import {validateTacticsSwitches,switchDue,applyTacticsSwitch,slotsPlaceable} from './practice-switch.js';
+import {validateTacticsSwitches,switchDue,applyTacticsSwitch,slotsPlaceable,switchTriggerText} from './practice-switch.js';
 import type {TacticsSwitch,SwitchNote,SwitchRecord} from './practice-switch.js';
 import {assignSupport,complementarySupportAim,SupportPlan,SupportContext} from './practice-support.js';
 import {teamShape,TeamShape} from './practice-shape.js';
@@ -148,8 +148,6 @@ export type Incident='start'|'pass'|'clearance'|'receive'|'turnover'|'tackle'|'f
 /** Goal side is the beneficiary; actor/lastTouch identifies the final contact,
  * not an adjudication of scorer versus own goal. Shot assessment is a utility
  * heuristic, not xG; it is present only for ordinary foot strikes. */
-/** One Counter surge: the side, the second it won the ball (its transition) and the first tick it played the surge. */
-export interface SurgeRecord {side:Side;regain:number;start:number}
 export interface PracticeEvent {substitution?:SubstitutionRecord;switch?:SwitchRecord;lastTouch?:string;shot?:{aim:Vec;origin:Vec&{z:number};velocity:{vx:number;vy:number;vz:number};assessment?:ShotAssessment;/** (contest) what the defence did to it at the strike (practice-shot-contest). */contest?:Pick<ShotContest,'rush'|'shadow'|'balance'|'poise'|'hurry'|'closer'>};technique?:AerialTechnique;firstTime?:boolean;time:number;kind:Incident;text:string;actor?:string;target?:string;side?:Side;challengeContact?:ChallengeContact;restartKind?:RestartKind;restartSpot?:Vec;restartPlayers?:{id:string;x:number;y:number;vx:number;vy:number}[];incoming?:string;outgoing?:string;pass?:{meetingTime?:number;weight:GroundPass['weight'];aim:Vec;intendedSpeed:number;actualSpeed:number;arrivalSpeed:number};freeKick?:DirectFreeKickPlan;aerial?:{meetingTime?:number;kind:LoftPass['kind'];aim:Vec;intendedSpeed:number;actualSpeed:number;intendedVz:number;actualVz:number;flight:number;apex:number;risk:number}}
 /** (contest round) one reception duel, recorded with `record`: who, where, the reads and the outcome. */
 export interface ReceptionDuelRecord {time:number;receiver:string;defender:string;outcome:DuelResult['outcome'];commit:boolean;layoff:boolean;access:number;screen:number;front:number;goalTight:number;closing:number;nick:number;seenNick:number;flight:number;from?:Vec;at:Vec;defenderAt:Vec}
@@ -160,9 +158,7 @@ export interface PracticeStats {passes:number;completed:number;clearances:number
  * carried the match past `duration` (practice-match.ts LAST_ATTACK_MAX); otherwise the match ended at `duration`. */
 /** A contest in the air (practice-air-duel), recorded with the match when record is on. */
 export interface AerialDuelRecord {time:number;x:number;y:number;z:number;attacker:string;defender:string;toucher:string;winner:string;outcome:'clean'|'knock'|'foul';result:string;way:'up'|'nip';chance:number}
-export interface PracticeResult {version:string;seed:number;duration:number;played?:number;teams:[string,string];players:PracticePlayer[];frames:PracticeFrame[];events:PracticeEvent[];choices:Choice[];stats:[PracticeStats,PracticeStats];score:[number,number];controlContacts?:ControlContact[];receptionDuels?:ReceptionDuelRecord[];aerialDuels?:AerialDuelRecord[];aerialChallenges?:{time:number;id:string;result:string}[];playbookSelections?:PlaybookSelection[];standingNotes?:StandingNote[];coachingNotes?:CoachingNote[];substitutionNotes?:SubstitutionNote[];switchNotes?:SwitchNote[];
- /** (styles as identities, slice 2) Counter's surges, recorded matches only: present only when one happened. */
- surges?:SurgeRecord[]}
+export interface PracticeResult {version:string;seed:number;duration:number;played?:number;teams:[string,string];players:PracticePlayer[];frames:PracticeFrame[];events:PracticeEvent[];choices:Choice[];stats:[PracticeStats,PracticeStats];score:[number,number];controlContacts?:ControlContact[];receptionDuels?:ReceptionDuelRecord[];aerialDuels?:AerialDuelRecord[];aerialChallenges?:{time:number;id:string;result:string}[];playbookSelections?:PlaybookSelection[];standingNotes?:StandingNote[];coachingNotes?:CoachingNote[];substitutionNotes?:SubstitutionNote[];switchNotes?:SwitchNote[]}
 type Action='pass'|'through'|'loft'|'carry'|'shoot'|'feint'|'clear';
 export interface Option {/** What the receiver can do next, already in `score` (receiverProspects). */next?:number;/** A delivery's pass-only pressure credits (relief, retreat, pressure x space), already in `score`: what the purpose clock decays (R3). */relief?:number;/** A shot: the shooter's own read of his chance (R2), already in `score`. */quality?:number;/** Interception risk of a planned throw (throw-ins only). */throwRisk?:number;/** A throw that leads a run: where the receiver meets it. */throwLead?:Vec;kind:Action;clearance?:ClearanceIntent;target?:string;aim:Vec;score:number;reason:string;carry?:CarryAssessment;continuing?:boolean;delivery?:DeliveryRead;run?:PassRun;pass?:GroundPass;loft?:LoftPass;freeKick?:DirectFreeKickPlan;teachingStep?:string;teachingPlan?:string;teachingFit?:number;teachingSpace?:boolean;receivingSpace?:ReceivingSpace;/** (decide round) played hurried by a pressed man: half the preparation, struck worse (practice-possession priceCaught). */hurried?:boolean;/** (take-on price) a take-on whose loss is already priced where he is (practice-feints): the possession urgency charge is not laid on it again. */lossPriced?:boolean}
 interface Intent {kind:Duty;aim:Vec;speed:number;until:number;since:number;reason:string;teamSide:Side;shapeOffset?:Vec;
@@ -410,6 +406,11 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
  let half:1|2=1,lineup:number[]|undefined,needsFrame=false,cut=false;
  // Set when full time finds a side in an attack (the loop below, practice-match.ts attackAtFullTime).
  let lastAttack:{side:Side;shot:boolean}|null=null;
+ // Half-time (practice-match.ts halfTimeAt): the tick it is due (none for a short run), the attack it waits for, whether it is past.
+ const halfDue=halfTimeAt(duration),halfTick=halfDue===null?null:Math.round(halfDue/STEP);
+ let halfAttack:{side:Side;shot:boolean}|null=null,halfDone=false,kickTick:number|null=null;
+ // The clock the match shows (owner, 21 Oct): 7:30 from the whistle until the second half's kick, then a full half from the kick. What a "not before" reads.
+ const shownTime=()=>!halfDone?time:kickTick===null?halfDue!:halfDue!+(time-kickTick*STEP);
  const frameStride=duration>900?30:6;
  const get=(id:string)=>byId.get(id)!,sidePlayers=(side:Side)=>players.filter(p=>p.side===side);
  const random=rng(f.seed^0x884411),execution=rng(f.seed^0x547293),duelDraw=rng(f.seed^0x2d1e75),airRandom=rng(f.seed^0x3a1f07),balanceDraw=rng(f.seed^0x6b1a4d),aerialDuels:AerialDuelRecord[]=[],stats:[PracticeStats,PracticeStats]=[blank(),blank()],score:[number,number]=[0,0];
@@ -471,16 +472,11 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
  const noteTouch=(id:string)=>{lastTouch=id;const p=get(id);if(p.role!=='GK'||p.side!==noHandsSide)noHandsSide=null;if(id!==noHandsKeeper)noHandsKeeper='';};
  const collectContacts=(state:TouchControl)=>{if(state.contacts.length){for(const c of state.contacts)noteTouch(c.actor);if(record)controlContacts.push(...state.contacts);needsFrame=true;state.contacts.length=0;}};
  const canUseHands=(p:PracticePlayer)=>p.role==='GK'&&p.side!==noHandsSide&&p.id!==noHandsKeeper;
- // (styles as identities, slice 2) Counter's surge as it happened: each regain after which the side played the surge
- // (approachForSituation's regainWindow), noted once, at its first tick. Nothing in the match reads it; the app turns it
- // into a moment with its outcome (lib/ballers/compute.ts styleMoments).
- const surges:SurgeRecord[]=[];
  const tacticsFor=(team:Side)=>{
   const t=f.teams[team].tactics,age=team===side&&transitionAt>=0?time-transitionAt:-1;
   const focus=players.find(p=>p.side===team&&p.id===(ball.owner??(ball.mode==='pass'?flight.receiver:undefined)));
   const continuing=coordination?.attacking===team?Object.values(coordination.jobs).filter(j=>j.purpose==='break'):[];
   const situation=approachForSituation(t,players,focus,age,continuing,time);
-  if(record&&situation.regainWindow){const last=surges.at(-1);if(!last||last.side!==team||last.regain!==transitionAt)surges.push({side:team,regain:transitionAt,start:time});}
   return team===side&&recycle[team].count?{...situation,recycled:recycle[team].count}:situation;
  };
  let restartAssignAt=0,transitionAt=-10,exempt=false,mustRelease=false,restrictedGoal=false,restartKicker='';
@@ -703,7 +699,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
   if(!orders.length||time<=0)return;
   orders.forEach((order,i)=>{
    const note=orderNotes[i],team=order.side;
-   if(note.status!=='waiting'||(order.notBefore??0)>time||!triggerHolds(order.trigger,team,time,duration,score,players))return;
+   if(note.status!=='waiting'||(order.notBefore??0)>shownTime()||!triggerHolds(order.trigger,team,time,duration,score,players))return;
    if(madeCounts[team]>=MAX_TRIGGERED_SUBSTITUTIONS){Object.assign(note,{status:'impossible',detail:'Echipa a făcut deja toate schimbările.'});return;}
    const decision=resolveOrder(order,f,players,gone);
    if('wait' in decision){note.detail=decision.wait;return;}
@@ -729,10 +725,10 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
   if(!switches.length||time<=0)return;
   switches.forEach((order,i)=>{
    const note=switchNotes[i],team=order.side;
-   if(note.status!=='waiting'||!switchDue(order,time,duration,score,players))return;
+   if(note.status!=='waiting'||!switchDue(order,time,duration,score,players,shownTime()))return;
    if(!slotsPlaceable(order,players)){Object.assign(note,{status:'skipped',time,detail:'Echipa nu își are cei cinci pe posturile din formație.'});return;}
    const shapeBefore=f.teams[team].tactics.formation,moved=applyTacticsSwitch(order,f,players);
-   say('switch',`${f.teams[team].name} își schimbă planul de joc (${triggerText(order.trigger)}).`);
+   say('switch',`${f.teams[team].name} își schimbă planul de joc (${switchTriggerText(order.trigger)}).`);
    Object.assign(events.at(-1)!,{side:team,switch:{order:order.id,trigger:structuredClone(order.trigger),score:[score[team],score[other(team)]],
     ...(moved?{...(order.tactics.formation!==shapeBefore?{formation:order.tactics.formation}:{}),players:moved}:{})}});
    Object.assign(note,{status:'made',time});
@@ -741,7 +737,8 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
  const startRestart=(kind:Restart['kind'],team:Side,spot:Vec,opening?:{taker:string;force:boolean})=>{
   for(const b of playbooks)b.end(time,'restart');
   // A stoppage after full time ends the match: nobody comes on for no seconds.
-  if(!lastAttack){applySubstitutions();applyOrders();applySwitches();}
+  // One that ends the first half's last attack: the changes (and a tactics switch) wait for the interval's kickoff.
+  if(!lastAttack&&!halfAttack){applySubstitutions();applyOrders();applySwitches();}
   awareness.clear();coordination=null;
   feintMemory.clear();
   challenge=null;firstTouch=null;recovering.clear();blocks.clear();wrongfoot.clear();dives.clear();controls.clear();noHandsSide=null;noHandsKeeper='';
@@ -960,7 +957,8 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
  const marks=new Map<string,string>();
  // Full time (practice-match.ts attackAtFullTime): the clock ends the match
  // unless a side is in an attack, which plays out for at most LAST_ATTACK_MAX.
- const regular=Math.round(duration/STEP),lastView=()=>({restart,side,ball});
+ // (half-time) full time moves: the second half is a full half from its kick (the clock shows 7:30 there), so an overrun first half and the kickoff's gather both move it.
+ let regular=Math.round(duration/STEP);const lastView=()=>({restart,side,ball});
  for(let tick=1;;tick++){
   if(ball.mode!=='shot')shotEdge=null;
   if(tick>regular){
@@ -969,11 +967,26 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    if(tick>regular+1&&lastAttackOver(lastView(),lastAttack.side,lastAttack.shot)||tick>regular+Math.round(LAST_ATTACK_MAX/STEP))break;
   }
   time=tick*STEP;
-  if(duration>HALF_SECONDS&&tick===HALF_SECONDS/STEP){
-   frame();half=2;cut=true;reserves.clear();for(const p of players){p.energy=halfEnergy(p.energy);p.vx=0;p.vy=0;}
-   say('half','Pauză. Echipele își trag sufletul, schimbă porțile și pregătesc repriza a doua.');
-   startRestart('kickoff',other(f.kickoff),{x:(L/2),y:0});
+  // Half-time (practice-match.ts halfTimeAt): at the midpoint, unless a side is in an attack, which plays out as at
+  // full time (matches only); then the whistle. The interval itself takes no match time: the last first-half frame,
+  // then a cut to the second half's kickoff, everyone on his spot (the walk off and back out is the watch screens'
+  // picture, lib/ballers/interval.ts), rested, the other side to kick off. Coordinates stay team-relative.
+  if(halfTick!==null&&!halfDone&&tick>=halfTick){
+   if(tick===halfTick&&options.lastAttack&&attackAtFullTime(lastView()))halfAttack={side,shot:false};
+   if(halfAttack&&ball.mode==='shot')halfAttack.shot=true;
+   if(!halfAttack||tick>halfTick+1&&lastAttackOver(lastView(),halfAttack.side,halfAttack.shot)||tick>halfTick+Math.round(LAST_ATTACK_MAX/STEP)){
+    halfAttack=null;halfDone=true;
+    frame();half=2;cut=true;reserves.clear();downs.clear();for(const p of players){p.vx=0;p.vy=0;}
+    say('half','Pauză. Echipele își trag sufletul, schimbă porțile și pregătesc repriza a doua.');
+    // The changes are decided at the whistle (a "when he tires" order reads his energy before the rest); then the rest, for the men who played the first half.
+    const played=new Set(players.map(p=>p.id));
+    startRestart('kickoff',other(f.kickoff),{x:(L/2),y:0});
+    for(const p of players){const spot=restart?.positions[p.id];if(spot){p.x=spot.x;p.y=spot.y;}p.angle=Math.atan2(-p.y,L/2-p.x);if(played.has(p.id))p.energy=halfEnergy(p.energy);}
+    frame();
+   }
   }
+  // the second half's kick (its kickoff restart taken): the clock runs from here, and full time is a full half later
+  if(halfDone&&kickTick===null&&!restart){kickTick=tick;regular=tick+halfTick!;}
   const old=new Map(players.map(p=>[p.id,{x:p.x,y:p.y,angle:p.angle,speed:Math.hypot(p.vx,p.vy)}])),owner=ball.owner?get(ball.owner):null;
   // A restart repositions everyone: the memory starts afresh after it.
   if(coordinated){if(restart){if(sightingsLive){sightings.clear();sightingsLive=false;}}else{sightings.record(time,players);sightingsLive=true;}}
@@ -1123,7 +1136,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    // first time if a touch costs more than striking it: the pace, the air, and a plan he will have held too briefly
    // at the strike to have shaped his body for it (lateStrike); none at all inside a reaction (SHAPE_MIN)
    const heldAtStrike=time-since+arrive;
-   const first=clearing||option.kind!=='carry'&&heldAtStrike>=SHAPE_MIN&&touchCost(p,option,meeting,seen,room,laneRisk)+S.STYLE[f.teams[p.side].tactics.style??'balanced'].touchPrice.v>=firstTimeCost(p,option,meetingSpeed(ball,p,arrive),aerialDelivery,meeting,seen,lateStrike(heldAtStrike));
+   const first=clearing||option.kind!=='carry'&&heldAtStrike>=SHAPE_MIN&&touchCost(p,option,meeting,seen,room,laneRisk)>=firstTimeCost(p,option,meetingSpeed(ball,p,arrive),aerialDelivery,meeting,seen,lateStrike(heldAtStrike));
    const alt=clearing?undefined:ranked.find(o=>!sameIntention(o,option!));
    return {receiver:p.id,release:releaseAt,option,since,checked:time,first,room:same?held!.room:room,alt};
   };
@@ -1823,7 +1836,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
       // contact); the physical gates: a plan he has had at least a reaction's time (SHAPE_MIN; one held for less than
       // the switch deadline is struck less accurately: lateStrike, below), a ball he can strike through, and a stance
       // from which the kick is on. (decide round: before, a plan held 0.13 s + 0.012 s a reading point short of 10.)
-      let direct=!!viable&&!switched&&viable.kind!=='carry'&&!!plan&&plan.first&&time-plan.since>=SHAPE_MIN&&relativeSpeed<WORLD.contact.strike.speedBase.v+S.STYLE[f.teams[p.side].tactics.style??'balanced'].strikeSpeed.v+p.skills.control*WORLD.contact.strike.speedPerControl.v&&controlStrikeReady(hit.meeting.body,ball,state,viable.aim,viable.kind==='shoot'?'shot':viable.kind==='clear'?'clearance':'pass');
+      let direct=!!viable&&!switched&&viable.kind!=='carry'&&!!plan&&plan.first&&time-plan.since>=SHAPE_MIN&&relativeSpeed<7+p.skills.control*.75&&controlStrikeReady(hit.meeting.body,ball,state,viable.aim,viable.kind==='shoot'?'shot':viable.kind==='clear'?'clearance':'pass');
       const planLate=direct&&plan?lateStrike(time-plan.since):0;
       // (contest round) a team-mate's pass met with a defender's foot able to get to it: the touch is a duel
       // (practice-duel.ts). A planned first-time ball is gone before the man can contest the touch.
@@ -1925,7 +1938,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
  }
  for(const b of playbooks)b.end(time,'end');
  say('end',`Fluier final. ${span(duration)}, destule povești pentru marginea terenului.`);frame();
- return {version:PRACTICE_VERSION,seed:f.seed,duration,...(lastAttack?{played:time}:{}),teams:[f.teams[0].name,f.teams[1].name],players:roster,frames,events,choices,stats,score,controlContacts:record?controlContacts:undefined,...(record?{receptionDuels}:{}),...(record&&aerialDuels.length?{aerialDuels}:{}),...(record&&airChallenges.length?{aerialChallenges:airChallenges}:{}),...(playbooks.length?{playbookSelections:playbooks.flatMap(b=>b.selections.map(sel=>({...sel,side:b.config.side}))),...(playbooks.some(b=>b.standing.notes.length)?{standingNotes:playbooks.flatMap(b=>b.standing.notes)}:{})}:{}),...(coaching?{coachingNotes:coaching.notes}:{}),...(orders.length?{substitutionNotes:orderNotes}:{}),...(switches.length?{switchNotes}:{}),...(surges.length?{surges}:{})};
+ return {version:PRACTICE_VERSION,seed:f.seed,duration,...(lastAttack||kickTick!==null?{played:time}:{}),teams:[f.teams[0].name,f.teams[1].name],players:roster,frames,events,choices,stats,score,controlContacts:record?controlContacts:undefined,...(record?{receptionDuels}:{}),...(record&&aerialDuels.length?{aerialDuels}:{}),...(record&&airChallenges.length?{aerialChallenges:airChallenges}:{}),...(playbooks.length?{playbookSelections:playbooks.flatMap(b=>b.selections.map(sel=>({...sel,side:b.config.side}))),...(playbooks.some(b=>b.standing.notes.length)?{standingNotes:playbooks.flatMap(b=>b.standing.notes)}:{})}:{}),...(coaching?{coachingNotes:coaching.notes}:{}),...(orders.length?{substitutionNotes:orderNotes}:{}),...(switches.length?{switchNotes}:{})};
 }
 export function samplePractice(r:PracticeResult,t:number):PracticeFrame{
  const time=clamp(t,0,r.played??r.duration);let lo=0,hi=r.frames.length-1;

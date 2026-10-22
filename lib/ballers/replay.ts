@@ -16,12 +16,15 @@
 
 import type {IdeaRun} from './idea-run';
 import type {Voice} from './voice';
-import type {StyleMark,StyleTally} from './style-moments';
 
 export const REPLAY_VERSION = 2 as const;
 export const CHUNK_SECONDS = 60;
 /** Frames kept at least this far apart (plus every cut and the final frame). */
 export const FRAME_STEP = 0.2;
+/** Half-time (deliverables/ballers-half-time/DESIGN.md): the live break, in real seconds, the same for every viewer.
+ * A match with a half-time says so in its header (`interval`); its replay holds the engine's `half` event (the
+ * whistle) and a cut frame at the same instant (the second half's kickoff, the ends swapped on screen). */
+export const BREAK_SECONDS = 300;
 
 export interface ReplayPlayer {
  /** As above. */ i:number;side:0|1;
@@ -37,6 +40,10 @@ export interface ReplayHeader {
  /** Seconds until the final whistle: the match length, or a few seconds more when the last attack played out. */ duration:number;
  /** The match length (the clock's full time), present only when the whistle came after it (last attack, engine practice-match.ts). */ fullTime?:number;
  chunkSeconds:number;chunks:number;
+ /** The match length (s), set only by timeline() when the last chunk's `end` moves `duration` to the real whistle. */ length?:number;
+ /** Half-time (from the half-time build): the live break in seconds (BREAK_SECONDS). Absent = no half-time (older
+  * replays, quick matches). The whistle's second is NOT here (it would say at kickoff whether an attack was on at
+  * 7:30): read it from the `half` event (halfTime below). */ interval?:number;
  teams:[ReplayTeam,ReplayTeam];players:ReplayPlayer[];
 }
 /** One frame: t ms; p = [x, y, angle] per player; b = ball [x, y, z]; o = ball
@@ -62,14 +69,15 @@ export interface ReplaySub {k:'tired'|'score'|'margin'|'half';st?:string;n?:numb
  * st score state; n margin; d up/down) and y the style the side now plays (a preset key: public like the header's
  * style; the plan's own name is the manager's and never in the replay), plus f / ro when the formation changes.
  * Optional, so the version stays 2. */
-export interface ReplaySwitch {k:'score'|'margin'|'half';st?:string;n?:number;d?:string;y:string;
+export interface ReplaySwitch {k:'score'|'margin'|'half'|'always';st?:string;n?:number;d?:string;y:string;
  /** Men moved to new places (every switch can, owner 21 Oct): [player index, new role, lane] for each man of that side, and
   * f the new formation when it changed. */ f?:string;ro?:[number,string,number?][]}
-/** Style moments (styles as identities, slice 2, from 22 Oct; lib/ballers/style-moments.ts): mo = the moments that end
- * at this event (a Short side's one-touch move, a Counter side's surge and what came of it). Optional, so the version
- * stays 2. */
-export interface ReplayEvent {t:number;k:string;x:string;a?:number;g?:number;s?:0|1;lt?:number;rk?:string;sh?:{o:[number,number];a:[number,number]};sb?:ReplaySub;sw?:ReplaySwitch;q?:number;sk?:1|2|3;mo?:StyleMark[]}
-export interface ReplayChunk {v:typeof REPLAY_VERSION;i:number;t0:number;t1:number;f:ReplayFrame[];e:ReplayEvent[]}
+export interface ReplayEvent {t:number;k:string;x:string;a?:number;g?:number;s?:0|1;lt?:number;rk?:string;sh?:{o:[number,number];a:[number,number]};sb?:ReplaySub;sw?:ReplaySwitch;q?:number;sk?:1|2|3}
+/** `end` (the last chunk only, from the half-time build): when the whistle really went (`played`, s) and the clock's full
+ * time (`fullTime`, s: the second half's kick + a full half, or the match length), present when either differs from the
+ * match length. It used to be in the header, which is readable from kickoff, so it told a viewer at kickoff how long
+ * the last attack (and the first half's overrun) would run; it now arrives with the chunk that holds them. */
+export interface ReplayChunk {v:typeof REPLAY_VERSION;i:number;t0:number;t1:number;f:ReplayFrame[];e:ReplayEvent[];end?:{played:number;fullTime:number}}
 
 /** An idea the engine selected during the match (owner-only names live elsewhere). */
 export interface ReplayIdea {seq:number;side:0|1;t:number;endedAt:number|null;status:string;endReason:string|null;
@@ -85,10 +93,7 @@ export interface CompactMatch {header:ReplayHeader;chunks:ReplayChunk[];score:[n
  /** Owner-only (P5): the engine's substitutionNotes per side, each with its order's trigger. */
  substitutionNotes?:{side:0|1;notes:unknown[]}[];
  /** Owner-only, like the substitution notes: the engine's switchNotes (made or waiting, and when). Present only when a side carried a switch. */
- switchNotes?:{order:string;side:0|1;status:'made'|'waiting'|'skipped';time?:number;detail?:string}[];
- /** Each side's style tallies (lib/ballers/style-moments.ts): present only when a side is Short or a moment happened.
-  * They ride into the stored result's stats (simulation.ts submission). */
- styles?:[StyleTally,StyleTally]}
+ switchNotes?:{order:string;side:0|1;status:'made'|'waiting'|'skipped';time?:number;detail?:string}[]}
 
 export const cm=(metres:number)=>Math.round(metres*100);
 export const mrad=(rad:number)=>Math.round(rad*1000);
@@ -100,7 +105,11 @@ export interface Pose {x:number;y:number;a:number}
 export interface Timeline {header:ReplayHeader;frames:ReplayFrame[];events:ReplayEvent[]}
 export function timeline(header:ReplayHeader,chunks:ReplayChunk[]):Timeline{
  const sorted=[...chunks].sort((a,b)=>a.i-b.i);
- return {header,frames:sorted.flatMap(c=>c.f),events:sorted.flatMap(c=>c.e)};
+ // The last chunk's `end` (half-time build): once held, the header reads as replays always did (duration = the whistle,
+ // fullTime = the clock's full time) plus the match length; until then it is the match length only (nothing early).
+ const end=sorted.find(c=>c.i===header.chunks-1)?.end;
+ const h=end?{...header,duration:end.played,fullTime:end.fullTime,length:header.duration}:header;
+ return {header:h,frames:sorted.flatMap(c=>c.f),events:sorted.flatMap(c=>c.e)};
 }
 /** Index of the last frame at or before t (ms); -1 before the first. */
 export function frameAt(frames:ReplayFrame[],t:number){

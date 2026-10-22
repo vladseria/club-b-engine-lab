@@ -28,10 +28,6 @@ export function validateApproach(value:unknown):ApproachSettings{
  if(!v||!['patient','mixed','direct'].includes(v.progression)||!['narrow','standard','wide'].includes(v.width)||!['deep','standard','high'].includes(v.line)||!['selective','balanced','aggressive'].includes(v.press)||!['mixed','link','pivot','run'].includes(v.striker??'')||!['balanced','secure','counter'].includes(v.transition)||!Number.isFinite(v.commit)||v.commit<1||v.commit>5||v.onLoss!==undefined&&!['regroup','balanced','counterpress'].includes(v.onLoss))throw Error('Invalid team approach');
  return {progression:v.progression,width:v.width,line:v.line,press:v.press,commit:v.commit,striker:v.striker,transition:v.transition,...(v.onLoss!==undefined?{onLoss:v.onLoss}:{})};
 }
-/** (styles as identities, slice 1, 2026-10-22) ... and a side that names its style (the optional Tactics.style) must
- * play that style's base: Progression and On winning it as style.ts STYLE says, or the entrance refuses it
- * (`Invalid tactics: home.style combinations plays progression patient and transition secure (got mixed, secure)`).
- * A side without `style` is not checked: every input that ran before still runs. */
 /** (engine as data, 2026-10-21) The three settings the engine looks up in style.ts by their value, with no default:
  * Line, Press and Progression. A missing or unknown value used to read as false / 0 / NaN at those sites; since the
  * slice it throws mid-match, so the entrance refuses it first with one clear message. Only these three: the optional
@@ -48,8 +44,6 @@ export function validateEntryTactics(teams:readonly {tactics:Tactics}[]):void{
    const value=(team.tactics as unknown as Record<string,unknown>)[field];
    if(typeof value!=='string'||!options.includes(value))throw Error(`Invalid tactics: ${i===0?'home':i===1?'away':`team ${i}`}.${field} is ${value===undefined?'undefined':JSON.stringify(value)} (expected ${expected})`);
   }
-  const base=S.styleBaseProblem(team.tactics);
-  if(base)throw Error(`Invalid tactics: ${i===0?'home':i===1?'away':`team ${i}`}.${base}`);
  });
 }
 /** The recovery window changes the team's invitations, never running speed or

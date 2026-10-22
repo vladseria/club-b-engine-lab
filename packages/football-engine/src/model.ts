@@ -12,10 +12,6 @@ export interface Tactics {
   fullbacks?: 'balanced' | 'overlap' | 'hold'; striker?: 'mixed' | 'link' | 'pivot' | 'run';
   marking?: 'balanced' | 'zonal' | 'tight';
   transition?: 'balanced' | 'secure' | 'counter';
-  /** (styles as identities, slice 1, 2026-10-22) The style this side plays: its base (progression + transition, which
-   * the entrance requires to match, style.ts styleBaseProblem) and its trait (style.ts STYLE: Short's one-touch).
-   * Missing = no trait, the side plays exactly as its stored settings say (every input frozen before the field). */
-  style?: 'balanced' | 'combinations' | 'direct' | 'counter';
   /** "On losing it": the first seconds after a loss. Missing = 'balanced'. */
   onLoss?: 'regroup' | 'balanced' | 'counterpress';
   /** (beat-direct probe P1, 2026-10-14, ported for the contest combine's cloud arms; scratch, never a Ballers setting)

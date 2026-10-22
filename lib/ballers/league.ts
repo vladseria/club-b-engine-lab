@@ -1,13 +1,13 @@
 // Ballers league: row shapes as stored in Supabase (see the ballers_p1_*
 // migrations) plus the pure helpers the screens share. No I/O here.
-import {STYLE_BASE,playedApproach,withOnLoss,type Approach,type BaseKey,type StoredApproach} from './approach';
+import {playedApproach,withOnLoss,type Approach,type StoredApproach} from './approach';
 import type {PrepOrder} from './subs';
 import type {MatchSettings} from './match-settings';
 import type {Voice} from './voice';
 import type {Player as EnginePlayer, Role} from '../../packages/football-engine/src/model';
 import {LOCK_MS} from './schedule';
 import {LAST_ATTACK_MAX} from '../../packages/football-engine/src/practice-match';
-export {BASE_KEYS,STYLE_BASE,STYLE_KEYS,engineStyle,fitsStyle,isBaseKey,styleChoices,styleOfBase,withStyleBase,type BaseKey,type StyleKey} from './approach';
+import {BREAK_SECONDS} from './replay';
 export {ON_LOSS,boardApproach,boardFormation,engineApproach,onLossOf,playedApproach,widthChosen,withOnLoss,type Approach,type OnLoss,type StoredApproach} from './approach';
 
 /** Every formation a stored row, frozen input or replay may carry (the engine plays all three). */
@@ -15,7 +15,6 @@ export type Formation='1-2-1'|'2-2'|'2-1-1';
 /** The formations a manager can pick: 2-1-1 is retired (owner, 15 Oct 2026; approach.ts boardFormation). */
 export type BoardFormation=Exclude<Formation,'2-1-1'>;
 export const BOARD_FORMATIONS:readonly BoardFormation[]=['1-2-1','2-2'];
-/** The four styles ('combinations' is Short). Same keys as approach.ts StyleKey. */
 export type Style='balanced'|'combinations'|'direct'|'counter';
 export type Archetype='wall'|'libero'|'anchor'|'ballwinner'|'architect'|'motor'|'artist'|'runner'|'pivot'|'predator'|'maverick';
 export type Temperament='cold'|'fuse'|'diva'|'ambitious'|'heart';
@@ -72,22 +71,14 @@ export const FORMATIONS:Record<Formation,{slots:[string,string,string,string,str
 /** What the formation is about (the plan page, above its options). */
 export const FORMATION_ABOUT='Where your four outfield players stand. Each slot sets a role, whoever plays it.';
 /** What a style is about (the plan page, above its options): a starting point for every setting. */
-export const STYLE_ABOUT='What your team is: how it moves the ball and what it does the moment it wins it back. Picking one also puts the settings below back to its own.';
+export const STYLE_ABOUT='A starting point for every setting below. Picking one puts all of them back to its own.';
 /** Where the positions on a player's card meet the slots (player cards, the lineup). */
 export const ANY_SLOT='Anyone can play any slot: the slot sets his role, his skills decide how well.';
-/** The four identities (owner's wording, 22 Oct 2026; STYLES-AS-IDENTITIES.md). `headline`: what the style is, in
- * a few words, the first thing a player sees; `line`: what it does and what it costs. No line claims a matchup or a
- * "suits" until one is measured. Each claim is the engine's: Short's one-touch (style.ts STYLE.combinations, the
- * receiver plays it first time when he is free) and Keep it (ON_WIN.secure: Patient for 3 s after every regain, a
- * break only a clear man up); Counter's surge (REWRITES.counter: 8 s, Direct, at least 4 forward, the lead forward
- * on In behind unless he is a Pivot or Drops deep, which keep their job); Direct (PROGRESSION.direct: runs in behind
- * from anywhere, the Direct delivery ranks passes by ground gained); Balanced (Mixed + Balanced: no rewrite, no
- * trait). */
-export const STYLES:Record<Style,{label:string;headline:string;line:string}>={
- balanced:{label:'Balanced',headline:'No special trait',line:'Keeps it or goes forward as each attack offers, and breaks when a break is on. No big strength.'},
- combinations:{label:'Short',headline:'One-touch passing',line:'When the receiver is free he plays it first time, and the side keeps the ball after winning it. Slower to goal, and breaks only with a clear extra man.'},
- direct:{label:'Direct',headline:'Ball forward fast',line:'The ball goes forward fast from anywhere, with runs in behind at any time and passes picked for the ground they gain. Gives it away more.'},
- counter:{label:'Counter',headline:'The surge',line:'The moment it wins the ball, for eight seconds more men go forward, the ball goes forward fast and a Mixed or In behind striker runs in behind, then it settles. Gives it away more in those seconds.'},
+export const STYLES:Record<Style,{label:string;line:string}>={
+ balanced:{label:'Balanced',line:'A bit of everything, with no big strength or weakness. Fits any squad.'},
+ combinations:{label:'Short combinations',line:'Keeps the ball and wins it straight back. Suits good passers who read the game; a side that gets past your press finds space behind it.'},
+ direct:{label:'Direct',line:'Gets forward early and wide, with bodies in the box. Suits quick forwards, but gives the ball away more.'},
+ counter:{label:'Counter',line:'Sits deep, lets them have the ball and breaks fast when you win it. Suits quick forwards.'},
 };
 /** Mirror of the engine's teamApproaches presets (and SQL private.ballers_preset),
  * "On losing it" (`onLoss`) included. Short combinations counter-press
@@ -103,17 +94,12 @@ export const STYLES:Record<Style,{label:string;headline:string;line:string}>={
  * The ONE source of the four presets (engine as data, S1): the engine's
  * teamApproaches, the newest ballers_preset migration and the schema.sql
  * mirror are asserted equal to this table by verificare/ballers-preset-source. */
-/** The fine-tunes each style starts from (everything but its base). */
-export const STYLE_TUNES:Record<Style,Omit<Approach,BaseKey>>={
- balanced:{width:'standard',line:'standard',press:'balanced',commit:3,striker:'mixed',onLoss:'balanced'},
- combinations:{width:'standard',line:'high',press:'balanced',commit:3,striker:'pivot',onLoss:'counterpress'},
- direct:{width:'wide',line:'standard',press:'balanced',commit:4,striker:'run',onLoss:'balanced'},
- counter:{width:'standard',line:'deep',press:'selective',commit:3,striker:'mixed',onLoss:'balanced'},
+export const PRESETS:Record<Style,Approach>={
+ balanced:{progression:'mixed',width:'standard',line:'standard',press:'balanced',commit:3,striker:'mixed',transition:'balanced',onLoss:'balanced'},
+ combinations:{progression:'patient',width:'standard',line:'high',press:'balanced',commit:3,striker:'pivot',transition:'secure',onLoss:'counterpress'},
+ direct:{progression:'direct',width:'wide',line:'standard',press:'balanced',commit:4,striker:'run',transition:'balanced',onLoss:'balanced'},
+ counter:{progression:'mixed',width:'standard',line:'deep',press:'selective',commit:3,striker:'mixed',transition:'counter',onLoss:'balanced'},
 };
-/** A preset = the style's base (approach.ts STYLE_BASE) + its fine-tunes, keys in the stored order. */
-const preset=(st:Style):Approach=>{const b=STYLE_BASE[st],t=STYLE_TUNES[st];
- return {progression:b.progression,width:t.width,line:t.line,press:t.press,commit:t.commit,striker:t.striker,transition:b.transition,onLoss:t.onLoss};};
-export const PRESETS:Record<Style,Approach>={balanced:preset('balanced'),combinations:preset('combinations'),direct:preset('direct'),counter:preset('counter')};
 /** One fine-tune row. `line` (per option): the short line shown under the row
  * for the selected option, written for the manager: what he gets, what it
  * costs, and which squad or opponent it suits. A "suits" claim names only a
@@ -124,10 +110,16 @@ export interface ApproachOption {value:string;label:string;line:string}
 /** `about`: what the setting itself is about, in one line (the plan page shows it above the
  * options). Like the option lines, it says only what the engine does with the setting. */
 export interface ApproachField {key:keyof Approach;label:string;about:string;options:ApproachOption[]}
-/** The fine-tune rows a manager can change, in screen order: Width, Line, Press, Striker, Bodies forward, On losing
- * it. Progression and On winning it are no longer rows (styles as identities, slice 1, owner's decision 22 Oct
- * 2026): they are the style's base (BASE_FIELDS below keeps their words for what a past prep played). */
+/** The fine-tune rows in screen order. "Bodies forward" sits before the two
+ * transition rows so "On winning it" and "On losing it" share a grid row at
+ * two and three columns (and stay adjacent in one); at three columns Striker
+ * spans two (club.module.css .tuneWide), which puts all three on the last row. */
 export const APPROACH_FIELDS:ApproachField[]=[
+ // team-approach.ts approachOptions (patient preference, purposeClock), practice-coordination.ts runStyle, practice-attacking-space.ts weight
+ {key:'progression',label:'Progression',about:'How you move the ball up the pitch: keep it and build, or go forward quickly.',options:[
+  {value:'patient',label:'Patient',line:'Keeps the ball longest, but is slower to goal and gives them time to set. Suits good passers who read the game.'},
+  {value:'mixed',label:'Mixed',line:'Keeps it or goes forward, whichever each attack offers. No big strength or weakness. Fits any squad.'},
+  {value:'direct',label:'Direct',line:'Gets the ball forward fast and makes the most shots, but gives it away more. Suits quick forwards.'}]},
  // practice-shape.ts WIDTH (lane, pull, hold, follow, reach, allowance, inward), buildUpSpread; practice-coordination.ts hold-width job.
  // Wide no longer says "Hurts a side that presses hard": the width check (2026-10-11, 234 matches, branch
  // width-check) found no support for it (flat against the press in 1-2-1, likely worse in 2-2).
@@ -195,22 +187,6 @@ export const APPROACH_FIELDS:ApproachField[]=[
   {value:'3',label:'3',line:'Your players decide how many join each attack. Fits any squad.'},
   {value:'4',label:'4',line:'More of your players join each attack, so the man on the ball has company. They worry less about free opponents behind them.'},
   {value:'5',label:'5',line:'Your players join the attack in numbers, the most of any setting. They worry least about free opponents behind them.'}]},
- // practice-coordination.ts counterPressFires / counterPressRead (Counter-press goes whatever the numbers, Balanced
- // only a man up). Regroup (its drop and delay, practice-defending.ts intent / regroup) is retired from the board
- // (owner, 15 Oct 2026; approach.ts boardApproach): it cost at both ends. The engine still plays it for old inputs.
- {key:'onLoss',label:'On losing it',about:'What your team does in the first seconds after losing the ball.',options:[
-  {value:'balanced',label:'Balanced',line:'Goes after the ball only with numbers around it, otherwise gets back into shape. Fits any squad.'},
-  {value:'counterpress',label:'Counter-press',line:'Goes straight after the ball to win it back at once. Beat it and your pressers are out of the game. Suits good tacklers.'}]},
-];
-
-/** The two settings a style owns (its base: approach.ts STYLE_BASE). Never offered as rows; their words stay so a
- * past prep, a plan still waiting for its style or another club's last game can say what it played. */
-export const BASE_FIELDS:ApproachField[]=[
- // team-approach.ts approachOptions (patient preference, purposeClock), practice-coordination.ts runStyle, practice-attacking-space.ts weight
- {key:'progression',label:'Progression',about:'How you move the ball up the pitch: keep it and build, or go forward quickly.',options:[
-  {value:'patient',label:'Patient',line:'Keeps the ball longest, but is slower to goal and gives them time to set. Suits good passers who read the game.'},
-  {value:'mixed',label:'Mixed',line:'Keeps it or goes forward, whichever each attack offers. No big strength or weakness. Fits any squad.'},
-  {value:'direct',label:'Direct',line:'Gets the ball forward fast and makes the most shots, but gives it away more. Suits quick forwards.'}]},
  // team-approach.ts approachInPossession / counterOn / approachForSituation; practice-transition.ts threshold.
  // (pre-push, 4 Oct) Counter no longer promises "your striker ready on their last defender's shoulder": a Pivot or
  // Drops deep striker keeps his own job in the counter window (approachInPossession), so it holds only for two of four.
@@ -223,6 +199,12 @@ export const BASE_FIELDS:ApproachField[]=[
   {value:'balanced',label:'Balanced',line:'Breaks when it’s on, otherwise keeps playing your usual game. Fits any squad.'},
   {value:'secure',label:'Keep it',line:'Doesn’t rush after winning it: breaks only with a clear extra man, so it makes the fewest breaks.'},
   {value:'counter',label:'Counter',line:'Breaks at once: more bodies join for a few seconds and a Mixed or In behind striker runs in behind. Loses it more.'}]},
+ // practice-coordination.ts counterPressFires / counterPressRead (Counter-press goes whatever the numbers, Balanced
+ // only a man up). Regroup (its drop and delay, practice-defending.ts intent / regroup) is retired from the board
+ // (owner, 15 Oct 2026; approach.ts boardApproach): it cost at both ends. The engine still plays it for old inputs.
+ {key:'onLoss',label:'On losing it',about:'What your team does in the first seconds after losing the ball.',options:[
+  {value:'balanced',label:'Balanced',line:'Goes after the ball only with numbers around it, otherwise gets back into shape. Fits any squad.'},
+  {value:'counterpress',label:'Counter-press',line:'Goes straight after the ball to win it back at once. Beat it and your pressers are out of the game. Suits good tacklers.'}]},
 ];
 
 /** Options no longer offered (owner, 15 Oct 2026; approach.ts boardApproach), kept only so a past
@@ -330,7 +312,12 @@ export const MATCH_SECONDS=900;
  * at most LAST_ATTACK_MAX (engine practice-match.ts). A match's real end is its
  * replay header's `duration`; this is only for screens that don't hold it. */
 export {LAST_ATTACK_MAX};
-export const BROADCAST_MAX_SECONDS=MATCH_SECONDS+LAST_ATTACK_MAX;
+/** The broadcast as scheduled (deliverables/ballers-half-time/DESIGN.md 2.1): the match and its half-time break
+ * (BREAK_SECONDS, shared by every viewer), 20:00 of live time for a 15-minute match. */
+export const BROADCAST_SECONDS=MATCH_SECONDS+BREAK_SECONDS;
+/** The longest a broadcast can run: plus a first half that overran (its attack played out, the second half then a
+ * full half) and full time's own last attack, each at most LAST_ATTACK_MAX. */
+export const BROADCAST_MAX_SECONDS=BROADCAST_SECONDS+60; // an overrun first half (<= LAST_ATTACK_MAX), the second kickoff's set-up (~6 s) and full time's last attack (<= LAST_ATTACK_MAX), with slack
 /** Timeline minute marks: every minute up to a Quick match (and its last attack), else every 3. */
 export const tickEvery=(duration:number)=>duration<=QUICK_SECONDS+LAST_ATTACK_MAX?60:180;
 /** A practice match's short length. Named "Quick", never "Short": Short is a style. */
