@@ -106,7 +106,7 @@ export const STYLES:Record<Style,{label:string;headline:string;line:string}>={
 /** The fine-tunes each style starts from (everything but its base). */
 export const STYLE_TUNES:Record<Style,Omit<Approach,BaseKey>>={
  balanced:{width:'standard',line:'standard',press:'balanced',commit:3,striker:'mixed',onLoss:'balanced'},
- combinations:{width:'standard',line:'high',press:'balanced',commit:3,striker:'pivot',onLoss:'counterpress'},
+ combinations:{width:'standard',line:'standard',press:'balanced',commit:3,striker:'pivot',onLoss:'counterpress'},
  direct:{width:'wide',line:'standard',press:'balanced',commit:4,striker:'run',onLoss:'balanced'},
  counter:{width:'standard',line:'deep',press:'selective',commit:3,striker:'mixed',onLoss:'balanced'},
 };
