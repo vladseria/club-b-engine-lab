@@ -28,4 +28,15 @@ export function xTasks(){
  }
  return out;
 }
-export function tasks(){return [...whatif(),...aiTasks(),...xTasks()];}
+//   Y   (slice 3 a/b, which of Direct's fine-tunes): Balanced's base with ONE of Direct's fine-tunes ('bW' Wide, 'b4'
+//       4 forward, 'bR' In behind striker), block R's set-ups and seeds like X. --y-seeds N (default 20).
+const ONE={bW:{width:'wide'},b4:{commit:4},bR:{striker:'run'}};
+export function yTasks(){
+ const out=[],n=arg('y-seeds',20);
+ for(let seed=0;seed<n;seed++)for(const v of Object.keys(ONE))for(const hf of FORMATIONS)for(const a of STYLES)for(const af of FORMATIONS)for(const home of [true,false]){
+  const tested={src:'neutral',code:home?'H':'A',style:'balanced',formation:hf,approach:ONE[v]},opp={src:'neutral',code:home?'A':'H',style:a,formation:af};
+  out.push({id:`Y:${v}.${hf}-${a}.${af}_${home?'home':'away'}:${seed}`,block:'Y',kind:'match',seed:1000+seed,kickoff:seed%2,sides:home?[tested,opp]:[opp,tested]});
+ }
+ return out;
+}
+export function tasks(){return [...whatif(),...aiTasks(),...xTasks(),...yTasks()];}
