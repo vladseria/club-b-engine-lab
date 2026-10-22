@@ -70,8 +70,7 @@ const zero=()=>Object.fromEntries(PURPOSES.map(p=>[p,0]));
 const six=()=>[0,0,0,0,0,0];
 function side0(){return {goals:0,shots:0,chances:0,goalsLate:0,chancesLate:0,goalsEnd:0,keeperSaves:0,passes:0,received:0,ftPasses:0,ftPassDone:0,ftShots:0,ftGoals:0,free6:0,free6Ft:0,oneTwo:0,oneTwoDone:0,wallPass:0,wallPassShot:0,gagTouch:0,
  jobs:zero(),starts:zero(),energy:six(),dist:six(),hi:six(),peak:six(),possession:0,
- spells:0,spellPasses:0,losses:0,lossAt:six(),lossNoClock:0,lossClockOn:0,clockStart:0,
- stRec:0,stBehind:0,stShots:0,stGoals:0,stChances:0,stFrames:0,stGapSum:0,stHigh:0};}
+ spells:0,spellPasses:0,losses:0,lossAt:six(),lossNoClock:0,lossClockOn:0,clockStart:0};}
 const TOUCH=new Set(['pass','receive','shot','clearance','turnover','tackle','restart','goal','out','save','block','feint','beat','foul','offside']);
 const HI=5.5,SIXTH=150,MARKS=[150,300,450,600,750];
 
@@ -106,20 +105,6 @@ export function anatomy(runs:any[],teams:any[],t:any){
    }
    else if(e.kind==='save')a.keeperSaves++;
    else if(e.kind==='pass'){a.passes++;if(e.firstTime)a.ftPasses++;}
-  }
-  // ---- the striker (role ST): receptions, receptions beyond their last outfielder, shots, goals, chances
-  const roleOf=(id:any)=>id==null||!idx.has(id)?undefined:roster[idx.get(id)!].role;
-  const beyondLast=(id:string,time:number,s:number)=>{
-   if(!frames.length)return false;const f=frames[frameAt(time)],me=posAt(id,time);if(!me)return false;
-   let last=-Infinity;(f.players??[]).forEach((pl:any,j:number)=>{const ro=rosterOf(f,j);if(ro&&ro.side!==s&&ro.role!=='GK')last=Math.max(last,depth(s,pl.x));});
-   return depth(s,me.x)>last;
-  };
-  for(const e of ev){
-   if(roleOf(e.actor)!=='ST')continue;const s=sideOfId(e.actor);if(s!==0&&s!==1)continue;const a=out.side[s];
-   if(e.kind==='receive'){a.stRec++;if(beyondLast(e.actor,e.time,s))a.stBehind++;}
-   else if(e.kind==='shot'){a.stShots++;const q=e.shot?.assessment?.quality,sk=e.technique==='header'?1:e.technique==='volley'?2:e.freeKick?3:undefined;
-    a.stChances+=shotChance({q:typeof q==='number'?Math.round(q*1000)/1000:undefined,sk} as any)??0;}
-   else if(e.kind==='goal'&&sideOfEv(e)===s)a.stGoals++;
   }
   // ---- first-time shots, and goals whose last shot by the scoring side was struck first time
   for(const e of ev){const s=sideOfEv(e);if((s===0||s===1)&&e.kind==='shot'&&e.firstTime)out.side[s].ftShots++;}
@@ -181,11 +166,6 @@ export function anatomy(runs:any[],teams:any[],t:any){
      const m=peak[ro.side][sx];m.set(j,Math.max(m.get(j)??0,v));
     });
    }
-   // the striker's place: his depth minus their deepest outfielder's (m, + = beyond their last man), per open-play frame of his side's possession
-   for(const f of frames){if(f.restart)continue;const pl=f.players??[];
-    for(const s of [0,1]){let st:any=null,last=-Infinity;
-     pl.forEach((q:any,j:number)=>{const ro=rosterOf(f,j);if(!ro)return;if(ro.side===s&&ro.role==='ST')st=q;else if(ro.side!==s&&ro.role!=='GK')last=Math.max(last,depth(s,q.x));});
-     if(st&&Number.isFinite(last)&&f.side===s){const g=depth(s,st.x)-last,a=out.side[s];a.stFrames++;a.stGapSum+=g;if(g>-2)a.stHigh++;}}}
    for(const s of [0,1])for(let k=0;k<6;k++){const m=[...peak[s][k].values()];out.side[s].peak[k]+=m.length?m.reduce((x,y)=>x+y,0)/m.length/nRuns:0;}
    const meanEnergy=(f:any,s:number)=>{const v:number[]=[];(f.players??[]).forEach((pl:any,j:number)=>{const ro=rosterOf(f,j);if(ro&&ro.side===s&&ro.role!=='GK'&&typeof pl.energy==='number')v.push(pl.energy);});return v.length?v.reduce((x,y)=>x+y,0)/v.length:0;};
    const marks=[...MARKS.map(m=>frames[frameAt(m)]),frames[frames.length-1]];
