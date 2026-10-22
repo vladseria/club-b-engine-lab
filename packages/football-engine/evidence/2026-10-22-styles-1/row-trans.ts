@@ -31,7 +31,7 @@ const WIN=new Set(['receive','turnover','save']);
 const z=()=>({lossOwn:0,lossTheirs:0,lossTheirsFt:0,deficitSum:0,deficitHi:0,behindSum:0,aheadSum:0,cp:0,cpWon5:0,won5:0,noCpWon5:0,
  caAfterTheirs:0,caAfterCp:0,caAfterNoCp:0,caAfterWon5:0,caAfterNotWon5:0,caAfterDeficitHi:0,caAfterDeficitLo:0,lossDeficitLo:0,
  goerDef:0,goerStr:0,goerPace:0,goers:0,ca:0});
-function transitions(runs:any[]){
+export function transitions(runs:any[]){
  const out=[z(),z()];
  for(const r of runs){
   const roster:any[]=r.players??[],idx=new Map<string,number>(roster.map((p:any,i:number)=>[p.id,i]));

@@ -21,7 +21,7 @@ const STOP=new Set(['out','foul','offside','restart','half','end','goal']);
 const z=()=>({surges:0,goal:0,shot:0,lost:0,stopped:0,settled:0,regains:0,regainsOwnHalf:0,surgeOwnHalf:0,moves:0,moveShots:0,
  ftLoss:0,ftLossOwn:0,ftLossChanceAgainst:0,ftLossOwnChanceAgainst:0,otherLoss:0,otherLossChanceAgainst:0});
 
-function styleExtra(runs:any[],teams:any[]){
+export function styleExtra(runs:any[],teams:any[]){
  const out=[z(),z()];
  for(const r of runs){
   const roster:any[]=r.players??[],idx=new Map<string,number>(roster.map((p:any,i:number)=>[p.id,i]));
