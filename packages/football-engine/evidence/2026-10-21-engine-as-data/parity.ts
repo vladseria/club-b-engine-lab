@@ -39,10 +39,22 @@ const createSimCheck=(i:any)=>createSimulationRequest({kind:'match',...i});
 
 // ------------------------------------------------------------------ fingerprints (speed.ts, unchanged)
 const fnv=(s:string,h:number)=>{for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0;}return h>>>0;};
-const print=(c:any)=>{const s=JSON.stringify(c);return [s.length,fnv(s,2166136261),fnv(s,0x9747b28c)];};
+// (styles as identities, slice 2, 22 Oct) The style moments are a record kept BESIDE play: the engine's `surges` (a
+// result key, present only when a Counter side surged) and the compact replay's `mo` marks on events and `styles`
+// tallies (present only when a side is Short or a surge happened). Neither feeds back into the match. The fingerprints
+// leave them out, so `same` still means the same match, frame for frame and event for event; a revision without them
+// hashes exactly as before (nothing to leave out).
+const ADDED_RESULT_KEYS=new Set(['surges']);
+const withoutMoments=(c:any)=>{
+ if(!c?.styles&&!c?.chunks?.some((ch:any)=>ch.e?.some((e:any)=>e.mo)))return c;
+ const {styles:_s,...rest}=c;void _s;
+ return {...rest,chunks:rest.chunks.map((ch:any)=>({...ch,e:ch.e.map((e:any)=>{if(!e.mo)return e;const {mo:_m,...ev}=e;void _m;return ev;})}))};
+};
+const print=(c:any)=>{const s=JSON.stringify(withoutMoments(c));return [s.length,fnv(s,2166136261),fnv(s,0x9747b28c)];};
 function fullHash(r:any){
  const h=createHash('sha256');
  for(const k of Object.keys(r)){
+  if(ADDED_RESULT_KEYS.has(k))continue;
   h.update(k+'\0');const v=r[k];
   if(Array.isArray(v)){h.update('['+v.length+']');for(const e of v)h.update(JSON.stringify(e)??'u');}
   else h.update(JSON.stringify(v)??'u');
