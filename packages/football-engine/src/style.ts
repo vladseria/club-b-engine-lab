@@ -326,10 +326,10 @@ const strikerOption=(o:{holdsLastLine:boolean;runsInBehind:boolean;dropsDeep:boo
 });
 /** Striker. 'link' is Drops deep (renamed on screen only); 'run' is In behind. */
 export const STRIKER:Readonly<Record<NonNullable<Tactics['striker']>,StrikerOption>>={
- mixed:strikerOption({holdsLastLine:false,runsInBehind:false,dropsDeep:false,attackValue:2}),
+ mixed:strikerOption({holdsLastLine:false,runsInBehind:false,dropsDeep:false,attackValue:1}),
  link:strikerOption({holdsLastLine:false,runsInBehind:false,dropsDeep:true,attackValue:.65}),
- pivot:strikerOption({holdsLastLine:true,runsInBehind:false,dropsDeep:false,attackValue:2}),
- run:strikerOption({holdsLastLine:false,runsInBehind:true,dropsDeep:false,attackValue:2}),
+ pivot:strikerOption({holdsLastLine:true,runsInBehind:false,dropsDeep:false,attackValue:1}),
+ run:strikerOption({holdsLastLine:false,runsInBehind:true,dropsDeep:false,attackValue:1.15}),
 };
 /** Pivot: the post on their last line, the show, the jobs he still takes, the third man, the pull to his feet. */
 export const PIVOT={
