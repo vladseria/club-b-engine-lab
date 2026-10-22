@@ -69,7 +69,7 @@ export const WORLD=freeze({
  geometry:{
   defending:{
    CENTRAL:p(3,'m','geometry',['practice-defending.ts:81'],'... and CENTRAL m further for a central man (|y| under 3 m, fading out by 9 m): the middle is where goals come from.','L'),
-   AHEAD_R:p(0,'m','geometry',['practice-defending.ts:83'],'A man ahead of the ball (nearer our goal than it by AHEAD m) matters out to DANGER_R + AHEAD_R.','L'),
+   AHEAD_R:p(5,'m','geometry',['practice-defending.ts:83'],'A man ahead of the ball (nearer our goal than it by AHEAD m) matters out to DANGER_R + AHEAD_R.','L'),
    RUN_R:p(9,'m','geometry',['practice-defending.ts:85'],'A runner (RUN_GOALWARD m/s at our goal, as seen) matters out to DANGER_R + RUN_R, read RUN_LEAD s ahead.','L'),
    BEHIND_R:p(4,'m','geometry',['practice-defending.ts:96'],'A wide man (|y| > BEHIND_WIDE) BEHIND m behind the ball (further from our goal than it) matters by distance only within DANGER_R - BEHIND_R: out there he is no threat to the goal until the ball comes back to him. (A central one is the ...','L'),
    BEHIND_WIDE:p(6,'m','geometry',['practice-defending.ts:96'],'A wide man (|y| > BEHIND_WIDE) BEHIND m behind the ball (further from our goal than it) matters by distance only within DANGER_R - BEHIND_R: out there he is no threat to the goal until the ball comes back to him. (A central one is the ...','W'),
