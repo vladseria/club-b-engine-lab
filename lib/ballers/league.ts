@@ -87,7 +87,7 @@ export const STYLES:Record<Style,{label:string;headline:string;line:string}>={
  balanced:{label:'Balanced',headline:'No special trait',line:'Keeps it or goes forward as each attack offers, and breaks when a break is on. No big strength.'},
  combinations:{label:'Short',headline:'One-touch passing',line:'When the receiver is free he plays it first time, and the side keeps the ball after winning it. Slower to goal, and breaks only with a clear extra man.'},
  direct:{label:'Direct',headline:'Ball forward fast',line:'The ball goes forward fast from anywhere, with runs in behind at any time and passes picked for the ground they gain. Gives it away more.'},
- counter:{label:'Counter',headline:'The surge',line:'The moment it wins the ball, for eight seconds more men go forward, the ball goes forward fast and a Mixed or In behind striker runs in behind, then it settles. Gives it away more in those seconds, and has little of the ball otherwise.'},
+ counter:{label:'Counter',headline:'The surge',line:'The moment it wins the ball, for eight seconds more men go forward, the ball goes forward fast and a Mixed or In behind striker runs in behind, then it settles. Gives it away more in those seconds.'},
 };
 /** Mirror of the engine's teamApproaches presets (and SQL private.ballers_preset),
  * "On losing it" (`onLoss`) included. Short combinations counter-press
