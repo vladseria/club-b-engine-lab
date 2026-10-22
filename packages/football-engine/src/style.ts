@@ -329,7 +329,7 @@ export const STRIKER:Readonly<Record<NonNullable<Tactics['striker']>,StrikerOpti
  mixed:strikerOption({holdsLastLine:false,runsInBehind:false,dropsDeep:false,attackValue:1}),
  link:strikerOption({holdsLastLine:false,runsInBehind:false,dropsDeep:true,attackValue:.65}),
  pivot:strikerOption({holdsLastLine:true,runsInBehind:false,dropsDeep:false,attackValue:1}),
- run:strikerOption({holdsLastLine:false,runsInBehind:true,dropsDeep:false,attackValue:1.15}),
+ run:strikerOption({holdsLastLine:false,runsInBehind:true,dropsDeep:false,attackValue:2}),
 };
 /** Pivot: the post on their last line, the show, the jobs he still takes, the third man, the pull to his feet. */
 export const PIVOT={
