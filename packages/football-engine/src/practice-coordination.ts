@@ -714,7 +714,7 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   }
   const propose=(job:FootballJob,score:number)=>{if(!fixed.has(job.player))proposals.get(job.player)?.push({job,score});};
   for(const move of build){
-   const p=mates.find(p=>p.id===move.player);if(!p||fixed.has(p.id)||p.id===pivotId||p.id===runnerId||p.id===nineId)continue;
+   const p=mates.find(p=>p.id===move.player);if(!p||fixed.has(p.id)||p.id===pivotId||(p.id===runnerId&&S.IN_BEHIND.jobsOpen.v<2)||p.id===nineId)continue;
    const read=readSupportLocation(p,move.aim,players,focus,laneRisk);
    // (r1-shape) priced like every other support spot: what it is worth to the carrier too
    propose({...move,purpose:move.purpose as JobPurpose},1.05+(t.commit<S.COMMIT.neutral.v?S.COMMIT.holdCredit.v:0)-read.risk*.45-read.travel*.06+supportWorth({...receiver,...focus},move.aim,read.risk,read.releaseRoom,players,p.id));
@@ -1030,7 +1030,8 @@ export function coordinateFootball(players:PracticePlayer[],ball:MovingBall,last
   pressureUntil=closePressure&&!connectedExit?time+1.25:previous?.attacking===side?previous.pressureUntil:undefined;
   // The pivot's place is the setting's: pressure and reception refinements
   // treat it like a manager's commitment.
-  const kept=pivotId||runnerId||nineId?new Set([...fixed,...[pivotId,runnerId,nineId].filter((id):id is string=>!!id)]):fixed;
+  const keptRunner=S.IN_BEHIND.jobsOpen.v<2?runnerId:undefined;
+  const kept=pivotId||keptRunner||nineId?new Set([...fixed,...[pivotId,keptRunner,nineId].filter((id):id is string=>!!id)]):fixed;
   const arrangement=receiver.role!=='GK'&&time<(pressureUntil??0)?pressureArrangement(players,focus,mates.filter(p=>!unavailable.has(p.id)),shapes[side],t,build,laneRisk,time,previous?.attacking===side?previous.jobs:{},jobs,kept,striker):null;
   if(arrangement)for(const job of arrangement){const p=mates.find(p=>p.id===job.player)!;put(p,job.purpose,job.kind,job.aim,job.speed,job.reason,job.target,job.velocity,job.until-time);}
   const incoming=owner?0:Math.min(2.5,distance(ball,focus)/Math.max(3,Math.hypot(ball.vx,ball.vy)));
