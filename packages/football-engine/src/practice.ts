@@ -1123,7 +1123,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    // first time if a touch costs more than striking it: the pace, the air, and a plan he will have held too briefly
    // at the strike to have shaped his body for it (lateStrike); none at all inside a reaction (SHAPE_MIN)
    const heldAtStrike=time-since+arrive;
-   const first=clearing||option.kind!=='carry'&&heldAtStrike>=SHAPE_MIN&&touchCost(p,option,meeting,seen,room,laneRisk)+S.STYLE[f.teams[p.side].tactics.style??'balanced'].touchPrice.v*(option.kind==='pass'||option.kind==='through'||option.kind==='loft'?clamp(1-plannedRisk(future,option,opponents,seen)/.28,0,1):0)>=firstTimeCost(p,option,meetingSpeed(ball,p,arrive),aerialDelivery,meeting,seen,lateStrike(heldAtStrike));
+   const first=clearing||option.kind!=='carry'&&heldAtStrike>=SHAPE_MIN&&touchCost(p,option,meeting,seen,room,laneRisk)+S.STYLE[f.teams[p.side].tactics.style??'balanced'].touchPrice.v>=firstTimeCost(p,option,meetingSpeed(ball,p,arrive),aerialDelivery,meeting,seen,lateStrike(heldAtStrike));
    const alt=clearing?undefined:ranked.find(o=>!sameIntention(o,option!));
    return {receiver:p.id,release:releaseAt,option,since,checked:time,first,room:same?held!.room:room,alt};
   };
