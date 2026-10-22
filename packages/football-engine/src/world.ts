@@ -33,7 +33,6 @@ export const WORLD=freeze({
     ninety:p(5400,'s','free',['practice-match.ts:27'],'the three standard match lengths (5, 15 and 90 minutes); read nowhere in the engine (only by the unused type MatchLength), any duration from 10 to 5400 s is accepted'),
    },
    HALF_SECONDS:p(2700,'s','free',['practice-match.ts:29'],'half-time comes at this second in matches longer than it (a 90-minute match)'),
-   HALF_FROM:p(600,'s','free',['practice-match.ts:30'],'a match this long or longer has a half-time at its midpoint, with the ends swapped and the other side kicking off (Ballers: the full 15-minute match; the 5-minute quick match plays straight through)'),
    SUB_MINUTES:{
     first:p(60,'min','free',['practice-match.ts:30'],'the match minutes of the planned substitutions (options.substitutions planned)'),
     second:p(70,'min','free',['practice-match.ts:30'],'the match minutes of the planned substitutions (options.substitutions planned)'),
@@ -872,6 +871,13 @@ export const WORLD=freeze({
    SHADOW_FADE:p(3,'m','body',['practice-defending.ts:982'],'B2, the presser\'s cover shadow (2026-10-09). "I\'m alone on him: I can\'t cover the ball and the pass, so I come at him through the pass." A presser with none of his outfield team-mates within SHADOW_ALONE m of the man on the ball, who ...'),
    SHADOW_GAP:p(1.6,'m','body',['practice-defending.ts:982'],'B2, the presser\'s cover shadow (2026-10-09). "I\'m alone on him: I can\'t cover the ball and the pass, so I come at him through the pass." A presser with none of his outfield team-mates within SHADOW_ALONE m of the man on the ball, who ...'),
    SHADOW_PULL:p(.8,'x','body',['practice-defending.ts:982'],'B2, the presser\'s cover shadow (2026-10-09). "I\'m alone on him: I can\'t cover the ball and the pass, so I come at him through the pass." A presser with none of his outfield team-mates within SHADOW_ALONE m of the man on the ball, who ...'),
+  },
+  strike:{
+   speedBase:p(7,'m/s','body',['practice.ts:1798'],'a planned first-time strike happens only off a ball coming at under this (m/s, relative to the receiver) plus speedPerControl x his control (11.5 m/s at control 6); faster, he takes a touch whatever the read said'),
+   speedPerControl:p(.75,'m/s','body',['practice.ts:1798'],'... plus this per point of control (m/s)'),
+  },
+  touch:{
+   baseCost:p(0,'x','free',['practice-receive.ts:240','practice-receive.ts:250'],'a flat price on a controlling touch, as a share of the chance (the scale touchCost and firstTimeCost share), added to the touch cost of every kick plan whatever the picture; 0 = none (today). Question 5 lever 1: with nobody near, a touch otherwise costs exactly nothing in the read'),
   },
  },
  /** the keeper: reach, edge, positioning, claiming, handling, holding */

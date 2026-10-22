@@ -4,10 +4,10 @@
 // (lib/ballers/engine.worker.ts) run exactly the same code path.
 import {runMatch,ENGINE_BUILD,validatePlans,playbookProgress,type PlaybookConfig,type PlaybookPlan} from '../../packages/football-engine/src/index';
 import type {Player as EnginePlayer,Team,Tactics} from '../../packages/football-engine/src/model';
-import {engineApproach,playedApproach,type StoredApproach} from './approach';
+import {engineApproach,engineStyle,playedApproach,type StoredApproach} from './approach';
 import {validateSubstitutionOrders,type SubstitutionNote,type SubstitutionOrder,type SubstitutionTrigger} from '../../packages/football-engine/src/practice-substitutions';
 import {validateTacticsSwitches,type TacticsSwitch,type SwitchTrigger,type SwitchNote} from '../../packages/football-engine/src/practice-switch';
-import {BREAK_SECONDS,CHUNK_SECONDS,FRAME_STEP,REPLAY_VERSION,cm,mrad,ms,type CompactMatch,type ReplayChunk,type ReplayEvent,type ReplayFrame,type ReplayHeader,type ReplayIdea,type ReplayPlayer,type TeamStats} from './replay';
+import {CHUNK_SECONDS,FRAME_STEP,REPLAY_VERSION,cm,mrad,ms,type CompactMatch,type ReplayChunk,type ReplayEvent,type ReplayFrame,type ReplayHeader,type ReplayIdea,type ReplayPlayer,type TeamStats} from './replay';
 import {resolveIdea} from './ideas';
 import {classifyIdeaRun,routineUnkicked,type IdeaRun} from './idea-run';
 import type {LessonSpec} from '../../packages/football-engine/src/practice-lesson';
@@ -39,7 +39,10 @@ export function engineTeam(side:FrozenSide):Team{
  // (here, and the Lab's tacticsOf/demoSide and trial side). A frozen input
  // without `onLoss` plays as 'balanced', exactly as an explicit 'balanced'.
  // In 2-1-1 Width plays Standard whatever is stored (approach.ts playedApproach).
- const tactics:Tactics=settingsTactics({...engineApproach(playedApproach(side.formation,side.approach)),formation:side.formation,setPiece:'mixed',fullbacks:'balanced',marking:'balanced'} as unknown as Tactics,settings);
+ // (styles as identities, slice 1) the side names its style only when its approach plays that style's base
+ // (approach.ts engineStyle): Short's one-touch comes with it; any other pair plays as stored, with no trait.
+ const style=engineStyle(side.style,side.approach);
+ const tactics:Tactics=settingsTactics({...engineApproach(playedApproach(side.formation,side.approach)),...(style?{style}:{}),formation:side.formation,setPiece:'mixed',fullbacks:'balanced',marking:'balanced'} as unknown as Tactics,settings);
  const squad=settingsSquad(side.players.map(p=>({id:p.id,name:p.name,roles:[...p.roles],skills:{...p.skills},traits:{...p.traits},energy:p.energy,note:p.note,archetype:p.archetype,temperament:p.temperament}) as EnginePlayer),settings);
  return {id:side.club.id,name:side.club.name,short:side.club.code,color:side.club.color,description:'Ballers',squad,lineup:[...side.lineup],tactics,orders:[]};
 }
@@ -94,7 +97,8 @@ export function sideSwitches(input:FrozenInput,teams:[Team,Team]):{switches:Tact
    // the slot map applies in every switch (owner, 21 Oct); one that moves anyone can't run beside slot-addressed moves
    const moves=formation!==s.formation||!!sw.to.slots?.some((n,i)=>n!==i);
    if(moves&&input.sides.some(x=>x.plans.length))throw Error('a switch that moves men beside plans');
-   const tactics:Tactics=settingsTactics({...engineApproach(playedApproach(formation,sw.to.approach)),formation,setPiece:'mixed',fullbacks:'balanced',marking:'balanced'} as unknown as Tactics,next);
+   const style=engineStyle(sw.to.style,sw.to.approach);
+   const tactics:Tactics=settingsTactics({...engineApproach(playedApproach(formation,sw.to.approach)),...(style?{style}:{}),formation,setPiece:'mixed',fullbacks:'balanced',marking:'balanced'} as unknown as Tactics,next);
    const keepers:Record<string,number|null>={};
    for(const p of s.players){
     if(!p.roles.includes('GK'))continue;
@@ -162,13 +166,7 @@ export function compact(input:FrozenInput,r:EngineResult):CompactMatch{
  // is when the whistle went (the watch screens' timeline); the chunk count stays
  // the match length's (what ballers_submit checks), and the last chunk holds the rest.
  const played=r.played===undefined?r.duration:Math.round(r.played*1000)/1000;
- // Half-time: the second half is a full half from its kick (the clock shows 7:30 there: lib/ballers/match-clock.ts), so
- // the clock's full time is that kick + half the match length.
- const halfEvent=r.events.find(e=>e.kind==='half'),kick2=halfEvent?r.events.find(e=>e.time>=halfEvent.time&&e.restartKind==='kickoff'&&e.kind!=='restart'):undefined;
- const clockFull=kick2?Math.round((kick2.time+r.duration/2)*1000)/1000:r.duration;
- // The header is readable from kickoff, so it holds the match length only: when the whistles really went (a first half
- // played on, a last attack) arrives in the last chunk's `end` (replay.ts), released with the chunk that holds them.
- const header:ReplayHeader={v:REPLAY_VERSION,engineBuild:'',duration:r.duration,chunkSeconds:CHUNK_SECONDS,chunks:Math.ceil(r.duration/CHUNK_SECONDS),
+ const header:ReplayHeader={v:REPLAY_VERSION,engineBuild:'',duration:played,...(played>r.duration?{fullTime:r.duration}:{}),chunkSeconds:CHUNK_SECONDS,chunks:Math.ceil(r.duration/CHUNK_SECONDS),
   teams:input.sides.map(s=>{const voice=normalizeVoice(s.voice);
    // No voice = the key is omitted: the header is byte-identical to before.
    return {club:s.club.id,name:s.club.name,code:s.club.code,color:s.club.color,formation:s.formation,style:s.style,...(voice?{voice}:{})};}) as ReplayHeader['teams'],players};
@@ -176,10 +174,7 @@ export function compact(input:FrozenInput,r:EngineResult):CompactMatch{
  let last=-Infinity;
  const frames:ReplayFrame[]=[];
  r.frames.forEach((f,n)=>{
-  // the whistle at half-time (the frame a same-instant cut follows) is always kept: the first half ends on it, and the
-  // live edge must reach it for the half-time line to show at the whistle (only the half-time has such a pair)
-  const whistle=!!r.frames[n+1]?.cut&&r.frames[n+1].time===f.time;
-  const keep=n===0||f.cut||whistle||f.time>=last+FRAME_STEP-1e-9||n===r.frames.length-1;if(!keep)return;last=f.time;
+  const keep=n===0||f.cut||f.time>=last+FRAME_STEP-1e-9||n===r.frames.length-1;if(!keep)return;last=f.time;
   const owner=f.control?.owner??(f.restart?f.restartInfo?.taker:undefined)??f.ball.owner;
   const frame:ReplayFrame={t:ms(f.time),p:f.players.map(p=>[cm(p.x),cm(p.y),mrad(p.angle)]),b:[cm(f.ball.x),cm(f.ball.y),cm(f.ball.z)],o:idx(owner),ps:f.side,s:[f.score[0],f.score[1]]};
   if(f.restart)frame.r=1;if(f.cut)frame.c=1;
@@ -213,23 +208,12 @@ export function compact(input:FrozenInput,r:EngineResult):CompactMatch{
     ...(e.switch.formation?{f:e.switch.formation}:{}),...(e.switch.players?{ro:e.switch.players.map(p=>[idx(p.id),p.role,p.lane] as [number,string,number])}:{})};}
   return out;
  });
- // Half-time (deliverables/ballers-half-time/DESIGN.md 2.2): the chunk that holds the whistle ends at it and the
- // next one starts at it, so no chunk mixes the halves and the live clock can release the second half's chunks after
- // the break (simulation.ts sends their t0 on the live clock). The count stays the match length's. The whistle's own
- // frame and the `half` event belong to the first half; the cut frame and whatever else happens at that instant (a
- // change made at the interval, the kickoff) to the second.
- const halfMs=events.find(e=>e.k==='half')?.t??null,cutAt=halfMs===null?-1:frames.findIndex(f=>f.t===halfMs&&f.c===1);
- if(halfMs!==null)header.interval=BREAK_SECONDS;
- const bounds=Array.from({length:header.chunks},(_,i)=>{
-  const final=i===header.chunks-1;let t0=i*CHUNK_SECONDS*1000,t1=(final?played:Math.min((i+1)*CHUNK_SECONDS,r.duration))*1000;
-  if(halfMs!==null&&t0<halfMs&&halfMs<t1&&!final){t1=halfMs;}else if(halfMs!==null&&i>0&&(i-1)*CHUNK_SECONDS*1000<halfMs&&halfMs<i*CHUNK_SECONDS*1000)t0=halfMs;
-  return {t0,t1,final};
- });
- const lookup=(t:number)=>{const i=bounds.findIndex(b=>t>=b.t0&&(t<b.t1||b.final));return i<0?bounds.length-1:i;};
- const chunkOf=(t:number,first:boolean)=>first&&halfMs!==null&&t>=halfMs?lookup(halfMs-1):lookup(t);
- const chunks:ReplayChunk[]=bounds.map((b,i)=>({v:REPLAY_VERSION,i,t0:b.t0,t1:b.t1,f:[],e:[],...(i===bounds.length-1&&(played!==r.duration||clockFull!==r.duration)?{end:{played,fullTime:clockFull}}:{})}));
- frames.forEach((f,n)=>chunks[chunkOf(f.t,halfMs===null||(cutAt<0?f.t<halfMs:n<cutAt))].f.push(f));
- events.forEach(e=>chunks[chunkOf(e.t,halfMs===null||e.t<halfMs||e.t===halfMs&&e.k==='half')].e.push(e));
+ const chunks:ReplayChunk[]=[];
+ for(let i=0;i<header.chunks;i++){
+  const final=i===header.chunks-1,t0=i*CHUNK_SECONDS*1000,t1=(final?played:Math.min((i+1)*CHUNK_SECONDS,r.duration))*1000;
+  const inside=(t:number)=>t>=t0&&(t<t1||final);
+  chunks.push({v:REPLAY_VERSION,i,t0,t1,f:frames.filter(f=>inside(f.t)),e:events.filter(e=>inside(e.t))});
+ }
  // A set-piece routine chosen at a stoppage that was never kicked (full time
  // came first) did not run: it is left out, not counted as broke.
  const ideas:ReplayIdea[]=(r.playbookSelections??[]).flatMap((sel,seq)=>sel.planId!==null&&routineUnkicked(sel as never,lessonOf(input,sel))?[]:[{seq,side:(sel.side??0) as 0|1,t:ms(sel.time),endedAt:sel.endedAt===undefined?null:ms(sel.endedAt),

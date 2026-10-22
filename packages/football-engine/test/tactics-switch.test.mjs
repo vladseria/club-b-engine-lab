@@ -148,35 +148,6 @@ test('a substitution and a formation switch at the same stoppage: the change fir
  assert(r.events.indexOf(sub)<r.events.indexOf(e),'the substitution is made first');
  assert.equal(where(e,'0:r20').number,SLOTS[4]+1,'the newcomer is moved with the slot');
 });
-test('whatever the score (always, 22 Oct): accepted as its bare kind, it fires at the first stoppage at or after its second at any score, once, never at kick-off',()=>{
- // If this fails: the sixth condition fires mid-play, waits for a score it was never given, fires at the opening
- // kick-off, or reads another kind's words.
- const f=withBench();
- assert.deepEqual(validateTacticsSwitches([sw({trigger:{kind:'always',state:'losing'}})],f)[0].trigger,{kind:'always'},'stored as its bare kind');
- assert.throws(()=>validateTacticsSwitches([sw({trigger:{kind:'anytime'}})],f),/Unknown/,'an unknown kind is still refused');
- const r=runMatch({...RUN,tacticsSwitches:[sw({trigger:{kind:'always'},notBefore:20,tactics:{...own(0),...DIRECT}})]}).result,made=switches(r);
- assert.equal(made.length,1,'once');
- const e=made[0],before=r.events[r.events.indexOf(e)-1];
- assert(e.time>=20,'not before its second');
- assert(STOPPAGES.includes(before.kind)&&before.time===e.time,`made at the stoppage (${before.kind}) in the same tick`);
- const first=plain.events.find(x=>STOPPAGES.includes(x.kind)&&x.time>=20&&x.time>0);
- assert.equal(e.time,first.time,'the FIRST stoppage after its second, whatever the score');
- assert.deepEqual(e.switch.trigger,{kind:'always'});assert.equal(e.side,0);
- assert.match(e.text,/își schimbă planul de joc \(așa cum era stabilit\)/);
- assert.deepEqual(r.switchNotes,[{order:'b',side:0,status:'made',time:e.time}]);
- assert.deepEqual(at(r,e.time),at(plain,e.time),'the plain match up to the stoppage');
- const after=x=>x.frames.filter(f=>f.time>e.time).map(f=>JSON.stringify(f.players));
- assert.notDeepEqual(after(r),after(plain),'the new plan is played from there');
- // no earliest second: it waits for the first stoppage of play, never the opening kick-off
- const k=runMatch({...RUN,tacticsSwitches:[sw({trigger:{kind:'always'},tactics:{...own(0),...DIRECT}})]}).result,[k0]=switches(k);
- assert(k0&&k0.time>0,'not at kick-off');
- assert.equal(k0.time,plain.events.find(x=>STOPPAGES.includes(x.kind)&&x.time>0).time,'the first stoppage of play');
- // a second the match never reaches: byte-identical to the plain match (the identity the other kinds have)
- const idle=runMatch({...RUN,tacticsSwitches:[sw({trigger:{kind:'always'},notBefore:5000,tactics:{...own(0),...DIRECT}})]}).result;
- for(const key of COMPARED)assert.deepEqual(idle[key],plain[key],key);
- assert.deepEqual(idle.switchNotes.map(n=>n.status),['waiting']);
-});
-
 test('the full-time guard: a stoppage after full time never carries out a switch',t=>{
  // If this fails: a switch fires at a stoppage in the last attack's played-out seconds (nobody plays after it).
  // The guard needs a match that plays out a last attack ending in a stoppage. Up to four seeds are tried (one 120 s
@@ -185,12 +156,9 @@ test('the full-time guard: a stoppage after full time never carries out a switch
  for(const s of [13009,2026,7,41]){const r=runMatch({fixture:withBench(s),durationSeconds:120}).result;
   if(r.events.some(e=>STOPPAGES.includes(e.kind)&&e.time>=120)){seed=s;base=r;break;}}
  if(seed===null)return t.skip('none of the four seeds ends in a stoppage after full time on this platform');
- // half-time's kind and whatever the score (22 Oct): both due from full time, both held by the guard
- for(const trigger of [{kind:'half'},{kind:'always'}]){
-  const r=runMatch({fixture:withBench(seed),durationSeconds:120,tacticsSwitches:[sw({trigger,notBefore:120,tactics:{...own(0),...DIRECT}})]}).result;
-  assert.equal(switches(r).length,0,`no ${trigger.kind} switch in the last attack`);assert.deepEqual(r.switchNotes.map(n=>n.status),['waiting']);
-  for(const k of ['events','frames','stats','score'])assert.deepEqual(r[k],base[k],k);
- }
+ const r=runMatch({fixture:withBench(seed),durationSeconds:120,tacticsSwitches:[sw({trigger:{kind:'half'},notBefore:120,tactics:{...own(0),...DIRECT}})]}).result;
+ assert.equal(switches(r).length,0,'no switch in the last attack');assert.deepEqual(r.switchNotes.map(n=>n.status),['waiting']);
+ for(const k of ['events','frames','stats','score'])assert.deepEqual(r[k],base[k],k);
 });
 test('a formation switch never throws inside a match: one that cannot place the side is skipped (the caller notes it)',()=>{
  const f=withBench(),players=practicePlayers(f);players.find(p=>p.id==='0:van').number=7;
