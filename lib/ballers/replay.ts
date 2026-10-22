@@ -16,7 +16,6 @@
 
 import type {IdeaRun} from './idea-run';
 import type {Voice} from './voice';
-import type {StyleMark,StyleTally} from './style-moments';
 
 export const REPLAY_VERSION = 2 as const;
 export const CHUNK_SECONDS = 60;
@@ -65,10 +64,7 @@ export interface ReplaySub {k:'tired'|'score'|'margin'|'half';st?:string;n?:numb
 export interface ReplaySwitch {k:'score'|'margin'|'half';st?:string;n?:number;d?:string;y:string;
  /** Men moved to new places (every switch can, owner 21 Oct): [player index, new role, lane] for each man of that side, and
   * f the new formation when it changed. */ f?:string;ro?:[number,string,number?][]}
-/** Style moments (styles as identities, slice 2, from 22 Oct; lib/ballers/style-moments.ts): mo = the moments that end
- * at this event (a Short side's one-touch move, a Counter side's surge and what came of it). Optional, so the version
- * stays 2. */
-export interface ReplayEvent {t:number;k:string;x:string;a?:number;g?:number;s?:0|1;lt?:number;rk?:string;sh?:{o:[number,number];a:[number,number]};sb?:ReplaySub;sw?:ReplaySwitch;q?:number;sk?:1|2|3;mo?:StyleMark[]}
+export interface ReplayEvent {t:number;k:string;x:string;a?:number;g?:number;s?:0|1;lt?:number;rk?:string;sh?:{o:[number,number];a:[number,number]};sb?:ReplaySub;sw?:ReplaySwitch;q?:number;sk?:1|2|3}
 export interface ReplayChunk {v:typeof REPLAY_VERSION;i:number;t0:number;t1:number;f:ReplayFrame[];e:ReplayEvent[]}
 
 /** An idea the engine selected during the match (owner-only names live elsewhere). */
@@ -85,10 +81,7 @@ export interface CompactMatch {header:ReplayHeader;chunks:ReplayChunk[];score:[n
  /** Owner-only (P5): the engine's substitutionNotes per side, each with its order's trigger. */
  substitutionNotes?:{side:0|1;notes:unknown[]}[];
  /** Owner-only, like the substitution notes: the engine's switchNotes (made or waiting, and when). Present only when a side carried a switch. */
- switchNotes?:{order:string;side:0|1;status:'made'|'waiting'|'skipped';time?:number;detail?:string}[];
- /** Each side's style tallies (lib/ballers/style-moments.ts): present only when a side is Short or a moment happened.
-  * They ride into the stored result's stats (simulation.ts submission). */
- styles?:[StyleTally,StyleTally]}
+ switchNotes?:{order:string;side:0|1;status:'made'|'waiting'|'skipped';time?:number;detail?:string}[]}
 
 export const cm=(metres:number)=>Math.round(metres*100);
 export const mrad=(rad:number)=>Math.round(rad*1000);

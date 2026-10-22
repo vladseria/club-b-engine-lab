@@ -5,7 +5,6 @@
 import {runMatch,ENGINE_BUILD,validatePlans,playbookProgress,type PlaybookConfig,type PlaybookPlan} from '../../packages/football-engine/src/index';
 import type {Player as EnginePlayer,Team,Tactics} from '../../packages/football-engine/src/model';
 import {engineApproach,engineStyle,playedApproach,type StoredApproach} from './approach';
-import {styleMoments,styleTallies} from './style-moments';
 import {validateSubstitutionOrders,type SubstitutionNote,type SubstitutionOrder,type SubstitutionTrigger} from '../../packages/football-engine/src/practice-substitutions';
 import {validateTacticsSwitches,type TacticsSwitch,type SwitchTrigger,type SwitchNote} from '../../packages/football-engine/src/practice-switch';
 import {CHUNK_SECONDS,FRAME_STEP,REPLAY_VERSION,cm,mrad,ms,type CompactMatch,type ReplayChunk,type ReplayEvent,type ReplayFrame,type ReplayHeader,type ReplayIdea,type ReplayPlayer,type TeamStats} from './replay';
@@ -139,10 +138,10 @@ export function computeMatch(input:FrozenInput,progress?:(t:number)=>void):Compu
 // The slice of PracticeResult this module reads (kept structural so the
 // compaction can be unit-tested with a synthetic result).
 interface EngineFrame {time:number;cut?:boolean;lineup?:number[];players:{x:number;y:number;angle:number;duty?:string}[];ball:{x:number;y:number;z:number;owner:string|null};score:[number,number];restart:boolean;restartInfo?:{taker:string};side:0|1;control?:{owner:string}}
-interface EngineEvent {time:number;kind:string;text:string;actor?:string;target?:string;side?:0|1;lastTouch?:string;restartKind?:string;firstTime?:boolean;shot?:{aim:{x:number;y:number};origin:{x:number;y:number};assessment?:{quality:number}};technique?:string;freeKick?:unknown;
+interface EngineEvent {time:number;kind:string;text:string;actor?:string;target?:string;side?:0|1;lastTouch?:string;restartKind?:string;shot?:{aim:{x:number;y:number};origin:{x:number;y:number};assessment?:{quality:number}};technique?:string;freeKick?:unknown;
  substitution?:{order:string;trigger:SubstitutionTrigger;energy:number;score:[number,number]};switch?:{order:string;trigger:SwitchTrigger;score:[number,number];formation?:string;players?:{id:string;role:string;lane:number}[]}}
 interface EngineSelection {time:number;planId:string|null;name:string;status:string;endedAt?:number;endReason?:string;endDetail?:string;side?:0|1;trace?:{time:number;stepId:string;phase:string;intent?:string;actor?:string;target?:string;responsibility?:string;evidence?:{spaceId?:string}}[]}
-export interface EngineResult {duration:number;played?:number;players:{id:string;side:0|1;role:string}[];frames:EngineFrame[];events:EngineEvent[];stats:[TeamStats,TeamStats];score:[number,number];playbookSelections?:EngineSelection[];substitutionNotes?:SubstitutionNote[];switchNotes?:SwitchNote[];surges?:{side:0|1;regain:number;start:number}[]}
+export interface EngineResult {duration:number;played?:number;players:{id:string;side:0|1;role:string}[];frames:EngineFrame[];events:EngineEvent[];stats:[TeamStats,TeamStats];score:[number,number];playbookSelections?:EngineSelection[];substitutionNotes?:SubstitutionNote[];switchNotes?:SwitchNote[]}
 
 export function compact(input:FrozenInput,r:EngineResult):CompactMatch{
  // Engine roster ids are `${side}:${playerId}`. Replay indices: 0-9 the
@@ -209,12 +208,6 @@ export function compact(input:FrozenInput,r:EngineResult):CompactMatch{
     ...(e.switch.formation?{f:e.switch.formation}:{}),...(e.switch.players?{ro:e.switch.players.map(p=>[idx(p.id),p.role,p.lane] as [number,string,number])}:{})};}
   return out;
  });
- // (styles as identities, slice 2) the style moments, each marked on the event it ends at; a Short side's or a surge's
- // tallies ride along. No Short side and no surge = nothing added: the compact is byte-identical to before.
- const styles=input.sides.map(sd=>engineStyle(sd.style,sd.approach));
- const moments=styleMoments(r.events,r.surges,styles);
- for(const m of moments)if(m.event>=0)(events[m.event].mo??=[]).push(m.mark);
- const tallies=moments.length||styles.includes('combinations')?styleTallies(r.events,moments):null;
  const chunks:ReplayChunk[]=[];
  for(let i=0;i<header.chunks;i++){
   const final=i===header.chunks-1,t0=i*CHUNK_SECONDS*1000,t1=(final?played:Math.min((i+1)*CHUNK_SECONDS,r.duration))*1000;
@@ -227,7 +220,7 @@ export function compact(input:FrozenInput,r:EngineResult):CompactMatch{
   status:sel.status,endReason:sel.endReason??null,progress:playbookProgress(sel as never),planId:sel.planId,name:sel.name,
   detail:ideaDetail(sel,idx,sel.planId===null?null:classifyIdeaRun(sel as never,lessonOf(input,sel))??'broke')}]);
  // The switch's note (owner-facing, like the substitution notes): present only when a side carried one.
- return {header,chunks,score:[r.score[0],r.score[1]],stats:r.stats,ideas,substitutionNotes:subNotes(input,r.substitutionNotes),...(r.switchNotes?{switchNotes:r.switchNotes}:{}),...(tallies?{styles:tallies}:{})};
+ return {header,chunks,score:[r.score[0],r.score[1]],stats:r.stats,ideas,substitutionNotes:subNotes(input,r.substitutionNotes),...(r.switchNotes?{switchNotes:r.switchNotes}:{})};
 }
 
 /** The lesson a selection ran (job kinds and drawn spaces are the frozen
