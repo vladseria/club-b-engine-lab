@@ -357,7 +357,7 @@ export const IN_BEHIND={
  channel:{v:2.5,unit:'m',kind:'fixedPost',axis:'W',at:['practice-coordination.ts:307 (RUN_CHANNEL)'],says:'the channel off the nearest back-line defender\'s shoulder'},
  width:{v:6.5,unit:'m',kind:'fixedPost',axis:'W',at:['practice-coordination.ts:307 (RUN_WIDTH)'],says:'within this of the centre'},
  room:{v:9,unit:'m',kind:'fixedPost',axis:'L',at:['practice-coordination.ts:307 (RUN_ROOM)'],says:'no run when their line is less than this from their goal'},
- hold:{v:0,unit:'B',kind:'fixedPost',at:['practice-coordination.ts:307 (RUN_HOLD)'],says:'his shoulder post\'s job score'},
+ hold:{v:.8,unit:'B',kind:'fixedPost',at:['practice-coordination.ts:307 (RUN_HOLD)'],says:'his shoulder post\'s job score'},
  fit:{v:.5,unit:'B',kind:'jobCredit',at:['practice-coordination.ts:307 (RUN_FIT)'],says:'his run\'s fit per unit of the runs trait'},
  line:{v:4,unit:'m',kind:'fixedPost',axis:'L',at:['practice-coordination.ts:307 (RUN_LINE)'],says:'back-line defenders: within this of the deepest'},
  alsoTakes:{v:['give-and-go','near-post','far-post','break','link'] as string[],unit:'flag',kind:'jobOffered',at:['practice-coordination.ts:308 (RUN_ALSO)'],says:'the only other jobs he still takes'},
