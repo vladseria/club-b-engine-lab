@@ -94,3 +94,67 @@ export function boardSide<S extends {formation:string;approach:StoredApproach}>(
 export function engineApproach(a:StoredApproach):ApproachSettings{
  return a.onLoss===undefined?{...a}:{...a,onLoss:onLossOf(a)};
 }
+
+// ------------------------------------------------------------------ styles as identities (slice 1, 2026-10-22)
+// A style is its base and its trait (deliverables/ballers-engine/STYLES-AS-IDENTITIES.md, owner's decision 22 Oct).
+// The base is the pair a manager can no longer take apart: Progression and On winning it. The plan editor no longer
+// shows those two rows; the style picks them. They stay in every stored approach (same keys, so every door, frozen
+// input and replay reads as before), but a style's approach must carry its own base (SQL
+// private.ballers_style_fits, migration ballers_styles_identity), and the engine checks the same when a side names
+// its style (packages/football-engine/src/style.ts STYLE, styleBaseProblem).
+/** The four style keys (league.ts Style). 'combinations' is Short. */
+export type StyleKey='balanced'|'combinations'|'direct'|'counter';
+export const STYLE_KEYS:readonly StyleKey[]=['balanced','combinations','direct','counter'];
+/** Each style's base. Mirrors the engine's style.ts STYLE (verificare/ballers-style-identity.test.ts pins the two). */
+export const STYLE_BASE:Readonly<Record<StyleKey,Readonly<Pick<ApproachSettings,'progression'|'transition'>>>>={
+ balanced:{progression:'mixed',transition:'balanced'},
+ combinations:{progression:'patient',transition:'secure'},
+ direct:{progression:'direct',transition:'balanced'},
+ counter:{progression:'mixed',transition:'counter'},
+};
+/** The pair a style owns, as stored (a missing On winning it reads 'balanced'). */
+export type BasePair={progression:ApproachSettings['progression'];transition?:ApproachSettings['transition']};
+/** The two keys a style owns (never offered as a row). */
+export const BASE_KEYS=['progression','transition'] as const;
+export type BaseKey=typeof BASE_KEYS[number];
+export const isBaseKey=(k:string):k is BaseKey=>(BASE_KEYS as readonly string[]).includes(k);
+export const isStyleKey=(v:unknown):v is StyleKey=>typeof v==='string'&&(STYLE_KEYS as readonly string[]).includes(v);
+/** Whether a stored approach plays its style's base (a missing On winning it reads balanced, as the engine reads it). */
+export function fitsStyle(style:string,a:BasePair):boolean{
+ if(!isStyleKey(style))return false;
+ const b=STYLE_BASE[style];
+ return a.progression===b.progression&&(a.transition??'balanced')===b.transition;
+}
+/** The style the engine is told a side plays: its label when the approach fits that base, otherwise none (the side
+ * plays exactly as stored, with no trait: a plan still waiting for its manager's pick, an AI side whose pair is no
+ * style's base, an input frozen before styles were identities). */
+export function engineStyle(style:string|undefined,a:BasePair):StyleKey|undefined{
+ return style!==undefined&&fitsStyle(style,a)?style as StyleKey:undefined;
+}
+/** The approach with a style's base written in (every fine-tune kept, same keys in the same order). */
+export function withStyleBase<A extends StoredApproach>(style:StyleKey,a:A):A{
+ const b=STYLE_BASE[style];
+ return a.progression===b.progression&&a.transition===b.transition?a:{...a,progression:b.progression,transition:b.transition};
+}
+/** The style a pair belongs to, if any (mixed + balanced is Balanced, mixed + counter is Counter, and so on). */
+export function styleOfBase(a:BasePair):StyleKey|undefined{
+ return STYLE_KEYS.find(s=>fitsStyle(s,a));
+}
+/** A stored approach that is no style's base under its label: the two styles it could become, the one that keeps
+ * what it does after winning the ball (the surge -> Counter, Keep it -> Short) and the one that keeps how it moves the
+ * ball (Patient -> Short, Mixed -> Balanced, Direct -> Direct). When those are the same style, the other is its own
+ * label's, and when that is the same too (a Short plan on Patient + Balanced), Balanced. Fitting approaches return none:
+ * they need no choice. First = the default, what it becomes if its manager says nothing. Direct + the surge is the one
+ * exception to "what it does after winning the ball comes first" (owner, 23 Oct: those plans default to Direct, so
+ * Direct comes first and Counter second). */
+export function styleChoices(style:string,a:BasePair):StyleKey[]{
+ if(fitsStyle(style,a))return [];
+ const t=a.transition??'balanced';
+ if(a.progression==='direct'&&t==='counter')return ['direct','counter'];
+ const byWin:StyleKey|undefined=t==='counter'?'counter':t==='secure'?'combinations':undefined;
+ const byBall:StyleKey=a.progression==='patient'?'combinations':a.progression==='direct'?'direct':'balanced';
+ const own=isStyleKey(style)?style:'balanced';
+ const out:StyleKey[]=[];
+ for(const s of [byWin,byBall,own,'balanced' as StyleKey])if(s&&!out.includes(s))out.push(s);
+ return out.slice(0,2);
+}

@@ -3,6 +3,7 @@ import {shapes} from './model.js';
 import type {PracticePlayer} from './practice.js';
 import type {SubstitutionTrigger} from './practice-substitutions.js';
 import {triggerHolds,triggerText} from './practice-substitutions.js';
+import {styleBaseProblem} from './style.js';
 
 /**
  * Manager-prepared tactics switch (opt-in; Ballers "in-match plan switch", 21 Oct 2026,
@@ -105,6 +106,9 @@ export function validateTacticsSwitches(value:unknown,fixture:Fixture):TacticsSw
    if(typeof v!=='string'||!options.includes(v))throw Error(`Invalid switch tactics: ${field} is ${v===undefined?'undefined':JSON.stringify(v)}.`);
   }
   if(typeof tactics.commit!=='number'||!Number.isFinite(tactics.commit)||tactics.commit<1||tactics.commit>5)throw Error('Invalid switch tactics: commit is a number from 1 to 5.');
+  // (styles as identities, slice 1) the target names its style only with that style's base (style.ts STYLE)
+  const base=styleBaseProblem(tactics);
+  if(base)throw Error(`Invalid switch tactics: ${base}.`);
   const squad=new Map(team.squad.map(p=>[p.id,p]));
   if(tactics.taker!==undefined&&(typeof tactics.taker!=='string'||!squad.has(tactics.taker)))throw Error('Invalid switch tactics: the taker must be in the squad.');
   let keepers:Record<string,number|null>|undefined;

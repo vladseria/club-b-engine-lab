@@ -16,6 +16,7 @@ export type Unit=
  |'x'      // multiplier on an existing read
  |'A'      // the carrier's option score
  |'B'      // an off-ball job's score
+ |'m/s'    // metres per second (a ball's speed relative to a receiver)
  |'men'|'trait'|'count'|'flag';
 /** The pitch probe's class, recorded only. */
 export type Axis='L'|'W'|'G'|'body'|'none';
@@ -23,7 +24,8 @@ export type Axis='L'|'W'|'G'|'body'|'none';
 export type EffectKind=
  |'optionCreditByFeature'|'optionCreditByTarget'|'situationalOptionCost'|'clockRule'
  |'jobCredit'|'jobOffered'|'fixedPost'|'positionOffset'|'arrangementConstraint'
- |'multiplier'|'defendingThreshold'|'triggerWindow'|'traitOverride'|'recentring';
+ |'multiplier'|'defendingThreshold'|'triggerWindow'|'traitOverride'|'recentring'
+ |'receptionGate'|'styleBase';
 /** One effect. `v` is the exact value the code uses (a number, null, Infinity or a flag). */
 export interface Effect<V=number>{v:V;unit:Unit;kind:EffectKind;axis?:Axis;
  /** every read site, file:line at the commit that last moved it */
@@ -362,7 +364,6 @@ export const IN_BEHIND={
  line:{v:4,unit:'m',kind:'fixedPost',axis:'L',at:['practice-coordination.ts:307 (RUN_LINE)'],says:'back-line defenders: within this of the deepest'},
  alsoTakes:{v:['give-and-go','near-post','far-post','break','link'] as string[],unit:'flag',kind:'jobOffered',at:['practice-coordination.ts:308 (RUN_ALSO)'],says:'the only other jobs he still takes'},
  depthBonus:{v:.3,unit:'B',kind:'jobCredit',at:['practice-coordination.ts:990'],says:'the team\'s run in behind: extra fit for him'},
- jobsOpen:{v:0,unit:'x',kind:'jobOffered',at:['practice-coordination.ts:753'],says:'(what-if switch) 0: only alsoTakes (today); 1: he may take any job, as a Mixed striker does, besides his post and run; 2: also the build-up spots (practice-coordination.ts:717) and pressure arrangements may move him (:1033)'},
 } satisfies Record<string,Effect<unknown>>;
 /** Drops deep: the false nine's post between their lines and the run beyond him. */
 export const DROPS_DEEP={
@@ -526,6 +527,49 @@ export const FULLBACKS:Readonly<Record<NonNullable<Tactics['fullbacks']>,Fullbac
 export const FULLBACKS_COMMON={
  holdBack:{v:5,unit:'m',kind:'positionOffset',axis:'L',at:['practice-shape.ts:162'],says:'a holding fullback\'s shape slot: this far above the back line'},
 } as const satisfies Record<string,Effect>;
+
+// ------------------------------------------------------------------ Style: the identity (styles as identities, slice 1)
+/** A style is its base and its trait (deliverables/ballers-engine/STYLES-AS-IDENTITIES.md, owner's decision 22 Oct
+ * 2026). The base is the pair the manager can't take apart: Progression and On winning it (Short = Patient + Keep it,
+ * Counter = Mixed + the surge, Direct = Direct + Balanced, Balanced = Mixed + Balanced). The trait is what only that
+ * style does: Short's one-touch passing (first-time passing branch engine-first-time-capabilities, question 6 q6-a).
+ *
+ * `style` is OPTIONAL in Tactics. A side that names it must play its base: the entrance refuses any other pair
+ * (styleBaseProblem below, called by team-approach.ts validateEntryTactics and practice-switch.ts). A side without it
+ * (every input frozen before the field, a plan still waiting for its manager to pick its style, an AI side whose pair
+ * is no style's base) plays as stored with no trait, so its read sites take Balanced's entry (no trait), as
+ * S.STYLE[t.style??'balanced']. The base keeps being read where it always was (S.PROGRESSION, S.ON_WIN, through the
+ * two option values the app derives from the style); only the trait is read here. */
+export interface StyleIdentity{
+ progression:Effect<Tactics['progression']>;transition:Effect<NonNullable<Tactics['transition']>>;
+ touchPrice:Effect;strikeSpeed:Effect;
+}
+const styleIdentity=(o:{progression:Tactics['progression'];transition:NonNullable<Tactics['transition']>;touchPrice:number;strikeSpeed:number}):StyleIdentity=>({
+ progression:{v:o.progression,unit:'flag',kind:'styleBase',at:['team-approach.ts (validateEntryTactics)','practice-switch.ts (validateTacticsSwitches)'],says:'the Progression this style plays; a side naming the style with any other is refused at the entrance'},
+ transition:{v:o.transition,unit:'flag',kind:'styleBase',at:['team-approach.ts (validateEntryTactics)','practice-switch.ts (validateTacticsSwitches)'],says:'the On winning it this style plays (a missing transition reads balanced); any other is refused at the entrance'},
+ touchPrice:{v:o.touchPrice,unit:'x',kind:'receptionGate',at:['practice.ts (readReception, the first-time read)'],says:'a receiver of this side prices a controlling touch this much more (share of the chance) in the first-time read, on top of WORLD.contact.touch.baseCost; 0 = as the world'},
+ strikeSpeed:{v:o.strikeSpeed,unit:'m/s',kind:'receptionGate',at:['practice.ts (the contact, planned first-time strike)'],says:'a receiver of this side strikes a planned first-time ball arriving this much faster (m/s) than the world allows (WORLD.contact.strike.speedBase + control x speedPerControl); 0 = as the world'},
+});
+/** The four styles. Short's trait: touch 0.17 and strike speed +4 m/s (limit 11 + 0.75 x control), the q6-a candidate
+ * (~/Downloads/ballers-first-time/q6-two-runs-report.md: 26% of Short's passes first time, chances +0.12, every
+ * match without Short identical). The other three carry no reception trait. */
+export const STYLE:Readonly<Record<NonNullable<Tactics['style']>,StyleIdentity>>={
+ balanced:styleIdentity({progression:'mixed',transition:'balanced',touchPrice:0,strikeSpeed:0}),
+ combinations:styleIdentity({progression:'patient',transition:'secure',touchPrice:.17,strikeSpeed:4}),
+ direct:styleIdentity({progression:'direct',transition:'balanced',touchPrice:0,strikeSpeed:0}),
+ counter:styleIdentity({progression:'mixed',transition:'counter',touchPrice:0,strikeSpeed:0}),
+};
+/** Why a side's tactics break its style's base, or null when they don't (or name no style). One message shape for the
+ * match entrance and the plan switch: `style combinations plays progression patient and transition secure (got mixed,
+ * secure)`. A pure read of STYLE; no default is invented for an unknown style. */
+export function styleBaseProblem(t:{style?:unknown;progression?:unknown;transition?:unknown}):string|null{
+ if(t.style===undefined)return null;
+ const base=typeof t.style==='string'&&Object.prototype.hasOwnProperty.call(STYLE,t.style)?STYLE[t.style as NonNullable<Tactics['style']>]:undefined;
+ if(!base)return `style is ${JSON.stringify(t.style)} (expected ${Object.keys(STYLE).join(', ')})`;
+ const transition=t.transition??'balanced';
+ if(t.progression!==base.progression.v||transition!==base.transition.v)return `style ${t.style} plays progression ${base.progression.v} and transition ${base.transition.v} (got ${String(t.progression)}, ${String(transition)})`;
+ return null;
+}
 
 // ------------------------------------------------------------------ views (old names survive, rule 1.3.6)
 type Scalar<O>={[K in keyof O]:O[K] extends Effect<infer V>?K:never}[keyof O];

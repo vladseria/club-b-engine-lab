@@ -25,7 +25,7 @@
 import type {ReplayEvent, ReplayFrame, ReplayHeader} from './replay';
 import {matchClock, shownClock} from './match-clock';
 
-export type IncidentKind='kickoff'|'goal'|'own_goal'|'save'|'wide'|'blocked'|'chance'|'beat'|'key_pass'|'tackle'|'turnover'|'foul'|'half'|'second_half'|'end'|'quiet'|'idea'|'substitution'|'switch';
+export type IncidentKind='kickoff'|'goal'|'own_goal'|'save'|'wide'|'blocked'|'chance'|'beat'|'key_pass'|'tackle'|'turnover'|'foul'|'half'|'second_half'|'end'|'quiet'|'idea'|'substitution'|'switch'|'one_touch'|'surge';
 export type GoalState='opens'|'equalises'|'leads'|'extends'|'pulls_back';
 export interface Incident {
  /** Stable across viewers and horizons: `${kind}@${t}` (+ `#n` on a clash). */ id:string;
@@ -42,10 +42,13 @@ export interface Incident {
  facts:{state?:GoalState;late?:'lead'|'equaliser';dist?:number;big?:boolean;finally?:boolean;shooter?:number;assist?:number;goalAt?:number;
   /** A substitution's trigger (P5): tired | losing | drawing | winning | up | down | half; a plan switch's too, plus `always` (whatever the score). */ sub?:string;
   /** A plan switch (in-match plan switch): the style key it goes to, and the new formation when it changes. */ style?:string;shape?:string;
-  /** (half) the real whistle at half-time (the engine's `half` event), not the clock's midpoint of a match without one. */ whistle?:boolean};
+  /** (half) the real whistle at half-time (the engine's `half` event), not the clock's midpoint of a match without one. */ whistle?:boolean;
+  /** (styles as identities, slice 2; lib/ballers/style-moments.ts) a Short side's one-touch move: completed first-time
+   * passes in it, and whether it ended in a shot; a Counter side's surge: what came of it; a goal that ended a surge:
+   * seconds from the regain. */ passes?:number;shot?:boolean;outcome?:'shot'|'lost';surge?:number};
 }
 export const MUST_WEIGHT=90;
-const W:Record<IncidentKind,number>={kickoff:95,goal:100,own_goal:100,end:95,key_pass:62,save:48,chance:56,idea:55,substitution:92,switch:92,half:50,second_half:94,blocked:42,wide:34,beat:36,turnover:28,foul:32,tackle:26,quiet:12};
+const W:Record<IncidentKind,number>={kickoff:95,goal:100,own_goal:100,end:95,key_pass:62,save:48,chance:56,idea:55,substitution:92,switch:92,half:50,second_half:94,blocked:42,wide:34,beat:36,turnover:28,foul:32,tackle:26,quiet:12,one_touch:46,surge:52};
 export const weightOf=(k:IncidentKind)=>W[k];
 
 /** When a late goal counts as late (s from the end). */
@@ -117,6 +120,14 @@ export function buildIncidents(input:IncidentInput):Incident[]{
 
  for(let i=0;i<events.length;i++){
   const e=events[i];
+  // (styles as identities, slice 2) the style moments that end at this event (compute.ts styleMoments): a Short
+  // side's one-touch move (a longer one, or one that made a shot, weighs more), a Counter side's surge that ended in a
+  // shot or was lost (a surge goal is told by the goal's own line; a stopped or settled surge is not news)
+  for(const m of e.mo??[]){
+   if(m.k==='onetouch')add({t:e.t,kind:'one_touch',side:m.s,actors:e.a!==undefined?[e.a]:[],engine:e.x,facts:{passes:m.n,shot:!!m.shot},
+    weight:m.shot?W.one_touch+12:(m.n??0)>=5?W.one_touch+6:W.one_touch});
+   else if(m.o==='shot'||m.o==='lost')add({t:e.t,kind:'surge',side:m.s,actors:e.a!==undefined&&m.o==='shot'?[e.a]:[],engine:e.x,facts:{outcome:m.o},weight:m.o==='shot'?W.surge:W.surge-14});
+  }
   switch(e.k){
    case 'start':add({t:e.t,kind:'kickoff',side:null,actors:[],engine:e.x,facts:{}});break;
    case 'end':add({t:e.t,kind:'end',side:null,actors:[],engine:e.x,facts:{}});break;
@@ -133,7 +144,9 @@ export function buildIncidents(input:IncidentInput):Incident[]{
     if(credit?.own){add({t:e.t,kind:'own_goal',side:s,actors:[credit.player],portrait:credit.player,engine:e.x,facts:{state,late}});break;}
     const scorer=credit?.player;
     const assist=scorer===undefined?undefined:assistFor(events,i,scorer,s);
-    add({t:e.t,kind:'goal',side:s,actors:scorer===undefined?[]:assist===undefined?[scorer]:[scorer,assist],portrait:scorer,engine:e.x,facts:{state,late,shooter:credit?.shooter,assist}});
+    // (styles) a goal that ends a surge says so (the surge's own seconds, from the regain)
+    const surge=e.mo?.find(m=>m.k==='surge'&&m.o==='goal'&&m.s===s)?.d;
+    add({t:e.t,kind:'goal',side:s,actors:scorer===undefined?[]:assist===undefined?[scorer]:[scorer,assist],portrait:scorer,engine:e.x,facts:{state,late,shooter:credit?.shooter,assist,...(surge!==undefined?{surge}:{})}});
     if(assist!==undefined&&scorer!==undefined&&e.t+KEY_PASS_DELAY<=horizon)
      add({t:e.t+KEY_PASS_DELAY,kind:'key_pass',side:s,actors:[assist,scorer],portrait:assist,engine:e.x,facts:{goalAt:e.t},
       // In a rout the fifth assist is not news; a pass that changed the game is.
@@ -273,7 +286,7 @@ export interface ReelWindow {from:number;to:number;at:number;incidents:Incident[
 export function highlightReel(list:Incident[],duration:number,o:{lead?:number;tail?:number;budget?:number}={}):ReelWindow[]{
  const lead=o.lead??6000,tail=o.tail??3500,budget=o.budget??170000,dur=duration*1000;
  const keys=list.filter(x=>x.kind==='goal'||x.kind==='own_goal');
- const extras=list.filter(x=>['save','chance','idea','blocked','beat'].includes(x.kind)).sort((a,b)=>b.weight-a.weight||a.t-b.t);
+ const extras=list.filter(x=>['save','chance','idea','blocked','beat'].includes(x.kind)||x.kind==='one_touch'&&x.facts.shot||x.kind==='surge'&&x.facts.outcome==='shot').sort((a,b)=>b.weight-a.weight||a.t-b.t);
  const windows=(xs:Incident[])=>{
   const ws:ReelWindow[]=[];
   for(const x of [...xs].sort((a,b)=>a.t-b.t)){const from=Math.max(0,x.t-lead),to=Math.min(dur,x.t+tail),last=ws.at(-1);

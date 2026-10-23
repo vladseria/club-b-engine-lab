@@ -70,9 +70,7 @@ const zero=()=>Object.fromEntries(PURPOSES.map(p=>[p,0]));
 const six=()=>[0,0,0,0,0,0];
 function side0(){return {goals:0,shots:0,chances:0,goalsLate:0,chancesLate:0,goalsEnd:0,keeperSaves:0,passes:0,received:0,ftPasses:0,ftPassDone:0,ftShots:0,ftGoals:0,free6:0,free6Ft:0,oneTwo:0,oneTwoDone:0,wallPass:0,wallPassShot:0,gagTouch:0,
  jobs:zero(),starts:zero(),energy:six(),dist:six(),hi:six(),peak:six(),possession:0,
- spells:0,spellPasses:0,losses:0,lossAt:six(),lossNoClock:0,lossClockOn:0,clockStart:0,
- stRec:0,stBehind:0,stShots:0,stGoals:0,stChances:0,stFrames:0,stGapSum:0,stHigh:0,stFree:0,stNearSum:0,
- entries:0,entryLine:0,entryGap:0,entryChances:0,entryNear:0,orig:{} as Record<string,number[]>,rx:{} as Record<string,number[]>};}
+ spells:0,spellPasses:0,losses:0,lossAt:six(),lossNoClock:0,lossClockOn:0,clockStart:0};}
 const TOUCH=new Set(['pass','receive','shot','clearance','turnover','tackle','restart','goal','out','save','block','feint','beat','foul','offside']);
 const HI=5.5,SIXTH=150,MARKS=[150,300,450,600,750];
 
@@ -108,91 +106,6 @@ export function anatomy(runs:any[],teams:any[],t:any){
    else if(e.kind==='save')a.keeperSaves++;
    else if(e.kind==='pass'){a.passes++;if(e.firstTime)a.ftPasses++;}
   }
-  // ---- the striker (role ST): receptions, receptions beyond their last outfielder, shots, goals, chances
-  const roleOf=(id:any)=>id==null||!idx.has(id)?undefined:roster[idx.get(id)!].role;
-  const beyondLast=(id:string,time:number,s:number)=>{
-   if(!frames.length)return false;const f=frames[frameAt(time)],me=posAt(id,time);if(!me)return false;
-   let last=-Infinity;(f.players??[]).forEach((pl:any,j:number)=>{const ro=rosterOf(f,j);if(ro&&ro.side!==s&&ro.role!=='GK')last=Math.max(last,depth(s,pl.x));});
-   return depth(s,me.x)>last;
-  };
-  for(const e of ev){
-   if(roleOf(e.actor)!=='ST')continue;const s=sideOfId(e.actor);if(s!==0&&s!==1)continue;const a=out.side[s];
-   if(e.kind==='receive'){a.stRec++;if(beyondLast(e.actor,e.time,s))a.stBehind++;}
-   else if(e.kind==='shot'){a.stShots++;const q=e.shot?.assessment?.quality,sk=e.technique==='header'?1:e.technique==='volley'?2:e.freeKick?3:undefined;
-    a.stChances+=shotChance({q:typeof q==='number'?Math.round(q*1000)/1000:undefined,sk} as any)??0;}
-   else if(e.kind==='goal'&&sideOfEv(e)===s)a.stGoals++;
-  }
-  // ---- entry passes (the 11 Oct direct-edge definition: from < 32 m of our own goal, to a team-mate standing >= 28 m from it):
-  //      their last line at the pass (m from their goal), the gap in front of it (their deepest outfielder to the next one),
-  //      a team-mate within 4 m of the space in front of that line, and our shot chances in the next 8 s
-  for(const e of ev){
-   if(e.kind!=='pass'||!e.actor||!e.target)continue;const s=sideOfId(e.actor);if(s!==0&&s!==1)continue;
-   const from=posAt(e.actor,e.time),to=posAt(e.target,e.time);if(!from||!to||depth(s,from.x)>=32||depth(s,to.x)<28)continue;
-   if(!frames.length)continue;const f=frames[frameAt(e.time)],ds:number[]=[];
-   (f.players??[]).forEach((q:any,j:number)=>{const ro=rosterOf(f,j);if(ro&&ro.side!==s&&ro.role!=='GK')ds.push(depth(s,q.x));});
-   if(ds.length<2)continue;ds.sort((x,y)=>y-x);
-   const a=out.side[s];a.entries++;a.entryLine+=L-ds[0];a.entryGap+=ds[0]-ds[1];
-   let near=0;(f.players??[]).forEach((q:any,j:number)=>{const ro=rosterOf(f,j);if(ro&&ro.side===s&&ro.role!=='GK'&&ro.id!==e.actor){const d=depth(s,q.x);if(d<=ds[0]&&d>=ds[0]-6)near++;}});
-   if(near)a.entryNear++;
-   for(const x of ev){if(x.time<=e.time)continue;if(x.time>e.time+8)break;
-    if(x.kind==='shot'&&sideOfEv(x)===s){const q=x.shot?.assessment?.quality,sk=x.technique==='header'?1:x.technique==='volley'?2:x.freeKick?3:undefined;
-     a.entryChances+=shotChance({q:typeof q==='number'?Math.round(q*1000)/1000:undefined,sk} as any)??0;}}
-  }
-  // ---- where each shot's move started (orig[category] = [shots, chances]): the possession it came from began with
-  //      a restart of ours (by kind), or a regain (third of the pitch where we won it, quick = shot within 10 s of it,
-  //      'second' = won back within 5 s of our own lofted pass); '+entry' when the move included a deep entry pass
-  {let cur=-1,start:any=null,lastPass:any=null;
-   // the restart's kind, from its label (practice-restarts.ts restartLabels; the event carries no kind field)
-   const restartOf=(t:string)=>{const x=String(t??'');return x.startsWith('Lovitură de începere')?'kickoff':x.startsWith('PENALTY')?'penalty':x.startsWith('Aruncare')?'throw':x.startsWith('Repunere')?'goalKick':x.startsWith('Corner')?'corner':x.startsWith('Lovitură liberă')?'freeKick':x.startsWith('Lovitură indirectă')?'indirect':'?';};
-   const bump=(side:number,cat:string,c:number)=>{const o=out.side[side].orig;(o[cat]??=[0,0]);o[cat][0]++;o[cat][1]+=c;};
-   for(const e of ev){
-    const s=sideOfEv(e);
-    if(e.kind==='restart'){if(s===0||s===1){cur=s;start={kind:'restart',rk:e.restartKind??restartOf(e.text),time:e.time,entry:false};}else cur=-1;lastPass=null;continue;}
-    if(e.kind==='goal'||e.kind==='out'||e.kind==='half'||e.kind==='end'){cur=-1;start=null;lastPass=null;continue;}
-    if(s!==0&&s!==1)continue;
-    if(e.kind==='pass'){
-     if(start&&s===cur&&e.actor&&e.target){const from=posAt(e.actor,e.time),to=posAt(e.target,e.time);if(from&&to&&depth(s,from.x)<32&&depth(s,to.x)>=28)start.entry=true;}
-     lastPass={side:s,loft:!!e.aerial,time:e.time};continue;}
-    if(e.kind==='receive'||e.kind==='turnover'||e.kind==='save'){
-     if(s!==cur){const at=posAt(e.actor,e.time),d=at?depth(s,at.x):-1;
-      start={kind:'regain',third:d<0?'?':d<L/3?'own':d<2*L/3?'middle':'final',time:e.time,second:!!(lastPass&&lastPass.side===s&&lastPass.loft&&e.time-lastPass.time<5),entry:false};cur=s;}
-     continue;}
-    if(e.kind==='shot'){
-     const q=e.shot?.assessment?.quality,sk=e.technique==='header'?1:e.technique==='volley'?2:e.freeKick?3:undefined;
-     const c=shotChance({q:typeof q==='number'?Math.round(q*1000)/1000:undefined,sk} as any)??0;
-     let cat='unknown';
-     if(start&&cur===s){
-      if(start.kind==='restart')cat=['corner','freeKick','indirect','penalty','throw'].includes(start.rk)?`set:${start.rk}`:`restart:${start.rk}`;
-      else cat=`regain:${start.third}:${e.time-start.time<=10?'quick':'slow'}${start.second?':second':''}`;
-      if(start.entry)cat+='+entry';
-     }
-     bump(s,cat,c);
-    }
-   }}
-  // ---- receptions in their half, by the defender's place at the reception frame (the link every defensive change relies
-  //      on): 'behind' = no outfielder of theirs goal-side of the receiver; else the nearest goal-side outfielder within
-  //      2 m 'tight', 2-4 m 'close', further 'loose'; by the receiver's distance from their goal (near < 12 m, mid 12-18,
-  //      far 18-24). rx[zone|class] = [receptions, our chances in the next 8 s (until they win it or a restart), his next
-  //      action a shot, its chance, a pass, a beat/feint, the ball lost before his next touch]
-  {const TOUCHES=new Set(['pass','shot','feint','beat','turnover','tackle','receive','clearance','save','block','foul','out','goal','restart']);
-   for(let i=0;i<ev.length;i++){
-    const e=ev[i];if(e.kind!=='receive'||!e.actor)continue;const s=sideOfId(e.actor);if(s!==0&&s!==1)continue;
-    const at=posAt(e.actor,e.time);if(!at||!frames.length)continue;const dGoal=L-depth(s,at.x);if(dGoal>24)continue;
-    const f=frames[frameAt(e.time)];let near=Infinity,anyGoalSide=false;
-    (f.players??[]).forEach((q:any,j:number)=>{const ro=rosterOf(f,j);if(!ro||ro.side===s||ro.role==='GK')return;
-     if(depth(s,q.x)>depth(s,at.x)){anyGoalSide=true;near=Math.min(near,Math.hypot(q.x-at.x,q.y-at.y));}});
-    const cls=!anyGoalSide?'behind':near<=2?'tight':near<=4?'close':'loose',zone=dGoal<12?'near':dGoal<18?'mid':'far';
-    const key=`${zone}|${cls}`,o=out.side[s].rx;(o[key]??=[0,0,0,0,0,0,0]);const r=o[key];r[0]++;
-    let next='';
-    for(let k=i+1;k<ev.length;k++){const x=ev[k];if(x.time>e.time+4)break;if(!TOUCHES.has(x.kind))continue;
-     if(x.actor===e.actor){next=x.kind;if(x.kind==='shot'){r[2]++;const q=x.shot?.assessment?.quality,sk=x.technique==='header'?1:x.technique==='volley'?2:x.freeKick?3:undefined;r[3]+=shotChance({q:typeof q==='number'?Math.round(q*1000)/1000:undefined,sk} as any)??0;}
-      else if(x.kind==='pass')r[4]++;else if(x.kind==='feint'||x.kind==='beat')r[5]++;break;}
-     if(sideOfEv(x)!==s&&x.kind!=='foul'){r[6]++;next='lost';break;}}
-    for(let k=i+1;k<ev.length;k++){const x=ev[k];if(x.time>e.time+8)break;
-     if(x.kind==='restart'||x.kind==='goal'&&sideOfEv(x)!==s||x.kind==='out')break;
-     if((x.kind==='receive'||x.kind==='turnover'||x.kind==='save')&&sideOfEv(x)!==s)break;
-     if(x.kind==='shot'&&sideOfEv(x)===s){const q=x.shot?.assessment?.quality,sk=x.technique==='header'?1:x.technique==='volley'?2:x.freeKick?3:undefined;r[1]+=shotChance({q:typeof q==='number'?Math.round(q*1000)/1000:undefined,sk} as any)??0;}}
-   }}
   // ---- first-time shots, and goals whose last shot by the scoring side was struck first time
   for(const e of ev){const s=sideOfEv(e);if((s===0||s===1)&&e.kind==='shot'&&e.firstTime)out.side[s].ftShots++;}
   ev.forEach((g:any,gi:number)=>{if(g.kind!=='goal')return;const s=sideOfEv(g);if(s!==0&&s!==1)return;
@@ -253,14 +166,6 @@ export function anatomy(runs:any[],teams:any[],t:any){
      const m=peak[ro.side][sx];m.set(j,Math.max(m.get(j)??0,v));
     });
    }
-   // the striker's place: his depth minus their deepest outfielder's (m, + = beyond their last man), per open-play frame of his side's possession;
-   // stNearSum / stFree: the nearest opponent outfielder's distance to him, and frames with nobody within 4 m
-   for(const f of frames){if(f.restart)continue;const pl=f.players??[];
-    for(const s of [0,1]){let st:any=null,last=-Infinity;
-     const opp:any[]=[];
-     pl.forEach((q:any,j:number)=>{const ro=rosterOf(f,j);if(!ro)return;if(ro.side===s&&ro.role==='ST')st=q;else if(ro.side!==s&&ro.role!=='GK'){last=Math.max(last,depth(s,q.x));opp.push(q);}});
-     if(st&&Number.isFinite(last)&&f.side===s){const g=depth(s,st.x)-last,a=out.side[s],near=Math.min(...opp.map(q=>Math.hypot(q.x-st.x,q.y-st.y)));
-      a.stFrames++;a.stGapSum+=g;if(g>-2)a.stHigh++;a.stNearSum+=near;if(near>4)a.stFree++;}}}
    for(const s of [0,1])for(let k=0;k<6;k++){const m=[...peak[s][k].values()];out.side[s].peak[k]+=m.length?m.reduce((x,y)=>x+y,0)/m.length/nRuns:0;}
    const meanEnergy=(f:any,s:number)=>{const v:number[]=[];(f.players??[]).forEach((pl:any,j:number)=>{const ro=rosterOf(f,j);if(ro&&ro.side===s&&ro.role!=='GK'&&typeof pl.energy==='number')v.push(pl.energy);});return v.length?v.reduce((x,y)=>x+y,0)/v.length:0;};
    const marks=[...MARKS.map(m=>frames[frameAt(m)]),frames[frames.length-1]];

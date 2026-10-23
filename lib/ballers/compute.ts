@@ -4,7 +4,8 @@
 // (lib/ballers/engine.worker.ts) run exactly the same code path.
 import {runMatch,ENGINE_BUILD,validatePlans,playbookProgress,type PlaybookConfig,type PlaybookPlan} from '../../packages/football-engine/src/index';
 import type {Player as EnginePlayer,Team,Tactics} from '../../packages/football-engine/src/model';
-import {engineApproach,playedApproach,type StoredApproach} from './approach';
+import {engineApproach,engineStyle,playedApproach,type StoredApproach} from './approach';
+import {styleMoments,styleTallies} from './style-moments';
 import {validateSubstitutionOrders,type SubstitutionNote,type SubstitutionOrder,type SubstitutionTrigger} from '../../packages/football-engine/src/practice-substitutions';
 import {validateTacticsSwitches,type TacticsSwitch,type SwitchTrigger,type SwitchNote} from '../../packages/football-engine/src/practice-switch';
 import {BREAK_SECONDS,CHUNK_SECONDS,FRAME_STEP,REPLAY_VERSION,cm,mrad,ms,type CompactMatch,type ReplayChunk,type ReplayEvent,type ReplayFrame,type ReplayHeader,type ReplayIdea,type ReplayPlayer,type TeamStats} from './replay';
@@ -39,7 +40,10 @@ export function engineTeam(side:FrozenSide):Team{
  // (here, and the Lab's tacticsOf/demoSide and trial side). A frozen input
  // without `onLoss` plays as 'balanced', exactly as an explicit 'balanced'.
  // In 2-1-1 Width plays Standard whatever is stored (approach.ts playedApproach).
- const tactics:Tactics=settingsTactics({...engineApproach(playedApproach(side.formation,side.approach)),formation:side.formation,setPiece:'mixed',fullbacks:'balanced',marking:'balanced'} as unknown as Tactics,settings);
+ // (styles as identities, slice 1) the side names its style only when its approach plays that style's base
+ // (approach.ts engineStyle): Short's one-touch comes with it; any other pair plays as stored, with no trait.
+ const style=engineStyle(side.style,side.approach);
+ const tactics:Tactics=settingsTactics({...engineApproach(playedApproach(side.formation,side.approach)),...(style?{style}:{}),formation:side.formation,setPiece:'mixed',fullbacks:'balanced',marking:'balanced'} as unknown as Tactics,settings);
  const squad=settingsSquad(side.players.map(p=>({id:p.id,name:p.name,roles:[...p.roles],skills:{...p.skills},traits:{...p.traits},energy:p.energy,note:p.note,archetype:p.archetype,temperament:p.temperament}) as EnginePlayer),settings);
  return {id:side.club.id,name:side.club.name,short:side.club.code,color:side.club.color,description:'Ballers',squad,lineup:[...side.lineup],tactics,orders:[]};
 }
@@ -94,7 +98,8 @@ export function sideSwitches(input:FrozenInput,teams:[Team,Team]):{switches:Tact
    // the slot map applies in every switch (owner, 21 Oct); one that moves anyone can't run beside slot-addressed moves
    const moves=formation!==s.formation||!!sw.to.slots?.some((n,i)=>n!==i);
    if(moves&&input.sides.some(x=>x.plans.length))throw Error('a switch that moves men beside plans');
-   const tactics:Tactics=settingsTactics({...engineApproach(playedApproach(formation,sw.to.approach)),formation,setPiece:'mixed',fullbacks:'balanced',marking:'balanced'} as unknown as Tactics,next);
+   const style=engineStyle(sw.to.style,sw.to.approach);
+   const tactics:Tactics=settingsTactics({...engineApproach(playedApproach(formation,sw.to.approach)),...(style?{style}:{}),formation,setPiece:'mixed',fullbacks:'balanced',marking:'balanced'} as unknown as Tactics,next);
    const keepers:Record<string,number|null>={};
    for(const p of s.players){
     if(!p.roles.includes('GK'))continue;
@@ -134,10 +139,10 @@ export function computeMatch(input:FrozenInput,progress?:(t:number)=>void):Compu
 // The slice of PracticeResult this module reads (kept structural so the
 // compaction can be unit-tested with a synthetic result).
 interface EngineFrame {time:number;cut?:boolean;lineup?:number[];players:{x:number;y:number;angle:number;duty?:string}[];ball:{x:number;y:number;z:number;owner:string|null};score:[number,number];restart:boolean;restartInfo?:{taker:string};side:0|1;control?:{owner:string}}
-interface EngineEvent {time:number;kind:string;text:string;actor?:string;target?:string;side?:0|1;lastTouch?:string;restartKind?:string;shot?:{aim:{x:number;y:number};origin:{x:number;y:number};assessment?:{quality:number}};technique?:string;freeKick?:unknown;
+interface EngineEvent {time:number;kind:string;text:string;actor?:string;target?:string;side?:0|1;lastTouch?:string;restartKind?:string;firstTime?:boolean;shot?:{aim:{x:number;y:number};origin:{x:number;y:number};assessment?:{quality:number}};technique?:string;freeKick?:unknown;
  substitution?:{order:string;trigger:SubstitutionTrigger;energy:number;score:[number,number]};switch?:{order:string;trigger:SwitchTrigger;score:[number,number];formation?:string;players?:{id:string;role:string;lane:number}[]}}
 interface EngineSelection {time:number;planId:string|null;name:string;status:string;endedAt?:number;endReason?:string;endDetail?:string;side?:0|1;trace?:{time:number;stepId:string;phase:string;intent?:string;actor?:string;target?:string;responsibility?:string;evidence?:{spaceId?:string}}[]}
-export interface EngineResult {duration:number;played?:number;players:{id:string;side:0|1;role:string}[];frames:EngineFrame[];events:EngineEvent[];stats:[TeamStats,TeamStats];score:[number,number];playbookSelections?:EngineSelection[];substitutionNotes?:SubstitutionNote[];switchNotes?:SwitchNote[]}
+export interface EngineResult {duration:number;played?:number;players:{id:string;side:0|1;role:string}[];frames:EngineFrame[];events:EngineEvent[];stats:[TeamStats,TeamStats];score:[number,number];playbookSelections?:EngineSelection[];substitutionNotes?:SubstitutionNote[];switchNotes?:SwitchNote[];surges?:{side:0|1;regain:number;start:number}[]}
 
 export function compact(input:FrozenInput,r:EngineResult):CompactMatch{
  // Engine roster ids are `${side}:${playerId}`. Replay indices: 0-9 the
@@ -213,6 +218,12 @@ export function compact(input:FrozenInput,r:EngineResult):CompactMatch{
     ...(e.switch.formation?{f:e.switch.formation}:{}),...(e.switch.players?{ro:e.switch.players.map(p=>[idx(p.id),p.role,p.lane] as [number,string,number])}:{})};}
   return out;
  });
+ // (styles as identities, slice 2) the style moments, each marked on the event it ends at; a Short side's or a surge's
+ // tallies ride along. No Short side and no surge = nothing added: the compact is byte-identical to before.
+ const styles=input.sides.map(sd=>engineStyle(sd.style,sd.approach));
+ const moments=styleMoments(r.events,r.surges,styles);
+ for(const m of moments)if(m.event>=0)(events[m.event].mo??=[]).push(m.mark);
+ const tallies=moments.length||styles.includes('combinations')?styleTallies(r.events,moments):null;
  // Half-time (deliverables/ballers-half-time/DESIGN.md 2.2): the chunk that holds the whistle ends at it and the
  // next one starts at it, so no chunk mixes the halves and the live clock can release the second half's chunks after
  // the break (simulation.ts sends their t0 on the live clock). The count stays the match length's. The whistle's own
@@ -236,7 +247,7 @@ export function compact(input:FrozenInput,r:EngineResult):CompactMatch{
   status:sel.status,endReason:sel.endReason??null,progress:playbookProgress(sel as never),planId:sel.planId,name:sel.name,
   detail:ideaDetail(sel,idx,sel.planId===null?null:classifyIdeaRun(sel as never,lessonOf(input,sel))??'broke')}]);
  // The switch's note (owner-facing, like the substitution notes): present only when a side carried one.
- return {header,chunks,score:[r.score[0],r.score[1]],stats:r.stats,ideas,substitutionNotes:subNotes(input,r.substitutionNotes),...(r.switchNotes?{switchNotes:r.switchNotes}:{})};
+ return {header,chunks,score:[r.score[0],r.score[1]],stats:r.stats,ideas,substitutionNotes:subNotes(input,r.substitutionNotes),...(r.switchNotes?{switchNotes:r.switchNotes}:{}),...(tallies?{styles:tallies}:{})};
 }
 
 /** The lesson a selection ran (job kinds and drawn spaces are the frozen

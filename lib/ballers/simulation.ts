@@ -33,7 +33,10 @@ export function submission(c:Computed,input:FrozenInput){
  return {
   // `duration` is the match length (ballers_submit checks it against the input);
   // `played`, only when the last attack ran past it, is when the whistle went.
-  engine_build:c.engineBuild,duration:input.duration,...(playedS>input.duration?{played:playedS}:{}),score:c.compact.score,stats:c.compact.stats,
+  engine_build:c.engineBuild,duration:input.duration,...(playedS>input.duration?{played:playedS}:{}),score:c.compact.score,
+  // (styles as identities, slice 2) each side's style tallies join its stats (numbers only; no schema change): what
+  // the Tribuna's style findings read. Absent when no side is Short and no surge happened.
+  stats:c.compact.styles?c.compact.stats.map((st,i)=>({...st,...c.compact.styles![i]})):c.compact.stats,
   header:pack(header),
   chunks:c.compact.chunks.map(ch=>({i:ch.i,t0:live(ch.t0/1000),t1:halfS!==null&&ch.t1/1000>halfS?live(ch.t1/1000):ch.t1/1000,data:pack(ch)})),
   ...(halfS!==null&&brk?{half:halfS,interval:brk}:{}),
