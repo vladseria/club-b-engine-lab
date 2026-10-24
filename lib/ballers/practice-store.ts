@@ -116,21 +116,3 @@ export function loadPace(together=1):number|null{
 export function savePace(msPerSecond:number,together=1){
  try{if(Number.isFinite(msPerSecond)&&msPerSecond>0)storage()?.setItem(paceKey(together),String(Math.round(msPerSecond*100)/100));}catch{/* the estimate falls back to "N times as long" */}
 }
-
-// ------------------------------------------------------------------ their five, picked (owner, 24 Oct)
-/** The practising player's pick of an opponent's five, this tab only (lib/ballers/practice-opponent.ts): it survives
- * a look at a player's page and back, and never leaves the browser. Null when none is kept or it can't be read. */
-const fiveKey=(club:string,opp:string)=>`ballers:practice:their5:v1:${club}:${opp}`;
-export function loadTheirFive(club:string,opp:string):string[]|null{
- try{
-  const raw=storage()?.getItem(fiveKey(club,opp));if(!raw)return null;
-  const v=JSON.parse(raw) as unknown;
-  return Array.isArray(v)&&v.length===5&&v.every(id=>typeof id==='string')&&new Set(v).size===5?v as string[]:null;
- }catch{return null;}
-}
-/** Keeps the pick (null forgets it); false when storage refused (the page keeps it in memory). */
-export function saveTheirFive(club:string,opp:string,five:readonly string[]|null):boolean{
- try{const s=storage();if(!s)return false;if(five)s.setItem(fiveKey(club,opp),JSON.stringify(five));else s.removeItem(fiveKey(club,opp));return true;}catch{return false;}
-}
-/** The book's opponent for a picked five: its own book, so runs against it never mix with runs against their own. */
-export const bookOpponent=(opp:string,five:readonly string[]|null)=>five?`${opp}~${five.map(id=>id.slice(0,8)).join('')}`:opp;

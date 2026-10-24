@@ -110,7 +110,17 @@ export function sideSwitches(input:FrozenInput,teams:[Team,Team]):{switches:Tact
   }
   catch{dropped.push(`switch:${side}`);}
  });
- return {switches,dropped};
+ return {switches:distinctIds(switches),dropped};
+}
+/** The engine takes both sides' switches as one list whose ids must be distinct, and every frozen switch is 'sw' (SQL
+ * ballers_set_switch). So when both sides' switches reach the engine with one id, the away side's becomes '<id>:1'
+ * (the engine's id rule, practice-switch.ts ID). Its id only labels its own note; the app reads a switch by side.
+ * Zero or one switch, or ids already distinct: the list is returned as it is (the engine input byte-identical). */
+function distinctIds(switches:TacticsSwitch[]):TacticsSwitch[]{
+ if(switches.length!==2||switches[0].id!==switches[1].id)return switches;
+ const base=switches[1].id.slice(0,62);
+ let id=`${base}:1`;if(id===switches[0].id)id=`${base}:2`;
+ return [switches[0],{...switches[1],id}];
 }
 
 export function validateInput(value:unknown):FrozenInput{

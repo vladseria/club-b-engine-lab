@@ -11,7 +11,6 @@ import type {ReplayChunk,ReplayHeader} from './replay';
 import type {IdeaName,Marker} from './ideas';
 import type {PrepOrder,StoredNote} from './subs';
 import type {MatchSettings} from './match-settings';
-import type {FrozenSwitch} from './switch-input';
 import type {Voice} from './voice';
 import {loadPlans,type Plan,type PlanPrep} from './plans';
 import {withRules,type GrowthAfter,type GrowthRow,type GrowthRules} from './growth';
@@ -310,18 +309,11 @@ export async function labSave(space:string,library:LabLibraryEntry[],prep:{lineu
  * any club, AI or member, as it lined up in its most recent revealed league
  * match. Never its ideas, never a round's prep. */
 export interface PracticeSide {formation:Formation;style:Style;approach:Approach;lineup:string[];captain:string|null;
- /** 'last_match' = its most recent revealed league match (AI or member); 'ai' = an AI club with none yet: its fixed tactics; 'generic' = a member club with none yet. */ source?:'last_match'|'ai'|'generic';
- /** That match's substitution orders, change of plan and match settings, as frozen (migration
-  * 20261024150000_ballers_practice_side_full; each only when it had one, never for 'ai' or 'generic'). */
- substitutions?:PrepOrder[];switch?:FrozenSwitch;settings?:MatchSettings}
+ /** 'last_match' = its most recent revealed league match (AI or member); 'ai' = an AI club with none yet: its fixed tactics; 'generic' = a member club with none yet. */ source?:'last_match'|'ai'|'generic'}
 /** Their side as practice and rehearsals play it: the stored side with a retired formation or option
  * read as what it plays now (approach.ts boardSide; 2-1-1 -> 1-2-1, 1/2 forward -> 3, Regroup -> Balanced),
- * the same mapping their next official match gets at freeze; their change of plan's target likewise. */
-export async function practiceSide(space:string,club:string):Promise<PracticeSide>{
- const side=await practiceSideStored(space,club),sw=side.switch;
- return boardSide({...side,approach:withOnLoss(side.approach),
-  ...(sw?{switch:{...sw,to:{...sw.to,approach:boardApproach(sw.to.approach),...(sw.to.formation?{formation:boardFormation(sw.to.formation)}:{})}}}:{})});
-}
+ * the same mapping their next official match gets at freeze. */
+export async function practiceSide(space:string,club:string):Promise<PracticeSide>{const side=await practiceSideStored(space,club);return boardSide({...side,approach:withOnLoss(side.approach)});}
 /** The same side exactly as stored: its approach may lack "On losing it"
  * (an input frozen before the field). Scouting reads this to tell an adjusted
  * approach from a preset without mistaking the missing field for a change. */
