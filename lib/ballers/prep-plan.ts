@@ -115,8 +115,13 @@ export function scoutLeaders<T extends {id:string;matches:number;shots:number;go
 
 // ------------------------------------------------------------------ practice
 /** How the opponent plays in a practice match, by where the server takes it from
- * (ballers_practice_side). Never their moves. Shown beside their crest, so no name. */
-export function opponentLine(source:'last_match'|'ai'|'generic'|undefined):string{
+ * (ballers_practice_side: a last game is its whole setup, substitutions and change of plan included).
+ * Never their moves. `picked`: the practising player picked their five (the rest stays theirs).
+ * Shown beside their crest, so no name. */
+export function opponentLine(source:'last_match'|'ai'|'generic'|undefined,picked=false):string{
+ if(picked)return source==='ai'?'Your pick of their five, the rest as they’re set up.'
+  :source==='generic'?'Your pick of their five, a plain Balanced 1-2-1.'
+  :'Your pick of their five, the rest as in their last game.';
  return source==='ai'?'As they’re set up, without moves.'
   :source==='generic'?'A plain Balanced 1-2-1, without moves.'
   :'As in their last game, without their moves.';
