@@ -25,7 +25,8 @@ describe('likely five',()=>{
  it('is the keeper with the most minutes and the four outfielders with the most, ties by shirt number',()=>{
   // outfield: am1 (8) and st2 (10) on 900; then cb2 (4), cb1 (2), w1 (7) on 600: cb1 and cb2 by number
   expect(likelyFive(squad,seconds)).toEqual(['gk2','am1','st2','cb1','cb2']);
-  expect(byMinutes(squad,seconds).map(p=>p.id).slice(0,3)).toEqual(['gk2','am1','st2']);
+  // the squad list: most minutes first, keepers among them, ties by shirt number (am1 8, st2 10, gk2 12 on 900)
+  expect(byMinutes(squad,seconds).map(p=>p.id).slice(0,4)).toEqual(['am1','st2','gk2','cb1']);
  });
  it('is nothing before anyone has played',()=>{
   expect(likelyFive(squad,()=>0)).toBeNull();
