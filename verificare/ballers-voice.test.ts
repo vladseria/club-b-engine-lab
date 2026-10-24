@@ -83,13 +83,18 @@ const SQL_MIRROR:[string,unknown,Voice|'invalid'][]=[
 ];
 
 describe('club voice: parity',()=>{
- it('a match without a voice says exactly what it said before the voice existed',()=>{
+ // (owner, 24 Oct: no exact-wording pins on copy) the fixture's words date from before the Romanian copy pass and are
+ // free to change; when the board speaks, and that no voice or an empty one changes nothing, are not
+ it('a match without a voice speaks at the moments it spoke before the voice existed; an empty voice is no voice',()=>{
+  const at=(l:readonly [number,string][]|undefined)=>(l??[]).map(([t])=>t);
   for(const m of matches)for(const mid of [m.id,'parity-alt']){
-   expect(withoutHome(said(m.inc,mid,m.header))).toEqual(parity[`${m.id}|${mid}`]);
-   const ai=withTeams(m.header,[{name:'Malpraxis'},{name:'Neo-Testament'}]);
-   expect(said(m.inc,mid,ai)).toEqual(parity[`${m.id}|${mid}|ai`]);
+   const plain=said(m.inc,mid,m.header);
+   expect(at(withoutHome(plain))).toEqual(at(parity[`${m.id}|${mid}`]));
+   for(const [,x] of plain)expect(x).not.toMatch(/[{}]/);
+   const ai=withTeams(m.header,[{name:'Malpraxis'},{name:'Neo-Testament'}]),aiSaid=said(m.inc,mid,ai);
+   expect(at(aiSaid)).toEqual(at(parity[`${m.id}|${mid}|ai`]));
    // An empty or unreadable voice is no voice.
-   expect(said(m.inc,mid,withTeams(ai,[{voice:{}},{voice:{goal:[5 as never]}}]))).toEqual(parity[`${m.id}|${mid}|ai`]);
+   expect(said(m.inc,mid,withTeams(ai,[{voice:{}},{voice:{goal:[5 as never]}}]))).toEqual(aiSaid);
   }
  });
 });

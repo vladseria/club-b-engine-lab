@@ -216,6 +216,29 @@ export function readTribunaSwitch():boolean{
   if(q==='1')sessionStorage.setItem('ballers:tribuna','1');else if(q==='0')sessionStorage.removeItem('ballers:tribuna');
   return sessionStorage.getItem('ballers:tribuna')==='1';}catch{return false;}
 }
+// ---------- practice counts (migration 20261023210000_ballers_practice_counts; the Tribuna's "Antrenamentul etapei") ----------
+/** One finished practice batch: how many kick-offs ran against `opponent`. Fire-and-forget: it never throws, never
+ * waits on anything the practice screen needs, and a refusal (or the door not applied yet) is silent. */
+export function logPractice(space:string,opponent:string,games:number):void{
+ try{void Promise.resolve(supabase().rpc('ballers_practice_log',{p_space:space,p_opponent:opponent,p_games:games})).catch(()=>{});}catch{/* no client: nothing kept */}
+}
+/** A published round's practice: each league match's [home, away] practice kick-offs against the opponent faced
+ * (ballers_practice_round answers only once the round is out). Null when it can't be read (the door not applied
+ * yet, offline): the paper then prints no practice line. */
+export async function loadPracticeRound(round:string):Promise<Map<string,[number,number]>|null>{
+ try{const r=await supabase().rpc('ballers_practice_round',{p_round:round});
+  if(r.error||!Array.isArray(r.data))return null;
+  return new Map((r.data as {match_id:string;home:number;away:number}[]).map(x=>[x.match_id,[x.home,x.away]]));}catch{return null;}
+}
+/** Development only: `?practice=1` makes the paper read made-up practice counts on localhost, so the line can be
+ * seen before the migration is applied and a round is played (`?practice=0` off). Never stored, never sent. */
+export function readPracticeDemo():boolean{
+ if(process.env.NODE_ENV==='production')return false;
+ try{if(!/^(localhost|127\.0\.0\.1|\[::1\])$/.test(window.location.hostname))return false;
+  const q=new URLSearchParams(window.location.search).get('practice');
+  if(q==='1')sessionStorage.setItem('ballers:practice-demo','1');else if(q==='0')sessionStorage.removeItem('ballers:practice-demo');
+  return sessionStorage.getItem('ballers:practice-demo')==='1';}catch{return false;}
+}
 /** The rules the screens need (phases, head skills, fade, order ages and budgets, the two step curves). Null when unreadable. */
 export async function loadGrowthRules(space:string):Promise<GrowthRules|null>{
  try{const r=await supabase().rpc('ballers_growth_rules',{p_space:space});return r.error||!r.data?null:withRules(r.data);}catch{return null;}

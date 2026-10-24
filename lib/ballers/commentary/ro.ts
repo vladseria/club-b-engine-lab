@@ -52,19 +52,19 @@
 export const LINES:Record<string,string[]>={
  // ---------- start / clock ----------
  kickoff:[
-  'A început! {home} și {away}, cincisprezece minute, fără scuze.',
-  'Fluierul de start! {home} contra {away}, să vedem cine a venit să joace.',
-  'Mingea se pune în mișcare. {home} – {away}, meciul serii.',
+  'A început! {home} și {away}, să vină fotbalul!',
+  'Fluierul de start! {home} contra {away}, să vedem cine are mai multă poftă de joc.',
+  'Mingea intră în joc. {home} – {away}, meciul serii.',
   'Gata cu vorba, începe fotbalul: {home} – {away}!',
  ],
  half_level:[
-  'Jumătate de meci și e {score}. Totul e încă pe masă.',
-  'Am trecut de jumătate, {score}. Nimeni nu poate dormi liniștit.',
-  'Mijlocul meciului, egalitate: {score}.',
+  'Jumătate de meci și e {score}. Totul e încă deschis.',
+  'Am trecut de jumătate, {score}. Nimeni nu se poate relaxa.',
+  'La jumătatea meciului, egalitate: {score}.',
  ],
  half_lead:[
-  'Jumătate de meci: {club} e în față, {score}.',
-  'La jumătatea drumului, {club} conduce, {score}. {opp} mai are timp.',
+  'Jumătate de meci: avantaj {club}, {score}.',
+  'La jumătatea drumului, avantaj pentru {club}, {score}. Pentru {opp} mai e timp.',
   'Am trecut de jumătate. {score}, iar {opp} trebuie să se trezească.',
  ],
  // The real half-time whistle (a match with a half-time: the 15-minute match). The lists above
@@ -73,24 +73,24 @@ export const LINES:Record<string,string[]>={
  half_time_level:[
   'Pauză! {score} după prima repriză. Totul se joacă în a doua.',
   'Fluier de pauză, {score}. Vestiarele au de lucru.',
-  'Gata prima repriză, {score}. Cinci minute de stat pe bancă și de făcut planuri.',
+  'Gata prima repriză, {score}. Cinci minute la cabine, de pus planurile la punct.',
  ],
  half_time_lead:[
-  'Pauză! {club} conduce cu {score}.',
-  'Gata prima repriză: {club} e în față, {score}. {opp} are cinci minute să-și revină.',
+  'Pauză! Avantaj {club}, {score}.',
+  'Gata prima repriză: avantaj {club}, {score}. Pentru {opp}, cinci minute să-și revină.',
   'Fluier de pauză, {score}. {club} pleacă la cabine cu avantaj.',
  ],
  // The second half's kickoff ({club} kicks off; the teams have swapped ends).
  second_half:[
-  'Începe repriza a doua! {club} pune mingea în joc, porțile s-au schimbat.',
-  'Ne-am întors. A doua repriză, {club} dă lovitura de început.',
-  'Repriza a doua, la {score}. {club} pornește de la centru.',
+  'Începe repriza a doua! Lovitura de start e a celor de la {club}, iar echipele au schimbat terenul.',
+  'Ne-am întors. A doua repriză începe cu mingea la {club}.',
+  'Repriza a doua, la {score}. Se reia jocul de la centru, cu {club} la minge.',
  ],
  end_win:[
   'Fluier final! {club} câștigă, {score}.',
-  'S-a terminat! {club} ia victoria, {score}. {opp} pleacă acasă cu mâna goală.',
+  'S-a terminat! {club} își adjudecă victoria, {score}. {opp} pleacă cu mâna goală.',
   'Gata! {score}, iar seara e a celor de la {club}.',
-  'Final de meci: {home} {score} {away}. {club} are motive de bere.',
+  'Final de meci: {home} {score} {away}. Berea de după meci are alt gust la {club}.',
  ],
  end_draw:[
   'Fluier final, {score}. Nimeni nu pleacă învins, nimeni nu pleacă fericit.',
@@ -99,8 +99,8 @@ export const LINES:Record<string,string[]>={
  ],
  quiet:[
   'Mingea circulă, dar poarta nu se vede deocamdată.',
-  'Moment mai liniștit. Se construiește răbdător.',
-  'Cine face următoarea mișcare? Deocamdată toată lumea se studiază.',
+  'Moment mai liniștit. Se construiește cu răbdare.',
+  'Cine ia inițiativa? Deocamdată toată lumea se studiază.',
   'Joc de mijloc. Nimeni nu vrea să greșească primul.',
  ],
 
@@ -108,32 +108,32 @@ export const LINES:Record<string,string[]>={
  goal_opens:[
   'GOOOL! {player} deschide scorul pentru {club}!',
   'GOOOL! Primul gol al serii e al lui {player}! {score}.',
-  'GOOOL! {player} sparge gheața! {club} conduce.',
-  'GOOOL! {player} nu mai așteaptă pe nimeni: {score}!',
+  'GOOOL! {player} sparge gheața! Avantaj pentru {club}.',
+  'GOOOL! {player} nu mai stă pe gânduri: {score}!',
  ],
  goal_equalises:[
   'GOOOL! {player} egalează! {score}, o luăm de la capăt!',
-  'GOOOL! {club} revine, {player} face {score}!',
+  'GOOOL! Revenire pentru {club}, {player} face {score}!',
   'GOOOL! Egalitate! {player} readuce {club} în meci.',
  ],
  goal_leads:[
-  'GOOOL! {player} dă lovitura, {club} trece în față! {score}.',
-  'GOOOL! {club} preia conducerea prin {player}! {score}.',
-  'GOOOL! {player}! Și {club} e din nou deasupra, {score}.',
+  'GOOOL! {player} aduce avantajul pentru {club}! {score}.',
+  'GOOOL! Conducerea trece la {club}, prin {player}! {score}.',
+  'GOOOL! {player}! Meciul se înclină de partea celor de la {club}, {score}.',
  ],
  goal_extends:[
   'GOOOL! {player} mai pune unul. {score}!',
-  'GOOOL! {club} nu se oprește, {player} face {score}.',
+  'GOOOL! Cei de la {club} nu se opresc, {player} face {score}.',
   'GOOOL! {player} înscrie, {opp} se uită la tabelă și oftează: {score}.',
   'GOOOL! Încă unul pentru {club}! {player}, {score}.',
  ],
  goal_pulls_back:[
   'GOOOL! {player} reduce din diferență: {score}!',
-  'GOOOL! {club} nu s-a predat, {player} face {score}.',
-  'GOOOL! {player} aprinde speranța: {score}!',
+  'GOOOL! La {club} nu s-a predat nimeni, {player} face {score}.',
+  'GOOOL! {player} readuce speranța: {score}!',
  ],
  late_lead:[
-  'GOOOL PE FINAL! {player}, la {min}! {club} trece în față, {score}!',
+  'GOOOL PE FINAL! {player}, la {min}! Avantaj {club}, {score}!',
   'GOOOL! Când nimeni nu mai credea, {player}! {score} pentru {club}!',
   'GOOOL! {player} lovește pe ultima sută de metri! {score}!',
  ],
@@ -144,26 +144,26 @@ export const LINES:Record<string,string[]>={
  ],
  own_goal:[
   'Autogol! {player} trimite în propria poartă. {score} pentru {club}.',
-  'Vai de mine, autogol! Mingea de la {player} ajunge în plasă. {score}.',
+  'Vai de mine, autogol! Mingea atinsă de {player} ajunge în propria poartă. {score}.',
   'Autogol! Se întâmplă și la case mai mari. {club} se bucură: {score}.',
  ],
  key_pass:[
   'Pasa decisivă a venit de la {player}. Pentru așa ceva plătești bilet.',
-  'Să nu uităm cine a pregătit golul: {player}, pasă de milimetru.',
-  'Golul se trage din pasa lui {player}. Totul pe tavă.',
+  'Să nu uităm cine a pregătit golul: {player}, pasă la milimetru.',
+  'Golul vine din pasa lui {player}. Totul pe tavă.',
   '{player} a văzut culoarul înaintea tuturor. Pasă de gol.',
  ],
 
  // ---------- chances ----------
  save:[
-  '{player} respinge! {other} nu trece de el.',
-  'Parată! {player} spune nu șutului lui {other}.',
-  '{player} e acolo! Mingea nu intră.',
+  '{player} apără! {other} nu trece de el.',
+  'Paradă! {player} oprește șutul lui {other}.',
+  '{player} e la post! Mingea nu intră.',
   '{other} încearcă, {player} rezolvă.',
  ],
  save_big:[
-  'CE PARADĂ! {player} îl refuză pe {other} de aproape!',
-  'Incredibil! {player} scoate mingea din gol! {other} rămâne fără gol.',
+  'CE PARADĂ! {player} îi răpește golul lui {other}, de aproape!',
+  'Incredibil! {player} salvează un gol ca și făcut! {other} nu-și crede ochilor.',
   'Aproape gol, dar {player} zice NU! Intervenție uriașă!',
   'De la câțiva metri, și totuși {player} o oprește! Portar de meserie.',
  ],
@@ -175,13 +175,13 @@ export const LINES:Record<string,string[]>={
  ],
  wide:[
   '{player} încearcă, dar pe lângă.',
-  'Șut de la {player}, mingea trece pe lângă poartă.',
+  'Șutul lui {player} trece pe lângă poartă.',
   '{player} caută vinclul, găsește tribuna.',
-  'Încercare de la {player}. Aproape, dar nu destul.',
+  'Încearcă {player}. Trece pe aproape!',
  ],
  blocked:[
   '{player} se aruncă și blochează șutul lui {other}!',
-  'Blocat! {player} pune corpul în calea mingii.',
+  'Blocat! {player} își pune corpul în calea mingii.',
   '{other} șutează, {player} blochează. Apărare cu tot sufletul.',
  ],
 
@@ -197,38 +197,38 @@ export const LINES:Record<string,string[]>={
   '{player} stinge focul la timp.',
  ],
  turnover:[
-  '{player} fură mingea sus! {club} are o șansă.',
-  'Pierdere periculoasă, iar {player} profită. {club} atacă!',
+  '{player} fură mingea sus pe teren! O șansă pentru {club}.',
+  'Minge pierdută periculos, iar {player} profită. Atacă {club}!',
   '{player} recuperează aproape de poarta adversă. Atenție!',
  ],
  foul:[
   'Fault! {player} îl oprește pe {other}.',
   '{player} îl agață pe {other}. Arbitrul fluieră.',
-  'Fluier! {player} intră prea tare peste {other}.',
+  'Fluier! {player} intră prea dur la {other}.',
  ],
 
  // ---------- substitutions ({player} comes on, {other} goes off) ----------
  substitution:[
   'Schimbare la {club}: iese {other}, intră {player}. {reason}',
   '{club} schimbă: {player} intră în locul lui {other}. {reason}',
-  'Mișcare pe bancă la {club}: {other} lasă locul lui {player}. {reason}',
+  'La {club}, {other} lasă locul lui {player}. {reason}',
  ],
  substitution_plain:[
   'Schimbare la {club}: iese {other}, intră {player}.',
   '{club} schimbă: {player} intră în locul lui {other}.',
-  'Mișcare pe bancă la {club}: {other} lasă locul lui {player}.',
+  'La {club}, {other} lasă locul lui {player}.',
  ],
 
  // ---------- a change of plan (the manager's one switch, set before the match) ----------
  // {style} is the style the new plan is based on (SWITCH_STYLE), never the plan's own name.
  plan_switch:[
-  'Schimbare de plan la {club}: de acum se joacă {style}. {reason}',
-  '{club} schimbă macazul și trece pe {style}. {reason}',
+  'Schimbare de plan la {club}: de acum, {style}. {reason}',
+  'La {club} se schimbă macazul și se trece pe {style}. {reason}',
   'Antrenorul de la {club} schimbă abordarea: {style}. {reason}',
  ],
  // the new plan has another formation: the same men, new places
  plan_switch_shape:[
-  '{club} trece pe {shape}: aceiași jucători, alte locuri. {reason}',
+  'La {club} se trece pe {shape}: aceiași jucători, alte locuri. {reason}',
   'Se mută piesele la {club}: de acum {shape}. {reason}',
   '{club} schimbă așezarea în {shape}. {reason}',
  ],
@@ -241,49 +241,49 @@ export const LINES:Record<string,string[]>={
  // ---------- the styles' own moments (styles as identities, 22 Oct) ----------
  // a Short side strings first-time passes together ({passes}: trei, patru, ...)
  one_touch:[
-  '{club} leagă {passes} pase dintr-o atingere. Mingea nu stă o clipă.',
-  'Din prima, din prima, din prima: {club} trece prin linii cu {passes} pase.',
-  '{passes} pase dintr-o atingere la {club}. Așa se joacă pe scurt.',
+  '{club} leagă {passes} pase din prima. Mingea nu stă o clipă.',
+  'Din prima, din prima, din prima: {passes} pase la rând la {club}, mingea zboară!',
+  'La {club}, {passes} pase din prima. Așa se joacă pe scurt.',
  ],
  one_touch_long:[
-  'Ce circulație la {club}: {passes} pase dintr-o atingere, adversarii doar se uită.',
-  '{club} face jocul cu {passes} pase din prima, una după alta. Spectacol!',
-  'Fotbal la o atingere la {club}: {passes} pase la rând, fără să oprească mingea.',
+  'Ce circulație la {club}: {passes} pase din prima, adversarii doar se uită.',
+  'Cu {passes} pase din prima, una după alta, cei de la {club} duc jocul. Spectacol!',
+  'Fotbal din prima la {club}: {passes} pase la rând, fără să oprească mingea.',
  ],
  // a first-time pass (a one-two, a quick combination) sets up a shot
  one_touch_chance:[
-  'Una-două din prima și {club} ajunge la șut!',
-  'Combinație dintr-o atingere la {club}, și apare poarta!',
-  'Pase din prima, apărarea rămâne în urmă: {club} trage la poartă!',
+  'Un-doi din prima și iese un șut pentru {club}!',
+  'Combinație din prima la {club}, și apare poarta!',
+  'Pase din prima, apărarea rămâne în urmă: șut la poartă pentru {club}!',
  ],
  // a Counter side wins the ball and rushes forward (the surge)
  surge_shot:[
   'Contraatac fulgerător al celor de la {club}, încheiat cu un șut!',
-  '{club} câștigă mingea și pleacă imediat. Șut la capătul contraatacului!',
-  'Recuperare și viteză: {club} ajunge la poartă în câteva secunde.',
+  '{club} recuperează mingea și pleacă imediat. Șut la capătul contraatacului!',
+  'Recuperare și viteză: în câteva secunde, cei de la {club} sunt la poartă.',
  ],
  surge_lost:[
-  '{club} pleacă pe contraatac, dar pierde mingea pe drum.',
+  'Contraatac pentru {club}, dar mingea se pierde pe drum.',
   'Contraatacul celor de la {club} se stinge înainte de poartă.',
-  'Prea repede pentru ei înșiși: {club} pierde mingea în plin contraatac.',
+  'Păcat pentru {club}: mingea se pierde în plin contraatac.',
  ],
  // a counter-attack that ends in a goal ({secs}: how long it took from winning the ball)
  goal_surge:[
-  'Contraatac fulgerător și gol! {player} înscrie pentru {club}, în {secs} de la recuperare. {score}.',
-  'De la o poartă la alta în {secs}! {player} termină contraatacul celor de la {club}: {score}.',
+  'Contraatac fulgerător și gol! {player} înscrie pentru {club}, la doar {secs} de la recuperare. {score}.',
+  'Din recuperare în gol în doar {secs}! {player} termină contraatacul celor de la {club}: {score}.',
   'Au recuperat și au lovit imediat: gol {player}, {club}, {score}.',
  ],
 
  // ---------- ideas (a prepared move comes off) ----------
  idea:[
-  'Asta s-a antrenat! {club} execută exact ce a pregătit.',
-  'Faza de la antrenament iese la meci! {club} știe ce face.',
+  'Asta s-a lucrat la antrenament! Cei de la {club} execută exact ce au pregătit.',
+  'Faza de la antrenament iese la meci! Nimic întâmplător la {club}.',
   'Mișcare pregătită și dusă la capăt de {club}.',
  ],
  idea_finally:[
   'În sfârșit! Ideea celor de la {club} iese, după câteva încercări.',
-  'A treia oară e cu noroc: {club} reușește faza pregătită!',
-  'Au tot încercat, și acum iese! {club} își vede planul pe teren.',
+  'Mai bine mai târziu decât niciodată: iese faza pregătită la {club}!',
+  'Au tot încercat, și acum iese! Planul de la {club} prinde viață pe teren.',
  ],
 };
 
@@ -309,7 +309,7 @@ export const SUB_REASON:Record<string,string>={
  winning:'Se apără avantajul.',
  down:'Scorul cere schimbări.',
  up:'Avantajul e liniștitor, titularii mai respiră.',
- half:'Schimbarea stabilită pentru a doua jumătate.',
+ half:'Schimbarea planificată pentru repriza a doua.',
 };
 
 // ---------------------------------------------------------------------
@@ -410,21 +410,21 @@ export const AT_HOME:Record<string,Partial<Record<HomeOn,string[]>>>={
 // ---------------------------------------------------------------------
 export const REPORT:Record<string,string[]>={
  head_win:['{club} câștigă, {score}.','Victorie pentru {club}: {score}.'],
- head_comeback:['{club} întoarce meciul și câștigă, {score}.','Revenire mare: {club} câștigă {score} după ce a fost condusă.'],
- head_rout:['{club} face show: {score}.','Seară de neuitat pentru {club}: {score}.'],
+ head_comeback:['Meci întors de cei de la {club}: {score}.','Revenire mare la {club}: de la dezavantaj la victorie, {score}.'],
+ head_rout:['Spectacol marca {club}: {score}.','Seară de neuitat pentru {club}: {score}.'],
  head_draw:['Egal, {score}. Nimeni nu pleacă învins.','{home} și {away} își împart punctele: {score}.'],
  head_goalless:['0–0. Portarii au avut ultimul cuvânt.'],
  first_goal:['{player} a deschis scorul la {min} pentru {club}.'],
  first_own:['Primul gol a venit dintr-un autogol, la {min}.'],
- turn_lead:['Momentul-cheie: la {min}, {player} a dus {club} în față, {score}, iar rezultatul nu s-a mai întors.'],
+ turn_lead:['Momentul-cheie: la {min}, {player} a adus avantajul pentru {club}, {score}, iar meciul nu s-a mai întors.'],
  turn_equal:['La {min}, {player} a egalat, {score}.'],
- late:['Pe final, la {min}, {player} a lovit decisiv: {score}.'],
+ late:['Pe final, la {min}, {player} a punctat: {score}.'],
  top_scorer:['{player} a înscris {n} goluri.','{player}: {n} goluri într-o singură seară.'],
  hat_trick:['{player} a reușit hat-trick-ul!','Hat-trick pentru {player}!'],
  assists:['{player} a pasat decisiv de {n} ori.'],
  keeper:['{player} a avut {n} parade.'],
  dribbler:['{player} a trecut de {n} adversari.'],
  ideas_none:['Nicio idee pregătită nu a ieșit în meciul ăsta.'],
- ideas:['Ideile pregătite: {club} a reușit {n}.'],
+ ideas:['Faze pregătite reușite de cei de la {club}: {n}.'],
  shots:['La șuturi: {home} {first}, {away} {second}.'],
 };
