@@ -114,12 +114,14 @@ export function scoutLeaders<T extends {id:string;matches:number;shots:number;go
 }
 
 // ------------------------------------------------------------------ practice
-/** How the opponent plays in a practice match, by where the server takes it from
- * (ballers_practice_side). Never their moves. Shown beside their crest, so no name. */
-export function opponentLine(source:'last_match'|'ai'|'generic'|undefined):string{
- return source==='ai'?'As they’re set up, without moves.'
-  :source==='generic'?'A plain Balanced 1-2-1, without moves.'
-  :'As in their last game, without their moves.';
+/** How the opponent lines up in a practice match, beside their crest (so no name), over their shape: where the server
+ * takes their side from (ballers_practice_side: a last game is its whole setup, substitutions and change of plan
+ * included; never their moves, which no club has while moves are off), or which five of theirs the practising player
+ * chose (`five`: the likely five or their pick; the rest stays theirs). */
+export function opponentLine(source:'last_match'|'ai'|'generic'|undefined,five:'own'|'likely'|'pick'='own'):string{
+ if(five==='likely')return 'Their likely five';
+ if(five==='pick')return 'Your pick of their five';
+ return source==='ai'?'As they’re set up':source==='generic'?'A plain five':'As in their last game';
 }
 /** "Came up 27 times · to plan 11 · half 9 · broke down 7 · 4 shots". */
 export function moveLine(t:{tried:number;to_plan:number;half:number;broke:number;shot:number;goal:number}):string{

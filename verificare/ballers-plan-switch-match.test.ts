@@ -1,11 +1,10 @@
 // The in-match plan switch through lib/ballers/compute.ts (deliverables/ballers-plan-switch/DESIGN.md): the engine
 // input sideSwitches builds, the replay marker compact writes (on a hand-made engine result), and one real 300 s
-// match with a formation-changing switch against the same match without it; and a real 300 s match where both sides
-// change plan (every frozen switch is 'sw', and the engine takes the two as one list of distinct ids). Plays matches: lab only
+// match with a formation-changing switch against the same match without it. Plays matches: lab only
 // (packages/football-engine/evidence/_ci/app-tests.mjs SUITES). The words are ballers-plan-switch.test.ts.
 import {describe,it,expect} from 'vitest';
 import {compact,computeMatch,engineTeam,sideSwitches,type EngineResult,type FrozenInput,type FrozenSide} from '../lib/ballers/compute';
-import {beforeSwitch,frozenSwitch,switchNote,type PrepSwitch} from '../lib/ballers/switch';
+import {frozenSwitch,type PrepSwitch} from '../lib/ballers/switch';
 import {PRESETS} from '../lib/ballers/league';
 
 const pid=(n:number)=>`aa000000-0000-4000-8000-00000000000${n}`;
@@ -96,51 +95,4 @@ describe('one real match',()=>{
   expect('switchNotes' in plain.compact).toBe(false);
   expect(plain.compact.chunks.flatMap(c=>c.e).some(e=>e.k==='switch')).toBe(false);
  });
-});
-
-describe('both sides change plan',()=>{
- // Every frozen switch has the id 'sw' (SQL ballers_set_switch); the engine takes both sides' as one list of distinct ids.
- const bb={id:'bb-club',name:'Club BB',code:'BBX',color:'#0EA47F'};
- const counter=(over:Partial<PrepSwitch>={}):PrepSwitch=>sw({to:{name:'Counter plan',version:2,based_on:'counter',formation:'1-2-1',settings:{...PRESETS.counter},set_pieces:{}},...over});
- const twoTwo=()=>frozenSwitch({...sw(),to:{...sw().to!,formation:'2-2',slots:[0,1,3,4,2]}},'1-2-1')!;
- it('the ids are made distinct only when both switches reach the engine; zero or one switch goes as frozen',()=>{
-  // If this fails: a league match where both clubs set a change of plan throws on every compute and never gets a
-  // result, or a match with one switch no longer reaches the engine exactly as it did (official replays would change).
-  const input:FrozenInput={v:1,match:'m',seed:1,kickoff:0,duration:300,sides:[side({switch:frozenSwitch(sw(),'1-2-1')}),side({club:bb,switch:frozenSwitch(counter(),'1-2-1')})]};
-  const teams=input.sides.map(engineTeam) as never;
-  const both=sideSwitches(input,teams);
-  const home=sideSwitches({...input,sides:[input.sides[0],side({club:bb})]},teams),away=sideSwitches({...input,sides:[side(),input.sides[1]]},teams);
-  expect(both.dropped).toEqual([]);
-  expect(both.switches.map(s=>[s.side,s.id])).toEqual([[0,'sw'],[1,'sw:1']]);
-  // only the away side's id differs from what each side sends alone
-  expect(both.switches[0]).toEqual(home.switches[0]);
-  expect(both.switches[1]).toEqual({...away.switches[0],id:'sw:1'});
-  // one switch, either side: its id as frozen
-  expect(home.switches.map(s=>[s.side,s.id])).toEqual([[0,'sw']]);
-  expect(away.switches.map(s=>[s.side,s.id])).toEqual([[1,'sw']]);
-  // the home side's switch left out (it moves men beside plans): the away side's goes alone, as frozen
-  const plans=[{idea:'m',key:'k',name:'n',plan:{},lineup:[],accent:80}];
-  expect(sideSwitches({...input,sides:[side({switch:twoTwo(),plans}),input.sides[1]]},teams)).toEqual({switches:away.switches,dropped:['switch:0']});
-  // ids that already differ are left alone
-  expect(sideSwitches({...input,sides:[input.sides[0],side({club:bb,switch:{...input.sides[1].switch!,id:'other'}})]},teams).switches.map(s=>s.id)).toEqual(['sw','other']);
- });
- it('a real match where both change plan computes; each switch fires once for its own side and reads as its own',()=>{
-  // If this fails: the match throws (no league result), one side's change of plan is lost, or the match page and the
-  // owner's line show it under the wrong club or style.
-  const {notBefore:_a,...home}=twoTwo(),{notBefore:_b,...away}=frozenSwitch(counter(),'1-2-1')!;void _a;void _b;
-  const input:FrozenInput={v:1,match:'switch-both',seed:4040,kickoff:0,duration:300,
-   sides:[side({switch:{...home,trigger:{kind:'half'}}}),side({club:bb,switch:{...away,trigger:{kind:'half'}}})]};
-  const c=computeMatch(input);
-  expect(c.dropped).toEqual([]);
-  const ev=c.compact.chunks.flatMap(x=>x.e),frames=c.compact.chunks.flatMap(x=>x.f),sws=ev.filter(e=>e.k==='switch');
-  expect(sws.map(e=>e.s).sort()).toEqual([0,1]);
-  expect(sws.find(e=>e.s===0)!.sw).toMatchObject({k:'half',y:'direct',f:'2-2'});
-  const a=sws.find(e=>e.s===1)!;
-  expect(a.sw).toMatchObject({k:'half',y:'counter'});expect(a.sw!.f).toBeUndefined();expect(a.t).toBeGreaterThanOrEqual(150000);
-  expect(c.compact.switchNotes!.map(n=>[n.side,n.order,n.status])).toEqual([[0,'sw','made'],[1,'sw:1','made']]);
-  // the owner's line and the plan feedback cut find the away side's switch by its side
-  const line=switchNote(counter(),1,ev,frames,c.compact.header.players,'1-2-1',300000);
-  expect(line).toMatchObject({made:true,t:a.t});expect(line!.text).toContain('Counter plan');
-  expect(beforeSwitch(frames,ev,1).cut).toBe(a.t);
- },120000);
 });

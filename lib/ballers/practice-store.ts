@@ -16,6 +16,7 @@
 // shouldn't be thrown at you unless you want to look at an older game").
 import {setupKey} from './practice-tally';
 import type {FrozenInput} from './compute';
+import type {FiveKind,TheirChoice} from './practice-opponent';
 
 /** One run's numbers you v them, [yours, theirs] each: possession % (as the run shows it), passes completed and tried, shots, balls won in their half. */
 export interface RunStats {pos:[number,number];pc:[number,number];pa:[number,number];shots:[number,number];won:[number,number]}
@@ -24,6 +25,8 @@ export interface RunStats {pos:[number,number];pc:[number,number];pa:[number,num
  * (both absent on runs recorded before they were kept). */
 export interface RunFacts {gf:number;ga:number;c:[number,number]|null;id?:string;s?:RunStats}
 export interface SetupRuns {key:string;name:string;formation:string;style:string;base:boolean;duration:number;
+ /** Which of their fives it played against (their own when absent: runs kept before the choice existed). The setup's
+  * key already tells two fives apart; this names them where setups are compared. */ them?:FiveKind;
  /** Order of first play in this tab (labels "earlier" / "now"). */ first:number;
  /** Order of the latest run (the setup on screen is the latest). */ last:number;
  runs:RunFacts[]}
@@ -31,8 +34,9 @@ export interface Book {v:1;setups:SetupRuns[]}
 export const emptyBook=():Book=>({v:1,setups:[]});
 
 /** At most this many setups per opponent, and runs per setup, are kept (the oldest go first).
- * 100 runs (owner, 16 Oct: up to 20 kick-offs a go) is about 10 KB a setup, 80 KB a full book. */
-export const MAX_SETUPS=8,MAX_RUNS=100;
+ * 100 runs (owner, 16 Oct: up to 20 kick-offs a go) is about 10 KB a setup, 120 KB a full book. 12 since their
+ * five can be chosen (24 Oct): a plan against three of their fives at two lengths is six already. */
+export const MAX_SETUPS=12,MAX_RUNS=100;
 
 export const bookKey=(club:string,opp:string,build:string)=>`ballers:practice:v1:${club}:${opp}:${build.slice(0,8)}`;
 const PACE_KEY='ballers:practice:pace';
@@ -43,7 +47,8 @@ const isPair=(p:unknown)=>Array.isArray(p)&&p.length===2&&p.every(v=>Number.isFi
 const isStats=(s:unknown):s is RunStats=>{const x=s as RunStats;return !!x&&typeof x==='object'&&isPair(x.pos)&&isPair(x.pc)&&isPair(x.pa)&&isPair(x.shots)&&isPair(x.won);};
 const isFacts=(r:unknown):r is RunFacts=>{const x=r as RunFacts;return !!x&&Number.isInteger(x.gf)&&Number.isInteger(x.ga)&&(x.c===null||(Array.isArray(x.c)&&x.c.length===2&&x.c.every(Number.isFinite)))
  &&(x.id===undefined||typeof x.id==='string')&&(x.s===undefined||isStats(x.s));};
-const isSetup=(s:unknown):s is SetupRuns=>{const x=s as SetupRuns;return !!x&&typeof x.key==='string'&&typeof x.name==='string'&&typeof x.formation==='string'&&typeof x.style==='string'&&Number.isFinite(x.duration)&&Number.isFinite(x.first)&&Number.isFinite(x.last)&&Array.isArray(x.runs)&&x.runs.every(isFacts);};
+const isSetup=(s:unknown):s is SetupRuns=>{const x=s as SetupRuns;return !!x&&typeof x.key==='string'&&typeof x.name==='string'&&typeof x.formation==='string'&&typeof x.style==='string'&&Number.isFinite(x.duration)&&Number.isFinite(x.first)&&Number.isFinite(x.last)&&Array.isArray(x.runs)&&x.runs.every(isFacts)
+ &&(x.them===undefined||x.them==='own'||x.them==='likely'||x.them==='pick');};
 
 /** The tab's book for this club + opponent + build; empty when there is none or it can't be read. */
 export function loadBook(key:string):Book{
@@ -115,4 +120,27 @@ export function loadPace(together=1):number|null{
 }
 export function savePace(msPerSecond:number,together=1){
  try{if(Number.isFinite(msPerSecond)&&msPerSecond>0)storage()?.setItem(paceKey(together),String(Math.round(msPerSecond*100)/100));}catch{/* the estimate falls back to "N times as long" */}
+}
+
+// ------------------------------------------------------------------ their five (owner, 24 Oct)
+/** The practising player's choice of an opponent's five, this tab only (lib/ballers/practice-opponent.ts): their pick
+ * (kept while another five plays, so the player can flip between them) and which five plays. It survives a look at a
+ * player's page and back, and never leaves the browser. Null when there is none, or it can't be read. */
+const choiceKey=(club:string,opp:string)=>`ballers:practice:their5:v2:${club}:${opp}`;
+const KINDS:readonly FiveKind[]=['own','likely','pick'];
+export function loadTheirChoice(club:string,opp:string):TheirChoice|null{
+ try{
+  const raw=storage()?.getItem(choiceKey(club,opp));if(!raw)return null;
+  const v=JSON.parse(raw) as TheirChoice;
+  const pick=Array.isArray(v?.pick)&&v.pick.length===5&&v.pick.every(id=>typeof id==='string')&&new Set(v.pick).size===5?v.pick:null;
+  return KINDS.includes(v?.on)?{pick,on:v.on,...(pick&&typeof v.basis==='string'?{basis:v.basis}:{})}:null;
+ }catch{return null;}
+}
+/** Keeps the choice (their own five and no pick: nothing kept); false when storage refused (the page keeps it in memory). */
+export function saveTheirChoice(club:string,opp:string,choice:TheirChoice):boolean{
+ try{
+  const s=storage();if(!s)return false;
+  if(!choice.pick&&choice.on==='own')s.removeItem(choiceKey(club,opp));else s.setItem(choiceKey(club,opp),JSON.stringify(choice));
+  return true;
+ }catch{return false;}
 }

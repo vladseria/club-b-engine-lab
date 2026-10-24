@@ -101,9 +101,10 @@ describe('scouting: danger men',()=>{
 
 describe('practice words',()=>{
  it('the opponent line follows where their side comes from, and never promises their moves',()=>{
-  expect(opponentLine('last_match')).toBe('As in their last game, without their moves.');
-  expect(opponentLine('ai')).toBe('As they’re set up, without moves.');
-  expect(opponentLine('generic')).toMatch(/plain Balanced 1-2-1/);
+  // where their side comes from, and which five of theirs the player chose, each its own line (the words are copy)
+  expect(new Set([opponentLine('last_match'),opponentLine('ai'),opponentLine('generic'),opponentLine('last_match','likely'),opponentLine('last_match','pick')]).size).toBe(5);
+  expect(opponentLine('ai','pick')).toBe(opponentLine('last_match','pick'));
+  expect(opponentLine('last_match')).not.toMatch(/move/i);
  });
  it('a move’s line after the practice',()=>{
   expect(moveLine({tried:0,to_plan:0,half:0,broke:0,shot:0,goal:0})).toBe('Never came up');
