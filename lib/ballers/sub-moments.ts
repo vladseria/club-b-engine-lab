@@ -105,15 +105,20 @@ function boardAlong(busy:number[]):'mid'|'lo'|'hi'{
 /** The substitution picture at t (ms), or null when none is playing. */
 /** `bench`: the bench touchline in engine y (+1, the near one on screen; -1 in the second half of a match with a
  * half-time, whose picture is turned round: the bench stays on the near side of the screen, deliverables/ballers-half-time). */
-/** `walked` (life on the pitch, pitch-life.ts): the half-time whistle (ms) when the interval picture already walked the
- * interval's changes off and on (its team talk); those then show only the board, never a second walk from the touchline
- * after the walk out. Absent: today's. */
-export function pitchSub(moments:readonly SubMoment[],frames:readonly ReplayFrame[],header:ReplayHeader,colors:readonly string[],t:number,rate=1,bench:1|-1=BENCH,clock:MatchClock=OPEN_CLOCK,walked?:number|null):PitchSub|null{
+/** `life` (life on the pitch, pitch-life.ts; absent: today's exactly):
+ *  - `walked`: the half-time whistle (ms) when the interval picture already walked the interval's changes off and on
+ *    (its team talk); those then show only the board, never a second walk from the touchline after the walk out;
+ *  - `mgrX`: where each side's manager stands this half (engine x, on the bench touchline). A man going off by the
+ *    bench touchline then walks the substitute's own line: the two meet half way (a high five, subLane) and he walks
+ *    on along the touchline towards his manager before he fades. */
+export interface SubLife {walked:number|null;mgrX:readonly [number,number]}
+export function pitchSub(moments:readonly SubMoment[],frames:readonly ReplayFrame[],header:ReplayHeader,colors:readonly string[],t:number,rate=1,bench:1|-1=BENCH,clock:MatchClock=OPEN_CLOCK,life?:SubLife|null):PitchSub|null{
+ const walked=life?.walked??null;
  let out:PitchSub|null=null;const make=()=>out??={hold:[],ghosts:[],arrive:[],fresh:[],board:null};
  let shown:number|null=null;
  for(const m of moments){
   if(m.t>t)break;
-  const tm=subTiming(m,rate),end=tm.start+tm.walk+tm.fade;
+  const tm=subTiming(m,rate),lane=life?subLane(m,frames,rate,bench,life.mgrX):null,offMs=lane?.five?lane.off.ms*Math.max(1,rate):0,end=tm.start+tm.walk+offMs+tm.fade;
   if(t>=tm.board&&t<tm.boardTo)shown=m.t;
   if(t>=end)continue;
   if(walked!=null&&Math.abs(m.t-walked)<100)continue;
@@ -121,6 +126,15 @@ export function pitchSub(moments:readonly SubMoment[],frames:readonly ReplayFram
   if(t<tm.start){o.hold.push({pos:m.pos,player:m.off});continue;}
   const from=sample(frames as ReplayFrame[],tm.start).players[m.pos];if(!from)continue;
   const k=tm.walk?Math.min(1,(t-tm.start)/tm.walk):1,e=smooth(k);
+  if(lane?.five){
+   // the same line both ways, shoulder to shoulder as they pass (a high five half way), then on to his manager
+   const ex=lane.exit,bump=Math.sin(Math.PI*e)*.55,dx=ex.x-from.x,dy=ex.y-from.y,n=Math.hypot(dx,dy)||1,px=-dy/n,py=dx/n;
+   if(k<1)o.ghosts.push({player:m.off,x:from.x+dx*e+px*bump,y:from.y+dy*e+py*bump,alpha:1});
+   else{const w=t-tm.start-tm.walk,f=offMs>0?Math.min(1,w/offMs):1,gx=ex.x+(lane.off.to-ex.x)*smooth(f);
+    o.ghosts.push({player:m.off,x:gx,y:ex.y,alpha:w<offMs?1:Math.max(0,1-(w-offMs)/tm.fade)});}
+   if(k<1)o.arrive.push({pos:m.pos,x:ex.x-px*bump/Math.max(.05,1-e),y:ex.y-py*bump/Math.max(.05,1-e),k:e});
+   o.fresh.push(m.pos);continue;
+  }
   const x=clamp(from.x,X_MIN,X_MAX),exitY=(from.y<0?-1:1)*(TOUCH+PAST);
   o.ghosts.push({player:m.off,x:from.x+(x-from.x)*e,y:from.y+(exitY-from.y)*e,alpha:k<1?1:Math.max(0,1-(t-tm.start-tm.walk)/tm.fade)});
   if(k<1)o.arrive.push({pos:m.pos,x:entryX(x,from.y,bench),y:bench*(TOUCH+PAST),k:e});
@@ -135,4 +149,18 @@ export function pitchSub(moments:readonly SubMoment[],frames:readonly ReplayFram
    rows:group.map(m=>({color:colors[m.side],code:header.teams[m.side].code,off:{no:p(m.off)?.number??0,name:p(m.off)?.short??''},on:{no:p(m.on)?.number??0,name:p(m.on)?.short??''}}))};
  }
  return out;
+}
+
+/** Life on the pitch: a change's way off. When the man going off is on the bench side of the pitch, his walk to the
+ * touchline and the substitute's walk on are the same line (`five`): they meet half way, shoulder to shoulder, and
+ * slap hands; then he walks on along the touchline towards his manager (to engine x `off.to`, taking `off.ms` at 1x,
+ * at most OFF_MS), stopping a step short of him. Otherwise (the far touchline) it is today's walk off. The geometry is
+ * read at the walk's own start, like the walk. */
+export const OFF_V=2.2,OFF_MS=4200;
+export function subLane(m:SubMoment,frames:readonly ReplayFrame[],rate:number,bench:1|-1,mgrX:readonly [number,number]):{five:boolean;exit:{x:number;y:number};off:{to:number;ms:number;reach:boolean}}{
+ const tm=subTiming(m,rate),from=sample(frames as ReplayFrame[],tm.start).players[m.pos];
+ const x=clamp(from?.x??24,X_MIN,X_MAX),exit={x,y:bench*(TOUCH+PAST)};
+ const five=!!from&&tm.walk>0&&Math.sign(from.y||bench)===bench;
+ const mx=mgrX[m.side],to=mx+(x<mx?-1:1)*1.1,far=Math.abs(to-x),ms=Math.min(OFF_MS,far/OFF_V*1000);
+ return {five,exit,off:{to:x+(to-x)*Math.min(1,ms/1000*OFF_V/Math.max(1e-6,far)),ms,reach:far/OFF_V*1000<=OFF_MS}};
 }
