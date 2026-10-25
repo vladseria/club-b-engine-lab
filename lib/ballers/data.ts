@@ -44,6 +44,14 @@ export function spaceFeaturesShared(space:string):Promise<string[]|null>{
  void p.then(()=>setTimeout(()=>{if(spaceReads.get(space)===p)spaceReads.delete(space);},60_000));
  return p;
 }
+/** Life on the pitch: each AI club's stable profile (ballers_clubs.archetype), by club id, for its manager's name and look
+ * (lib/ballers/managers.ts). The column is readable only once migration 20261025180000 is applied; until then
+ * the read is refused and this answers {} (the AI crest id stands in). Never throws. */
+export async function loadClubArchetypes(space:string):Promise<Record<string,string>>{
+ try{const r=await supabase().from('ballers_clubs').select('id,archetype').eq('space',space).eq('ai',true);
+  if(r.error||!Array.isArray(r.data))return {};
+  return Object.fromEntries((r.data as {id:string;archetype:string|null}[]).filter(x=>x.archetype).map(x=>[x.id,x.archetype as string]));}catch{return {};}
+}
 export async function ensureRound(space:string){return must(await supabase().rpc('ballers_ensure_round',{p_space:space})) as string;}
 
 export async function loadLeague(space:string):Promise<LeagueData>{

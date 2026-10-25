@@ -105,7 +105,10 @@ function boardAlong(busy:number[]):'mid'|'lo'|'hi'{
 /** The substitution picture at t (ms), or null when none is playing. */
 /** `bench`: the bench touchline in engine y (+1, the near one on screen; -1 in the second half of a match with a
  * half-time, whose picture is turned round: the bench stays on the near side of the screen, deliverables/ballers-half-time). */
-export function pitchSub(moments:readonly SubMoment[],frames:readonly ReplayFrame[],header:ReplayHeader,colors:readonly string[],t:number,rate=1,bench:1|-1=BENCH,clock:MatchClock=OPEN_CLOCK):PitchSub|null{
+/** `walked` (life on the pitch, pitch-life.ts): the half-time whistle (ms) when the interval picture already walked the
+ * interval's changes off and on (its team talk); those then show only the board, never a second walk from the touchline
+ * after the walk out. Absent: today's. */
+export function pitchSub(moments:readonly SubMoment[],frames:readonly ReplayFrame[],header:ReplayHeader,colors:readonly string[],t:number,rate=1,bench:1|-1=BENCH,clock:MatchClock=OPEN_CLOCK,walked?:number|null):PitchSub|null{
  let out:PitchSub|null=null;const make=()=>out??={hold:[],ghosts:[],arrive:[],fresh:[],board:null};
  let shown:number|null=null;
  for(const m of moments){
@@ -113,6 +116,7 @@ export function pitchSub(moments:readonly SubMoment[],frames:readonly ReplayFram
   const tm=subTiming(m,rate),end=tm.start+tm.walk+tm.fade;
   if(t>=tm.board&&t<tm.boardTo)shown=m.t;
   if(t>=end)continue;
+  if(walked!=null&&Math.abs(m.t-walked)<100)continue;
   const o=make();
   if(t<tm.start){o.hold.push({pos:m.pos,player:m.off});continue;}
   const from=sample(frames as ReplayFrame[],tm.start).players[m.pos];if(!from)continue;
