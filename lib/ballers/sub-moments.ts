@@ -109,8 +109,9 @@ function boardAlong(busy:number[]):'mid'|'lo'|'hi'{
  *  - `walked`: the half-time whistle (ms) when the interval picture already walked the interval's changes off and on
  *    (its team talk); those then show only the board, never a second walk from the touchline after the walk out;
  *  - `mgrX`: where each side's manager stands this half (engine x, on the bench touchline). A man going off by the
- *    bench touchline then walks the substitute's own line: the two meet half way (a high five, subLane) and he walks
- *    on along the touchline towards his manager before he fades. */
+ *    bench touchline then walks the substitute's own line: the two meet half way (a high five, subLane) and, if his
+ *    manager is near enough to reach, he walks on along the touchline to him before he fades (else he fades at the
+ *    line, as today: no ghost wandering the run-off while play goes on). */
 export interface SubLife {walked:number|null;mgrX:readonly [number,number]}
 export function pitchSub(moments:readonly SubMoment[],frames:readonly ReplayFrame[],header:ReplayHeader,colors:readonly string[],t:number,rate=1,bench:1|-1=BENCH,clock:MatchClock=OPEN_CLOCK,life?:SubLife|null):PitchSub|null{
  const walked=life?.walked??null;
@@ -118,7 +119,7 @@ export function pitchSub(moments:readonly SubMoment[],frames:readonly ReplayFram
  let shown:number|null=null;
  for(const m of moments){
   if(m.t>t)break;
-  const tm=subTiming(m,rate),lane=life?subLane(m,frames,rate,bench,life.mgrX):null,offMs=lane?.five?lane.off.ms*Math.max(1,rate):0,end=tm.start+tm.walk+offMs+tm.fade;
+  const tm=subTiming(m,rate),lane=life?subLane(m,frames,rate,bench,life.mgrX):null,offMs=lane?.five&&lane.off.reach?lane.off.ms*Math.max(1,rate):0,end=tm.start+tm.walk+offMs+tm.fade;
   if(t>=tm.board&&t<tm.boardTo)shown=m.t;
   if(t>=end)continue;
   if(walked!=null&&Math.abs(m.t-walked)<100)continue;
@@ -128,11 +129,15 @@ export function pitchSub(moments:readonly SubMoment[],frames:readonly ReplayFram
   const k=tm.walk?Math.min(1,(t-tm.start)/tm.walk):1,e=smooth(k);
   if(lane?.five){
    // the same line both ways, shoulder to shoulder as they pass (a high five half way), then on to his manager
-   const ex=lane.exit,bump=Math.sin(Math.PI*e)*.55,dx=ex.x-from.x,dy=ex.y-from.y,n=Math.hypot(dx,dy)||1,px=-dy/n,py=dx/n;
-   if(k<1)o.ghosts.push({player:m.off,x:from.x+dx*e+px*bump,y:from.y+dy*e+py*bump,alpha:1});
+   const ex=lane.exit,dx=ex.x-from.x,dy=ex.y-from.y,n=Math.hypot(dx,dy)||1,px=-dy/n,py=dx/n;
+   const real=sample(frames as ReplayFrame[],t).players[m.pos]??from,g0={x:from.x+dx*e,y:from.y+dy*e},a0={x:ex.x+(real.x-ex.x)*e,y:ex.y+(real.y-ex.y)*e};
+   // pushed apart across the line to a token's width or so at the meeting, each on the side he already is
+   const side=(g0.x-a0.x)*px+(g0.y-a0.y)*py,want=Math.sin(Math.PI*e)*1.5,gap=Math.max(0,want-Math.abs(side))/2,sg=side<0?-1:1;
+   if(k<1)o.ghosts.push({player:m.off,x:g0.x+px*gap*sg,y:g0.y+py*gap*sg,alpha:1});
    else{const w=t-tm.start-tm.walk,f=offMs>0?Math.min(1,w/offMs):1,gx=ex.x+(lane.off.to-ex.x)*smooth(f);
-    o.ghosts.push({player:m.off,x:gx,y:ex.y,alpha:w<offMs?1:Math.max(0,1-(w-offMs)/tm.fade)});}
-   if(k<1)o.arrive.push({pos:m.pos,x:ex.x-px*bump/Math.max(.05,1-e),y:ex.y-py*bump/Math.max(.05,1-e),k:e});
+    o.ghosts.push({player:m.off,x:offMs>0?gx:ex.x,y:ex.y,alpha:w<offMs?1:Math.max(0,1-(w-offMs)/tm.fade)});}
+   // (the renderer draws a substitute at lerp(start, his real place, k): the start that puts him where he should be)
+   if(k<1){const ax=a0.x-px*gap*sg,ay=a0.y-py*gap*sg,r=1-e;o.arrive.push(r>.02?{pos:m.pos,x:(ax-real.x*e)/r,y:(ay-real.y*e)/r,k:e}:{pos:m.pos,x:ex.x,y:ex.y,k:e});}
    o.fresh.push(m.pos);continue;
   }
   const x=clamp(from.x,X_MIN,X_MAX),exitY=(from.y<0?-1:1)*(TOUCH+PAST);
