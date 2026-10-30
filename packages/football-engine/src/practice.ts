@@ -1016,6 +1016,8 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    if(tick>regular+1&&lastAttackOver(lastView(),lastAttack.side,lastAttack.shot)||tick>regular+Math.round(LAST_ATTACK_MAX/STEP))break;
   }
   time=tick*STEP;
+  // (showcase injuries) last tick's injuries, announced before anything this tick says (the half-time whistle included)
+  if(inj)announceInjuries();
   // Half-time (practice-match.ts halfTimeAt): at the midpoint, unless a side is in an attack, which plays out as at
   // full time (matches only); then the whistle. The interval itself takes no match time: the last first-half frame,
   // then a cut to the second half's kickoff, everyone on his spot (the walk off and back out is the watch screens'
@@ -1036,8 +1038,8 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
   }
   // the second half's kick (its kickoff restart taken): the clock runs from here, and full time is a full half later
   if(halfDone&&kickTick===null&&!restart){kickTick=tick;regular=tick+halfTick!;}
-  // (showcase injuries) announce last tick's, then once a second of live play the fatigue roll for every man on the pitch
-  if(inj){announceInjuries();if(!restart&&tick%injuryEvery===0)for(const p of players)inj.fatigue(p,time);}
+  // (showcase injuries) once a second of live play, the fatigue roll for every man on the pitch
+  if(inj&&!restart&&tick%injuryEvery===0)for(const p of players)inj.fatigue(p,time);
   const old=new Map(players.map(p=>[p.id,{x:p.x,y:p.y,angle:p.angle,speed:Math.hypot(p.vx,p.vy)}])),owner=ball.owner?get(ball.owner):null;
   // A restart repositions everyone: the memory starts afresh after it.
   if(coordinated){if(restart){if(sightingsLive){sightings.clear();sightingsLive=false;}}else{sightings.record(time,players);sightingsLive=true;}}

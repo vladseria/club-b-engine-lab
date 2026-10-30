@@ -42,14 +42,17 @@ export interface InjuryMark {cause:InjuryCause;hard?:boolean;matches:number;ener
 export const INJURY_SALT=0x1c3a9e57;
 /** A tackle incident's risk, rested, no age factor: TACKLE_RISK for any challenge, plus TACKLE_HIT per HIT_REF m/s
  * of hit that went into him (a challenge that met only the ball, or that he rode, carries the first part alone),
- * plus TACKLE_HARD for a hard tackle (it floored him, or it was a foul; severity then skews longer). Tuned on the
- * public lab (contracts/ENGINE.md §6). */
-export const TACKLE_RISK=0.00174,TACKLE_HIT=0.0146,HIT_REF=3,TACKLE_HARD=0.04;
+ * plus TACKLE_HARD for a hard tackle (it floored him, or it was a foul; severity then skews longer).
+ * Tuned on the public lab (evidence/2026-10-30-showcase-injuries, contracts/ENGINE.md §6): with FATIGUE_RISK below,
+ * F.C. Bebe Power (a select nine of real league players, 15-minute matches with substitutes) expects 0.40 injuries a
+ * match against the drafted guest sides (one every 2.5 matches; 0.64 against the pirates, who foul twice as often),
+ * 70% from tackles (45 / 20 / 35 base / hit / hard), 30% fatigue. */
+export const TACKLE_RISK=0.0017,TACKLE_HIT=0.028,HIT_REF=3,TACKLE_HARD=0.048;
 /** Tired legs: a tackle incident's risk x (1 + TIRED_TACKLE x (1 - energy / 100)): x1.6 at energy 70. */
 export const TIRED_TACKLE=2;
 /** Fatigue: per second of live play, FATIGUE_RISK x u^2 with u = (FATIGUE_FROM - energy) / FATIGUE_SPAN (0 when
- * fresher than FATIGUE_FROM). Tuned on the public lab (contracts/ENGINE.md §6). */
-export const FATIGUE_RISK=0.000213,FATIGUE_FROM=100,FATIGUE_SPAN=30;
+ * fresher than FATIGUE_FROM): 0.021% a second at energy 70. Tuned with the tackle constants above. */
+export const FATIGUE_RISK=0.00021,FATIGUE_FROM=100,FATIGUE_SPAN=30;
 /** Age: x (1 + AGE_PER per year past AGE_FROM), for both causes. */
 export const AGE_FROM=28,AGE_PER=0.05;
 /** No single roll is surer than this. */
