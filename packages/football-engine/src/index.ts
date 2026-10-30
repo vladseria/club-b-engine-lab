@@ -13,6 +13,8 @@ import {validateEntryTactics} from './team-approach.js';
 import type {SubstitutionOrder} from './practice-substitutions.js';
 import {validateTacticsSwitches} from './practice-switch.js';
 import type {TacticsSwitch} from './practice-switch.js';
+import {validateInjuries} from './practice-injuries.js';
+import type {InjuryInput} from './practice-injuries.js';
 export {ENGINE_BUILD};
 export const ENGINE_VERSION = PRACTICE_VERSION;
 export const INPUT_SCHEMA_VERSION = 1 as const;
@@ -31,6 +33,8 @@ export {LAST_ATTACK_MAX} from './practice-match.js';
 export type {SubstitutionOrder,SubstitutionTrigger,SubstitutionNote,SubstitutionRecord} from './practice-substitutions.js';
 export {validateTacticsSwitches,MAX_TACTICS_SWITCHES} from './practice-switch.js';
 export type {TacticsSwitch,SwitchTrigger,SwitchNote,SwitchRecord} from './practice-switch.js';
+export {validateInjuries,injuryReplacement,SEVERITY as INJURY_SEVERITY} from './practice-injuries.js';
+export type {InjuryInput,InjuryRecord,InjuryCause,InjuryMark} from './practice-injuries.js';
 
 interface CommonInput {
  fixture: Fixture;
@@ -45,6 +49,8 @@ interface CommonInput {
  substitutionOrders?: SubstitutionOrder[];
  /** Opt-in tactics switch (at most one per side, practice-switch.ts); omitted or empty changes nothing. */
  tacticsSwitches?: TacticsSwitch[];
+ /** Opt-in injuries (practice-injuries.ts, Bebe's showcase; matches only). Omitted, or on: false, changes nothing. */
+ injuries?: InjuryInput;
 }
 export interface MatchInput extends CommonInput {kind: 'match'}
 export interface TrainingInput extends CommonInput {kind: 'training'; setup: TrainingSetup}
@@ -80,7 +86,9 @@ export function createSimulationRequest(input: SimulationInput): SimulationReque
  if(switches.length&&input.coaching)throw Error('Choose a coaching intention or a tactics switch.');
  if(switches.length&&input.substitutions==='planned')throw Error('Choose planned substitutions or a tactics switch.');
  if(switches.some(s=>s.slots)&&(input.playbook||input.playbooks?.length))throw Error('A switch that moves men to new slots cannot run with slot-addressed plans drawn for the old places.');
- const normalized: NormalizedInput={kind:input.kind,fixture:structuredClone(input.fixture),durationSeconds,record:input.record??true,policy:input.policy??'coordinated',substitutions:input.substitutions??'none',...(input.kind==='training'?{setup:structuredClone(input.setup)}:{}),...(input.coaching?{coaching:structuredClone(input.coaching)}:{}),...(input.playbook?{playbook:structuredClone(input.playbook)}:{}),...(input.playbooks?{playbooks:structuredClone(input.playbooks)}:{}),...(orders.length?{substitutionOrders:orders}:{}),...(switches.length?{tacticsSwitches:switches}:{})} as NormalizedInput;
+ const injuries=input.injuries===undefined?undefined:validateInjuries(input.injuries,input.fixture);
+ if(injuries&&input.kind!=='match')throw Error('Injuries belong to matches.');
+ const normalized: NormalizedInput={kind:input.kind,fixture:structuredClone(input.fixture),durationSeconds,record:input.record??true,policy:input.policy??'coordinated',substitutions:input.substitutions??'none',...(input.kind==='training'?{setup:structuredClone(input.setup)}:{}),...(input.coaching?{coaching:structuredClone(input.coaching)}:{}),...(input.playbook?{playbook:structuredClone(input.playbook)}:{}),...(input.playbooks?{playbooks:structuredClone(input.playbooks)}:{}),...(orders.length?{substitutionOrders:orders}:{}),...(switches.length?{tacticsSwitches:switches}:{}),...(injuries?{injuries}:{})} as NormalizedInput;
  return {schemaVersion:INPUT_SCHEMA_VERSION,engineBuild:ENGINE_BUILD,input:normalized};
 }
 
@@ -90,7 +98,7 @@ export function runSimulation(request: SimulationRequest, progress?: Progress): 
  if(request.engineBuild!==ENGINE_BUILD)throw Error('This match requires a different football engine build.');
  const snapshot=createSimulationRequest(request.input),input=snapshot.input;
  // A match plays out the attack in progress at full time (practice-match.ts attackAtFullTime); training ends on the clock.
- const result=simulatePractice(input.fixture,input.durationSeconds,progress,input.record,{policy:input.policy,substitutions:input.substitutions,...(input.kind==='match'?{lastAttack:true}:{}),...(input.kind==='training'?{trainingSetup:input.setup}:{}),...(input.coaching?{coaching:input.coaching}:{}),...(input.playbook?{playbook:input.playbook}:{}),...(input.playbooks?{playbooks:input.playbooks}:{}),...(input.substitutionOrders?{substitutionOrders:input.substitutionOrders}:{}),...(input.tacticsSwitches?{tacticsSwitches:input.tacticsSwitches}:{})});
+ const result=simulatePractice(input.fixture,input.durationSeconds,progress,input.record,{policy:input.policy,substitutions:input.substitutions,...(input.kind==='match'?{lastAttack:true}:{}),...(input.kind==='training'?{trainingSetup:input.setup}:{}),...(input.coaching?{coaching:input.coaching}:{}),...(input.playbook?{playbook:input.playbook}:{}),...(input.playbooks?{playbooks:input.playbooks}:{}),...(input.substitutionOrders?{substitutionOrders:input.substitutionOrders}:{}),...(input.tacticsSwitches?{tacticsSwitches:input.tacticsSwitches}:{}),...(input.injuries?.on?{injuries:input.injuries}:{})});
  return {...snapshot,engineVersion:ENGINE_VERSION,result};
 }
 export function runMatch(input: Omit<MatchInput, 'kind'>, progress?: Progress): SimulationRun {
