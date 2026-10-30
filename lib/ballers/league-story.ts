@@ -16,6 +16,13 @@ export const countWord=(n:number)=>COUNT[n]??String(n);
 const NTH=['','first','second','third','fourth','fifth','sixth','seventh','eighth','ninth','tenth'];
 /** "fourth" up to tenth, "11th" after. */
 export const nthWord=(n:number)=>NTH[n]??ordinal(n);
+/** A result in words, from one side: "Won 4–3 at Umanoizii", "Lost 2–1 to Inter" (the winner's score first, as a
+ * result is told), "Drew 2–2 with Inter". `away`: that side was the away side ("at Umanoizii", whatever the result);
+ * at home or on neutral ground it is against / to / with. Split so the verb and the score can be lit. */
+export function resultWords(us:number,them:number,opp:string,away:boolean):{lead:string;rest:string}{
+ const lead=us>them?`Won ${us}–${them}`:us<them?`Lost ${them}–${us}`:`Drew ${us}–${them}`;
+ return {lead,rest:away?`at ${opp}`:us>them?`against ${opp}`:us<them?`to ${opp}`:`with ${opp}`};
+}
 
 // ------------------------------------------------------------------ rounds and tables
 type R=Pick<Result,'match_id'|'round_id'|'home_club'|'away_club'|'home_goals'|'away_goals'>;
@@ -88,6 +95,24 @@ export function placeOf(club:string,clubs:Club[],results:readonly R[],rounds:rea
  const mv=tableMoves(clubs,results,rounds),move=mv.moves.has(club)?mv.moves.get(club)!:null;
  const moveLine=move===null||mv.since===null?null:move>0?`Up ${countWord(move)} since round ${mv.since}`:move<0?`Down ${countWord(-move)} since round ${mv.since}`:`Same place as after round ${mv.since}`;
  return {pos:i+1,of:rows.length,points:me.points,line,move,moveLine};
+}
+
+/** What one round did to your place (Your match): the table after that round against the table after the round
+ * before it, from the results this viewer can read (past full time). `move`: "Up two, from 5th" / "Down one, from
+ * 2nd" / "Same place"; null after your first round. `gap`: "9 pts, 2 behind Inter" ("3 clear of Inter" when top). */
+export interface RoundPlace {round:number;pos:number;from:number|null;move:string|null;gap:string}
+export function roundPlace(club:string,clubs:Club[],results:readonly R[],rounds:readonly Pick<Round,'id'|'number'>[],roundId:string):RoundPlace|null{
+ const k=numbers(rounds).get(roundId);if(k===undefined)return null;
+ const after=tableAfter(clubs,results,rounds,k),i=after.findIndex(r=>r.club.id===club);
+ if(i<0||!after[i].played)return null;
+ const prev=playedRounds(results,rounds).filter(x=>x<k).at(-1)??null;
+ let from:number|null=null;
+ if(prev!==null){const before=tableAfter(clubs,results,rounds,prev),j=before.findIndex(r=>r.club.id===club);if(j>=0&&before[j].played)from=j+1;}
+ const pos=i+1,me=after[i],pts=`${me.points} ${me.points===1?'pt':'pts'}`;
+ const other=i===0?after[1]:after[0];
+ const gap=!other?pts:other.points===me.points?`${pts}, level with ${other.club.name}`:i===0?`${pts}, ${me.points-other.points} clear of ${other.club.name}`:`${pts}, ${other.points-me.points} behind ${other.club.name}`;
+ const move=from===null?null:from>pos?`Up ${countWord(from-pos)}, from ${ordinal(from)}`:from<pos?`Down ${countWord(pos-from)}, from ${ordinal(from)}`:'Same place';
+ return {round:k,pos,from,move,gap};
 }
 
 // ------------------------------------------------------------------ his season story

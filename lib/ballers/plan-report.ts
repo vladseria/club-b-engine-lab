@@ -10,7 +10,6 @@
 //  - Against your own season: at most three things this match is your most or
 //    fewest of, only with three or more earlier matches of the same season.
 //  - Your moves in words, each with a way into Watch at its first go.
-//  - Moments to watch: every goal, and the closest chances that didn't go in.
 //  - At most one suggestion, only when this match shows it, with its action.
 //  - Good chances (owner, 4 Oct): "you X.X, them Y.Y" beside the score, from
 //    the engine's own read of each shot (stored on the replay's shot events
@@ -21,21 +20,18 @@
 // Never: league-wide norms, odds, the word "xG", style matchups, "lucky",
 // per-phase counts, or a claim that tactics caused the result.
 //
-// Spoilers: callers build a report only for a match past its full time
-// (`reportOpen`, from the RESULT row's visible_from — never a replay chunk's
-// or a marker's, which run on the broadcast clock; REVIEW-WP0 S5).
+// Spoilers: callers build a report only for a match past its full time (Your
+// match, its one caller, renders only once the RESULT row is there, from its
+// visible_from — never a replay chunk's or a marker's, which run on the
+// broadcast clock; REVIEW-WP0 S5).
 import {phaseAt,phaseLabels,phaseRuns} from './phase';
 import {MOVES_ON} from './moves-off';
 import {followUp,emptyTally,runWord,tallyStarts,type MoveTally,type RunWord} from './result-words';
-import {pastFullTime} from './spoilers';
 import {matchChances} from './chances';
 import type {IdeaName,Marker} from './ideas';
 import type {IdeaRun} from './idea-run';
 import type {ReplayEvent,ReplayFrame,ReplayHeader} from './replay';
 import type {PlanSnapshot} from './plans';
-
-/** The report opens at the match's official full time (the result row), never before. */
-export const reportOpen=(result:{visible_from:string|null|undefined}|null|undefined,now=Date.now())=>!!result&&pastFullTime(result,now);
 
 // ------------------------------------------------------------------ inputs
 export interface ReportInput {
@@ -63,14 +59,12 @@ export interface MoveReport {key:string;name:string;tally:MoveTally;
 export interface PlanPart {name:string|null;moves:MoveReport[]}
 export interface GoalMark {t:number;side:0|1;us:boolean;label:string;
  /** Your named move that led to it (its latest go within 10 s before, before the ball changed sides). */ move?:string;moveKey?:string}
-export interface Moment {t:number;kind:'goal'|'chance';us:boolean;word:string;label:string}
 export interface Suggestion {before:string;bold:string;after:string;act:'band-with'|'band-without'|'plans';actLabel:string}
 export interface PlanReport {
  kind:ReportKind;
  duration:number;
  goals:GoalMark[];
  plans:PlanPart[];
- moments:Moment[];
  suggestion:Suggestion|null;
  /** Good chances [yours, theirs]; null when the match can't be read (another build, or a replay from before shot reads). */
  chances:[number,number]|null;
@@ -122,13 +116,6 @@ export function moveStarts(input:Pick<ReportInput,'markers'|'names'|'side'|'snap
  return groups;
 }
 
-// ------------------------------------------------------------------ moments
-/** A chance worth watching: a shot that didn't go in, from this close (metres). */
-export const CLOSE_M=6;
-/** At most this many chances beside the goals: the list stays short. */
-export const CHANCES=3;
-const OUTCOME:Record<string,string>={save:'saved',block:'blocked',out:'wide'};
-
 // ------------------------------------------------------------------ the report
 export function buildReport(input:ReportInput):PlanReport{
  const {frames,events,side,header}=input,duration=header.duration;
@@ -153,28 +140,7 @@ export function buildReport(input:ReportInput):PlanReport{
 
  const both=matchChances(events,header,input.build);
  const chances:[number,number]|null=both?[both[side],both[side===0?1:0]]:null;
- return {kind,duration,goals,plans:[{name:snap?.name??null,moves}],moments:momentsOf(goals,events,header,side),suggestion:suggestionOf(input,kind,groups),chances};
-}
-
-/** Every goal, then the closest chances that didn't go in (both sides), in match order. */
-export function momentsOf(goals:readonly GoalMark[],events:readonly ReplayEvent[],header:Pick<ReplayHeader,'players'>,side:0|1):Moment[]{
- const out:Moment[]=goals.map(g=>({t:g.t,kind:'goal',us:g.us,word:g.us?'Goal':'Their goal',label:g.move?`${g.label} · from ${g.move}`:g.label}));
- const chances:(Moment&{d:number})[]=[];
- for(const [i,e] of events.entries()){
-  if(e.k!=='shot'||!e.sh||(e.s!==0&&e.s!==1))continue;
-  const d=Math.hypot(e.sh.o[0]-e.sh.a[0],e.sh.o[1])/100;
-  if(d>CLOSE_M)continue;
-  // What became of it: the next save, block, goal or ball out, before the next shot.
-  let end:string|undefined;
-  for(const f of events.slice(i+1)){if(f.t>e.t+2500||f.k==='shot')break;if(f.k in OUTCOME||f.k==='goal'){end=f.k;break;}}
-  if(end==='goal')continue;
-  const who=header.players[e.a??-1]?.short??'';
-  const us=e.s===side;
-  chances.push({t:e.t/1000,kind:'chance',us,word:us?'Chance':'Their chance',label:`${who} from ${Math.max(1,Math.round(d))} m${end?`, ${OUTCOME[end]}`:''}`,d});
- }
- chances.sort((a,b)=>a.d-b.d||a.t-b.t);
- for(const {d:_d,...c} of chances.slice(0,CHANCES))out.push(c);
- return out.sort((a,b)=>a.t-b.t);
+ return {kind,duration,goals,plans:[{name:snap?.name??null,moves}],suggestion:suggestionOf(input,kind,groups),chances};
 }
 
 /** At most one suggestion, only where this match shows it, always with an
