@@ -10,7 +10,10 @@
 // three outfield subs, a second keeper) built from the real league's group means (../2026-10-19-engine-audits
 // squads.ts MEAN / TRAITS, 108 players, 15 Oct) plus a level, the profile's own skill deltas (its gimmick, which the
 // engine plays through skills and traits), a small fixed spread so nobody is a clone, rounded to whole skills in 1-10.
-// Real Offshore's oligarch is one hand-made terrible player who always starts and is never in an order.
+// Real Offshore's oligarch (Boris Paradis) is one hand-made terrible player who always starts, captains the side and is
+// never in an order. The vampires were renamed Autospa Vampires on 30 Oct (from Sânge Rece); their key stays `sangeRece`,
+// since it makes their ids (san1...) and the engine's perception noise hashes the id. The captain is never read by the
+// engine (only the replay header marks him).
 import {PRESETS} from '../../../../lib/ballers/league';
 import {MEAN,TRAITS} from '../2026-10-19-engine-audits/squads';
 
@@ -55,7 +58,7 @@ export const PROFILES:Record<string,Profile&{delta:Partial<Record<Group|'OUT',De
   delta:{OUT:{strength:3,defending:2,reading:.5,control:-2,passing:-1.5,finishing:-1,pace:-1}}},
  interEst:{name:'Inter Est',story:'Accountants: perfect positioning, zero flair.',style:'balanced',formation:'2-2',level:1.5,age:42,approach:{press:'selective'},
   delta:{OUT:{reading:3,defending:1.5,passing:1,control:-.5,finishing:-1.5,pace:-1,setPieces:-1,strength:-1}},traits:{discipline:.95,dribble:.08,risk:.12,audacity:.1,runs:.3}},
- sangeRece:{name:'Sânge Rece',story:'Vampires: quick early, fade fast.',style:'counter',formation:'1-2-1',level:0.8,age:28,approach:{press:'aggressive'},
+ sangeRece:{name:'Autospa Vampires',story:'Vampires: quick early, fade fast.',style:'counter',formation:'1-2-1',level:0.8,age:28,approach:{press:'aggressive'},
   delta:{OUT:{pace:3,stamina:-3.5,strength:.5,control:.5,aerial:-.5}},traits:{engagement:.75}},
  lemneVerzi:{name:'Lemne Verzi',story:'Lumberjacks: strength, long balls.',style:'direct',formation:'2-1-1',level:1.6,age:34,
   delta:{OUT:{strength:2.5,aerial:1.5,stamina:1,control:-1.5,passing:-1.5,pace:-1,reading:-1}}},
@@ -88,7 +91,7 @@ export function guestSide(key:string){
  const ages:Record<string,number>=Object.fromEntries(players.map(q=>[q.id,p.age]));
  if(key==='realOffshore'){
   // the oligarch: in the last starting slot (the striker), every skill 2-3, sure he is Messi; never in an order
-  const o=players[4];Object.assign(o,{name:'Oligarhul',short:'Oligarhul',skills:{pace:2,aerial:2,control:3,passing:2,reading:2,stamina:2,strength:3,defending:1,finishing:3,setPieces:3,keeping:1},traits:{...o.traits,risk:.95,dribble:.9,audacity:.95,discipline:.5,runs:.2}});
+  const o=players[4];Object.assign(o,{name:'Boris Paradis',short:'Boris Paradis',skills:{pace:2,aerial:2,control:3,passing:2,reading:2,stamina:2,strength:3,defending:1,finishing:3,setPieces:3,keeping:1},traits:{...o.traits,risk:.95,dribble:.9,audacity:.95,discipline:.5,runs:.2}});
   ages[o.id]=56;
  }
  const ids=players.map(q=>q.id),lineup=ids.slice(0,5),bench=ids.slice(5);
@@ -97,5 +100,5 @@ export function guestSide(key:string){
  const substitutions=[0,1,2].map(k=>{const g=groupOf(5+k),at=open.find(i=>groupOf(i)===g)??open[0];open.splice(open.indexOf(at),1);
   return {id:`g${k}`,in:bench[k],trigger:{kind:'tired',player:lineup[at],threshold:95}};});
  const approach={...(PRESETS as any)[p.style],...(p.approach??{})};
- return {side:{club:{id:key,name:p.name,code:key.slice(0,3).toUpperCase(),color:'#666666'},formation:p.formation,style:p.style,approach,captain:lineup[1],lineup,bench,players,plans:[],substitutions},ages};
+ return {side:{club:{id:key,name:p.name,code:key.slice(0,3).toUpperCase(),color:'#666666'},formation:p.formation,style:p.style,approach,captain:key==='realOffshore'?lineup[4]:lineup[1],lineup,bench,players,plans:[],substitutions},ages};
 }
