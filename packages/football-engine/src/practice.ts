@@ -39,7 +39,7 @@ import {validateSubstitutionOrders,triggerHolds,resolveOrder,triggerText,MAX_TRI
 import type {SubstitutionOrder,SubstitutionNote,SubstitutionRecord} from './practice-substitutions.js';
 import {validateTacticsSwitches,switchDue,applyTacticsSwitch,slotsPlaceable,switchTriggerText} from './practice-switch.js';
 import type {TacticsSwitch,SwitchNote,SwitchRecord} from './practice-switch.js';
-import {Injuries,injuryReplacement,validateInjuries} from './practice-injuries.js';
+import {ADVANTAGE_MAX,INJURY_TREATMENT,Injuries,injuryReplacement,validateInjuries} from './practice-injuries.js';
 import type {InjuryInput,InjuryMark,InjuryRecord} from './practice-injuries.js';
 import {assignSupport,complementarySupportAim,SupportPlan,SupportContext} from './practice-support.js';
 import {teamShape,TeamShape} from './practice-shape.js';
@@ -146,13 +146,13 @@ export type Duty='hold'|'support'|'run'|'show'|'width'|'press'|'jockey'|'challen
 export const dutyNames:Record<Duty,string>={hold:'Protejează spațiul',support:'Oferă o pasă',run:'Atacă spațiul',show:'Vine la picior',width:'Ține lățimea',press:'Închide purtătorul',jockey:'Îl ține în față',challenge:'Încearcă deposedarea',block:'Acoperă șutul',track:'Urmărește o cursă',cover:'Acoperă un coleg',intercept:'Atacă mingea',recover:'Revine în apărare',carry:'Conduce mingea',prepare:'Pregătește lovitura',receive:'Iese la primire',feint:'Încearcă o fentă',wrongfoot:'Își reface echilibrul',keeper:'Închide unghiul',dive:'Plonjează după minge',sweep:'Iese din poartă',restart:'Pregătește reluarea',down:'E la pământ'};
 export interface PracticePlayer extends MovingPlayer {role:Role;skills:Skills;traits:Traits;energy:number;archetype:string;temperament:string;lane:number;basePace:number;duty:Duty;/** (contest: pressure on the shooter) when he last rode a tackle and kept the ball (s): a moment off balance (practice-shot-contest DUEL_FADE). */duelAt?:number}
 export interface Pose {x:number;y:number;vx:number;vy:number;angle:number;energy:number;duty:Duty}
-export type Incident='start'|'pass'|'clearance'|'receive'|'turnover'|'tackle'|'feint'|'beat'|'shot'|'save'|'block'|'goal'|'out'|'offside'|'foul'|'restart'|'half'|'substitution'|'switch'|'injury'|'end';
+export type Incident='start'|'pass'|'clearance'|'receive'|'turnover'|'tackle'|'feint'|'beat'|'shot'|'save'|'block'|'goal'|'out'|'offside'|'foul'|'restart'|'half'|'substitution'|'switch'|'injury'|'stoppage'|'treatment'|'end';
 /** Goal side is the beneficiary; actor/lastTouch identifies the final contact,
  * not an adjudication of scorer versus own goal. Shot assessment is a utility
  * heuristic, not xG; it is present only for ordinary foot strikes. */
 /** One Counter surge: the side, the second it won the ball (its transition) and the first tick it played the surge. */
 export interface SurgeRecord {side:Side;regain:number;start:number}
-export interface PracticeEvent {substitution?:SubstitutionRecord;switch?:SwitchRecord;/** (showcase injuries, opt-in) an `injury` event, or a forced change's `substitution` event (practice-injuries.ts). */injury?:InjuryMark;lastTouch?:string;shot?:{aim:Vec;origin:Vec&{z:number};velocity:{vx:number;vy:number;vz:number};assessment?:ShotAssessment;/** (contest) what the defence did to it at the strike (practice-shot-contest). */contest?:Pick<ShotContest,'rush'|'shadow'|'balance'|'poise'|'hurry'|'closer'>};technique?:AerialTechnique;firstTime?:boolean;time:number;kind:Incident;text:string;actor?:string;target?:string;side?:Side;challengeContact?:ChallengeContact;restartKind?:RestartKind;restartSpot?:Vec;restartPlayers?:{id:string;x:number;y:number;vx:number;vy:number}[];incoming?:string;outgoing?:string;pass?:{meetingTime?:number;weight:GroundPass['weight'];aim:Vec;intendedSpeed:number;actualSpeed:number;arrivalSpeed:number};freeKick?:DirectFreeKickPlan;aerial?:{meetingTime?:number;kind:LoftPass['kind'];aim:Vec;intendedSpeed:number;actualSpeed:number;intendedVz:number;actualVz:number;flight:number;apex:number;risk:number}}
+export interface PracticeEvent {substitution?:SubstitutionRecord;switch?:SwitchRecord;/** (showcase injuries, opt-in) an `injury` event, its `treatment`, or a forced change's `substitution` event (practice-injuries.ts). */injury?:InjuryMark;lastTouch?:string;shot?:{aim:Vec;origin:Vec&{z:number};velocity:{vx:number;vy:number;vz:number};assessment?:ShotAssessment;/** (contest) what the defence did to it at the strike (practice-shot-contest). */contest?:Pick<ShotContest,'rush'|'shadow'|'balance'|'poise'|'hurry'|'closer'>};technique?:AerialTechnique;firstTime?:boolean;time:number;kind:Incident;text:string;actor?:string;target?:string;side?:Side;challengeContact?:ChallengeContact;restartKind?:RestartKind;restartSpot?:Vec;restartPlayers?:{id:string;x:number;y:number;vx:number;vy:number}[];incoming?:string;outgoing?:string;pass?:{meetingTime?:number;weight:GroundPass['weight'];aim:Vec;intendedSpeed:number;actualSpeed:number;arrivalSpeed:number};freeKick?:DirectFreeKickPlan;aerial?:{meetingTime?:number;kind:LoftPass['kind'];aim:Vec;intendedSpeed:number;actualSpeed:number;intendedVz:number;actualVz:number;flight:number;apex:number;risk:number}}
 /** (contest round) one reception duel, recorded with `record`: who, where, the reads and the outcome. */
 export interface ReceptionDuelRecord {time:number;receiver:string;defender:string;outcome:DuelResult['outcome'];commit:boolean;layoff:boolean;access:number;screen:number;front:number;goalTight:number;closing:number;nick:number;seenNick:number;flight:number;from?:Vec;at:Vec;defenderAt:Vec}
 export interface Choice {assignment?:Pick<FootballJob,'purpose'|'since'|'until'|'target'> & {aim:Vec};time:number;player:number;kind:Duty;reason:string;action?:Action;carry?:CarryAssessment&{aim:Vec;continuing:boolean;committedUntil:number};challenge?:ChallengeRead&{opponent:string;resolvesAt:number}}
@@ -758,16 +758,23 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    const p=byId.get(r.player)!,by=r.by?byId.get(r.by):undefined;
    events.push({time:r.time,kind:'injury',text:r.cause==='tackle'?`${p.name} s-a accidentat${by?` după intrarea lui ${by.name}`:''}.`:`${p.name} s-a accidentat. Oboseala și-a spus cuvântul.`,
     actor:r.player,...(r.by?{target:r.by}:{}),side:r.side,injury:{cause:r.cause,hard:r.hard,matches:r.matches,energy:r.energy}});
+   // (the stoppage, practice-injuries.ts) he is down from here: he lies where he fell, nobody plays the ball to him, he
+   // makes no challenge and no touch, until he goes off (or is treated and plays on: applyInjuries)
+   if(players.includes(p)){downs.set(p.id,Infinity);recovering.set(p.id,{until:Infinity,opponent:r.by??p.id});duelAfter.set(p.id,Infinity);duelAfter.set('touch:'+p.id,Infinity);p.vx*=FALL_KEEP;p.vy*=FALL_KEEP;}
   }
  };
  // The forced change: at the next stoppage, before the orders, outside the 3-change cap; the substitute is the best fit
  // from the unused bench (injuryReplacement). With nobody left he plays on (playedOn).
- const applyInjuries=()=>{
-  announceInjuries();
+ // (the stoppage) Unless it is the interval (`interval`: the second half's kick-off), the medics come on for each man first
+ // (a `treatment` event); a man nobody can replace is treated, gets up before the restart and plays on.
+ // Returns the men who came on and how many were treated (the restart then waits INJURY_TREATMENT s).
+ const applyInjuries=(interval=false):{fresh:Set<string>;treated:number}=>{
+  announceInjuries();const fresh=new Set<string>();let treated=0;
   for(const r of inj!.due()){
    const team=r.side,outgoing=players.find(p=>p.id===r.player);if(!outgoing)continue;
+   if(!interval){treated++;say('treatment',`Echipa medicală intră pe teren pentru ${outgoing.name}.`,outgoing);events.at(-1)!.injury={cause:r.cause,matches:r.matches};}
    const pick=injuryReplacement(f.teams[team],outgoing,sidePlayers(team),used);
-   if(!pick){r.playedOn=true;continue;}
+   if(!pick){r.playedOn=true;downs.set(outgoing.id,time+(interval?0:INJURY_TREATMENT-3));duelAfter.delete(outgoing.id);duelAfter.delete('touch:'+outgoing.id);continue;}
    const source=structuredClone(pick) as Player&{archetype?:string;temperament?:string};
    const gk=outgoing.role==='GK',basePace=gk?MOTION_LEGS_KEEPER_PACE_BASE+source.skills.pace*MOTION_LEGS_KEEPER_PACE_PER:MOTION_LEGS_PACE_BASE+source.skills.pace*MOTION_LEGS_PACE_PER;
    // as an order's substitute: the same role, lane and slot number, so slot-addressed plans pass to him
@@ -779,14 +786,26 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    rosterIndex.set(replacement.id,roster.length);roster.push(structuredClone(replacement));lineup=players.map(p=>rosterIndex.get(p.id)!);
    say('substitution',`${f.teams[team].name}: ${outgoing.name} iese accidentat, ${replacement.name} intră.`,replacement,outgoing);
    Object.assign(events.at(-1)!,{incoming:replacement.id,outgoing:outgoing.id,injury:{cause:r.cause,matches:r.matches}});cut=true;
-   r.off=time;r.replacement=replacement.id;
+   r.off=time;r.replacement=replacement.id;fresh.add(replacement.id);
   }
+  return {fresh,treated};
  };
- const startRestart=(kind:Restart['kind'],team:Side,spot:Vec,opening?:{taker:string;force:boolean})=>{
+ // (showcase injuries) who a dropped ball is for (Law 8): in his own penalty area, the keeper; elsewhere the team's
+ // nearest outfielder, never a man who has just come on while anyone else can take it
+ const dropTaker=(team:Side,spot:Vec,fresh?:ReadonlySet<string>):PracticePlayer=>{
+  const own=sidePlayers(team),near=(q:PracticePlayer[])=>q.slice().sort((a,b)=>dist(a,spot)-dist(b,spot))[0];
+  if(depth(team,spot.x)<BOX_DEPTH&&Math.abs(spot.y)<BOX_HALF){const k=own.find(p=>p.role==='GK');if(k)return k;}
+  const out=own.filter(p=>p.role!=='GK'),settled=out.filter(p=>!fresh?.has(p.id));
+  return near(settled.length?settled:out.length?out:own);
+ };
+ const startRestart=(kind:Restart['kind'],team:Side,spot:Vec,opening?:{taker:string;force:boolean},interval=false)=>{
   for(const b of playbooks)b.end(time,'restart');
   // A stoppage after full time ends the match: nobody comes on for no seconds.
   // One that ends the first half's last attack: the changes (and a tactics switch) wait for the interval's kickoff.
-  if(inj){if(!lastAttack&&!halfAttack)applyInjuries();else announceInjuries();}
+  // (showcase injuries) a man treated at this stoppage holds the restart INJURY_TREATMENT s; the men who came on for
+  // them never take a dropped ball while anyone else can.
+  let injured:{fresh:Set<string>;treated:number}|null=null;
+  if(inj){if(!lastAttack&&!halfAttack)injured=applyInjuries(interval);else announceInjuries();}
   if(!lastAttack&&!halfAttack){applySubstitutions();applyOrders();applySwitches();}
   awareness.clear();coordination=null;
   feintMemory.clear();
@@ -800,10 +819,10 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
   // far from the ball (and every thrower) gives way to him.
   const book=coordinated&&liveRestart(kind)?playbooks.find(b=>b.config.side===team):undefined;
   const candidates=sidePlayers(team).filter(p=>kind==='goalKick'?p.role==='GK':p.role!=='GK');
-  const engineTaker=opening?get(opening.taker):kind==='freeKick'||kind==='indirect'?chooseFreeKickTaker(players,team,spot,f.teams[team].tactics.taker,kind):kind==='penalty'?choosePenaltyTaker(players,team,f.teams[team].tactics.taker):candidates.slice().sort((a,b)=>dist(a,spot)-dist(b,spot))[0];
+  const engineTaker=opening?get(opening.taker):kind==='freeKick'||kind==='indirect'?chooseFreeKickTaker(players,team,spot,f.teams[team].tactics.taker,kind):kind==='penalty'?choosePenaltyTaker(players,team,f.teams[team].tactics.taker):kind==='dropBall'?dropTaker(team,spot,injured?.fresh):candidates.slice().sort((a,b)=>dist(a,spot)-dist(b,spot))[0];
   const authored=book?.chooseRoutine(time,kind,team,spot,players,laneRisk,!!opening?.force,engineTaker.id)??null;
   const taker=authored?get(authored.taker):engineTaker;
-  transitionAt=-10;inHands=false;groundDelivery=false;aerialDelivery=false;carryPlan=null;defense=null;support=null;teamShapes=[null,null];completedPass=undefined;passContinuation=undefined;restart={kind,side:team,spot,taker:taker.id,ready:time+(kind==='kickoff'?5:2),phase:'gather',legalSince:null,organized:coordinated,positions:restartPositions(kind,team,spot,taker.id,players,coordinated,f.teams[team].tactics.setPiece),...(coordinated&&(kind==='freeKick'||kind==='indirect')&&S.FREE_KICK[f.teams[team].tactics.setPiece??'mixed'].callsRoutine.v?{call:f.teams[team].tactics.setPiece as 'short'|'delivery'}:{})};if(coordinated&&liveRestart(kind)){restart.routine=restartRoutine(restart,players,restart.positions,f.teams[team].tactics.setPiece);restart.live=null;}
+  transitionAt=-10;inHands=false;groundDelivery=false;aerialDelivery=false;carryPlan=null;defense=null;support=null;teamShapes=[null,null];completedPass=undefined;passContinuation=undefined;restart={kind,side:team,spot,taker:taker.id,ready:time+(injured?.treated?INJURY_TREATMENT:kind==='kickoff'?5:2),phase:'gather',legalSince:null,organized:coordinated,positions:restartPositions(kind,team,spot,taker.id,players,coordinated,f.teams[team].tactics.setPiece),...(coordinated&&(kind==='freeKick'||kind==='indirect')&&S.FREE_KICK[f.teams[team].tactics.setPiece??'mixed'].callsRoutine.v?{call:f.teams[team].tactics.setPiece as 'short'|'delivery'}:{})};if(coordinated&&liveRestart(kind)){restart.routine=restartRoutine(restart,players,restart.positions,f.teams[team].tactics.setPiece);restart.live=null;}
   if(authored&&restart.routine){restart.routine=authoredRoutine(restart.routine,authored.slots);for(const [id,s] of Object.entries(authored.slots))restart.positions[id]={...s.aim};restart.authored=book!.routineId;}
   resetClock();restartAssignAt=0;side=team;ball={...ball,...spot,vx:0,vy:0,z:0,vz:0,owner:null,mode:'loose'};prepared=null;feint=null;flags=[];intents.clear();presser='';coverer='';assignmentAt=0;restartKicker='';lapses.clear();
  };
@@ -1008,6 +1027,25 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
  // unless a side is in an attack, which plays out for at most LAST_ATTACK_MAX.
  // (half-time) full time moves: the second half is a full half from its kick (the clock shows 7:30 there), so an overrun first half and the kickoff's gather both move it.
  let regular=Math.round(duration/STEP);const lastView=()=>({restart,side,ball});
+ // (showcase injuries: the stoppage, practice-injuries.ts) The referee and a hurt man still on the pitch, once a tick
+ // while play is live. Nobody waiting, a dead ball, or an attack the whistle is waiting for (the half's or full time's:
+ // that whistle is the stoppage): nothing to do. Otherwise he stops play at once, or after an attack in progress has
+ // played out (ADVANTAGE_MAX s at most), and restarts with a dropped ball.
+ let stop:{at:number;advantage:boolean;side:Side;shot:boolean}|null=null;
+ const referee=()=>{
+  const hurt=inj!.waitingNow.filter(r=>players.some(p=>p.id===r.player));
+  if(!hurt.length||restart||lastAttack||halfAttack){stop=null;return;}
+  const owner=ball.owner?get(ball.owner):null,urgent=hurt.some(r=>r.player===owner?.id||get(r.player).role==='GK');
+  if(!stop)stop={at:time,advantage:attackAtFullTime(lastView()),side,shot:false};
+  if(ball.mode==='shot')stop.shot=true;
+  if(!urgent&&stop.advantage&&time-stop.at<ADVANTAGE_MAX-1e-9&&!lastAttackOver(lastView(),stop.side,stop.shot))return;
+  // Law 8: in a penalty area, the defending keeper's ball; elsewhere the team on the ball, else the one that last touched it
+  const at={x:ball.x,y:ball.y},area:Side|null=Math.abs(at.y)<BOX_HALF?at.x<BOX_DEPTH?0:at.x>L-BOX_DEPTH?1:null:null;
+  const team:Side=area??owner?.side??(lastTouch?byId.get(lastTouch)?.side:undefined)??side,names=hurt.map(r=>get(r.player).name);
+  say('stoppage',`Arbitrul oprește jocul: ${names.join(' și ')} ${names.length>1?'au':'a'} rămas la pământ.`,get(hurt[0].player));
+  events.at(-1)!.side=hurt[0].side;stop=null;
+  startRestart('dropBall',team,at);
+ };
  for(let tick=1;;tick++){
   if(ball.mode!=='shot')shotEdge=null;
   if(tick>regular){
@@ -1031,14 +1069,15 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
     say('half','Pauză. Echipele își trag sufletul, schimbă porțile și pregătesc repriza a doua.');
     // The changes are decided at the whistle (a "when he tires" order reads his energy before the rest); then the rest, for the men who played the first half.
     const played=new Set(players.map(p=>p.id));
-    startRestart('kickoff',other(f.kickoff),{x:(L/2),y:0});
+    startRestart('kickoff',other(f.kickoff),{x:(L/2),y:0},undefined,true);
     for(const p of players){const spot=restart?.positions[p.id];if(spot){p.x=spot.x;p.y=spot.y;}p.angle=Math.atan2(-p.y,L/2-p.x);if(played.has(p.id))p.energy=halfEnergy(p.energy);}
     frame();
    }
   }
   // the second half's kick (its kickoff restart taken): the clock runs from here, and full time is a full half later
   if(halfDone&&kickTick===null&&!restart){kickTick=tick;regular=tick+halfTick!;}
-  // (showcase injuries) once a second of live play, the fatigue roll for every man on the pitch
+  // (showcase injuries) the referee and a hurt man (the stoppage), then once a second of live play the fatigue roll
+  if(inj)referee();
   if(inj&&!restart&&tick%injuryEvery===0)for(const p of players)inj.fatigue(p,time);
   const old=new Map(players.map(p=>[p.id,{x:p.x,y:p.y,angle:p.angle,speed:Math.hypot(p.vx,p.vy)}])),owner=ball.owner?get(ball.owner):null;
   // A restart repositions everyone: the memory starts afresh after it.
@@ -1524,7 +1563,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    const taker=get(restart.taker);
    if(time>=restart.ready&&restart.legalSince!==null&&time-restart.legalSince>=.5){
     const type=restart.kind;own(taker,'silent');restart.phase='ready';restart.readyAt=time;ball={...ball,...restart.spot,vx:0,vy:0,z:0,vz:0};exempt=['throw','corner','goalKick'].includes(type);flags=[];
-    mustRelease=true;restrictedGoal=type==='indirect'||type==='throw';nextThink=time+.25;receivedAt=time;say('restart',`${restartLabels[type]}. ${taker.name} se pregătește să execute.`,taker);lastFrom='';
+    mustRelease=true;restrictedGoal=type==='indirect'||type==='throw'||type==='dropBall';nextThink=time+.25;receivedAt=time;say('restart',type==='dropBall'?`${restartLabels[type]} pentru ${taker.name}. Jocul se reia.`:`${restartLabels[type]}. ${taker.name} se pregătește să execute.`,taker);lastFrom='';
     if(type==='penalty'){prepared={option:{kind:'shoot',aim:{x:world(taker.side,L),y:0},score:1,reason:'Încearcă să transforme lovitura de pedeapsă.'},at:time+.5};}
    }
   }else if(ball.owner){

@@ -57,6 +57,27 @@ export const FATIGUE_RISK=0.00021,FATIGUE_FROM=100,FATIGUE_SPAN=30;
 export const AGE_FROM=28,AGE_PER=0.05;
 /** No single roll is surer than this. */
 export const RISK_CAP=0.5;
+/**
+ * The injury stoppage (31 Oct, the owner's option B; contracts/ENGINE.md §4). From the moment he is hurt he is down:
+ * he stays where he fell and takes no part (practice.ts puts him on the floor until he goes off). The referee stops
+ * play for him (Laws of the Game, Law 5: he "stops play if a player is seriously injured and ensures that the player is
+ * removed from the field of play"):
+ *  - at once, unless an attack is in progress (the same "in an attack" the full-time whistle waits for,
+ *    practice-match.ts attackAtFullTime), in which case he lets it play out (Law 5's advantage) until it ends (the
+ *    attackers lose the ball, it goes back into their own half, their shot is over) or ADVANTAGE_MAX s have passed;
+ *  - at once anyway when the hurt man has the ball, or is a keeper (nobody plays on against an empty goal);
+ *  - if the ball goes dead by itself first (out, a goal, the foul that hurt him), that stoppage is the one.
+ * He restarts with a dropped ball (Law 8, 2026-27: "the referee stops play and the Law does not require one of the
+ * other restarts"): inside a penalty area, for the defending goalkeeper there; anywhere else for the team that had the
+ * ball (at a man's feet), else the team that last touched it, where the ball was when play stopped; everyone else at
+ * least DROP_DISTANCE m away (Law 8's 4 m, scaled as the engine scales 9.15 m to 5 m); a goal needs a second touch
+ * (Law 8: "a goal cannot be scored until the ball has touched two players").
+ * The stoppage, whichever it is, lasts at least INJURY_TREATMENT s of match time: the medics come on, he is helped
+ * off and the substitute comes on (the forced change, as before, made at that stoppage). The clock runs on through it,
+ * as through every dead ball (the engine adds no time; its only overrun is the last attack). None at the interval: a
+ * man hurt in the attack that ends the first half goes off at the second half's kick-off, as before.
+ */
+export const ADVANTAGE_MAX=5,INJURY_TREATMENT=15,DROP_DISTANCE=2.2;
 /** Matches out, 1..6: an ordinary injury (fatigue, or a contact that left him on his feet) and after a hard tackle.
  * DESIGN §11: 1 match 55%, 2 30%, 3 10%, 4-6 5%; hard tackles skew longer. */
 export const SEVERITY:Record<'ordinary'|'hard',readonly number[]>={ordinary:[.55,.30,.10,.05/3,.05/3,.05/3],hard:[.40,.35,.15,.1/3,.1/3,.1/3]};
@@ -128,6 +149,8 @@ export class Injuries {
  announce():InjuryRecord[]{const out=this.fresh;this.fresh=[];return out;}
  /** Injured men still to go off, in order (and forgotten here: the caller takes each off or marks playedOn). */
  due():InjuryRecord[]{const out=this.waiting;this.waiting=[];return out;}
+ /** Injured men still to go off (a look: nothing is forgotten). */
+ get waitingNow():readonly InjuryRecord[]{return this.waiting;}
 }
 
 /** Who comes on for an injured man: only a squad player who has not been on the pitch (`used` holds every practice id

@@ -6,7 +6,9 @@ import type {Vec} from './movement.js';
 import {controlReleaseAvailable} from './practice-control.js';
 import type {RestartRoutine,RestartLive} from './practice-restart-live.js';
 import {WORLD} from './world.js';
-export type RestartKind='kickoff'|'throw'|'goalKick'|'corner'|'freeKick'|'indirect'|'penalty';
+import {DROP_DISTANCE} from './practice-injuries.js';
+/** 'dropBall' (showcase injuries only, practice-injuries.ts): the referee stopped play for an injury (Law 8). */
+export type RestartKind='kickoff'|'throw'|'goalKick'|'corner'|'freeKick'|'indirect'|'penalty'|'dropBall';
 export interface RestartInfo {kind:RestartKind;side:Side;spot:Vec;taker:string;phase:'gather'|'ready'}
 export interface Restart extends RestartInfo {organized?:boolean;ready:number;legalSince:number|null;positions:Record<string,Vec>;
  /** Live setup (coordinated policy): the routine's slots/posts and the latest plan. */
@@ -33,7 +35,7 @@ const depth=(side:Side,x:number)=>side===0?x:L-x;
 const world=(side:Side,x:number)=>side===0?x:L-x;
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
 const inside=(p:Vec):Vec=>({x:clamp(p.x,.3,(L-.3)),y:clamp(p.y,-(W/2-0.3),(W/2-0.3))});
-export const restartLabels:Record<RestartKind,string>={kickoff:'Lovitură de începere',penalty:'PENALTY',throw:'Aruncare de la margine',goalKick:'Repunere de la poartă',corner:'Corner',freeKick:'Lovitură liberă',indirect:'Lovitură indirectă'};
+export const restartLabels:Record<RestartKind,string>={kickoff:'Lovitură de începere',penalty:'PENALTY',throw:'Aruncare de la margine',goalKick:'Repunere de la poartă',corner:'Corner',freeKick:'Lovitură liberă',indirect:'Lovitură indirectă',dropBall:'Minge de arbitru'};
 
 /** A boundary-clamped setup can put the ball underneath the taker. Keep the
  * ordinary setup when playable; otherwise find a real stance beside the ball.
@@ -238,8 +240,9 @@ function throwPositions(side:Side,spot:Vec,taker:string,players:PracticePlayer[]
 
 export function restartPositions(kind:RestartKind,side:Side,spot:Vec,taker:string,players:PracticePlayer[],organized=false,call:FreeKickCall='mixed'):Record<string,Vec>{
  if(kind==='freeKick'||kind==='indirect')return freeKickPositions(side,spot,taker,players,call);
- // Organized (live) throws use Law 15's 2 m; the classic setup keeps its old radius.
- const throwRadius=organized&&kind==='throw'?2.4:0;
+ // Organized (live) throws use Law 15's 2 m; the classic setup keeps its old radius. A dropped ball: Law 8's distance
+ // (DROP_DISTANCE), with the same margin.
+ const throwRadius=organized&&kind==='throw'?2.4:kind==='dropBall'?DROP_DISTANCE+.2:0;
  const formation=kind==='throw'?throwPositions(side,spot,taker,players):organized&&kind==='corner'?cornerPositions(side,spot,taker,players):undefined;
  const positions=Object.fromEntries(players.map(p=>{
   let aim=formation?.[p.id]??{x:p.x,y:p.y};
@@ -325,6 +328,8 @@ function readyCheck(restart:ReadyScene,players:PracticePlayer[],relaxed:boolean)
    return (p.side===side||distance(p,spot)>=WORLD.laws.restart.distance.v)&&(relaxed||!aim||distance(p,aim)<reach);
   }
   if(kind==='kickoff')return depth(p.side,p.x)<=(L/2)&&(p.side===side||distance(p,spot)>=WORLD.laws.restart.distance.v);
+  // a dropped ball: everyone but the man it is dropped for, of both teams, at Law 8's distance
+  if(kind==='dropBall')return distance(p,spot)>=DROP_DISTANCE;
   if(kind==='penalty'){
    if(p.role==='GK'&&p.side!==side)return depth(p.side,p.x)<=.55&&Math.abs(p.y)<=G(3.1);
    const behind=depth(side,p.x)<L-SPOT,box=depth(side,p.x)>(L-BOX_DEPTH)&&Math.abs(p.y)<BOX_HALF;

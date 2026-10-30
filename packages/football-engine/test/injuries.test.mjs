@@ -2,12 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {withBench} from './constructed-scenes.mjs';
 import {runMatch,createSimulationRequest,createTrainingSetup,injuryReplacement} from '../dist/index.js';
-import {Injuries} from '../dist/practice-injuries.js';
+import {Injuries,ADVANTAGE_MAX,INJURY_TREATMENT,DROP_DISTANCE} from '../dist/practice-injuries.js';
 
 // Showcase injuries (practice-injuries.ts; deliverables/ballers-showcase/contracts/ENGINE.md). The rate constants are
 // tuned on the public lab; these tests never depend on them: where a test needs someone hurt it decides the dice
 // itself (Injuries.prototype.roll / fatigue, restored after the run), so the rules are checked, not a lucky seed.
-const STOPPAGES=['goal','out','foul','offside','half'];
+// 'stoppage': the referee's, for the injury itself (31 Oct)
+const STOPPAGES=['goal','out','foul','offside','half','stoppage'];
 const subs=(r,side)=>r.events.filter(e=>e.kind==='substitution'&&(side===undefined||e.side===side));
 const withDice=(patch,fn)=>{const saved=Object.fromEntries(Object.keys(patch).map(k=>[k,Injuries.prototype[k]]));Object.assign(Injuries.prototype,patch);try{return fn();}finally{Object.assign(Injuries.prototype,saved);}};
 const RUN={fixture:withBench(13009),durationSeconds:120};
@@ -59,7 +60,7 @@ test('a hurt man goes off at the next stoppage, outside the three changes; with 
  const incoming=r.players.find(p=>p.id==='0:rgk0'),outgoing=r.players.find(p=>p.id===first.player);
  assert.equal(incoming.role,outgoing.role);assert.notEqual(incoming.role,'GK');assert.equal(incoming.number,outgoing.number);
  // at a stoppage: the event before it (skipping changes and injury events) stopped play at that instant, ball dead
- const i=r.events.indexOf(e);let j=i-1;while(['substitution','injury'].includes(r.events[j].kind))j--;
+ const i=r.events.indexOf(e);let j=i-1;while(['substitution','injury','treatment'].includes(r.events[j].kind))j--;
  assert(STOPPAGES.includes(r.events[j].kind),`forced change follows ${r.events[j].kind}`);assert.equal(r.events[j].time,e.time);
  assert(r.frames.find(fr=>fr.event>=i).restart,'the ball is dead while he comes on');
  // the injury event: announced before his change, at its own second
@@ -77,6 +78,8 @@ test('a hurt keeper is replaced by the bench keeper, in goal',()=>{
  assert.equal(k.replacement,'1:rgk1');
  assert.equal(r.players.find(p=>p.id==='1:rgk1').role,'GK');
  assert.equal(subs(r,1).filter(e=>e.injury).length,1);
+ // a keeper down: the referee stops at once, attack or not (or the ball was already dead)
+ assert(k.off-k.time<=.02,`stopped at once (${(k.off-k.time).toFixed(2)} s)`);
 });
 
 test('who comes on: keeper for keeper, the role first, the keeper as the last outfield man, nobody left',()=>{
@@ -108,4 +111,56 @@ test('the dice: a fresh man runs no fatigue risk, a hit makes a challenge riskie
  assert(fouled.every(r=>r.hard),'a foul is a hard tackle');
  assert(floored.every(r=>Number.isInteger(r.matches)&&r.matches>=1&&r.matches<=6&&r.hard&&r.cause==='tackle'&&r.by==='1:b'));
  assert(poke.every(r=>!r.hard));
+});
+
+test('nobody hurt changes nothing on the stoppage path either: half-time, orders, the whole match',()=>{
+ // If this fails: the stoppage (practice.ts referee, the treatment's hold, the drop-ball taker) reaches a match nobody is
+ // hurt in. 600 s: a half-time, a "tired" order and the last attack all run.
+ const f=withBench(13011),run={fixture:f,durationSeconds:600,substitutionOrders:[{id:'o0',side:0,in:'r10',trigger:{kind:'tired',player:'van',threshold:92}}]};
+ const base=runMatch(run).result;
+ const calm=withDice({roll:()=>false},()=>runMatch({...run,injuries:ON}).result);
+ const {injuries,...rest}=calm;
+ assert.deepEqual(injuries,[]);assert.deepEqual(rest,base,'every frame, event and choice is the match without the key');
+ assert(base.events.some(e=>e.kind==='half')&&base.events.some(e=>e.kind==='substitution'),'the half-time and the order were played');
+});
+
+test('the stoppage: he goes down, the referee stops play, the medics, the change, a dropped ball',()=>{
+ // Four men hurt (the test's dice, outfielders, by fatigue): each lies where he fell, and the referee stops play at once
+ // or after an attack (at most ADVANTAGE_MAX s), unless the ball went dead first. Then the treatment and the forced change
+ // at the stoppage, a dead ball of at least INJURY_TREATMENT s, and the dropped ball (Law 8): for the defending keeper in
+ // his area, otherwise an outfielder who did not just come on; everyone else at least DROP_DISTANCE m away.
+ const plan=[[12,0],[36,1],[60,0],[84,1]];let k=0;
+ const r=withDice({fatigue(p,time){const q=plan[k];if(q&&time>=q[0]&&p.side===q[1]&&p.role!=='GK'){k++;this.injure(p,'fatigue',time,false);}}},
+  ()=>runMatch({fixture:withBench(13009),durationSeconds:120,injuries:ON}).result);
+ assert.equal(r.injuries.length,4);
+ let drops=0;
+ for(const inj of r.injuries){
+  const pid=r.players.findIndex(p=>p.id===inj.player),pos=f=>(f.lineup??[0,1,2,3,4,5,6,7,8,9]).indexOf(pid);
+  assert(inj.off!==undefined,'he went off');
+  const live=r.frames.filter(f=>f.time>inj.time+.05&&f.time<inj.off-1e-9),poses=live.map(f=>f.players[pos(f)]);
+  assert(poses.every(q=>q.duty==='down'),'down from the injury to the stoppage');
+  // he goes down with his speed mostly gone (a short slide), then lies still
+  const lying=live.filter(f=>f.time>=inj.time+.4).map(f=>f.players[pos(f)]);
+  if(lying.length)assert(Math.hypot(lying.at(-1).x-lying[0].x,lying.at(-1).y-lying[0].y)<.05,'he stays where he fell');
+  if(poses.length)assert(Math.hypot(poses.at(-1).x-poses[0].x,poses.at(-1).y-poses[0].y)<.6,'a short slide at most');
+  const at=r.events.filter(e=>Math.abs(e.time-inj.off)<1e-9),kinds=at.map(e=>e.kind);
+  const t=at.find(e=>e.kind==='treatment'&&e.actor===inj.player),c=at.find(e=>e.kind==='substitution'&&e.outgoing===inj.player);
+  assert(t&&c&&kinds.indexOf('treatment')<kinds.indexOf('substitution'),'the medics, then the change, at the stoppage');
+  assert.equal(c.incoming,inj.replacement);assert.deepEqual(c.injury,{cause:'fatigue',matches:inj.matches});
+  const kick=r.events.find(e=>e.time>inj.off&&e.restartKind);
+  assert(kick.time>=inj.off+INJURY_TREATMENT-1e-9,`the dead ball lasts the treatment (${(kick.time-inj.off).toFixed(2)} s)`);
+  if(!kinds.includes('stoppage')){assert.notEqual(kick.restartKind,'dropBall','a dead ball of its own restarts as it would');continue;}
+  drops++;
+  assert(inj.off-inj.time<=ADVANTAGE_MAX+.02,`the referee stops within ${ADVANTAGE_MAX} s (${(inj.off-inj.time).toFixed(2)})`);
+  assert.equal(kick.restartKind,'dropBall');
+  assert(r.frames.filter(f=>f.time>=inj.off&&f.time<kick.time).every(f=>f.restart&&f.restartInfo.kind==='dropBall'),'dead until the drop');
+  const before=r.frames.filter(f=>f.time<inj.off).at(-1),spot=kick.restartSpot;
+  assert(Math.hypot(before.ball.x-spot.x,before.ball.y-spot.y)<1,'dropped where the ball was when play stopped');
+  const taker=r.players.find(p=>p.id===kick.actor),area=Math.abs(spot.y)<8?spot.x<8?0:spot.x>40?1:null:null;
+  if(area!==null)assert(taker.role==='GK'&&taker.side===area,'in a penalty area: the defending keeper');
+  else assert(taker.role!=='GK'&&kick.actor!==inj.replacement,'elsewhere: an outfielder who did not just come on');
+  for(const q of kick.restartPlayers)if(q.id!==kick.actor)assert(Math.hypot(q.x-spot.x,q.y-spot.y)>=DROP_DISTANCE,`${q.id} at Law 8's distance`);
+  const line=r.events.find(e=>e.kind==='restart'&&e.time>inj.off);assert(line.text.startsWith('Minge de arbitru'));
+ }
+ assert(drops>=1,'at least one dropped ball');
 });
