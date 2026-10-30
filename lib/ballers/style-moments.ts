@@ -35,7 +35,8 @@ interface Surge {side:0|1;regain:number;start:number}
 export interface Moment {at:number;/** index of the event it ends at, -1 when no event closes it (a settled surge with none) */event:number;mark:StyleMark}
 
 const BALL_KINDS=new Set(['receive','turnover','save','tackle','pass','clearance','shot','feint','beat']);
-const STOPS=new Set(['out','foul','offside','restart','half','end','goal']);
+// 'stoppage' (Bebe's showcase): the referee stopping play for an injury ends a move as a foul does
+const STOPS=new Set(['out','foul','offside','restart','half','end','goal','stoppage']);
 const round1=(x:number)=>Math.round(x*10)/10;
 
 /** Every style moment of a match, in time order. `styles[side]`: the style the engine was told (undefined: none). */
