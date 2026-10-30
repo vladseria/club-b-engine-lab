@@ -28,8 +28,12 @@ export interface FrozenPlan {idea:string;key:string;name:string;plan:Record<stri
 import type {FrozenSwitch} from './switch-input';
 export type {FrozenSwitch};
 export interface FrozenSide {club:{id:string;name:string;code:string;color:string};formation:'1-2-1'|'2-2'|'2-1-1';style:string;approach:StoredApproach;captain:string;lineup:string[];bench:string[];players:FrozenPlayer[];plans:FrozenPlan[];substitutions?:PrepOrder[];settings?:MatchSettings;voice?:Voice;switch?:FrozenSwitch}
+/** Bebe's showcase only (private.ballers_showcase_injury_key): the engine's opt-in injury key
+ * (deliverables/ballers-showcase/contracts/ENGINE.md §1: on, its own salt, ages per side by squad id).
+ * Absent from every league input, which therefore reaches the engine byte-identical. */
+export interface FrozenInjuries {on:boolean;salt:number;age?:[Record<string,number>,Record<string,number>]}
 /** private.ballers_build_input() output, version 1. */
-export interface FrozenInput {v:1;match:string;seed:number;kickoff:0|1;duration:number;sides:[FrozenSide,FrozenSide]}
+export interface FrozenInput {v:1;match:string;seed:number;kickoff:0|1;duration:number;sides:[FrozenSide,FrozenSide];injuries?:FrozenInjuries}
 
 export function engineTeam(side:FrozenSide):Team{
  // Match settings are re-read against this five (a stale taker is dropped);
@@ -128,10 +132,17 @@ export function validateInput(value:unknown):FrozenInput{
  if(!v||v.v!==1||!Number.isInteger(v.seed)||v.seed<0||v.seed>0xffffffff||![0,1].includes(v.kickoff)||!Array.isArray(v.sides)||v.sides.length!==2)throw Error('invalid_input');
  if(!Number.isFinite(v.duration)||v.duration<60||v.duration>900)throw Error('invalid_input');
  for(const s of v.sides){if(!Array.isArray(s.lineup)||s.lineup.length!==5||!s.lineup.every(id=>s.players.some(p=>p.id===id)))throw Error('invalid_input');}
+ if(v.injuries!==undefined){const j=v.injuries;if(!j||typeof j.on!=='boolean'||!Number.isInteger(j.salt)||j.salt<0||j.salt>0xffffffff)throw Error('invalid_input');
+  if(j.age!==undefined&&(!Array.isArray(j.age)||j.age.length!==2||!j.age.every(a=>a&&typeof a==='object'&&Object.values(a).every(n=>Number.isFinite(n)&&n>=14&&n<=60))))throw Error('invalid_input');}
  return v;
 }
 
-export interface Computed {compact:CompactMatch;dropped:string[];engineBuild:string}
+/** An injury as the showcase stores it (ballers_showcase_submit `injuries`), from the engine's InjuryRecord
+ * (contracts/ENGINE.md §3) as given, severity included: `id` the frozen player id, `t` the match second, `by` the
+ * tackler's name and `by_id` his frozen id, `off` when he went off, `played_on` nobody was left to come on. */
+export interface ComputedInjury {id:string;side:0|1;t:number;cause:'tackle'|'fatigue';by?:string;by_id?:string;hard:boolean;energy?:number;matches:number;off?:number;played_on?:true}
+export interface Computed {compact:CompactMatch;dropped:string[];engineBuild:string;
+ /** Showcase only: present when the input carried `injuries` and the engine reported any. */ injuries?:ComputedInjury[]}
 
 /** Runs the whole match once. Deterministic for (input, ENGINE_BUILD). */
 export function computeMatch(input:FrozenInput,progress?:(t:number)=>void):Computed{
@@ -142,15 +153,38 @@ export function computeMatch(input:FrozenInput,progress?:(t:number)=>void):Compu
  const subs=sideOrders(input,teams);
  // No switch = the key is omitted: the engine input is byte-identical to before the plan switch.
  const sw=sideSwitches(input,teams);
- const run=runMatch({fixture:{teams,seed:input.seed,kickoff:input.kickoff},durationSeconds:input.duration,policy:'coordinated',substitutions:'none',record:true,...(playbooks.length?{playbooks}:{}),...(subs.orders.length?{substitutionOrders:subs.orders}:{}),...(sw.switches.length?{tacticsSwitches:sw.switches}:{})},progress);
- return {compact:compact(input,run.result as unknown as EngineResult),dropped:[...plans.flatMap(p=>p.dropped),...subs.dropped,...sw.dropped],engineBuild:run.engineBuild};
+ // Showcase only: the opt-in injury key; absent (every league input) = the engine input is byte-identical.
+ const run=runMatch({fixture:{teams,seed:input.seed,kickoff:input.kickoff},durationSeconds:input.duration,policy:'coordinated',substitutions:'none',record:true,...(playbooks.length?{playbooks}:{}),...(subs.orders.length?{substitutionOrders:subs.orders}:{}),...(sw.switches.length?{tacticsSwitches:sw.switches}:{}),...(input.injuries?{injuries:input.injuries}:{})} as Parameters<typeof runMatch>[0],progress);
+ const injuries=input.injuries?engineInjuries(input,(run.result as {injuries?:unknown}).injuries):[];
+ return {compact:compact(input,run.result as unknown as EngineResult),dropped:[...plans.flatMap(p=>p.dropped),...subs.dropped,...sw.dropped],engineBuild:run.engineBuild,...(injuries.length?{injuries}:{})};
+}
+
+/** The engine's `result.injuries` (InjuryRecord, contracts/ENGINE.md §3) as the showcase stores them: engine ids
+ * `${side}:${id}` back to frozen ids, the tackler's name beside his id; severity exactly as the engine drew it. */
+export function engineInjuries(input:FrozenInput,raw:unknown):ComputedInjury[]{
+ if(!Array.isArray(raw))return [];
+ const split=(id:string)=>{const at=id.indexOf(':');return at<0?{side:-1,id}:{side:Number(id.slice(0,at)),id:id.slice(at+1)};};
+ const out:ComputedInjury[]=[];
+ for(const r of raw as Record<string,unknown>[]){
+  const who=split(String(r.player??'')),side=(who.side>=0?who.side:Number(r.side)) as 0|1,t=Number(r.time);
+  const matches=Number(r.matches);
+  if(!who.id||![0,1].includes(side)||!Number.isFinite(t)||!Number.isInteger(matches)||matches<1||matches>6)continue;
+  const tackler=typeof r.by==='string'?split(r.by):null;
+  const by=tackler?input.sides.flatMap((s,i)=>tackler.side<0||tackler.side===i?s.players:[]).find(p=>p.id===tackler.id)?.name:undefined;
+  const energy=Number(r.energy),off=Number(r.off);
+  out.push({id:who.id,side,t,cause:r.cause==='fatigue'?'fatigue':'tackle',...(by?{by}:{}),...(tackler?{by_id:tackler.id}:{}),hard:r.hard===true,
+   ...(Number.isFinite(energy)?{energy}:{}),matches,...(Number.isFinite(off)?{off}:{}),...(r.playedOn===true?{played_on:true as const}:{})});
+ }
+ return out;
 }
 
 // The slice of PracticeResult this module reads (kept structural so the
 // compaction can be unit-tested with a synthetic result).
 interface EngineFrame {time:number;cut?:boolean;lineup?:number[];players:{x:number;y:number;angle:number;duty?:string}[];ball:{x:number;y:number;z:number;owner:string|null};score:[number,number];restart:boolean;restartInfo?:{taker:string};side:0|1;control?:{owner:string}}
 interface EngineEvent {time:number;kind:string;text:string;actor?:string;target?:string;side?:0|1;lastTouch?:string;restartKind?:string;firstTime?:boolean;shot?:{aim:{x:number;y:number};origin:{x:number;y:number};assessment?:{quality:number}};technique?:string;freeKick?:unknown;
- substitution?:{order:string;trigger:SubstitutionTrigger;energy:number;score:[number,number]};switch?:{order:string;trigger:SwitchTrigger;score:[number,number];formation?:string;players?:{id:string;role:string;lane:number}[]}}
+ substitution?:{order:string;trigger:SubstitutionTrigger;energy:number;score:[number,number]};
+ /** Bebe's showcase (contracts/ENGINE.md §3): on the `injury` event and on its forced `substitution`. */
+ injury?:{cause:'tackle'|'fatigue';hard?:boolean;matches:number;energy?:number};switch?:{order:string;trigger:SwitchTrigger;score:[number,number];formation?:string;players?:{id:string;role:string;lane:number}[]}}
 interface EngineSelection {time:number;planId:string|null;name:string;status:string;endedAt?:number;endReason?:string;endDetail?:string;side?:0|1;trace?:{time:number;stepId:string;phase:string;intent?:string;actor?:string;target?:string;responsibility?:string;evidence?:{spaceId?:string}}[]}
 export interface EngineResult {duration:number;played?:number;players:{id:string;side:0|1;role:string}[];frames:EngineFrame[];events:EngineEvent[];stats:[TeamStats,TeamStats];score:[number,number];playbookSelections?:EngineSelection[];substitutionNotes?:SubstitutionNote[];switchNotes?:SwitchNote[];surges?:{side:0|1;regain:number;start:number}[]}
 
@@ -221,6 +255,10 @@ export function compact(input:FrozenInput,r:EngineResult):CompactMatch{
    if(q!==undefined&&Number.isFinite(q))out.q=Math.round(q*1000)/1000;else if(e.technique==='header')out.sk=1;else if(e.technique==='volley')out.sk=2;else if(e.freeKick)out.sk=3;}
   if(e.substitution){const t=e.substitution.trigger;
    out.sb={k:t.kind,...(t.kind==='score'?{st:t.state}:t.kind==='margin'?{n:t.atLeast,d:t.direction}:{}),e:Math.round(e.substitution.energy)};}
+  // Bebe's showcase: an injury, and the engine's forced change for it (no order: sb k 'injury'). League events
+  // never carry `injury`, so their compact is byte-identical.
+  if(e.injury){out.ij={c:e.injury.cause,n:e.injury.matches,...(e.injury.hard?{h:1 as const}:{})};
+   if(e.kind==='substitution'&&!e.substitution)out.sb={k:'injury'};}
   // The plan switch's marker: the trigger and the style now played (never the plan's name).
   if(e.switch&&e.side!==undefined){const t=e.switch.trigger;
    out.sw={k:t.kind,...(t.kind==='score'?{st:t.state}:t.kind==='margin'?{n:t.atLeast,d:t.direction}:{}),y:input.sides[e.side].switch?.to.style??'',

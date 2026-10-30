@@ -61,7 +61,11 @@ export interface ReplayFrame {t:number;p:[number,number,number][];b:[number,numb
  * A substitution: a = the player coming on, g = the one going off, sb = the
  * trigger that fired (k kind; st score state; n margin; d up/down; e the
  * outgoing player's energy). */
-export interface ReplaySub {k:'tired'|'score'|'margin'|'half';st?:string;n?:number;d?:string;e?:number}
+/** k 'injury' (Bebe's showcase, contracts/ENGINE.md §3): the engine's forced change for an injured man, no order behind it. */
+export interface ReplaySub {k:'tired'|'score'|'margin'|'half'|'injury';st?:string;n?:number;d?:string;e?:number}
+/** An injury (Bebe's showcase only; contracts/ENGINE.md §3), on the `injury` event and on its forced `substitution`:
+ * c the cause, n the matches he misses, h a hard tackle (it floored him, or a foul). Absent from every league replay. */
+export interface ReplayInjury {c:'tackle'|'fatigue';n:number;h?:1}
 /** A shot (from 4 Oct; absent on older replays): q = the engine's own quality
  * read at the strike (0-1, 3 decimals), or sk = which unread shot it was
  * (1 header, 2 volley, 3 direct free kick). Optional, so the version stays 2:
@@ -76,7 +80,7 @@ export interface ReplaySwitch {k:'score'|'margin'|'half'|'always';st?:string;n?:
 /** Style moments (styles as identities, slice 2, from 22 Oct; lib/ballers/style-moments.ts): mo = the moments that end
  * at this event (a Short side's one-touch move, a Counter side's surge and what came of it). Optional, so the version
  * stays 2. */
-export interface ReplayEvent {t:number;k:string;x:string;a?:number;g?:number;s?:0|1;lt?:number;rk?:string;sh?:{o:[number,number];a:[number,number]};sb?:ReplaySub;sw?:ReplaySwitch;q?:number;sk?:1|2|3;mo?:StyleMark[]}
+export interface ReplayEvent {t:number;k:string;x:string;a?:number;g?:number;s?:0|1;lt?:number;rk?:string;sh?:{o:[number,number];a:[number,number]};sb?:ReplaySub;sw?:ReplaySwitch;q?:number;sk?:1|2|3;mo?:StyleMark[];ij?:ReplayInjury}
 /** `end` (the last chunk only, from the half-time build): when the whistle really went (`played`, s) and the clock's full
  * time (`fullTime`, s: the second half's kick + a full half, or the match length), present when either differs from the
  * match length. It used to be in the header, which is readable from kickoff, so it told a viewer at kickoff how long

@@ -82,7 +82,8 @@ export function matchPlayerStats(header:Pick<ReplayHeader,'players'|'duration'|'
 
 const emptyDetail=():LineDetail=>({m:0,ps:0,pc:0,kp:0,so:0,tk:0,it:0,dr:0,fc:0,cl:0});
 /** Events that are not a touch of the ball (skipped when asking what a pass or a turnover led to or came from). */
-const OFF_BALL=new Set(['substitution','half','start']);
+// 'injury' (Bebe's showcase): the engine's injury event touches nobody's ball, like a substitution
+const OFF_BALL=new Set(['substitution','half','start','injury']);
 /** After one of these a shot's flight is over (a save or a block is not: a parry may still go in). */
 const SHOT_OVER=new Set(['pass','receive','clearance','turnover','tackle','restart','out','shot','foul','offside','feint','beat','end']);
 /** How long a shot owns what happens to the ball (creditGoal's window). */

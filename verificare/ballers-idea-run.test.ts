@@ -205,10 +205,8 @@ describe('on this engine build, Lab watches classify every start',()=>{
   // then the half-time release c622728d (half-time plus the change of plan's
   // 'always' condition; the trials carry no switch, byte-identical; idea code unchanged),
   // then styles as identities 47b95519 (Short's one-touch is read only for a side named
-  // Short; the trials name no style, byte-identical; idea code unchanged),
-  // then showcase injuries f3d6df87 (an opt-in injuries key, showcase matches only; the trials
-  // carry none, byte-identical: 256/256 on the lab; idea code unchanged).
-  expect(ENGINE_BUILD.slice(0,8)).toBe('f3d6df87');
+  // Short; the trials name no style, byte-identical; idea code unchanged).
+  expect(ENGINE_BUILD.slice(0,8)).toBe('47b95519');
   const side=demoSide(),seen:Record<string,number>={};
   for(const st of STARTERS)for(const seed of [3,11,2026]){
    const fixture=withDefensiveApproach(trialFixture(side.team,seed),1,'original');fixture.seed=seed;

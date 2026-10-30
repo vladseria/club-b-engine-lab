@@ -65,11 +65,10 @@ describe('good chances: the sum over a match\'s shots',()=>{
   expect(matchChances(ev,header,'c',L)).toEqual(matchChances(ev,header,'b',T));
   expect(matchChances(ev,header,'other',L)).toBeNull();
   // the live table: measured on the styles release build 47b95519 (400 lab matches; a Short side's matches changed with
-  // one-touch, so c622728d's table could not carry over); the earlier builds show none now, nor 5a4f09a2 or 377e7a94 (never live).
-  // Showcase injuries f3d6df87 joins it: an opt-in key, every match without it byte-identical (256/256 tasks on the lab).
+  // one-touch, so c622728d's table could not carry over); the earlier builds show none now, nor 5a4f09a2 or 377e7a94 (never live)
   const live=matchChances(ev,header,'47b95519b5f36e515c9c8f750e0bdfbee56ad34e9562aaf10db013cb32070e91');
   expect(live).not.toBeNull();
-  expect(tableBuilds()).toEqual(['47b95519b5f36e515c9c8f750e0bdfbee56ad34e9562aaf10db013cb32070e91','f3d6df87c083d4c1f015baf88592ce645ebe6c24e1bec2d4d4325fbd64f2afef']);
+  expect(tableBuilds()).toEqual(['47b95519b5f36e515c9c8f750e0bdfbee56ad34e9562aaf10db013cb32070e91']);
   for(const old of ['b767cca328914f99912cbdffa3d193bd2c485127a4b7f324d91dcaa0463ff3f2','6c8b7c820eec889d0a4c4e09b2cea5b70f0c7a1a4b851f82230406fcede00d5b','58a06b823ca1e0efdcff2017c079b9f791d8968c402376aec8c4966e906dd816','c622728db887ed2ebd1d03781283316902559931e27743e9c8b73d0dc0dfce86'])
    expect(matchChances(ev,header,old)).toBeNull();
   expect(matchChances(ev,header,'5a4f09a2416f6e4df321ed1387b3d157761371cb56aec13c35319dfd50089aeb')).toBeNull();

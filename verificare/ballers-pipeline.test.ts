@@ -28,7 +28,6 @@ describe('official computation → compact replay v2',()=>{
  // result is byte-identical (block Q / F on the lab), so 4257 holds again. The release build c622728d adds only the plan switch's 'always'
  // condition (no switch here), so 4257 holds. Styles as identities 47b95519: side aa is named Balanced, whose trait is
  // zero, and bb's pair is no style's base (no trait); only a Short side changes (lab: every task without one identical), so 4257 holds.
- // Showcase injuries f3d6df87: an opt-in input key this match does not carry (lab: 256/256 tasks identical), so 4257 holds.
  const SEED=4257,inp=input(120,SEED);const c=computeMatch(validateInput(inp));const sub=submission(c,inp);
  const unpack=(b64:string)=>JSON.parse(gunzipSync(Buffer.from(b64,'base64')).toString());
  it('is deterministic for the same frozen input',()=>{
