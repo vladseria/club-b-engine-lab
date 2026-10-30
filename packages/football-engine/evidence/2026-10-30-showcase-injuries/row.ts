@@ -10,7 +10,7 @@
 // nothing. Exposure is what tunes the rate (expected injuries are linear in TACKLE_RISK and FATIGUE_RISK); the
 // realised injuries confirm it.
 import {runMatch,createSimulationRequest,ENGINE_BUILD} from '../../src/index';
-import {Injuries,HARD_TACKLE,TIRED_TACKLE,HIT_REF,FATIGUE_FROM,FATIGUE_SPAN} from '../../src/practice-injuries';
+import {Injuries,TIRED_TACKLE,HIT_REF,FATIGUE_FROM,FATIGUE_SPAN} from '../../src/practice-injuries';
 import {engineTeam,sideOrders} from '../../../../lib/ballers/compute';
 import {bebeSide,guestSide} from './sides';
 
@@ -18,19 +18,19 @@ export function init(_d:any){}
 let DRY=false;export function setDry(v:boolean){DRY=v;}
 
 // Exposure per side, each part per unit of its constant (practice-injuries.ts), so expected injuries are
-// TACKLE_RISK x tb + TACKLE_HIT x th (below the cap) and FATIGUE_RISK x f: tb = the challenges' multipliers (hard x tired
-// x age), th = the same x hit / HIT_REF, hard = the share of tackle risk from floored men (at the run's constants),
-// t / f = the risk the run's constants gave, nt / nf the rolls.
-type Exp={t:number;tb:number;th:number;hard:number;f:number;fu:number;nt:number;nf:number};type Con={n:number;hard:number;hit:number};
+// TACKLE_RISK x tb + TACKLE_HIT x th + TACKLE_HARD x tk (below the cap) and FATIGUE_RISK x fu: tb = the challenges'
+// multipliers (tired x age), th = the same x hit / HIT_REF, tk = the same for hard ones (floored or a foul); t / f = the
+// risk the run's constants gave, hard = the part of t from hard tackles, nt / nf the rolls.
+type Exp={t:number;tb:number;th:number;tk:number;hard:number;f:number;fu:number;nt:number;nf:number};type Con={n:number;hard:number;fouls:number;hit:number};
 let EXP:[Exp,Exp],CON:[Con,Con];
-const zero=():Exp=>({t:0,tb:0,th:0,hard:0,f:0,fu:0,nt:0,nf:0});
-const blank=()=>{EXP=[zero(),zero()];CON=[{n:0,hard:0,hit:0},{n:0,hard:0,hit:0}];};blank();
+const zero=():Exp=>({t:0,tb:0,th:0,tk:0,hard:0,f:0,fu:0,nt:0,nf:0});
+const blank=()=>{EXP=[zero(),zero()];CON=[{n:0,hard:0,fouls:0,hit:0},{n:0,hard:0,fouls:0,hit:0}];};blank();
 const proto=Injuries.prototype as any,roll=proto.roll,contact=proto.contact,fatigue=proto.fatigue;
-proto.contact=function(p:any,b:any,by:any,time:number){
- const c=CON[p.side as 0|1];c.n++;if(b.down>0)c.hard++;c.hit+=Math.max(0,b.hit);
- if(!this.hurt.has(p.id)){const e=EXP[p.side as 0|1],m=(b.down>0?HARD_TACKLE:1)*(1+TIRED_TACKLE*(1-Math.max(0,Math.min(100,p.energy))/100))*this.ageFactor(p.id);
-  e.tb+=m;e.th+=m*Math.max(0,b.hit)/HIT_REF;this.__hard=b.down>0;}
- return contact.call(this,p,b,by,time);
+proto.contact=function(p:any,b:any,by:any,time:number,foul=false){
+ const c=CON[p.side as 0|1],hard=b.down>0||foul;c.n++;if(hard)c.hard++;if(foul)c.fouls++;c.hit+=Math.max(0,b.hit);
+ if(!this.hurt.has(p.id)){const e=EXP[p.side as 0|1],m=(1+TIRED_TACKLE*(1-Math.max(0,Math.min(100,p.energy))/100))*this.ageFactor(p.id);
+  e.tb+=m;e.th+=m*Math.max(0,b.hit)/HIT_REF;if(hard)e.tk+=m;this.__hard=hard;}
+ return contact.call(this,p,b,by,time,foul);
 };
 proto.fatigue=function(p:any,time:number){
  if(!this.hurt.has(p.id)){const u=(FATIGUE_FROM-p.energy)/FATIGUE_SPAN;if(u>0)EXP[p.side as 0|1].fu+=u*u*this.ageFactor(p.id);}

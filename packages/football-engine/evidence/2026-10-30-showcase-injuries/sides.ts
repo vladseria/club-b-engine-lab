@@ -45,23 +45,25 @@ export function bebeSide(){
 export interface Profile {name:string;placeholder?:boolean;story:string;style:keyof typeof PRESETS;formation:'1-2-1'|'2-2'|'2-1-1';
  approach?:Record<string,string|number>;level:number;age:number;delta:Partial<Record<Group,Delta>>;traits?:Record<string,number>}
 /** The guest sides (DESIGN §10). `level`: added to every group mean (F.C. Bebe Power's outfielders sit about +0.45
- * above the league's means, its keepers +0.7); `delta`: the gimmick, per group (OUT = every outfield group). */
+ * above the league's means, its keepers +0.7); `delta`: the gimmick, per group (OUT = every outfield group).
+ * Round 1 (levels 0.5-1.0) left Bebe topping the group 79% of the time: round 2 raised every level by about the goal
+ * difference Bebe had over the side (lab-s1 -> lab-s2). */
 export const PROFILES:Record<string,Profile&{delta:Partial<Record<Group|'OUT',Delta>>}>={
- greucenii:{name:'Greucenii',story:'Sumo wrestlers: strength and aerial, no pace.',style:'direct',formation:'2-1-1',level:.5,age:30,
+ greucenii:{name:'Greucenii',story:'Sumo wrestlers: strength and aerial, no pace.',style:'direct',formation:'2-1-1',level:2,age:30,
   delta:{OUT:{strength:3,aerial:2.5,pace:-3,control:-1,stamina:-.5},GK:{strength:2,aerial:2,pace:-2}},traits:{engagement:.6}},
- realOffshore:{name:'Real Offshore',story:'The oligarch and his bodyguards: one terrible player always plays.',style:'balanced',formation:'1-2-1',level:1,age:36,
+ realOffshore:{name:'Real Offshore',story:'The oligarch and his bodyguards: one terrible player always plays.',style:'balanced',formation:'1-2-1',level:2,age:36,
   delta:{OUT:{strength:3,defending:2,reading:.5,control:-2,passing:-1.5,finishing:-1,pace:-1}}},
- interEst:{name:'Inter Est',story:'Accountants: perfect positioning, zero flair.',style:'balanced',formation:'2-2',level:.6,age:42,approach:{press:'selective'},
+ interEst:{name:'Inter Est',story:'Accountants: perfect positioning, zero flair.',style:'balanced',formation:'2-2',level:1.5,age:42,approach:{press:'selective'},
   delta:{OUT:{reading:3,defending:1.5,passing:1,control:-.5,finishing:-1.5,pace:-1,setPieces:-1,strength:-1}},traits:{discipline:.95,dribble:.08,risk:.12,audacity:.1,runs:.3}},
- sangeRece:{name:'Sânge Rece',story:'Vampires: quick early, fade fast.',style:'counter',formation:'1-2-1',level:.6,age:28,approach:{press:'aggressive'},
+ sangeRece:{name:'Sânge Rece',story:'Vampires: quick early, fade fast.',style:'counter',formation:'1-2-1',level:0.8,age:28,approach:{press:'aggressive'},
   delta:{OUT:{pace:3,stamina:-3.5,strength:.5,control:.5,aerial:-.5}},traits:{engagement:.75}},
- lemneVerzi:{name:'Lemne Verzi',story:'Lumberjacks: strength, long balls.',style:'direct',formation:'2-1-1',level:.6,age:34,
+ lemneVerzi:{name:'Lemne Verzi',story:'Lumberjacks: strength, long balls.',style:'direct',formation:'2-1-1',level:1.6,age:34,
   delta:{OUT:{strength:2.5,aerial:1.5,stamina:1,control:-1.5,passing:-1.5,pace:-1,reading:-1}}},
- cirque:{name:'Cirque du Sorin',story:'A circus troupe: dribbling and control, cannot defend.',style:'combinations',formation:'1-2-1',level:.6,age:27,
+ cirque:{name:'Cirque du Sorin',story:'A circus troupe: dribbling and control, cannot defend.',style:'combinations',formation:'1-2-1',level:1.5,age:27,
   delta:{OUT:{control:3,passing:1,pace:.5,defending:-3,reading:-1,strength:-1.5}},traits:{dribble:.85,audacity:.9,risk:.85}},
- postmen:{name:'(postmen, name to come)',placeholder:true,story:'Retired postmen: stamina and passing.',style:'balanced',formation:'2-2',level:.5,age:58,
+ postmen:{name:'(postmen, name to come)',placeholder:true,story:'Retired postmen: stamina and passing.',style:'balanced',formation:'2-2',level:1.8,age:58,
   delta:{OUT:{stamina:3,passing:2,pace:-2.5,finishing:-1,strength:-1,aerial:-.5}}},
- pirates:{name:'(pirates, name to come)',placeholder:true,story:'Pirates: tackle everything.',style:'counter',formation:'2-2',level:.6,age:34,approach:{press:'aggressive',onLoss:'counterpress'},
+ pirates:{name:'(pirates, name to come)',placeholder:true,story:'Pirates: tackle everything.',style:'counter',formation:'2-2',level:1.4,age:34,approach:{press:'aggressive',onLoss:'counterpress'},
   delta:{OUT:{defending:2,strength:2,aerial:.5,passing:-2,control:-1.5,reading:-1}},traits:{engagement:.95,discipline:.3}},
 };
 const SKILLS=['pace','aerial','control','passing','reading','stamina','strength','defending','finishing','setPieces'] as const;

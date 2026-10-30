@@ -11,8 +11,8 @@ import type {Fixture,Player,Role,Side,Team} from './model.js';
  * - a TACKLE INCIDENT: every challenge the engine resolves on a man (a standing tackle that wins the ball, is a foul
  *   or is ridden; a defender's foot at his reception, nicked or a foul; a foul in the air; a man barged as he loses
  *   the ball): the man challenged is rolled, never the tackler. A small risk for any challenge, more for the hit that
- *   went into him (practice-balance: m/s), several times over when it put him on the floor (a hard tackle), and as
- *   he tires;
+ *   went into him (practice-balance: m/s), much more for a HARD tackle (it put him on the floor, or it was a foul),
+ *   all of it higher as he tires;
  * - FATIGUE: once a second of live play, a small risk that grows with the square of what he has spent below
  *   FATIGUE_FROM energy (it matters mostly late in a match, under about 80).
  * An age past AGE_FROM (only when the input gives ages) raises both. A man is rolled until he is hurt once.
@@ -28,7 +28,7 @@ export interface InjuryRecord {
  /** Match second (engine clock) of the hit or the roll. */ time:number;
  /** Practice id ('<side>:<squad id>'). */ player:string;side:Side;cause:InjuryCause;
  /** Tackle: the opponent who hit him (practice id). */ by?:string;
- /** Tackle: the hit put him on the floor. Fatigue: false. */ hard:boolean;
+ /** Tackle: a hard one (it put him on the floor, or it was a foul). Fatigue: false. */ hard:boolean;
  /** His energy then (0-100, one decimal). */ energy:number;
  /** Matches out, 1-6. */ matches:number;
  /** When he went off (the forced change). Absent when he never did (hurt in the last attack after full time). */ off?:number;
@@ -41,16 +41,15 @@ export interface InjuryMark {cause:InjuryCause;hard?:boolean;matches:number;ener
 /** Salt of the injury stream (xor-ed with the seed and the input's salt). */
 export const INJURY_SALT=0x1c3a9e57;
 /** A tackle incident's risk, rested, no age factor: TACKLE_RISK for any challenge, plus TACKLE_HIT per HIT_REF m/s
- * of hit that went into him (a challenge that met only the ball, or that he rode, carries the first part alone; a
- * 3 m/s knock is TACKLE_HIT / TACKLE_RISK + 1 times riskier). Tuned on the public lab (contracts/ENGINE.md §6). */
-export const TACKLE_RISK=0.002,TACKLE_HIT=0.02,HIT_REF=3;
-/** The hit put him on the floor: the risk is HARD_TACKLE times higher (and severity skews longer). */
-export const HARD_TACKLE=3;
-/** Tired legs: a contact's risk x (1 + TIRED_TACKLE x (1 - energy / 100)): x1.6 at energy 70. */
+ * of hit that went into him (a challenge that met only the ball, or that he rode, carries the first part alone),
+ * plus TACKLE_HARD for a hard tackle (it floored him, or it was a foul; severity then skews longer). Tuned on the
+ * public lab (contracts/ENGINE.md §6). */
+export const TACKLE_RISK=0.00174,TACKLE_HIT=0.0146,HIT_REF=3,TACKLE_HARD=0.04;
+/** Tired legs: a tackle incident's risk x (1 + TIRED_TACKLE x (1 - energy / 100)): x1.6 at energy 70. */
 export const TIRED_TACKLE=2;
 /** Fatigue: per second of live play, FATIGUE_RISK x u^2 with u = (FATIGUE_FROM - energy) / FATIGUE_SPAN (0 when
  * fresher than FATIGUE_FROM). Tuned on the public lab (contracts/ENGINE.md §6). */
-export const FATIGUE_RISK=0.0001,FATIGUE_FROM=100,FATIGUE_SPAN=30;
+export const FATIGUE_RISK=0.000213,FATIGUE_FROM=100,FATIGUE_SPAN=30;
 /** Age: x (1 + AGE_PER per year past AGE_FROM), for both causes. */
 export const AGE_FROM=28,AGE_PER=0.05;
 /** No single roll is surer than this. */
@@ -108,11 +107,12 @@ export class Injuries {
   this.hurt.add(p.id);this.records.push(r);this.waiting.push(r);this.fresh.push(r);return r;
  }
  /** A tackle incident on `p`: the hit that went into him (practice-balance Balance.hit, m/s; 0 for none), `down` > 0
-  * when it put him on the floor; `by`: the man who made the challenge. */
- contact(p:Body,b:{hit:number;down:number},by:{id:string}|undefined,time:number):void{
+  * when it put him on the floor, `foul` when the referee gave it; `by`: the man who made the challenge. */
+ contact(p:Body,b:{hit:number;down:number},by:{id:string}|undefined,time:number,foul=false):void{
   if(this.hurt.has(p.id))return;
-  const risk=Math.min(RISK_CAP,(TACKLE_RISK+TACKLE_HIT*Math.max(0,b.hit)/HIT_REF)*(b.down>0?HARD_TACKLE:1)*(1+TIRED_TACKLE*(1-Math.max(0,Math.min(100,p.energy))/100))*this.ageFactor(p.id));
-  if(this.roll('tackle',p.side,risk))this.injure(p,'tackle',time,b.down>0,by?.id);
+  const hard=b.down>0||foul;
+  const risk=Math.min(RISK_CAP,(TACKLE_RISK+TACKLE_HIT*Math.max(0,b.hit)/HIT_REF+(hard?TACKLE_HARD:0))*(1+TIRED_TACKLE*(1-Math.max(0,Math.min(100,p.energy))/100))*this.ageFactor(p.id));
+  if(this.roll('tackle',p.side,risk))this.injure(p,'tackle',time,hard,by?.id);
  }
  /** One second of live play for `p`. */
  fatigue(p:Body,time:number):void{

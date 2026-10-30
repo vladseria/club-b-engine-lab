@@ -103,7 +103,9 @@ test('the dice: a fresh man runs no fatigue risk, a hit makes a challenge riskie
  assert.equal(inj.records.filter(r=>r.player==='0:c').length,1,'hurt once, never again');
  const count=(b)=>{const x=new Injuries({on:true,salt:9},4);for(let i=0;i<4000;i++)x.contact({id:`0:${i}`,side:0,energy:80},b,{id:'1:b'},i);return x.records;};
  const poke=count({hit:0,down:0}),knock=count({hit:6,down:0}),floored=count({hit:6,down:1});
- assert(poke.length>0&&knock.length>3*poke.length&&floored.length>2*knock.length,`ball only ${poke.length}, a 6 m/s knock ${knock.length}, floored ${floored.length}`);
+ const fouled=(()=>{const x=new Injuries({on:true,salt:9},4);for(let i=0;i<4000;i++)x.contact({id:`0:${i}`,side:0,energy:80},{hit:0,down:0},{id:'1:b'},i,true);return x.records;})();
+ assert(poke.length>0&&knock.length>3*poke.length&&floored.length>knock.length&&fouled.length>3*poke.length,`ball only ${poke.length}, a 6 m/s knock ${knock.length}, floored ${floored.length}, a foul ${fouled.length}`);
+ assert(fouled.every(r=>r.hard),'a foul is a hard tackle');
  assert(floored.every(r=>Number.isInteger(r.matches)&&r.matches>=1&&r.matches<=6&&r.hard&&r.cause==='tackle'&&r.by==='1:b'));
  assert(poke.every(r=>!r.hard));
 });

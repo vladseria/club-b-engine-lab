@@ -1590,7 +1590,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
     const note=(victim:Balance|null,own:Balance)=>Object.assign(events.at(-1)!,{balance:{hit:Math.round(hit*100)/100,victim:victim&&{challenge:Math.round(victim.challenge*100)/100,touch:Math.round(victim.touch*100)/100,down:Math.round(victim.down*100)/100},tackler:{challenge:Math.round(own.challenge*100)/100,down:Math.round(own.down*100)/100}}});
     if(foul){stats[d.side].fouls++;const type=foulRestartFor(p.side,touch.spot);say('foul',type==='penalty'?`${d.name} îl agață pe ${p.name}, în careu. Penalty!`:`${d.name} îl agață pe ${p.name}. Fluier — mingea rămâne la ${f.teams[p.side].name}.`,d,p);Object.assign(events.at(-1)!,{challengeContact:touch});
      const victim=struck(p,hit,hit>0?balanceDraw():1),own=tackler(true);note(victim,own);if(victim.down)events.at(-1)!.text+=` ${p.name} rămâne jos.`;
-     if(inj)inj.contact(p,victim,d,time);
+     if(inj)inj.contact(p,victim,d,time,true);
      startRestart(type,p.side,touch.spot);unbalance(p,victim,d.id);unbalance(d,own,p.id);}
     else if(reachable&&!screened&&time>=(wrongfoot.get(d.id)?.until??0)&&execution()<duelChance(p,d,sidePlayers(d.side).filter(q=>q.id!==d.id&&dist(q,p)<6).length)){
      stats[d.side].tacklesWon++;
@@ -1776,7 +1776,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
      if(contest&&duel&&duel.outcome==='foul'){
       const fouler=duel.fouler!,victim=duel.winner,spot={x:ball.x,y:ball.y},type=foulRestartFor(victim.side,spot);stats[fouler.side].fouls++;
       say('foul',type==='penalty'?`${fouler.name} sare prin spatele lui ${victim.name} în duelul aerian, în careu. Penalty!`:`${fouler.name} sare prin spatele lui ${victim.name} în duelul aerian. Fault.`,fouler,victim);
-      noteDuel('foul');if(inj)inj.contact(victim,{hit:0,down:0},fouler,time);startRestart(type,victim.side,spot);
+      noteDuel('foul');if(inj)inj.contact(victim,{hit:0,down:0},fouler,time,true);startRestart(type,victim.side,spot);
      }else if(contest&&duel&&(duel.winner!==p||duel.outcome==='knock')||hit.challenge){
       // the winner of the contest, or a defender who attacked the ball and got to it with nobody on him
       const w:AirMan=contest&&duel?(duel.winner===p?contest.toucher:contest.challenger):{p,body:{x:old.get(p.id)!.x+(p.x-old.get(p.id)!.x)*hit.t,y:old.get(p.id)!.y+(p.y-old.get(p.id)!.y)*hit.t},velocity:{x:p.vx,y:p.vy},first:true};
@@ -1899,7 +1899,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
        if(duel.outcome==='foul'){
         stats[duelist.side].fouls++;const spot={x:body.x,y:body.y},type=foulRestartFor(p.side,spot);
         say('foul',type==='penalty'?`${duelist.name} intră prin ${p.name} la preluare, în careu. Penalty!`:`${duelist.name} intră prin ${p.name} la preluare. Fluier — mingea rămâne la ${f.teams[p.side].name}.`,duelist,p);
-        if(inj)inj.contact(p,{hit:0,down:0},duelist,time);
+        if(inj)inj.contact(p,{hit:0,down:0},duelist,time,true);
         startRestart(type,p.side,spot);
        }else{
         // his foot gets there first: on it (it stays with him) or poked away from the receiver
