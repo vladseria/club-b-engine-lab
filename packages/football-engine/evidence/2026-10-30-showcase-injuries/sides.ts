@@ -16,6 +16,7 @@
 // engine (only the replay header marks him).
 import {PRESETS} from '../../../../lib/ballers/league';
 import {MEAN,TRAITS} from '../2026-10-19-engine-audits/squads';
+import {halfTimeOrders} from '../2026-11-01-showcase-subs/orders';
 
 type Skills=Record<'pace'|'aerial'|'control'|'passing'|'reading'|'stamina'|'strength'|'defending'|'finishing'|'setPieces'|'keeping',number>;
 type Group='GK'|'DEF'|'MID'|'ST';
@@ -84,8 +85,10 @@ function guestPlayer(key:string,p:Profile&{delta:any},i:number,g:Group,roles:str
  const traits={...TRAITS[g],...(g==='GK'?{}:p.traits??{})};
  return frozen({id:`${key.slice(0,3)}${i+1}`,name:`${p.name} ${i+1}`,short:`${key.slice(0,3)}${i+1}`,roles,skills,traits},i+1);
 }
-/** A guest side as a frozen side, its ages, and its subs (three "tired" orders on its outfield starters, as Bebe's). */
-export function guestSide(key:string){
+/** A guest side as a frozen side, its ages, and its subs. `orders`: 'half-time' (default; the SQL guest side since 1 Nov,
+ * ../2026-11-01-showcase-subs): the first two subs when their man tires, not before half-time, the third if losing, not
+ * before 12:00; 'tired3' (what the 30 Oct - 1 Nov runs played): three "tired" orders on its outfield starters. */
+export function guestSide(key:string,orders:'half-time'|'tired3'='half-time'){
  const p=PROFILES[key];if(!p)throw Error('unknown profile '+key);
  const slots=[...SLOTS[p.formation],...BENCH],players=slots.map(([g,roles],i)=>guestPlayer(key,p,i,g,roles));
  const ages:Record<string,number>=Object.fromEntries(players.map(q=>[q.id,p.age]));
@@ -97,8 +100,9 @@ export function guestSide(key:string){
  const ids=players.map(q=>q.id),lineup=ids.slice(0,5),bench=ids.slice(5);
  // each outfield sub replaces a starter of his own group where one is left (the oligarch is never replaced)
  const open=[1,2,3,4].filter(i=>!(key==='realOffshore'&&i===4)),groupOf=(i:number)=>slots[i][0];
- const substitutions=[0,1,2].map(k=>{const g=groupOf(5+k),at=open.find(i=>groupOf(i)===g)??open[0];open.splice(open.indexOf(at),1);
+ const tired3=[0,1,2].map(k=>{const g=groupOf(5+k),at=open.find(i=>groupOf(i)===g)??open[0];open.splice(open.indexOf(at),1);
   return {id:`g${k}`,in:bench[k],trigger:{kind:'tired',player:lineup[at],threshold:95}};});
+ const substitutions=orders==='tired3'?tired3:halfTimeOrders(tired3);
  const approach={...(PRESETS as any)[p.style],...(p.approach??{})};
  return {side:{club:{id:key,name:p.name,code:key.slice(0,3).toUpperCase(),color:'#666666'},formation:p.formation,style:p.style,approach,captain:key==='realOffshore'?lineup[4]:lineup[1],lineup,bench,players,plans:[],substitutions},ages};
 }

@@ -31,7 +31,7 @@ const r4=(n:number)=>Math.round(n*1e4)/1e4,r2=(n:number)=>Math.round(n*100)/100;
 
 export function play(task:any){
  EXP=[zero(),zero()];
- const bebe=bebeSide(),guest=guestSide(task.profile),home=task.home as boolean;
+ const bebe=bebeSide(),guest=guestSide(task.profile,'tired3'),home=task.home as boolean;
  const sides=home?[bebe.side,guest.side]:[guest.side,bebe.side],ages=home?[bebe.ages,guest.ages]:[guest.ages,bebe.ages];
  const input={v:1,match:task.id,seed:task.seed,kickoff:task.kickoff,duration:900,sides} as any;
  const teams=input.sides.map((s:any)=>engineTeam(s)) as any,subs=sideOrders(input,teams);
