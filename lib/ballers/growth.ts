@@ -126,7 +126,9 @@ export const markWords=(m:{mark:number;against:Pick<Club,'name'>|null})=>{const 
 // ------------------------------------------------------------------ what grew after the last round (STAGE-1.md §6)
 export type GrowthLine=
  |{kind:'up';player:Player;skill:SkillKey;from:number;to:number;mentor:Player|null;
-   /** The mark that bent this growth and whom it came against, your own players only, when it bent it. */ mark:{mark:number;against:Club|null}|null}
+   /** The mark that bent this growth and whom it came against (a club, or a guest side at Bebe's), your own players
+    * only, when it bent it. */ mark:{mark:number;against:Pick<Club,'name'>|null}|null;
+   /** It grew at Bebe's showcase, not in a league round (ballers_showcase_growth; components/ballers/showcase/growth.ts). */ bebe?:true}
  |{kind:'fade';player:Player;skill:SkillKey;from:number;to:number};
 /** What ballers_growth_after returns for a club. */
 export interface GrowthAfter {round:number|null;roundId:string;appliedAt:string;played:number;grew:number;
@@ -135,11 +137,12 @@ export interface GrowthAfter {round:number|null;roundId:string;appliedAt:string;
   /** His mark that match and the club it came against (migration 20261021200000): only on your own club's lines, and
    * only when the mark bent his growth (the rule on, a mark other than 6.0). Absent otherwise. */ mark?:number|null;against?:string|null}[]}
 export interface RoundGrowth {round:number|null;key:string;lines:GrowthLine[];closer:number;played:number;
- /** Distinct players with a line that went up. */ grew:number}
+ /** Distinct players with a line that went up. */ grew:number;
+ /** The round the door answered for and when its growth landed (absent on the dev sample). */ roundId?:string;appliedAt?:string}
 /** The ledger's lines as the board draws them: players found in the league (anyone gone is left out).
  * "Others moved closer": the door's `moved` (who gained progress without ticking), else the men who
  * played with no line that went up. */
-export function roundGrowthOf(a:GrowthAfter|null,players:Player[],clubs:readonly Club[]=[]):RoundGrowth|null{
+export function roundGrowthOf(a:GrowthAfter|null,players:Player[],clubs:readonly Pick<Club,'id'|'name'>[]=[]):RoundGrowth|null{
  if(!a||!a.roundId)return null;
  const byId=new Map(players.map(p=>[p.id,p]));
  const markOf=(l:GrowthAfter['lines'][number])=>typeof l.mark==='number'&&Number.isFinite(l.mark)?{mark:l.mark,against:clubs.find(c=>c.id===l.against)??null}:null;
@@ -151,7 +154,7 @@ export function roundGrowthOf(a:GrowthAfter|null,players:Player[],clubs:readonly
  }
  const grew=new Set(lines.filter(l=>l.kind==='up').map(l=>l.player.id)).size;
  return {round:a.round,key:`${a.roundId}:${a.appliedAt}`,lines,grew,played:a.played??0,
-  closer:typeof a.moved==='number'?a.moved:Math.max(0,(a.played??0)-grew)};
+  closer:typeof a.moved==='number'?a.moved:Math.max(0,(a.played??0)-grew),roundId:a.roundId,appliedAt:a.appliedAt};
 }
 
 // ------------------------------------------------------------------ memory (real facts from stored lines; STAGE-1.md §5)
