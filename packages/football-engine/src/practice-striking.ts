@@ -65,7 +65,8 @@ export function fitStrikeToStance(p:PracticePlayer,ball:Vec,aim:Vec,velocity:{vx
 }
 
 export function strikePowerLimit(p:PracticePlayer,ball:Vec,aim:Vec,kind:StrikeKind='pass'){
- const normal=kind==='shot'?BALL_KICK_SHOT_BASE+p.skills.finishing*BALL_KICK_SHOT_PER:kind==='clearance'?BALL_KICK_CLEAR_BASE+p.skills.strength*BALL_KICK_CLEAR_PER:(BALL_KICK_PASS_BASE+clamp(p.skills.strength,0,10)*BALL_KICK_PASS_PER)*(BALL_KICK_PASS_TIRED_FLOOR+BALL_KICK_PASS_TIRED_SHARE*p.energy/100);
+ // (player match-states, practice-states.ts) a state's strike power (form.strike; absent = 1)
+ const normal=(kind==='shot'?BALL_KICK_SHOT_BASE+p.skills.finishing*BALL_KICK_SHOT_PER:kind==='clearance'?BALL_KICK_CLEAR_BASE+p.skills.strength*BALL_KICK_CLEAR_PER:(BALL_KICK_PASS_BASE+clamp(p.skills.strength,0,10)*BALL_KICK_PASS_PER)*(BALL_KICK_PASS_TIRED_FLOOR+BALL_KICK_PASS_TIRED_SHARE*p.energy/100))*(p.form?.strike??1);
  return normal*strikeStance(p,ball,aim,kind).powerScale;
 }
 

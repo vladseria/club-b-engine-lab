@@ -70,7 +70,7 @@ function launchRisk(ball:MovingBall,opponents:PracticePlayer[]):number{
 
 /** Compare flight shapes and meeting points along the same visible run. */
 export function loftCandidates(p:PracticePlayer,q:PracticePlayer,run:PassRun|undefined,from:Vec=p,opponents:PracticePlayer[]=[],space?:ReceivingSpace):LoftPass[]{
- const initial=distance(from,q),power=(BALL_LOFT_POWER_BASE+clamp(p.skills.strength,0,10)*BALL_LOFT_POWER_PER)*(BALL_LOFT_TIRED_FLOOR+BALL_LOFT_TIRED_SHARE*p.energy/100);
+ const initial=distance(from,q),power=(BALL_LOFT_POWER_BASE+clamp(p.skills.strength,0,10)*BALL_LOFT_POWER_PER)*(BALL_LOFT_TIRED_FLOOR+BALL_LOFT_TIRED_SHARE*p.energy/100)*(p.form?.strike??1);
  const assess=(kind:'chip'|'loft',flight:number,aim:Vec,arrivalHeight=BALL_LOFT_ARRIVAL_HEIGHT):LoftPass=>{
   const length=distance(from,aim),speed=length/flight+PASS_DRAG*(flight-STEP)/2;
   // Aim to arrive low on the descending side; include the runtime's Euler-step gravity.

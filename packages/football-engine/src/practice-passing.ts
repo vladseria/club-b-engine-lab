@@ -299,7 +299,7 @@ export function readDelivery(p:PracticePlayer,q:PracticePlayer,aim:Vec,players:P
  const next={connectionGain:connection.gain,connectionTarget:connection.target,continuation:connection.continuation};
  const opponents=players.filter(d=>d.side!==p.side&&d.role!=='GK');
  const value=(player:PracticePlayer,context:PracticePlayer[])=>{
-  const shot=assessShot(player,context),blocked=laneRisk(player,shot.aim,opponents,BALL_KICK_SHOT_BASE+player.skills.finishing*BALL_KICK_SHOT_PER);
+  const shot=assessShot(player,context),blocked=laneRisk(player,shot.aim,opponents,(BALL_KICK_SHOT_BASE+player.skills.finishing*BALL_KICK_SHOT_PER)*(player.form?.strike??1));
   return shot.quality*(1-blocked)*(.65+clamp(player.skills.finishing/10,0,1)*.35);
  };
  // R3 P2: when the carrier himself has a shot on, a pass that lowers the

@@ -96,7 +96,7 @@ export function assessFreeKick(p:PracticePlayer,players:PracticePlayer[],spot:Ve
  const opponents=players.filter(q=>q.side!==p.side),keeper=opponents.find(q=>q.role==='GK');
  const technique=clamp((p.skills.setPieces*.65+p.skills.finishing*.35)/10,0,1);
  const deviation=ERROR_FREE_KICK_BASE+(1-technique)*ERROR_FREE_KICK_TECHNIQUE+(1-p.energy/100)*ERROR_FREE_KICK_TIRED;
- const power=(BALL_FREE_KICK_POWER_BASE+p.skills.strength*BALL_FREE_KICK_POWER_STRENGTH+p.skills.finishing*BALL_FREE_KICK_POWER_FINISHING)*(BALL_FREE_KICK_TIRED_FLOOR+BALL_FREE_KICK_TIRED_SHARE*p.energy/100);
+ const power=(BALL_FREE_KICK_POWER_BASE+p.skills.strength*BALL_FREE_KICK_POWER_STRENGTH+p.skills.finishing*BALL_FREE_KICK_POWER_FINISHING)*(BALL_FREE_KICK_TIRED_FLOOR+BALL_FREE_KICK_TIRED_SHARE*p.energy/100)*(p.form?.strike??1);
  let best:DirectFreeKickPlan|null=null,bestValue=-Infinity;
  for(const y of [-2.7,-1.4,0,1.4,2.7].map(G))for(const speed of [power,power*BALL_FREE_KICK_SOFT_SHARE]){
   const aim={x:goalX,y},dx=goalX-spot.x,dy=y-spot.y,d=Math.hypot(dx,dy),flight=flightTime(d,speed);

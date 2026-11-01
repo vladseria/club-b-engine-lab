@@ -48,7 +48,7 @@ export function expectedPassFlight(length:number):number{
 export const expectedPassSpeed=(length:number)=>length>0?length/expectedPassFlight(length):PASS_DRAG;
 export interface FlightSample extends Vec {time:number;z:number;vx:number;vy:number;vz:number}
 export interface FlightMeeting {aim:Vec;time:number;reachable:boolean;gap:number}
-export type FlightPlayer=Omit<MovingPlayer,'side'|'role'> & Partial<Pick<MovingPlayer,'side'|'role'>> & {skills?:{reading:number;keeping:number}};
+export type FlightPlayer=Omit<MovingPlayer,'side'|'role'> & Partial<Pick<MovingPlayer,'side'|'role'>> & {skills?:{reading:number;keeping:number};/** (player match-states) a keeper's reach factor while a state holds. */form?:{reach:number}};
 
 /** Mutates one free-ball tick; forecasts and the live ball share this integrator. */
 export function advanceFlight(ball:MovingBall,dt=STEP):MovingBall {
@@ -86,7 +86,7 @@ const handsAt=(p:FlightPlayer,point:Vec)=>p.role==='GK'&&p.side!==undefined&&poi
 const footReach={height:WORLD.body.reach.footReach.height.v,radius:WORLD.body.reach.footReach.radius.v},handReach={height:WORLD.body.reach.handReach.height.v,radius:WORLD.body.reach.handReach.radius.v};
 const reachAt=(p:FlightPlayer,point:Vec,time=0,ball?:MovingBall)=>{
  if(!handsAt(p,point))return footReach;
- if(p.skills&&p.side!==undefined&&ball&&goalBoundFlight({x:p.x,y:p.y,side:p.side},{...ball,...point}))return {height:BODY_REACH_HAND_REACH_HEIGHT,radius:keeperReach({skills:p.skills},time)};
+ if(p.skills&&p.side!==undefined&&ball&&goalBoundFlight({x:p.x,y:p.y,side:p.side},{...ball,...point}))return {height:BODY_REACH_HAND_REACH_HEIGHT,radius:keeperReach({skills:p.skills,form:p.form},time)};
  return handReach;
 };
 const onPitch=(p:Vec)=>p.x>=0&&p.x<=L&&Math.abs(p.y)<=W/2;

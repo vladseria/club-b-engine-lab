@@ -76,7 +76,7 @@ export function assessShot(p:PracticePlayer,players:PracticePlayer[]):ShotAssess
  const deviation=ERROR_SHOT_BASE+(1-clamp(p.skills.finishing/10,0,1))*ERROR_SHOT_FINISHING+(1-clamp(p.skills.control/10,0,1))*ERROR_SHOT_CONTROL+pressure*ERROR_SHOT_PRESSURE+running*ERROR_SHOT_RUNNING+(1-p.energy/100)*ERROR_SHOT_TIRED;
  let aim={x:goalX,y:0},best=-Infinity,keeperCoverage=0;
  for(const y of [-2.6,-1.3,0,1.3,2.6].map(G)){
-  const dx=goalX-p.x,dy=y-p.y,d=Math.hypot(dx,dy),flight=d/(BALL_KICK_SHOT_BASE+p.skills.finishing*BALL_KICK_SHOT_PER);
+  const dx=goalX-p.x,dy=y-p.y,d=Math.hypot(dx,dy),flight=d/((BALL_KICK_SHOT_BASE+p.skills.finishing*BALL_KICK_SHOT_PER)*(p.form?.strike??1));
   // Read the visible keeper's coverage at the shot crossing, including a
   // bounded reaction and lateral reach. This is an estimate, not a save roll.
   const k=keeper?(keeper.x-p.x)/(dx||.01):-1;
@@ -110,16 +110,17 @@ const gaussian=(random:()=>number)=>Math.sqrt(-2*Math.log(Math.max(1e-9,random()
  * softer (placement and pace, never a wilder miss). */
 export function strikeShot(p:PracticePlayer,ball:Vec,assessment:ShotAssessment,random:()=>number,hurry=0,offBalance=0):{vx:number;vy:number;vz:number}{
  const angle=Math.atan2(assessment.aim.y-ball.y,assessment.aim.x-ball.x)+gaussian(random)*assessment.deviation;
- const speed=(BALL_KICK_SHOT_BASE+p.skills.finishing*BALL_KICK_SHOT_PER)*(1-HURRIED_SOFT*hurry-OFF_BALANCE_SOFT*offBalance);
+ const speed=(BALL_KICK_SHOT_BASE+p.skills.finishing*BALL_KICK_SHOT_PER)*(p.form?.strike??1)*(1-HURRIED_SOFT*hurry-OFF_BALANCE_SOFT*offBalance);
  return {vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,vz:Math.max(ERROR_SHOT_LIFT_MIN,ERROR_SHOT_LIFT+gaussian(random)*(ERROR_SHOT_LIFT_SPREAD+assessment.pressure*ERROR_SHOT_LIFT_PRESSURE))};
 }
 /** Hands and a timed extension; no teleporting to the destination of a shot. A keeper's edge for this shot
  * (keeperEdge) shortens his reaction and adds reach that is there at once (his stance and spread), not only at full
  * extension. */
-export function keeperReach(p:{skills:Pick<PracticePlayer['skills'],'reading'|'keeping'>},shotAge:number,edge:KeeperEdge=NO_EDGE):number{
+export function keeperReach(p:{skills:Pick<PracticePlayer['skills'],'reading'|'keeping'>;form?:{reach:number}},shotAge:number,edge:KeeperEdge=NO_EDGE):number{
  const reaction=REACTION_KEEPER_BASE+(10-p.skills.reading)*REACTION_KEEPER_PER-edge.reactionCut;
  const extension=clamp((shotAge-reaction)/KEEPER_REACH_EXTENSION_TIME,0,1);
- return KEEPER_REACH_BASE+edge.reachAdd+extension*(KEEPER_REACH_EXTENSION+p.skills.keeping*KEEPER_REACH_EXTENSION_KEEPING);
+ // (player match-states, practice-states.ts) a state's reach (form.reach; absent = 1)
+ return (KEEPER_REACH_BASE+edge.reachAdd+extension*(KEEPER_REACH_EXTENSION+p.skills.keeping*KEEPER_REACH_EXTENSION_KEEPING))*(p.form?.reach??1);
 }
 /** (keeper upgrade, 2026-10-13) A keeper's edge against one shot: a shorter reaction (s) and reach there at once (m).
  * Every keeper gets EDGE_BASE; one SET at the strike (still, facing the ball, at his ready spot) gets up to EDGE_SET

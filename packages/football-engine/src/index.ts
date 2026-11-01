@@ -35,6 +35,8 @@ export {validateTacticsSwitches,MAX_TACTICS_SWITCHES} from './practice-switch.js
 export type {TacticsSwitch,SwitchTrigger,SwitchNote,SwitchRecord} from './practice-switch.js';
 export {validateInjuries,injuryReplacement,SEVERITY as INJURY_SEVERITY} from './practice-injuries.js';
 export type {InjuryInput,InjuryRecord,InjuryCause,InjuryMark} from './practice-injuries.js';
+export {STATE_EFFECTS,INJURED_FORM,INJURED_SKILLS,INJURED_HABITS} from './practice-states.js';
+export type {StateId,StateRecord,StateMark,StateEffect,Form} from './practice-states.js';
 
 interface CommonInput {
  fixture: Fixture;

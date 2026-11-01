@@ -184,7 +184,9 @@ interface EngineFrame {time:number;cut?:boolean;lineup?:number[];players:{x:numb
 interface EngineEvent {time:number;kind:string;text:string;actor?:string;target?:string;side?:0|1;lastTouch?:string;restartKind?:string;firstTime?:boolean;shot?:{aim:{x:number;y:number};origin:{x:number;y:number};assessment?:{quality:number}};technique?:string;freeKick?:unknown;
  substitution?:{order:string;trigger:SubstitutionTrigger;energy:number;score:[number,number]};
  /** Bebe's showcase (contracts/ENGINE.md §3): on the `injury` event and on its forced `substitution`. */
- injury?:{cause:'tackle'|'fatigue';hard?:boolean;matches:number;energy?:number};switch?:{order:string;trigger:SwitchTrigger;score:[number,number];formation?:string;players?:{id:string;role:string;lane:number}[]}}
+ injury?:{cause:'tackle'|'fatigue';hard?:boolean;matches:number;energy?:number};
+ /** A player match-state begins or ends (football-engine practice-states.ts; contracts/ENGINE.md §10). */
+ state?:{id:'injured';on:boolean};switch?:{order:string;trigger:SwitchTrigger;score:[number,number];formation?:string;players?:{id:string;role:string;lane:number}[]}}
 interface EngineSelection {time:number;planId:string|null;name:string;status:string;endedAt?:number;endReason?:string;endDetail?:string;side?:0|1;trace?:{time:number;stepId:string;phase:string;intent?:string;actor?:string;target?:string;responsibility?:string;evidence?:{spaceId?:string}}[]}
 export interface EngineResult {duration:number;played?:number;players:{id:string;side:0|1;role:string}[];frames:EngineFrame[];events:EngineEvent[];stats:[TeamStats,TeamStats];score:[number,number];playbookSelections?:EngineSelection[];substitutionNotes?:SubstitutionNote[];switchNotes?:SwitchNote[];surges?:{side:0|1;regain:number;start:number}[]}
 
@@ -259,6 +261,9 @@ export function compact(input:FrozenInput,r:EngineResult):CompactMatch{
   // never carry `injury`, so their compact is byte-identical.
   if(e.injury){out.ij={c:e.injury.cause,n:e.injury.matches,...(e.injury.hard?{h:1 as const}:{})};
    if(e.kind==='substitution'&&!e.substitution)out.sb={k:'injury'};}
+  // A player match-state (today: a hurt man playing on, Bebe's showcase): which, and whether it ends. League events never
+  // carry `state`, so their compact is byte-identical.
+  if(e.state)out.st={i:e.state.id,...(e.state.on?{}:{e:1 as const})};
   // The plan switch's marker: the trigger and the style now played (never the plan's name).
   if(e.switch&&e.side!==undefined){const t=e.switch.trigger;
    out.sw={k:t.kind,...(t.kind==='score'?{st:t.state}:t.kind==='margin'?{n:t.atLeast,d:t.direction}:{}),y:input.sides[e.side].switch?.to.style??'',
