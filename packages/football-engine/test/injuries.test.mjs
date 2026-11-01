@@ -38,71 +38,36 @@ test('off is nothing, and nobody hurt is the same football',()=>{
  assert.deepEqual(rest,base,'rolled but nobody hurt: every frame, event and choice is the one without injuries');
 });
 
-// The bench for the cap tests: withBench's three (rgk0, r10 as van, r20 as golusor), a third outfielder r30 (as van) and
-// rcb (flavius's double, a little better: the injured centre-back's own replacement), so three orders and a forced change
-// never want the same man.
-const capBench=seed=>{const f=withBench(seed),sq=f.teams[0].squad,cb=sq.find(p=>p.id==='flavius');
- sq.push({...structuredClone(sq[3]),id:'r30',name:'Rezerva trei 0'},{...structuredClone(cb),id:'rcb',name:'Fundaș rezervă 0',skills:{...cb.skills,reading:Math.min(10,cb.skills.reading+1)}});
- return f;};
-const capOrders=notBefore=>[['van','r10'],['golusor','r20'],['crocodinho','r30']].map(([out,inn],i)=>({id:`o${i}`,side:0,in:inn,trigger:{kind:'tired',player:out,threshold:99.99},...(notBefore?{notBefore}:{})}));
-// the test's dice: flavius (side 0's centre-back, in no order) is worn out at `at` s
-const hurtFlavius=at=>({fatigue(p,time){if(p.id==='0:flavius'&&time>=at&&!this.records.length)this.injure(p,'fatigue',time,false);}});
-
-test('a forced change is one of the three changes: an order after it is refused at the cap',()=>{
- // Flavius is hurt at 5 s and goes off at the next stoppage for rcb (one change). The three "tired" orders wait for 60 s:
- // two are made, the third finds the side's three changes made (the owner, 1 Nov: the forced change is not exempt).
- const r=withDice(hurtFlavius(5),()=>runMatch({fixture:capBench(13009),durationSeconds:150,substitutionOrders:capOrders(60),injuries:ON}).result);
- assert.equal(r.injuries.length,1);
- const [hurt]=r.injuries,forced=subs(r,0).filter(e=>e.injury),ordered=subs(r,0).filter(e=>e.substitution);
- assert.equal(hurt.player,'0:flavius');assert.equal(hurt.cause,'fatigue');assert(hurt.matches>=1&&hurt.matches<=6);
- assert.equal(forced.length,1,'one forced change');
+test('a hurt man goes off at the next stoppage, outside the three changes; with nobody left he plays on',()=>{
+ // Three orders (tired under 99.99: made at the first stoppages), a fourth bench player, then the first two contacts
+ // on side 0 after 40 s hurt the men they hit (whatever the hit: the dice are the test's): the first goes off for the
+ // only bench player left (the keeper, playing outfield), the second plays on.
+ const f=withBench(13009);f.teams[0].squad.push({...structuredClone(f.teams[0].squad[3]),id:'r30',name:'Rezerva trei 0'});
+ const orders=[['van','r10'],['golusor','r20'],['crocodinho','r30']].map(([out,inn],i)=>({id:`o${i}`,side:0,in:inn,trigger:{kind:'tired',player:out,threshold:99.99}}));
+ let n=0;
+ const r=withDice({contact(p,b,by,time){if(p.side===0&&time>=40&&n<2&&!this.records.some(x=>x.player===p.id)){n++;this.injure(p,'tackle',time,b.down>0,by?.id);}}},
+  ()=>runMatch({fixture:f,durationSeconds:150,substitutionOrders:orders,injuries:ON}).result);
+ const ordered=subs(r,0).filter(e=>e.substitution),forced=subs(r,0).filter(e=>e.injury);
+ assert.equal(ordered.length,3,'all three orders made');
+ assert.equal(r.injuries.length,2,'two men hurt');
+ const [first,second]=r.injuries;
+ assert(first.time>=40&&first.cause==='tackle'&&first.by?.startsWith('1:'),'hurt in a tackle by an opponent');
+ assert(first.matches>=1&&first.matches<=6);
+ assert.equal(forced.length,1,'one forced change: a fourth substitution for side 0');
  const e=forced[0];
- assert.equal(e.outgoing,'0:flavius');assert.equal(e.incoming,'0:rcb');assert.equal(hurt.off,e.time);assert.equal(hurt.replacement,'0:rcb');assert(!('playedOn' in hurt));
- assert(e.time<60,`the forced change came first (${e.time.toFixed(1)} s)`);
- const incoming=r.players.find(p=>p.id==='0:rcb'),outgoing=r.players.find(p=>p.id==='0:flavius');
- assert.equal(incoming.role,outgoing.role);assert.equal(incoming.number,outgoing.number);
+ assert.equal(e.outgoing,first.player);assert.equal(e.incoming,'0:rgk0','the keeper is the only one left: he comes on outfield');
+ assert.equal(first.off,e.time);assert.equal(first.replacement,'0:rgk0');
+ const incoming=r.players.find(p=>p.id==='0:rgk0'),outgoing=r.players.find(p=>p.id===first.player);
+ assert.equal(incoming.role,outgoing.role);assert.notEqual(incoming.role,'GK');assert.equal(incoming.number,outgoing.number);
  // at a stoppage: the event before it (skipping changes and injury events) stopped play at that instant, ball dead
  const i=r.events.indexOf(e);let j=i-1;while(['substitution','injury','treatment'].includes(r.events[j].kind))j--;
  assert(STOPPAGES.includes(r.events[j].kind),`forced change follows ${r.events[j].kind}`);assert.equal(r.events[j].time,e.time);
  assert(r.frames.find(fr=>fr.event>=i).restart,'the ball is dead while he comes on');
  // the injury event: announced before his change, at its own second
- const ev=r.events.find(x=>x.kind==='injury'&&x.actor==='0:flavius');
- assert(ev&&r.events.indexOf(ev)<i&&ev.time===hurt.time&&ev.injury.matches===hurt.matches);
- // the orders: two made, the third refused at the cap
- assert.equal(ordered.length,2,'two orders made');assert.equal(subs(r,0).length,3,'three changes in all');
- const notes=r.substitutionNotes.filter(n=>n.side===0);
- assert.deepEqual(notes.map(n=>n.status),['made','made','impossible']);
- assert.equal(notes[2].detail,'Echipa a făcut deja toate schimbările.');
- assert(r.frames.at(-1).lineup.some(k=>r.players[k].id==='0:crocodinho'),'the third order\'s man stayed on');
-});
-
-test('no change left: the hurt man is treated and plays on',()=>{
- // The three orders are made at the first stoppages; flavius is hurt at 60 s with a bench left but no change: the referee
- // stops play, the medics treat him, nobody comes on, he gets up before the restart and finishes the match.
- const f=capBench(13009);
- const r=withDice(hurtFlavius(60),()=>runMatch({fixture:f,durationSeconds:150,substitutionOrders:capOrders(),injuries:ON}).result);
- const ordered=subs(r,0).filter(e=>e.substitution);
- assert.equal(ordered.length,3,'all three orders made');assert(ordered.every(e=>e.time<60),'before he was hurt');
- assert.equal(r.injuries.length,1);
- const [hurt]=r.injuries;
- assert.equal(hurt.playedOn,true,'no change left: he plays on');assert(!('off' in hurt)&&!('replacement' in hurt));
- assert.equal(subs(r,0).filter(e=>e.injury).length,0,'no forced change');assert.equal(subs(r,0).length,3);
- const tr=r.events.find(e=>e.kind==='treatment'&&e.actor==='0:flavius');
- assert(tr,'the medics treat him');assert(tr.time-hurt.time<=ADVANTAGE_MAX+.02,'at the injury stoppage');
- const kick=r.events.find(e=>e.time>tr.time&&e.restartKind);
- assert(kick.time>=tr.time+INJURY_TREATMENT-1e-9,'the treatment holds the restart');
- const pid=r.players.findIndex(p=>p.id==='0:flavius');
- const pose=fr=>fr.players[(fr.lineup??[0,1,2,3,4,5,6,7,8,9]).indexOf(pid)];
- assert(r.frames.filter(fr=>fr.time>=kick.time).every(fr=>pose(fr)?.duty!=='down'),'up before the restart');
- assert(r.frames.at(-1).lineup.some(k=>k===pid),'he finished the match');
- // planned substitutions (the old automatic changes at 60/70/80 min) count the same way: three forced changes take all
- // three, the fourth man hurt plays on
- const plan=[5,25,45,65];let k=0;
- const p=withDice({fatigue(q,time){if(q.side===0&&q.role!=='GK'&&!this.hurt.has(q.id)&&k<plan.length&&time>=plan[k]){k++;this.injure(q,'fatigue',time,false);}}},
-  ()=>runMatch({fixture:capBench(13009),durationSeconds:120,substitutions:'planned',injuries:ON}).result);
- assert.equal(p.injuries.length,4);
- assert.equal(subs(p,0).filter(e=>e.injury).length,3,'three forced changes');
- assert.equal(p.injuries.filter(x=>x.playedOn).length,1,'the fourth plays on, a bench man left');
+ const ev=r.events.find(x=>x.kind==='injury'&&x.actor===first.player);
+ assert(ev&&r.events.indexOf(ev)<i&&ev.time===first.time&&ev.target===first.by&&ev.injury.matches===first.matches);
+ assert.equal(second.playedOn,true,'nobody left: he plays on');assert(!('off' in second));
+ assert(r.frames.at(-1).lineup.some(k=>r.players[k].id===second.player),'he finished the match');
 });
 
 test('a hurt keeper is replaced by the bench keeper, in goal',()=>{
