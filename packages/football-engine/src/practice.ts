@@ -711,9 +711,6 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
  // Order ties resolve in list order; each order fires at most once.
  const orderNotes:SubstitutionNote[]=orders.map(o=>({order:o.id,side:o.side,status:'waiting',in:o.in,...(o.out!==undefined?{out:o.out}:{}),detail:'Condiția nu a fost îndeplinită la nicio oprire a jocului.'}));
  const gone=new Set<string>(),madeCounts=[0,0];
- // (showcase injuries; the owner, 1 Nov) a forced change is one of the side's three changes, never one more: it counts
- // toward the orders' cap (madeCounts), or with planned substitutions takes the next planned change (subCounts).
- const changeLeft=(team:Side)=>options.substitutions==='planned'?subCounts[team]<SUB_MINUTES.length:madeCounts[team]<MAX_TRIGGERED_SUBSTITUTIONS;
  const applyOrders=()=>{
   if(!orders.length||time<=0)return;
   orders.forEach((order,i)=>{
@@ -766,9 +763,8 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
    if(players.includes(p)){downs.set(p.id,Infinity);recovering.set(p.id,{until:Infinity,opponent:r.by??p.id});duelAfter.set(p.id,Infinity);duelAfter.set('touch:'+p.id,Infinity);p.vx*=FALL_KEEP;p.vy*=FALL_KEEP;}
   }
  };
- // The forced change: at the next stoppage, before the orders, as one of the side's three changes (changeLeft; the
- // owner, 1 Nov: no longer exempt); the substitute is the best fit from the unused bench (injuryReplacement). With no
- // change left, or nobody left on the bench, he plays on (playedOn).
+ // The forced change: at the next stoppage, before the orders, outside the 3-change cap; the substitute is the best fit
+ // from the unused bench (injuryReplacement). With nobody left he plays on (playedOn).
  // (the stoppage) Unless it is the interval (`interval`: the second half's kick-off), the medics come on for each man first
  // (a `treatment` event); a man nobody can replace is treated, gets up before the restart and plays on.
  // Returns the men who came on and how many were treated (the restart then waits INJURY_TREATMENT s).
@@ -777,7 +773,7 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
   for(const r of inj!.due()){
    const team=r.side,outgoing=players.find(p=>p.id===r.player);if(!outgoing)continue;
    if(!interval){treated++;say('treatment',`Echipa medicală intră pe teren pentru ${outgoing.name}.`,outgoing);events.at(-1)!.injury={cause:r.cause,matches:r.matches};}
-   const pick=changeLeft(team)?injuryReplacement(f.teams[team],outgoing,sidePlayers(team),used):null;
+   const pick=injuryReplacement(f.teams[team],outgoing,sidePlayers(team),used);
    if(!pick){r.playedOn=true;downs.set(outgoing.id,time+(interval?0:INJURY_TREATMENT-3));duelAfter.delete(outgoing.id);duelAfter.delete('touch:'+outgoing.id);continue;}
    const source=structuredClone(pick) as Player&{archetype?:string;temperament?:string};
    const gk=outgoing.role==='GK',basePace=gk?MOTION_LEGS_KEEPER_PACE_BASE+source.skills.pace*MOTION_LEGS_KEEPER_PACE_PER:MOTION_LEGS_PACE_BASE+source.skills.pace*MOTION_LEGS_PACE_PER;
@@ -786,7 +782,6 @@ export function simulatePractice(fixture:Fixture=practiceFixture(),duration=300,
     archetype:source.archetype??'',temperament:source.temperament??'',vx:0,vy:0,basePace,pace:basePace*(MOTION_LEGS_SUB_PACE_FLOOR+MOTION_LEGS_SUB_PACE_SHARE*source.energy/100),
     acceleration:gk?MOTION_LEGS_KEEPER_ACCEL_BASE+source.skills.pace*MOTION_LEGS_KEEPER_ACCEL_PER:MOTION_LEGS_ACCEL_BASE+source.skills.pace*MOTION_LEGS_ACCEL_PER,duty:'restart',job:'Intră în joc'};
    players[players.indexOf(outgoing)]=replacement;byId.set(replacement.id,replacement);used.add(replacement.id);gone.add(outgoing.id);
-   if(options.substitutions==='planned')subCounts[team]++;else madeCounts[team]++;
    for(const [id,target] of [...marks])if(id===outgoing.id||target===outgoing.id)marks.delete(id);
    rosterIndex.set(replacement.id,roster.length);roster.push(structuredClone(replacement));lineup=players.map(p=>rosterIndex.get(p.id)!);
    say('substitution',`${f.teams[team].name}: ${outgoing.name} iese accidentat, ${replacement.name} intră.`,replacement,outgoing);

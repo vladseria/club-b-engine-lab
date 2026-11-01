@@ -17,8 +17,8 @@ import type {Fixture,Player,Role,Side,Team} from './model.js';
  *   FATIGUE_FROM energy (it matters mostly late in a match, under about 80).
  * An age past AGE_FROM (only when the input gives ages) raises both. A man is rolled until he is hurt once.
  * Severity (matches out) is drawn from the same stream: SEVERITY (DESIGN §11), longer after a hard tackle.
- * The forced change itself lives in practice.ts (applyInjuries, at the next stoppage, as one of the side's three changes:
- * the owner, 1 Nov; with none left he is treated and plays on); who comes on is injuryReplacement below.
+ * The forced change itself lives in practice.ts (applyInjuries, at the next stoppage, outside the 3-change cap);
+ * who comes on is injuryReplacement below.
  */
 export interface InjuryInput {on:boolean;salt:number;
  /** Per side: squad id -> age in years. A player without one carries no age factor. */
@@ -33,8 +33,7 @@ export interface InjuryRecord {
  /** Matches out, 1-6. */ matches:number;
  /** When he went off (the forced change). Absent when he never did (hurt in the last attack after full time). */ off?:number;
  /** Who came on for him (practice id). */ replacement?:string;
- /** Nobody could come on (the side's three changes were made, or nobody was left on the bench): he was treated and
-  * finished the match. */ playedOn?:true;
+ /** Nobody was left on the bench: he finished the match. */ playedOn?:true;
 }
 /** What an `injury` event carries; a forced change's `substitution` event carries cause and matches. */
 export interface InjuryMark {cause:InjuryCause;hard?:boolean;matches:number;energy?:number}
