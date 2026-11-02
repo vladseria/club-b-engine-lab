@@ -22,7 +22,14 @@ import type {Fixture,Player,Role,Side,Team} from './model.js';
  */
 export interface InjuryInput {on:boolean;salt:number;
  /** Per side: squad id -> age in years. A player without one carries no age factor. */
- age?:[Record<string,number>,Record<string,number>]}
+ age?:[Record<string,number>,Record<string,number>];
+ /** (calibration, opt-in; branch ballers-tiredness-calibration) Every roll's risk x `scale`, both causes, before the
+  * cap: a lower base rate (the league's) without touching the constants. Absent: today's rate, the expressions as
+  * before (nothing is multiplied, so the dice compare against exactly the same numbers). */
+ scale?:number;
+ /** (calibration, opt-in) Strength protects against tackle injuries: a tackle incident's risk x max(0, 1 - strength
+  * x (his strength skill - 6)), e.g. 0.15. Fatigue rolls are not touched. Absent: off, as before. */
+ strength?:number}
 export type InjuryCause='tackle'|'fatigue';
 export interface InjuryRecord {
  /** Match second (engine clock) of the hit or the roll. */ time:number;
@@ -83,7 +90,9 @@ export const ADVANTAGE_MAX=5,INJURY_TREATMENT=15,DROP_DISTANCE=2.2;
  * DESIGN §11: 1 match 55%, 2 30%, 3 10%, 4-6 5%; hard tackles skew longer. */
 export const SEVERITY:Record<'ordinary'|'hard',readonly number[]>={ordinary:[.55,.30,.10,.05/3,.05/3,.05/3],hard:[.40,.35,.15,.1/3,.1/3,.1/3]};
 
-type Body={id:string;side:Side;energy:number};
+type Body={id:string;side:Side;energy:number;skills?:{strength?:number}};
+/** STRENGTH_CENTRE: the strength skill the protection is centred on (no change at 6). */
+export const STRENGTH_CENTRE=6;
 const r1=(n:number)=>Math.round(n*10)/10;
 
 /** Throws on an invalid key; returns a normalized copy. */
@@ -106,7 +115,9 @@ export function validateInjuries(value:unknown,fixture:Fixture):InjuryInput{
    return out;
   }) as [Record<string,number>,Record<string,number>];
  }
- return {on:v.on,salt:v.salt as number,...(age?{age}:{})};
+ if(v.scale!==undefined&&!(typeof v.scale==='number'&&Number.isFinite(v.scale)&&v.scale>=0&&v.scale<=10))throw Error('injuries.scale is a number from 0 to 10.');
+ if(v.strength!==undefined&&!(typeof v.strength==='number'&&Number.isFinite(v.strength)&&v.strength>=0&&v.strength<=1))throw Error('injuries.strength is a number from 0 to 1.');
+ return {on:v.on,salt:v.salt as number,...(age?{age}:{}),...(v.scale!==undefined?{scale:v.scale as number}:{}),...(v.strength!==undefined?{strength:v.strength as number}:{})};
 }
 
 /** The injury state of one match: its own dice, who is hurt, who still has to go off. */
@@ -115,6 +126,9 @@ export class Injuries {
  private readonly draw:()=>number;
  private readonly hurt=new Set<string>();
  private readonly ages:Map<string,number>;
+ /** (opt-in) InjuryInput.scale / .strength; undefined = not given (today's expressions). */
+ private readonly scale:number|undefined;
+ private readonly strength:number|undefined;
  /** Hurt, still on the pitch, waiting for the next stoppage. */
  private waiting:InjuryRecord[]=[];
  /** Hurt, not yet announced as an event (practice.ts announces at the next tick or stoppage, whichever is first). */
@@ -122,6 +136,13 @@ export class Injuries {
  constructor(input:InjuryInput,seed:number){
   this.draw=rng((seed^input.salt^INJURY_SALT)>>>0);
   this.ages=new Map((input.age??[{},{}]).flatMap((m,side)=>Object.entries(m).map(([id,a])=>[`${side}:${id}`,a] as [string,number])));
+  this.scale=input.scale;this.strength=input.strength;
+ }
+ /** (opt-in) The strength protection for a tackle incident on `p`: 1 when off. */
+ private strengthFactor(p:Body):number{
+  if(this.strength===undefined)return 1;
+  const s=p.skills?.strength;
+  return typeof s==='number'&&Number.isFinite(s)?Math.max(0,1-this.strength*(s-STRENGTH_CENTRE)):1;
  }
  private ageFactor(id:string):number{const a=this.ages.get(id);return a===undefined?1:1+AGE_PER*Math.max(0,a-AGE_FROM);}
  private roll(_cause:InjuryCause,_side:Side,risk:number):boolean{return this.draw()<risk;}
@@ -136,14 +157,20 @@ export class Injuries {
  contact(p:Body,b:{hit:number;down:number},by:{id:string}|undefined,time:number,foul=false):void{
   if(this.hurt.has(p.id))return;
   const hard=b.down>0||foul;
-  const risk=Math.min(RISK_CAP,(TACKLE_RISK+TACKLE_HIT*Math.max(0,b.hit)/HIT_REF+(hard?TACKLE_HARD:0))*(1+TIRED_TACKLE*(1-Math.max(0,Math.min(100,p.energy))/100))*this.ageFactor(p.id));
+  let raw=(TACKLE_RISK+TACKLE_HIT*Math.max(0,b.hit)/HIT_REF+(hard?TACKLE_HARD:0))*(1+TIRED_TACKLE*(1-Math.max(0,Math.min(100,p.energy))/100))*this.ageFactor(p.id);
+  // (opt-in) strength, then the scale; neither key given: `raw` is today's product, untouched
+  if(this.strength!==undefined)raw*=this.strengthFactor(p);
+  if(this.scale!==undefined)raw*=this.scale;
+  const risk=Math.min(RISK_CAP,raw);
   if(this.roll('tackle',p.side,risk))this.injure(p,'tackle',time,hard,by?.id);
  }
  /** One second of live play for `p`. */
  fatigue(p:Body,time:number):void{
   if(this.hurt.has(p.id))return;
   const u=(FATIGUE_FROM-p.energy)/FATIGUE_SPAN;if(!(u>0))return;
-  const risk=Math.min(RISK_CAP,FATIGUE_RISK*u*u*this.ageFactor(p.id));
+  let raw=FATIGUE_RISK*u*u*this.ageFactor(p.id);
+  if(this.scale!==undefined)raw*=this.scale;
+  const risk=Math.min(RISK_CAP,raw);
   if(this.roll('fatigue',p.side,risk))this.injure(p,'fatigue',time,false);
  }
  /** Injuries not yet announced, in order (and forgotten here). */

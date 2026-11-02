@@ -14,7 +14,7 @@ import {anatomy} from '../2026-10-22-whatif/row';
 import {shotChance} from '../../../../lib/ballers/chances';
 export * from '../2026-10-22-whatif/row';
 
-function halves(runs:any[],t:any){
+export function halves(runs:any[],t:any){
  const out:any={at:null,late:null,side:[0,1].map(()=>({shots:[0,0],goals:[0,0],chances:[0,0],possession:[0,0]})),
   energy:[0,1].map(()=>[0,0,0,0,0]),kick2:null,subsAtHalf:[] as string[],restartAfter:null};
  for(const r of runs){

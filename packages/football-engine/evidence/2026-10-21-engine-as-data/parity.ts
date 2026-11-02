@@ -32,6 +32,9 @@ let EXTRA:null|((runs:any[],teams:any[],t:any)=>any)=null;export function setExt
 /** An optional source of sides (the what-if harness's synthetic squads, `src` values parity.ts does not know). Unset, or
  * returning null, sideOf is exactly what it was. */
 let SIDES:null|((spec:any)=>any)=null;export function setSides(f:typeof SIDES){SIDES=f;}
+/** (2026-11-02 tiredness calibration) Optional more keys for a match task's runMatch call (the opt-in `injuries` key),
+ * from the task and its engine teams. Unset, or returning null, the call is exactly what it was. */
+let CALL:null|((t:any,teams:any[])=>any)=null;export function setCall(f:typeof CALL){CALL=f;}
 const FAKE=(d:number)=>({result:{duration:d,players:[],frames:[],events:[],choices:[],stats:[{},{}],score:[0,0]}});
 const RUN_MATCH=(i:any)=>DRY?(createSimCheck(i),FAKE(i.durationSeconds)):runMatch(i);
 const RUN_TRAINING=(i:any)=>DRY?(createSimCheck({...i,kind:'training'}),FAKE(i.durationSeconds)):runTraining(i);
@@ -166,7 +169,7 @@ export function play(t:any){
   const playbooks=plans.flatMap((p:any,side:number)=>p.plans.length?[{side,plans:p.plans,adaptive:true}]:[]);
   const subs=sideOrders(input as any,teams as any);
   dropped=[...plans.flatMap((p:any)=>p.dropped),...subs.dropped];
-  const run=RUN_MATCH({fixture:{teams,seed:input.seed,kickoff:input.kickoff},durationSeconds:input.duration,policy:'coordinated',substitutions:'none',record:true,...(playbooks.length?{playbooks}:{}),...(subs.orders.length?{substitutionOrders:subs.orders}:{})} as any);
+  const run=RUN_MATCH({fixture:{teams,seed:input.seed,kickoff:input.kickoff},durationSeconds:input.duration,policy:'coordinated',substitutions:'none',record:true,...(playbooks.length?{playbooks}:{}),...(subs.orders.length?{substitutionOrders:subs.orders}:{}),...(CALL?CALL(t,teams)??{}:{})} as any);
   runs.push(run.result);prints.push(print(compact(input as any,run.result as any)));teamsOut=teams;score=(run.result as any).score;
  }else{
   // training kinds: a fixture from two sides, the opposition on side 1

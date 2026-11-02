@@ -199,3 +199,30 @@ test('the stoppage: he goes down, the referee stops play, the medics, the change
  }
  assert(drops>=1,'at least one dropped ball');
 });
+
+// (calibration, branch ballers-tiredness-calibration) The opt-in `scale` and `strength` keys. Absent, nothing is
+// multiplied (the expressions are today's); given, every roll's risk is today's x scale, and a tackle incident's also x
+// max(0, 1 - strength x (his strength - 6)); fatigue rolls never see strength. Checked roll by roll on the same
+// football: the dice say no (nobody hurt), so every run is the same match and its rolls line up one for one.
+test('scale and strength: validated, kept only when given; each roll\'s risk scaled, strength on tackles only',()=>{
+ const f=withBench();
+ assert.deepEqual(createSimulationRequest({kind:'match',fixture:f,injuries:{on:true,salt:5}}).input.injuries,{on:true,salt:5});
+ assert.deepEqual(createSimulationRequest({kind:'match',fixture:f,injuries:{on:true,salt:5,scale:.3,strength:.15}}).input.injuries,{on:true,salt:5,scale:.3,strength:.15});
+ assert.throws(()=>createSimulationRequest({kind:'match',fixture:f,injuries:{on:true,salt:1,scale:-1}}),/scale/);
+ assert.throws(()=>createSimulationRequest({kind:'match',fixture:f,injuries:{on:true,salt:1,scale:'x'}}),/scale/);
+ assert.throws(()=>createSimulationRequest({kind:'match',fixture:f,injuries:{on:true,salt:1,strength:2}}),/strength/);
+ const rolls=input=>{const out=[];const r=withDice({roll(cause,side,risk){out.push([cause,risk]);return false;}},()=>runMatch({...RUN,injuries:input}).result);return {out,r};};
+ const base=rolls(ON),scaled=rolls({...ON,scale:.25}),strong=rolls({...ON,strength:.15}),both=rolls({...ON,scale:.25,strength:.15});
+ assert(base.out.length>20&&base.out.some(([c])=>c==='tackle')&&base.out.some(([c])=>c==='fatigue'),'both causes rolled');
+ for(const x of [scaled,strong,both]){assert.deepEqual(x.r,base.r,'nobody hurt: the same match');assert.equal(x.out.length,base.out.length);}
+ base.out.forEach(([c,risk],i)=>{
+  assert.equal(scaled.out[i][1],risk*.25,'x scale');
+  if(c==='fatigue'){assert.equal(strong.out[i][1],risk,'fatigue: no strength');assert.equal(both.out[i][1],risk*.25);}
+ });
+ // strength: the tackle rolls' ratios are exactly the protection for the strengths in the match, centred on 6
+ const ratios=new Set(base.out.flatMap(([c,risk],i)=>c==='tackle'&&risk>0?[Math.round(strong.out[i][1]/risk*1e9)/1e9]:[]));
+ const allowed=new Set(base.r.players.map(p=>Math.round(Math.max(0,1-.15*(p.skills.strength-6))*1e9)/1e9));
+ for(const k of ratios)assert(allowed.has(k),`tackle ratio ${k} is one man's protection`);
+ // given as 1 / 0 they change nothing at all
+ assert.deepEqual(runMatch({...RUN,injuries:{...ON,scale:1,strength:0}}).result,runMatch({...RUN,injuries:ON}).result);
+});
