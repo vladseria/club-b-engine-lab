@@ -60,8 +60,10 @@ const KEEPER_KEYS=['gt','ca','sf','ss','cs'] as const;
 export const CLEAN_SHEET_SHARE=2/3;
 
 /** The match's player lines, from the replay (header + every event and frame).
- * Every player who stood on the pitch gets a line; nobody else does. */
-export function matchPlayerStats(header:Pick<ReplayHeader,'players'|'duration'|'fullTime'|'length'>,events:ReplayEvent[],frames:ReplayFrame[]):PlayerLine[]{
+ * Every player who stood on the pitch gets a line; nobody else does. `whistle` (s): when the match really ended (the
+ * timeline header's `duration`: a played-out last attack runs past the match length); goals are read up to it, so a
+ * goal in that attack counts (owner, 2 Nov). Not given: the replay's last event (the whistle's own `end`). */
+export function matchPlayerStats(header:Pick<ReplayHeader,'players'|'duration'|'fullTime'|'length'>,events:ReplayEvent[],frames:ReplayFrame[],whistle?:number):PlayerLine[]{
  const lines=new Map<number,PlayerLine>();
  const line=(i:number|undefined)=>{
   if(i===undefined)return undefined;const p=header.players[i];if(!p)return undefined;
@@ -77,7 +79,9 @@ export function matchPlayerStats(header:Pick<ReplayHeader,'players'|'duration'|'
   else if(e.k==='save'){const l=line(e.a);if(l)l.sv++;}
  }
  let last:{i:number;own:boolean;t:number}|null=null;
- for(const x of buildIncidents({header,events,frames})){
+ // the incidents to the real whistle (buildIncidents reads to the header's duration): the clock's half-way stays the match's
+ const upTo=Math.max(header.duration,whistle??(events.at(-1)?.t??0)/1000);
+ for(const x of buildIncidents({header:{...header,fullTime:header.fullTime??header.duration,duration:upTo},events,frames})){
   if(x.kind==='goal'){const l=line(x.actors[0]);if(l)l.g++;const a=line(x.facts.assist);if(a)a.a++;}
   else if(x.kind==='own_goal'){const l=line(x.actors[0]);if(l)l.og++;}
   if(x.kind==='goal'||x.kind==='own_goal')last=x.actors[0]===undefined?null:{i:x.actors[0],own:x.kind==='own_goal',t:x.t};
@@ -86,10 +90,12 @@ export function matchPlayerStats(header:Pick<ReplayHeader,'players'|'duration'|'
  for(const [i,l] of lines)Object.assign(l,detail.get(i)??emptyDetail());
  // (Tribuna stories, 2 Nov 2026) what the paper reads without loading the replay: the ground each man covered, the match's
  // last goal (on its scorer's line, at its second on the shown clock; an own goal marked as one) and who went off on a
- // "tired" order. Optional keys: a line stored before them simply has none.
- for(const [i,m] of groundCovered(header,frames)){const l=lines.get(i);if(l&&m>0)l.ds=m;}
- if(last){const l=lines.get(last.i);if(l){const x=shownTime(last.t/1000,matchClock(header,events));l.lg=Math.max(1,Math.round(x.main+x.added));if(last.own)l.lo=1;}}
- for(const i of tiredOff){const l=lines.get(i);if(l)l.ot=1;}
+ // "tired" order. Optional keys: a line stored before them simply has none. Each is read in its own try, so a throw in one
+ // costs that key only, never the match's lines (each is computed whole before any line takes it).
+ try{for(const [i,m] of groundCovered(header,frames)){const l=lines.get(i);if(l&&m>0)l.ds=m;}}catch{/* no ground covered */}
+ try{if(last){const l=lines.get(last.i);if(l){const x=shownTime(last.t/1000,matchClock(header,events)),lg=Math.max(1,Math.round(x.main+x.added));
+  if(Number.isFinite(lg)){l.lg=lg;if(last.own)l.lo=1;}}}}catch{/* no last goal */}
+ try{for(const i of tiredOff){const l=lines.get(i);if(l)l.ot=1;}}catch{/* no "tired" change */}
  return [...lines.entries()].sort((a,b)=>a[0]-b[0]).map(([,l])=>l);
 }
 

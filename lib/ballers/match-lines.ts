@@ -16,7 +16,8 @@ import {matchPlayerStats,type PlayerLine} from './stats';
  * also carries his mark (`mk`, when he has one) and role (`rl`); marking that fails leaves the lines unmarked. */
 export function computedPlayerLines(c:{compact:Pick<CompactMatch,'header'|'chunks'>&{score?:readonly [number,number]}},o:{marks?:boolean}={}):PlayerLine[]|null{
  let lines:PlayerLine[],events;
- try{const t=timeline(c.compact.header,c.compact.chunks);events=t.events;lines=matchPlayerStats(c.compact.header,t.events,t.frames);}
+ // goals up to the real whistle (the timeline header's duration), so one in a played-out last attack counts (owner, 2 Nov)
+ try{const t=timeline(c.compact.header,c.compact.chunks);events=t.events;lines=matchPlayerStats(c.compact.header,t.events,t.frames,t.header.duration);}
  catch(e){console.warn('ballers player stats skipped:',e instanceof Error?e.message:'unknown');return null;}
  if(!o.marks||!c.compact.score)return lines;
  try{return markedLines(lines,c.compact.header as RatingHeader,events,c.compact.score);}

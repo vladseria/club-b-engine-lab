@@ -17,6 +17,7 @@ import {loadPlans,type Plan,type PlanPrep} from './plans';
 import {withRules,type GrowthAfter,type GrowthRow,type GrowthRules} from './growth';
 import {BROADCAST_MAX_SECONDS} from './league';
 import type {GrowthTick} from './memory';
+import type {RoundGrowth} from './tribuna';
 
 const CLUB_COLUMNS='id,space,name,code,color,crest,motto,anthem,chant,ai,manager,captain,created_at';
 
@@ -251,15 +252,19 @@ export function loadFitness(space:string,fresh=false):Promise<FitnessRead|null>{
 /** One league injury as the Tribuna reads it (public.ballers_injuries, readable from full time). */
 export interface LeagueInjury {playerId:string;clubId:string;cause:'tackle'|'fatigue';by:string|null;byId:string|null;
  /** A hard tackle (it floored him, or a foul). */ hard:boolean;days:number}
-/** Some matches' league injuries, by match id (a match with none is simply absent). Null when the table can't be read
- * (offline, or before the fitness migration): the paper then tells no injury rather than a wrong one. */
-export async function loadInjuries(matchIds:readonly string[]):Promise<Map<string,LeagueInjury[]>|null>{
- const out=new Map<string,LeagueInjury[]>();
+/** Some matches' league injuries, by match id (a match with none is simply absent). Only the rows of the result as it
+ * stands: a row whose `from_at` is not the match's live kickoff (`liveFrom`, to the second) was left behind by an earlier
+ * run of the match, and the fitness fold ignores it too (lib/ballers/fitness.ts eventsOf). Null when the table can't be
+ * read (offline, or before the fitness migration): the paper then tells no injury rather than a wrong one. */
+export async function loadInjuries(matches:readonly {id:string;liveFrom:string}[]):Promise<Map<string,LeagueInjury[]>|null>{
+ const out=new Map<string,LeagueInjury[]>(),kick=new Map(matches.map(m=>[m.id,Math.floor(Date.parse(m.liveFrom)/1000)]));
+ const ids=matches.map(m=>m.id);
  try{
-  for(let i=0;i<matchIds.length;i+=40){
-   const r=await supabase().from('ballers_injuries').select('match_id,player_id,club_id,cause,by_name,by_id,hard,days').in('match_id',matchIds.slice(i,i+40));
+  for(let i=0;i<ids.length;i+=40){
+   const r=await supabase().from('ballers_injuries').select('match_id,player_id,club_id,cause,by_name,by_id,hard,days,from_at').in('match_id',ids.slice(i,i+40));
    if(r.error||!Array.isArray(r.data))return null;
-   for(const x of r.data as {match_id:string;player_id:string;club_id:string;cause:string;by_name:string|null;by_id:string|null;hard:boolean|null;days:number}[]){
+   for(const x of r.data as {match_id:string;player_id:string;club_id:string;cause:string;by_name:string|null;by_id:string|null;hard:boolean|null;days:number;from_at:string}[]){
+    if(Math.floor(Date.parse(x.from_at)/1000)!==kick.get(x.match_id))continue;
     if(!out.has(x.match_id))out.set(x.match_id,[]);
     out.get(x.match_id)!.push({playerId:x.player_id,clubId:x.club_id,cause:x.cause==='fatigue'?'fatigue':'tackle',by:x.by_name,byId:x.by_id,hard:x.hard===true,days:x.days});
    }
@@ -317,6 +322,23 @@ export async function loadGrowthAfter(space:string,club:string){
  * yet, offline): the Memory tab then shows no growth moments rather than guessing them. */
 export async function loadGrowthStory(player:string):Promise<GrowthTick[]|null>{
  try{const r=await supabase().rpc('ballers_growth_story',{p_player:player});return r.error||!Array.isArray(r.data)?null:r.data as GrowthTick[];}catch{return null;}
+}
+/** One round's own growth, for the Tribuna (ballers_round_growth, migration 20261102220000; lib/ballers/tribuna.ts
+ * RoundGrowth). Null when it can't be read (the door not applied yet, offline, a closed space): the paper then tells no
+ * growth for that round and times its wait by the browser's clock. */
+export async function loadRoundGrowth(round:string):Promise<RoundGrowth|null>{
+ try{const r=await supabase().rpc('ballers_round_growth',{p_round:round});
+  // the door not there yet (PostgREST: no such function): no growth anywhere, said as an answer, never as a failure
+  if(r.error&&(r.error.code==='PGRST202'||/could not find the function/i.test(r.error.message??'')))return {on:false,at:new Date().toISOString(),appliedAt:null,players:[],missing:true};
+  const d=r.data as {on?:unknown;at?:unknown;appliedAt?:unknown;players?:unknown}|null;
+  if(r.error||!d||typeof d!=='object'||typeof d.on!=='boolean'||typeof d.at!=='string'||!Array.isArray(d.players))return null;
+  const pair=(v:unknown):v is [number,number]=>Array.isArray(v)&&v.length===2&&v.every(n=>typeof n==='number'&&Number.isFinite(n));
+  const players=(d.players as {player?:unknown;skills?:unknown}[]).flatMap(p=>typeof p?.player==='string'&&p.skills&&typeof p.skills==='object'
+   ?[{player:p.player,skills:Object.fromEntries(Object.entries(p.skills as Record<string,unknown>).filter((e):e is [string,[number,number]]=>pair(e[1])))}]:[]);
+  const men=(v:unknown)=>(Array.isArray(v)?v as {player?:unknown;skills?:unknown}[]:[]).flatMap(p=>typeof p?.player==='string'&&p.skills&&typeof p.skills==='object'
+   ?[{player:p.player,skills:Object.fromEntries(Object.entries(p.skills as Record<string,unknown>).filter((e):e is [string,[number,number]]=>pair(e[1])))}]:[]);
+  // Bebe's nights between the previous round's last full time and this round's (absent from a door older than 2 Nov's: none)
+  return {on:d.on,at:d.at,appliedAt:typeof d.appliedAt==='string'?d.appliedAt:null,players,bebe:men((d as {bebe?:unknown}).bebe)};}catch{return null;}
 }
 /** Moves one of your players' focus (null clears it); the progress on the old focus starts again. */
 export async function setGrowthFocus(player:string,skill:SkillKey|null){
