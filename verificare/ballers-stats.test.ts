@@ -86,6 +86,23 @@ describe('match lines from a simulated official match',()=>{
   // the marks are the only addition: without them, the lines are what matchPlayerStats derives
   expect(lines.map(({mk:_m,rl:_r,...l})=>l)).toEqual(matchPlayerStats(c.compact.header,tl.events,tl.frames));
  });
+ it('carries what the Tribuna reads (2 Nov): ground covered, the last goal, a "tired" change, the half-time score',()=>{
+  // ground covered: every man who played ran some, never faster than a man runs on average over his time
+  for(const l of lines){expect(l.ds,l.id).toBeGreaterThan(0);expect(l.ds!).toBeLessThanOrEqual(9*Math.max(1,l.m!));}
+  const goals=incidents.filter(x=>x.kind==='goal'||x.kind==='own_goal');
+  const marked=lines.filter(l=>l.lg!==undefined);
+  if(!goals.length)expect(marked).toHaveLength(0);
+  else{const last=goals.at(-1)!;expect(marked).toHaveLength(1);
+   expect(marked[0].id).toBe(c.compact.header.players[last.actors[0]].id);expect(marked[0].lo===1).toBe(last.kind==='own_goal');
+   expect(marked[0].lg!).toBeGreaterThanOrEqual(1);expect(marked[0].lg!).toBeLessThanOrEqual(input.duration+60);}
+  // only a change made on a "tired" order marks the man who went off (this match's order is a half-time one)
+  const tired=new Set(tl.events.filter(e=>e.k==='substitution'&&e.sb?.k==='tired'&&e.g!==undefined).map(e=>c.compact.header.players[e.g!].id));
+  expect(new Set(lines.filter(l=>l.ot).map(l=>l.id))).toEqual(tired);
+  // the half-time score rides each side's stats, only in a match with a half-time
+  const half=tl.events.find(e=>e.k==='half'),st=sub.stats as Record<string,number>[];
+  if(!half)expect('ht' in st[0]||'ht' in st[1]).toBe(false);
+  else{const f=tl.frames.filter(x=>x.t<=half.t).at(-1)!;expect([st[0].ht,st[1].ht]).toEqual([f.s[0],f.s[1]]);}
+ });
 });
 
 // A hand-made replay: one assisted goal, one own goal, one goal with no pass.

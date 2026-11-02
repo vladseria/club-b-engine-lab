@@ -248,6 +248,25 @@ export function loadFitness(space:string,fresh=false):Promise<FitnessRead|null>{
  void p.then(()=>setTimeout(()=>{if(fitnessReads.get(space)===p)fitnessReads.delete(space);},60_000));
  return p;
 }
+/** One league injury as the Tribuna reads it (public.ballers_injuries, readable from full time). */
+export interface LeagueInjury {playerId:string;clubId:string;cause:'tackle'|'fatigue';by:string|null;byId:string|null;
+ /** A hard tackle (it floored him, or a foul). */ hard:boolean;days:number}
+/** Some matches' league injuries, by match id (a match with none is simply absent). Null when the table can't be read
+ * (offline, or before the fitness migration): the paper then tells no injury rather than a wrong one. */
+export async function loadInjuries(matchIds:readonly string[]):Promise<Map<string,LeagueInjury[]>|null>{
+ const out=new Map<string,LeagueInjury[]>();
+ try{
+  for(let i=0;i<matchIds.length;i+=40){
+   const r=await supabase().from('ballers_injuries').select('match_id,player_id,club_id,cause,by_name,by_id,hard,days').in('match_id',matchIds.slice(i,i+40));
+   if(r.error||!Array.isArray(r.data))return null;
+   for(const x of r.data as {match_id:string;player_id:string;club_id:string;cause:string;by_name:string|null;by_id:string|null;hard:boolean|null;days:number}[]){
+    if(!out.has(x.match_id))out.set(x.match_id,[]);
+    out.get(x.match_id)!.push({playerId:x.player_id,clubId:x.club_id,cause:x.cause==='fatigue'?'fatigue':'tackle',by:x.by_name,byId:x.by_id,hard:x.hard===true,days:x.days});
+   }
+  }
+  return out;
+ }catch{return null;}
+}
 /** Development only: `?fitness=demo` shows every fitness screen against made-up shapes and injuries
  * (components/ballers/fitness/demo.ts: nothing is read or written for it), `?fitness=1` turns the switch on for the tab
  * with the real read, `?fitness=0` off. Remembered for the tab; localhost only; the production build drops it. */

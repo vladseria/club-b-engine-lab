@@ -45,6 +45,10 @@ export interface PlayerLine extends Partial<LineDetail> {
  /** His match mark (lib/ballers/ratings.ts matchRatings, one decimal, 3–10), stored at submission from version 3;
   * absent on older lines and when he had no mark (under a ninth of the match). Growth reads it at the round close. */ mk?:number;
  /** The role his mark was read in (the formation slot he played), stored with it. */ rl?:RatingRole;
+ /** (Tribuna stories, 2 Nov 2026; absent on older lines) the ground he covered, whole metres (groundCovered). */ ds?:number;
+ /** The match's last goal was credited to him: its second on the clock the match shows (main + added, at least 1). */ lg?:number;
+ /** That last goal went in off him into his own net. */ lo?:1;
+ /** He went off on one of his manager's "when he's tired" orders. */ ot?:1;
 }
 /** 3 (21 Oct 2026): lines stored at submission carry `mk` and `rl` (match-lines.ts markedLines). */
 export const PLAYER_STATS_VERSION=3;
@@ -66,18 +70,57 @@ export function matchPlayerStats(header:Pick<ReplayHeader,'players'|'duration'|'
   return l;
  };
  for(const p of header.players)if(p.slot>=0&&!p.bench)line(p.i);
+ const tiredOff=new Set<number>();
  for(const e of events){
-  if(e.k==='substitution')line(e.a);
+  if(e.k==='substitution'){line(e.a);if(e.sb?.k==='tired'&&e.g!==undefined)tiredOff.add(e.g);}
   else if(e.k==='shot'){const l=line(e.a);if(l)l.sh++;}
   else if(e.k==='save'){const l=line(e.a);if(l)l.sv++;}
  }
+ let last:{i:number;own:boolean;t:number}|null=null;
  for(const x of buildIncidents({header,events,frames})){
   if(x.kind==='goal'){const l=line(x.actors[0]);if(l)l.g++;const a=line(x.facts.assist);if(a)a.a++;}
   else if(x.kind==='own_goal'){const l=line(x.actors[0]);if(l)l.og++;}
+  if(x.kind==='goal'||x.kind==='own_goal')last=x.actors[0]===undefined?null:{i:x.actors[0],own:x.kind==='own_goal',t:x.t};
  }
  const detail=matchDetail(header,events,frames);
  for(const [i,l] of lines)Object.assign(l,detail.get(i)??emptyDetail());
+ // (Tribuna stories, 2 Nov 2026) what the paper reads without loading the replay: the ground each man covered, the match's
+ // last goal (on its scorer's line, at its second on the shown clock; an own goal marked as one) and who went off on a
+ // "tired" order. Optional keys: a line stored before them simply has none.
+ for(const [i,m] of groundCovered(header,frames)){const l=lines.get(i);if(l&&m>0)l.ds=m;}
+ if(last){const l=lines.get(last.i);if(l){const x=shownTime(last.t/1000,matchClock(header,events));l.lg=Math.max(1,Math.round(x.main+x.added));if(last.own)l.lo=1;}}
+ for(const i of tiredOff){const l=lines.get(i);if(l)l.ot=1;}
  return [...lines.entries()].sort((a,b)=>a[0]-b[0]).map(([,l])=>l);
+}
+
+/** Faster than any man runs (m/s): a step between two frames that implies more is a jump (a reset), not running. */
+const RUN_MAX=12;
+/** The ground each man covered, whole metres, by replay index: the straight-line steps between consecutive frames
+ * (0.2 s apart, the stored replay's own frames) wherever the same man stands at the same position in both, never
+ * across a camera cut or a jump. Frames without positions (a slimmed fixture) add nothing. */
+export function groundCovered(header:Pick<ReplayHeader,'players'>,frames:readonly ReplayFrame[]):Map<number,number>{
+ const out=new Map<number,number>();
+ for(let n=1;n<frames.length;n++){
+  const a=frames[n-1],b=frames[n],dt=(b.t-a.t)/1000;
+  if(b.c||!(dt>0)||a.p.length!==b.p.length)continue;
+  for(let k=0;k<b.p.length;k++){
+   const who=b.l?b.l[k]:k,was=a.l?a.l[k]:k;
+   if(who!==was||who===undefined||who<0||!header.players[who])continue;
+   const d=Math.hypot(b.p[k][0]-a.p[k][0],b.p[k][1]-a.p[k][1])/100;
+   if(d>RUN_MAX*dt)continue;
+   out.set(who,(out.get(who)??0)+d);
+  }
+ }
+ for(const [i,m] of out)out.set(i,Math.round(m));
+ return out;
+}
+/** The score at the half-time whistle (the replay's `half` event: the last frame at or before it), or null in a match
+ * without a half-time. It rides each side's stored stats as `ht` (simulation.ts submission) for the Tribuna. */
+export function halfTimeScore(events:readonly Pick<ReplayEvent,'k'|'t'>[],frames:readonly Pick<ReplayFrame,'t'|'s'>[]):[number,number]|null{
+ const half=events.find(e=>e.k==='half');if(!half)return null;
+ let f:Pick<ReplayFrame,'t'|'s'>|undefined;
+ for(const x of frames){if(x.t>half.t)break;f=x;}
+ return f?[f.s[0],f.s[1]]:null;
 }
 
 const emptyDetail=():LineDetail=>({m:0,ps:0,pc:0,kp:0,so:0,tk:0,it:0,dr:0,fc:0,cl:0});
@@ -210,6 +253,10 @@ export function readPlayerStats(v:unknown):PlayerLine[]|null{
   // the stored mark (version 3): a number on the mark's scale, kept to one decimal; anything else is no mark
   if(typeof o.mk==='number'&&Number.isFinite(o.mk)&&o.mk>=3&&o.mk<=10)l.mk=Math.round(o.mk*10)/10;
   if(ROLES.includes(o.rl as RatingRole))l.rl=o.rl as RatingRole;
+  // the Tribuna's keys (2 Nov 2026), only when stored
+  if(typeof o.ds==='number'&&Number.isInteger(o.ds)&&o.ds>0&&o.ds<100000)l.ds=o.ds;
+  if(typeof o.lg==='number'&&Number.isInteger(o.lg)&&o.lg>0&&o.lg<10000){l.lg=o.lg;if(o.lo===1)l.lo=1;}
+  if(o.ot===1)l.ot=1;
   out.push(l);
  }
  return out;

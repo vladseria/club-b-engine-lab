@@ -7,7 +7,8 @@
 import {gzipSync} from 'node:zlib';
 import type {Computed,FrozenInput} from './compute';
 import {computedPlayerLines} from './match-lines';
-import type {PlayerLine} from './stats';
+import {timeline} from './replay';
+import {halfTimeScore,type PlayerLine} from './stats';
 export * from './compute';
 
 /** gzip + base64 for one JSON value (what ballers_submit stores as bytea). */
@@ -30,13 +31,16 @@ export function submission(c:Computed,input:FrozenInput){
  const playedS=c.compact.chunks.at(-1)?.end?.played??header.duration;
  const live=(sec:number)=>halfS!==null&&sec>=halfS?Math.round((sec+brk)*1000)/1000:sec;
  const planKey=(side:0|1,planId:string|null)=>planId===null?null:input.sides[side].plans.find(p=>{const id=(p.plan as {id?:unknown}).id;return id===planId||p.key===planId;})?.key??planId;
+ // (Tribuna stories, 2 Nov 2026) each side's goals at the half-time whistle ride its stats as `ht` (numbers only, like the
+ // style tallies; readable with the result, from full time): the paper's comeback reads it. No half-time: absent.
+ const ht=halfTime(c);
  return {
   // `duration` is the match length (ballers_submit checks it against the input);
   // `played`, only when the last attack ran past it, is when the whistle went.
   engine_build:c.engineBuild,duration:input.duration,...(playedS>input.duration?{played:playedS}:{}),score:c.compact.score,
   // (styles as identities, slice 2) each side's style tallies join its stats (numbers only; no schema change): what
   // the Tribuna's style findings read. Absent when no side is Short and no surge happened.
-  stats:c.compact.styles?c.compact.stats.map((st,i)=>({...st,...c.compact.styles![i]})):c.compact.stats,
+  stats:c.compact.stats.map((st,i)=>({...st,...(c.compact.styles?c.compact.styles[i]:{}),...(ht?{ht:ht[i]}:{})})),
   header:pack(header),
   chunks:c.compact.chunks.map(ch=>({i:ch.i,t0:live(ch.t0/1000),t1:halfS!==null&&ch.t1/1000>halfS?live(ch.t1/1000):ch.t1/1000,data:pack(ch)})),
   ...(halfS!==null&&brk?{half:halfS,interval:brk}:{}),
@@ -60,6 +64,10 @@ export function submission(c:Computed,input:FrozenInput){
  };
 }
 
+/** The half-time score from the compact replay, or null (no half-time, or it cannot be read: the result never waits on it). */
+function halfTime(c:Computed):[number,number]|null{
+ try{const t=timeline(c.compact.header,c.compact.chunks);return halfTimeScore(t.events,t.frames);}catch{return null;}
+}
 function playerLines(c:Computed):{players?:PlayerLine[]}{
  const players=computedPlayerLines(c,{marks:true});
  return players?{players}:{};
