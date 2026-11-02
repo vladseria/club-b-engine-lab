@@ -46,8 +46,11 @@ export function submission(c:Computed,input:FrozenInput){
    ...(i.planId!==null&&i.detail?.run?{run:i.detail.run}:{}),
    ...(i.planId!==null&&i.detail&&Object.keys(i.detail).length?{detail:i.detail}:{})})),
   sub_notes:c.compact.substitutionNotes??[],
-  // Bebe's showcase only: absent from every league payload (no input there carries the key).
+  // Bebe's showcase, and a league match frozen with fitness on for both clubs; absent otherwise (no input carries the key).
   ...(c.injuries?.length?{injuries:c.injuries}:{}),
+  // Ballers fitness: each man's energy spent, only for an input frozen with the `fitness` marker (the submit door
+  // records his load from it); absent otherwise, so the payload, and the ledger's byte count, stay as they were.
+  ...(c.energy?{energy:c.energy}:{}),
   // Per-player lines (lib/ballers/stats.ts), stored on the result row so they
   // share its full-time gate, each with his mark and role (version 3: what
   // growth reads at the round close). Omitted if the derivation fails: a
