@@ -27,6 +27,7 @@
 //   S   the subs study's 140 (nine, guest, seed) at scale SB, strength 0.15 (140)
 //   SI  28 of them (every nine x 2 guests) with today's key (no scale, no strength), played on main AND this branch
 //       (--revs base=<main>,cand=working): every fingerprint must be equal (56 plays)
+//   SV  (run 2) 14 nines x 7 guest sides at the fitted setting (SV_SCALE, strength 0.15), one seed each (98)
 import {readFileSync} from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -35,6 +36,8 @@ import {rTasks,SETUPS} from '../2026-10-22-whatif/set.mjs';
 const here=path.dirname(fileURLToPath(import.meta.url));
 /** The run's constants. S1 and SB are the first guesses from the laptop traces (QUESTION.md (c)). */
 export const S1=0.45,SB=0.65,STRENGTH=0.15;
+/** Run 2's Bebe check (block SV): the scale run 1's exposures fitted for 0.4 a match with strength on (0.873, rounded). */
+export const SV_SCALE=0.87;
 export const HUMAN=['FCD','FDD','MEN','RCS','TRS'],AI=['NEO','RAP','UMA','INT'],CLUBS=[...HUMAN,...AI];
 export const PAIRS=CLUBS.flatMap(h=>CLUBS.filter(a=>a!==h).map(a=>[h,a]));
 export const N_LEVELS=[80,87],N_SEEDS=5;
@@ -112,7 +115,15 @@ export function sTasks(){
   out.push({...showcase('SI',nine,guest,13001,{}),id:`SI:${nine}:${guest}:13001`,subs:`P:new:${nine}:${guest}:13001`});}});
  return out;
 }
-export function tasks(){return [...lTasks(),...wTasks(),...nTasks(),...sTasks()];}
+// SV (run 2): Bebe's rate at the fitted setting with ONE SEED PER MATCH. The S block inherits the subs study's two seeds,
+// and the injury salt is a function of the seed, so its 98 (13001) and 42 (13002) matches each roll against one dice
+// stream: their realised counts are not independent (run 1, summary.md). 14 nines x 7 guest sides, seed 14001 + k.
+export function svTasks(){
+ const out=[];let k=0;
+ for(const guest of SUBS_GUESTS)for(const nine of SUBS_NINES){const seed=14001+k++;out.push({...showcase('SV',nine,guest,seed,{scale:SV_SCALE,strength:STRENGTH}),id:`SV:${nine}:${guest}:${seed}`});}
+ return out;
+}
+export function tasks(){return [...lTasks(),...wTasks(),...nTasks(),...sTasks(),...svTasks()];}
 
 if(process.argv[1]?.endsWith('2026-11-02-tiredness-calibration/set.mjs')){
  const t=tasks(),by={};for(const x of t)by[x.block]=(by[x.block]??0)+1;

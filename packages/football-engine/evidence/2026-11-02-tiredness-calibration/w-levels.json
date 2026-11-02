@@ -1,0 +1,54 @@
+{
+ "note": "Block W start levels: squad ids of real Global round-7 starters (no names) and the energy each starts at after 4 untouched matches (levels.mjs)",
+ "model": {
+  "X": 4.5,
+  "A": 0.03,
+  "P": 2.5,
+  "DMAX": 24,
+  "FLOOR": 80,
+  "gaps": "3,4",
+  "ratio": {
+   "avgSpend": 36.24119090909093,
+   "a6": 36.17251928406783,
+   "b": -3.9887898277074587,
+   "keeper": 0.16553700865907384
+  }
+ },
+ "clubs": {
+  "FCD": {
+   "e3e5c4c5-9aa0-457d-8280-3560d7f58055": 100,
+   "73912079-7f22-4710-9b8a-4c8e87c9bad4": 90.6,
+   "44b38780-d031-4882-9855-5d3dc6e8e569": 88.6,
+   "429e2bb5-93a7-4753-bdde-3f9edf87a772": 88.6,
+   "ab4ec2df-d03a-4963-895c-4576e21031bf": 86.6
+  },
+  "FDD": {
+   "9d36eedc-1d2a-4a79-950e-ee0bf7c60fb1": 100,
+   "901f32e9-7697-48da-9f68-7a48f7f65546": 90.6,
+   "f56f1e97-7bd1-46e2-b19d-00401efc533a": 90.6,
+   "e747304d-3cc8-44e5-96c0-dbe790de089b": 92.6,
+   "0da93f95-2cc5-44c7-b835-41139ffb5ab8": 86.6
+  },
+  "MEN": {
+   "81dff7cb-2afd-4548-b189-839efed1fa20": 100,
+   "91dce7f8-c872-4ec5-a544-323fa6bc2496": 82.7,
+   "1f8c2bd5-f44f-40ce-8ff9-c0aa117c0700": 86.6,
+   "274ccaf3-d253-4b1a-917e-e9fe710fcf61": 88.6,
+   "ca625ac3-3b3a-4cef-b626-98529b11e7ed": 86.6
+  },
+  "RCS": {
+   "7256d328-16ca-4b01-bf00-f066975bcaaf": 100,
+   "65a8e406-b6e6-45a6-ac41-4ab118dfb558": 88.6,
+   "74c818d8-36d4-41c4-8d6c-1cd191460dfe": 84.6,
+   "79b29c89-0166-4f30-b155-6c16d8ae3aa7": 86.6,
+   "f090e8d7-81c7-454b-ba96-4d338ada2003": 88.6
+  },
+  "TRS": {
+   "18c3af69-b960-4fea-96fb-ea56b7bbd559": 100,
+   "5917292b-f534-4b6f-806a-c7d48a5578d9": 86.6,
+   "3574ad60-421b-47ba-bf4f-7c0df6b45d22": 86.6,
+   "d4ebd7de-cc4f-4946-a270-0affef459400": 86.6,
+   "80b8bcb6-9417-4435-8982-6667ef577f45": 88.6
+  }
+ }
+}
