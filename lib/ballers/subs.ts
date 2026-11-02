@@ -141,12 +141,14 @@ export const newOrderId=()=>`s${Date.now().toString(36)}${(n++).toString(36)}`;
 /** A stored note: the engine's SubstitutionNote plus the order it came from. */
 export interface StoredNote extends SubstitutionNote {trigger?:SubstitutionTrigger;notBefore?:number}
 /** English, owner-facing: what happened to an order. */
-/** `matchClock`: the match's shown clock (lib/ballers/match-clock.ts) for the moment a change was made. */
-export function noteLine(n:StoredNote,name:Name,matchClock:MatchClock=OPEN_CLOCK):{made:boolean;text:string}{
+/** `matchClock`: the match's shown clock (lib/ballers/match-clock.ts) for the moment a change was made. `off`: what the
+ * line adds about the man going off (Ballers fitness, lib/ballers/fitness.ts offWords), a sentence after it; absent, the
+ * line is today's. */
+export function noteLine(n:StoredNote,name:Name,matchClock:MatchClock=OPEN_CLOCK,off?:string|null):{made:boolean;text:string}{
  const t=n.trigger;
  if(n.status==='made'){
   const why=t?` (${triggerPhrase(t,name).replace(/^if /,'').replace(/^at /,'')})`:'';
-  return {made:true,text:`${n.time!==undefined?shownClock(n.time,matchClock)+' ':''}${name(n.in)} on for ${n.out?name(n.out):'a team-mate'}${why}.`};
+  return {made:true,text:`${n.time!==undefined?shownClock(n.time,matchClock)+' ':''}${name(n.in)} on for ${n.out?name(n.out):'a team-mate'}${why}.${off?` ${off}.`:''}`};
  }
  const who=`${name(n.in)} for ${n.out?name(n.out):'the most tired player'}`;
  if(n.status==='impossible'){

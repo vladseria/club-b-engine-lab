@@ -1,5 +1,6 @@
 // Ballers fitness: compute reports each man's energy spent (deliverables/ballers-fitness/DESIGN.md §3.2), read from the
-// full engine frames, only for an input carrying the `fitness` marker; without it the payload is today's.
+// full engine frames, and the replay header each man's start (his energy at kickoff, for a substitution's line), only
+// for an input carrying the `fitness` marker; without it the payload is today's.
 // Four engine runs: a 120 s match (no half-time) through compute with and without the marker and once straight through
 // the engine (its full frames), and a 600 s match with a half-time and a change straight through the engine. If frames
 // ever stop being recorded, loads would silently become zero: this fails first.
@@ -8,6 +9,10 @@
 import {describe,it,expect} from 'vitest';
 import {computeMatch,energySpent,engineTeam,submission,validateInput,type FrozenInput,type FrozenSide} from '../lib/ballers/simulation';
 import {runMatch} from '../packages/football-engine/src/index';
+import {gunzipSync} from 'node:zlib';
+
+/** A packed payload part (simulation.ts pack) back to its JSON. */
+const unpack=(b64:string)=>JSON.parse(gunzipSync(Buffer.from(b64,'base64')).toString());
 
 const skills=(gk:boolean,n:number)=>({passing:5+n%3,control:5+n%4,finishing:gk?2:4+n%5,defending:5,pace:4+n%4,strength:5,stamina:3+n%5,reading:6,aerial:5,setPieces:5,keeping:gk?8:1});
 function side(tag:string,formation:FrozenSide['formation'],start:number[]=[]):FrozenSide{
@@ -41,10 +46,23 @@ describe('energy spent from the frames',()=>{
   expect('energy' in cPlain).toBe(false);
   const sub=submission(cPlain,plain);
   expect('energy' in sub).toBe(false);
-  // the engine never sees the marker: the marked run's payload is the same but for the energy list
-  const {energy,...rest}=submission(cMarked,marked);
+  expect(unpack(sub.header).players.some((p:{energy?:number})=>'energy' in p)).toBe(false);
+  // the engine never sees the marker: the marked run's payload is the same but for the energy list and the header's
+  // starts (each man's energy at kickoff, for a substitution's line: lib/ballers/replay.ts withStarts)
+  const {energy,header,...rest}=submission(cMarked,marked);
+  const {header:plainHeader,...plainRest}=sub;
   expect(energy).toEqual(cMarked.energy);
-  expect(JSON.stringify(rest)).toBe(JSON.stringify(sub));
+  expect(JSON.stringify(rest)).toBe(JSON.stringify(plainRest));
+  const h=unpack(header),hp=unpack(plainHeader);
+  expect(JSON.stringify({...h,players:h.players.map(({energy:_e,...p}:{energy?:number})=>p)})).toBe(JSON.stringify(hp));
+ },120_000);
+
+ it('with the marker: the header carries every man\'s start, his frozen energy, bench included',()=>{
+  const h=cMarked.compact.header;
+  expect(h.players.length).toBe(18);
+  for(const p of h.players)expect(p.energy).toBe(marked.sides[p.side].players.find(q=>q.id===p.id)!.energy);
+  expect(h.players.find(p=>p.id===marked.sides[0].lineup[1])!.energy).toBe(87.3);
+  expect(cPlain.compact.header.players.every(p=>p.energy===undefined)).toBe(true);
  },120_000);
 
  it('a 120 s match (no half-time, no change): each man spent his first frame\'s energy minus his last',()=>{

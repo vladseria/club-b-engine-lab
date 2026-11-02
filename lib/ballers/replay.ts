@@ -33,6 +33,15 @@ export interface ReplayPlayer {
  /** Stored player row id (uuid). */ id:string;
  name:string;short:string;number:number;role:string;portrait:string;captain:boolean;
  /** Started on the bench (P5). */ bench?:boolean;
+ /** Ballers fitness: his energy at kickoff, the start the engine played him at (withStarts). Present only in a match
+  * frozen with the `fitness` marker (and a practice match played with fitness on), so every other header is
+  * byte-identical; its presence is how a screen knows fitness was on for that match. Never shown as a number. */
+ energy?:number;
+}
+/** The header with each man's energy at kickoff (ReplayPlayer.energy) from `start`; a man it has no number for keeps
+ * none. Compute adds them under the `fitness` marker (lib/ballers/compute.ts compact), practice when fitness is on. */
+export function withStarts<H extends {players:ReplayPlayer[]}>(header:H,start:(p:ReplayPlayer)=>number|undefined):H{
+ return {...header,players:header.players.map(p=>{const e=start(p);return typeof e==='number'&&Number.isFinite(e)?{...p,energy:e}:p;})};
 }
 export interface ReplayTeam {club:string;name:string;code:string;color:string;formation:string;style:string;
  /** The club's voice as frozen at the lock (lib/ballers/voice.ts); present only when it has lines. */ voice?:Voice}

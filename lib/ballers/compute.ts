@@ -8,7 +8,7 @@ import {engineApproach,engineStyle,playedApproach,type StoredApproach} from './a
 import {styleMoments,styleTallies} from './style-moments';
 import {validateSubstitutionOrders,type SubstitutionNote,type SubstitutionOrder,type SubstitutionTrigger} from '../../packages/football-engine/src/practice-substitutions';
 import {validateTacticsSwitches,type TacticsSwitch,type SwitchTrigger,type SwitchNote} from '../../packages/football-engine/src/practice-switch';
-import {BREAK_SECONDS,CHUNK_SECONDS,FRAME_STEP,REPLAY_VERSION,cm,mrad,ms,type CompactMatch,type ReplayChunk,type ReplayEvent,type ReplayFrame,type ReplayHeader,type ReplayIdea,type ReplayPlayer,type TeamStats} from './replay';
+import {BREAK_SECONDS,CHUNK_SECONDS,FRAME_STEP,REPLAY_VERSION,cm,mrad,ms,withStarts,type CompactMatch,type ReplayChunk,type ReplayEvent,type ReplayFrame,type ReplayHeader,type ReplayIdea,type ReplayPlayer,type TeamStats} from './replay';
 import {resolveIdea} from './ideas';
 import {classifyIdeaRun,routineUnkicked,type IdeaRun} from './idea-run';
 import type {LessonSpec} from '../../packages/football-engine/src/practice-lesson';
@@ -261,10 +261,13 @@ export function compact(input:FrozenInput,r:EngineResult):CompactMatch{
  const clockFull=kick2?Math.round((kick2.time+r.duration/2)*1000)/1000:r.duration;
  // The header is readable from kickoff, so it holds the match length only: when the whistles really went (a first half
  // played on, a last attack) arrives in the last chunk's `end` (replay.ts), released with the chunk that holds them.
- const header:ReplayHeader={v:REPLAY_VERSION,engineBuild:'',duration:r.duration,chunkSeconds:CHUNK_SECONDS,chunks:Math.ceil(r.duration/CHUNK_SECONDS),
+ const header0:ReplayHeader={v:REPLAY_VERSION,engineBuild:'',duration:r.duration,chunkSeconds:CHUNK_SECONDS,chunks:Math.ceil(r.duration/CHUNK_SECONDS),
   teams:input.sides.map(s=>{const voice=normalizeVoice(s.voice);
    // No voice = the key is omitted: the header is byte-identical to before.
    return {club:s.club.id,name:s.club.name,code:s.club.code,color:s.club.color,formation:s.formation,style:s.style,...(voice?{voice}:{})};}) as ReplayHeader['teams'],players};
+ // Ballers fitness: each man's energy at kickoff (a substitution's line says it in words: lib/ballers/fitness.ts
+ // offWords), only with the marker; without it the header is byte-identical to before.
+ const header=input.fitness?withStarts(header0,p=>input.sides[p.side].players.find(q=>q.id===p.id)?.energy):header0;
 
  let last=-Infinity;
  const frames:ReplayFrame[]=[];
