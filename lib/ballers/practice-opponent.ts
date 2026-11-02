@@ -97,16 +97,35 @@ export function fitOrders(orders:readonly PrepOrder[],lineup:readonly string[],s
 export function atStarts<P extends Pick<Player,'id'|'energy'>>(squad:P[],start?:((id:string)=>number)|null):P[]{
  return start?squad.map(p=>({...p,energy:start(p.id)})):squad;
 }
+/** Fitness on, for the practised match: each man's start, and whether he is out of it (injured). */
+export interface PractisedFitness {start:(id:string)=>number;out:(id:string)=>boolean}
 
-/** Their side as practice plays it, and the orders left out (only ever when `five` is the player's pick).
- * `five`: the practising player's pick of their five; null, or their own five, is their last game's. `start` (fitness
- * on): each man's start for the practised match. */
-export function theirSide(club:Pick<Club,'id'|'name'|'code'|'color'>,squad:Player[],side:PracticeSide,five?:readonly string[]|null,start?:((id:string)=>number)|null):{side:FrozenSide;unfit:Unfit[]}{
- const picked=!!five&&!sameFive(five,side.lineup),lineup=picked?[...five!]:side.lineup;
+/** Their own five as the lock would play it (fitness on, decision 10): a man of their last game's five who is out of the
+ * practised match (injured) gives his slot to the fill-in rule's man (fillIn: private.ballers_fill_in's order) from the
+ * rest of the squad, never one who is out himself; slots in order. The five itself when nobody is out (and a slot nobody
+ * can fill keeps its man, as the server keeps a forced one). */
+export function ownFive<P extends Who>(lineup:readonly string[],squad:readonly P[],formation:Formation,out?:((id:string)=>boolean)|null):string[]{
+ if(!out||!lineup.some(id=>out(id)))return [...lineup];
+ const five=[...lineup],pool=squad.filter(p=>!lineup.includes(p.id)&&!out(p.id));
+ for(let i=0;i<five.length;i++){
+  if(!out(five[i]))continue;
+  const p=fillIn(pool,slotRole(formation,i));if(!p)continue;
+  five[i]=p.id;pool.splice(pool.indexOf(p),1);
+ }
+ return five;
+}
+
+/** Their side as practice plays it, and the orders left out (when `five` is the player's pick, or their own five lost
+ * a man who is out). `five`: the practising player's pick of their five; null, or their own five, is their last game's,
+ * less anyone out of the practised match (ownFive). `fit` (fitness on): each man's start for the practised match, and
+ * who is out of it. */
+export function theirSide(club:Pick<Club,'id'|'name'|'code'|'color'>,squad:Player[],side:PracticeSide,five?:readonly string[]|null,fit?:PractisedFitness|null):{side:FrozenSide;unfit:Unfit[]}{
+ const own=ownFive(side.lineup,squad,side.formation,fit?.out);
+ const picked=!!five&&!sameFive(five,own),lineup=picked?[...five!]:own;
  const orders=side.substitutions??[];
- const {fit,unfit}=picked?fitOrders(orders,lineup,squad):{fit:orders,unfit:[]};
- const base=frozenSide(club,atStarts(squad,start),{lineup,formation:side.formation,style:side.style,approach:side.approach,captain:side.captain,...(side.settings?{settings:side.settings}:{})});
- return {side:{...base,...(fit.length?{substitutions:fit}:{}),...(side.switch?{switch:side.switch}:{})},unfit};
+ const {fit:kept,unfit}=picked||!sameFive(own,side.lineup)?fitOrders(orders,lineup,squad):{fit:orders,unfit:[]};
+ const base=frozenSide(club,atStarts(squad,fit?.start),{lineup,formation:side.formation,style:side.style,approach:side.approach,captain:side.captain,...(side.settings?{settings:side.settings}:{})});
+ return {side:{...base,...(kept.length?{substitutions:kept}:{}),...(side.switch?{switch:side.switch}:{})},unfit};
 }
 
 /** What the picks call their five, for the kept runs: '' for their own. */
