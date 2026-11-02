@@ -1,0 +1,306 @@
+{
+ "saved": {
+  "formation": "1-2-1",
+  "style": "combinations",
+  "approach": {
+   "line": "high",
+   "press": "balanced",
+   "width": "narrow",
+   "commit": 2,
+   "striker": "link",
+   "transition": "secure",
+   "progression": "patient"
+  },
+  "captain": "abae2367-0837-4814-822f-6708bb31c74e",
+  "lineup": [
+   "abae2367-0837-4814-822f-6708bb31c74e",
+   "70010adb-5a2c-4af7-9ee8-18844618e5af",
+   "f54c4dad-2c71-45bd-b166-c2c6501f21cf",
+   "9d589e63-74a0-42ee-b33d-577227879c82",
+   "30016ee2-4e00-49f9-8005-f7d4f72a430e"
+  ],
+  "accents": {
+   "c-c5e7f699-600e-4255-8c2a-73dfaa860e0d": 85,
+   "one-two-3-5": 40
+  },
+  "emphasis": {
+   "c-c5e7f699-600e-4255-8c2a-73dfaa860e0d": 0.85,
+   "one-two-3-5": 0.4
+  },
+  "assign": {
+   "c-c5e7f699-600e-4255-8c2a-73dfaa860e0d": {
+    "5": "9d589e63-74a0-42ee-b33d-577227879c82"
+   }
+  },
+  "subs": [
+   "tired",
+   "score",
+   "half"
+  ]
+ },
+ "frozen": {
+  "club": {
+   "id": "3969a447-0cc1-4c15-a2fd-db38f8e8770a",
+   "code": "PIS",
+   "name": "Miau",
+   "color": "#0EA47F"
+  },
+  "bench": [
+   "73064820-cedc-4d4f-a1d1-13f5f3fd8d0a",
+   "574dd8bc-d521-43ad-8b48-80a78e3cae18",
+   "3cc7816e-def0-459d-9666-767a0a91f848",
+   "25cbd950-4d54-4aff-959a-e07d83075497"
+  ],
+  "plans": [
+   {
+    "key": "c-c5e7f699-600e-4255-8c2a-73dfaa860e0d",
+    "idea": "2c2a5e32-1cfe-4b30-88e6-f0eae6036314",
+    "name": "Overlap left wing 2",
+    "plan": {
+     "id": "c-c5e7f699-600e-4255-8c2a-73dfaa860e0d",
+     "name": "Overlap left wing 2",
+     "lesson": {
+      "jobs": [
+       {
+        "id": "c-c140737a-5294-4d09-ad39-15463d517e17",
+        "kind": "run",
+        "actor": 5,
+        "spaceId": "c-325a390d-0500-4ba0-a285-d81214b65de3",
+        "momentId": "start"
+       },
+       {
+        "id": "c-cffc7da3-5b71-45a2-b766-acd7d9d8a4cd",
+        "kind": "pass",
+        "actor": 3,
+        "spaceId": "c-325a390d-0500-4ba0-a285-d81214b65de3",
+        "delivery": "auto",
+        "fallback": true,
+        "momentId": "start",
+        "recipient": 5
+       },
+       {
+        "id": "c-458803ac-48be-42f5-9718-5ad8bb181a9d",
+        "kind": "offer",
+        "actor": 3,
+        "momentId": "c-fc1f5180-e23d-46ca-8637-9a3d04c6782d",
+        "teammate": "carrier"
+       },
+       {
+        "id": "c-5aa6fcff-b2df-4a1a-9210-d7159e2e8964",
+        "kind": "shoot",
+        "actor": 5,
+        "momentId": "c-fc1f5180-e23d-46ca-8637-9a3d04c6782d"
+       }
+      ],
+      "spaces": [
+       {
+        "x": 38.00000103230708,
+        "y": -6.999999180220357,
+        "id": "c-325a390d-0500-4ba0-a285-d81214b65de3",
+        "name": "Space 1",
+        "radius": 3.5
+       }
+      ],
+      "moments": [
+       {
+        "id": "start",
+        "cue": {
+         "kind": "start"
+        },
+        "name": "Start"
+       },
+       {
+        "id": "c-fc1f5180-e23d-46ca-8637-9a3d04c6782d",
+        "cue": {
+         "kind": "received",
+         "jobId": "c-cffc7da3-5b71-45a2-b766-acd7d9d8a4cd"
+        },
+        "name": "After the pass arrives"
+       }
+      ]
+     },
+     "weight": 100,
+     "emphasis": 0.85,
+     "preferred": null,
+     "instructions": []
+    },
+    "accent": 85,
+    "assign": {
+     "5": "9d589e63-74a0-42ee-b33d-577227879c82"
+    },
+    "lineup": [
+     "abae2367-0837-4814-822f-6708bb31c74e",
+     "70010adb-5a2c-4af7-9ee8-18844618e5af",
+     "f54c4dad-2c71-45bd-b166-c2c6501f21cf",
+     "9d589e63-74a0-42ee-b33d-577227879c82",
+     "73064820-cedc-4d4f-a1d1-13f5f3fd8d0a"
+    ]
+   },
+   {
+    "key": "one-two-3-5",
+    "idea": "53a8ec02-e286-4e37-a167-5fb2247d27cb",
+    "name": "One-two · Iulică and Mihai",
+    "plan": {
+     "id": "one-two-3-5",
+     "name": "One-two · Iulică and Mihai",
+     "lesson": {
+      "jobs": [
+       {
+        "id": "pair",
+        "kind": "pass",
+        "actor": 3,
+        "repeat": true,
+        "momentId": "start",
+        "recipient": 5
+       }
+      ],
+      "spaces": [],
+      "moments": [
+       {
+        "id": "start",
+        "cue": {
+         "kind": "start"
+        },
+        "name": "Start"
+       }
+      ]
+     },
+     "weight": 100,
+     "emphasis": 0.4,
+     "preferred": null,
+     "instructions": []
+    },
+    "accent": 40,
+    "assign": {},
+    "lineup": [
+     "abae2367-0837-4814-822f-6708bb31c74e",
+     "70010adb-5a2c-4af7-9ee8-18844618e5af",
+     "f54c4dad-2c71-45bd-b166-c2c6501f21cf",
+     "9d589e63-74a0-42ee-b33d-577227879c82",
+     "73064820-cedc-4d4f-a1d1-13f5f3fd8d0a"
+    ]
+   }
+  ],
+  "style": "combinations",
+  "lineup": [
+   "abae2367-0837-4814-822f-6708bb31c74e",
+   "70010adb-5a2c-4af7-9ee8-18844618e5af",
+   "f54c4dad-2c71-45bd-b166-c2c6501f21cf",
+   "9d589e63-74a0-42ee-b33d-577227879c82",
+   "30016ee2-4e00-49f9-8005-f7d4f72a430e"
+  ],
+  "captain": "abae2367-0837-4814-822f-6708bb31c74e",
+  "approach": {
+   "line": "high",
+   "press": "balanced",
+   "width": "narrow",
+   "commit": 2,
+   "striker": "link",
+   "transition": "secure",
+   "progression": "patient"
+  },
+  "formation": "1-2-1",
+  "substitutions": [
+   {
+    "id": "smugv3kuc0",
+    "in": "73064820-cedc-4d4f-a1d1-13f5f3fd8d0a",
+    "out": "30016ee2-4e00-49f9-8005-f7d4f72a430e",
+    "trigger": {
+     "kind": "tired",
+     "player": "30016ee2-4e00-49f9-8005-f7d4f72a430e",
+     "threshold": 92
+    }
+   },
+   {
+    "id": "smugv3kv91",
+    "in": "574dd8bc-d521-43ad-8b48-80a78e3cae18",
+    "out": "70010adb-5a2c-4af7-9ee8-18844618e5af",
+    "trigger": {
+     "kind": "score",
+     "state": "losing"
+    },
+    "notBefore": 600
+   },
+   {
+    "id": "smugv3kw62",
+    "in": "3cc7816e-def0-459d-9666-767a0a91f848",
+    "out": "30016ee2-4e00-49f9-8005-f7d4f72a430e",
+    "trigger": {
+     "kind": "half"
+    }
+   }
+  ]
+ },
+ "squad": [
+  {
+   "id": "abae2367-0837-4814-822f-6708bb31c74e",
+   "short": "Gigel",
+   "roles": [
+    "GK"
+   ]
+  },
+  {
+   "id": "f54c4dad-2c71-45bd-b166-c2c6501f21cf",
+   "short": "Iulică",
+   "roles": [
+    "CM",
+    "DM"
+   ]
+  },
+  {
+   "id": "70010adb-5a2c-4af7-9ee8-18844618e5af",
+   "short": "Dănuț",
+   "roles": [
+    "CB"
+   ]
+  },
+  {
+   "id": "30016ee2-4e00-49f9-8005-f7d4f72a430e",
+   "short": "Gică",
+   "roles": [
+    "DM",
+    "CM"
+   ]
+  },
+  {
+   "id": "9d589e63-74a0-42ee-b33d-577227879c82",
+   "short": "Zombie",
+   "roles": [
+    "AM",
+    "CM",
+    "W"
+   ]
+  },
+  {
+   "id": "73064820-cedc-4d4f-a1d1-13f5f3fd8d0a",
+   "short": "Mihai",
+   "roles": [
+    "ST"
+   ]
+  },
+  {
+   "id": "574dd8bc-d521-43ad-8b48-80a78e3cae18",
+   "short": "Bogdan",
+   "roles": [
+    "FB",
+    "CB"
+   ]
+  },
+  {
+   "id": "3cc7816e-def0-459d-9666-767a0a91f848",
+   "short": "Radu",
+   "roles": [
+    "AM",
+    "W"
+   ]
+  },
+  {
+   "id": "25cbd950-4d54-4aff-959a-e07d83075497",
+   "short": "Sandu",
+   "roles": [
+    "ST",
+    "W"
+   ]
+  }
+ ]
+}
