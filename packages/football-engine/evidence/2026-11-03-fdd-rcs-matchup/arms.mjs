@@ -152,3 +152,16 @@ export const TARGET={
 };
 Object.assign(ARMS,TARGET);
 export const TARGET_ARMS=Object.keys(TARGET);
+
+// ---- Added after the target-man run (2026-11-03; SETUPS.md "Added after the target-man run"): position swaps within A0's
+// five. A0's frozen side with the five re-slotted (GK, CB, LW, RW, ST) and the Crizatu->Fotoliu order dropped (a sub takes
+// the outgoing man's slot, so Fotoliu would land on the wing). Free kicks as A0 (Into the box, taker Auto).
+export const XSWAP={
+ // X1: Orlandinho at ST, Crizatu in Orlandinho's LW slot; Iacob->Nevorbitu and Varză->Tramvai stay.
+ xOrlST:{stored:true,label:'X1 Orlandinho ST, Crizatu LW',lineup:['Bulan','Iacob','Crizatu','Varză','Orlandinho'],dropOrders:['smvqxfjj21']},
+ // X2: Varză at ST, Crizatu in Varză's RW slot; Iacob->Nevorbitu stays; Varză's own tired order (Tramvai for him) stays and
+ // now targets him at ST (stamina 9: in the screen it never fired).
+ xVarST:{stored:true,label:'X2 Varză ST, Crizatu RW',lineup:['Bulan','Iacob','Orlandinho','Crizatu','Varză'],dropOrders:['smvqxfjj21']},
+};
+Object.assign(ARMS,XSWAP);
+export const XSWAP_ARMS=Object.keys(XSWAP);

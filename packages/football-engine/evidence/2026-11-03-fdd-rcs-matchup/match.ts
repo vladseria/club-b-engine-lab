@@ -224,7 +224,9 @@ function manMech(c:any,ev:any[],frames:any[],short:string,lineOf:(i:number)=>any
  let fi=0;const frameAt=(t:number)=>{while(fi<frames.length-1&&frames[fi].t<t)fi++;while(fi>0&&frames[fi-1].t>=t)fi--;return frames[fi];};
  const goalDist=(q:number[])=>Math.hypot(q[0]/100,q[1]/100);
  const sideOfIdx=(i:number|undefined)=>i===undefined?undefined:c.header.players[i]?.side;
- const o:any={sec:0,rec:0,won:0,dist:0,near:0,mid:0,far:0,back:0,next:{shot:0,pass:0,lost:0,fouled:0,other:0},layoff:0,drib:0,carry:0,runs:0,served:0,shots:[] as number[][]};
+ const o:any={sec:0,rec:0,won:0,dist:0,near:0,mid:0,far:0,back:0,next:{shot:0,pass:0,lost:0,fouled:0,other:0},layoff:0,drib:0,carry:0,runs:0,served:0,shots:[] as number[][],nearRec:{},nearShot:{}};
+ // (added after the target-man run) the Roman City outfielder nearest him in a frame, by short name
+ const nearestOpp=(f:any,me:number[])=>{let best:string|null=null,bd=Infinity;for(const p of c.header.players){if(p.side!==0||p.i===gk0)continue;const q=pos(f,p.i);if(!q)continue;const d=Math.hypot((q[0]-me[0])/100,(q[1]-me[1])/100);if(d<bd){bd=d;best=p.short;}}return best;};
  const L=lineOf(I);if(L){o.sec=Math.round(L.m??0);o.sh=L.sh;o.g=L.g;o.kp=L.kp??0;o.a=L.a;}
  const scoredShots=new Set<any>();
  for(const g of ev)if(g.k==='goal'&&g.s===1){for(let k=ev.indexOf(g)-1;k>=0&&ev[k].t>=g.t-4000;k--)if(ev[k].k==='shot'){if(sideOfIdx(ev[k].a)===1)scoredShots.add(ev[k]);break;}}
@@ -236,6 +238,7 @@ function manMech(c:any,ev:any[],frames:any[],short:string,lineOf:(i:number)=>any
   if(e.k==='receive'){
    o.rec++;const d=goalDist(p0);o.dist+=d;if(d<8)o.near++;else if(d<=14)o.mid++;else o.far++;
    const ang=p0[2]/1000,gx=-p0[0],gy=-p0[1],dot=Math.cos(ang)*gx+Math.sin(ang)*gy;if(dot<0)o.back++;
+   const nr=nearestOpp(f0,p0);if(nr)o.nearRec[nr]=(o.nearRec[nr]??0)+1;
   }else o.won++;
   let dribbled=false,end='other',endEv:any=null;
   for(let k=j+1;k<ev.length;k++){
@@ -254,7 +257,9 @@ function manMech(c:any,ev:any[],frames:any[],short:string,lineOf:(i:number)=>any
    if(end==='pass'&&endEv.t-e.t<=2500&&endEv.g!==undefined){const fq=frameAt(endEv.t),q=pos(fq,endEv.g),pm=pos(fq,I);
     if(q&&pm&&Math.hypot((q[0]-pm[0])/100,(q[1]-pm[1])/100)<=15&&goalDist(q)>=goalDist(pm)-1)o.layoff++;}
    if(end==='shot'){const so=endEv.sh?.o??[p0[0],p0[1]],d=goalDist(so);
-    o.shots.push([Math.round(d*10)/10,/din prima/.test(endEv.x??'')?1:0,carried?1:0,(so[0]/100<=8&&Math.abs(so[1]/100)<=8)?1:0,scoredShots.has(endEv)?1:0,r3(shotChance(endEv)??0)]);}}
+    const fs=frameAt(endEv.t),ps=pos(fs,I),ns=ps?nearestOpp(fs,ps):null;if(ns)o.nearShot[ns]=(o.nearShot[ns]??0)+1;
+    // [distance m, first time, after a carry, inside the box, goal, chance, |y| m (across from the goal's centre line)]
+    o.shots.push([Math.round(d*10)/10,/din prima/.test(endEv.x??'')?1:0,carried?1:0,(so[0]/100<=8&&Math.abs(so[1]/100)<=8)?1:0,scoredShots.has(endEv)?1:0,r3(shotChance(endEv)??0),Math.round(Math.abs(so[1]/100)*10)/10]);}}
  }
  // runs in behind, from the frames
  let wasBeyond=true,lastRun=-1e9;
@@ -268,6 +273,24 @@ function manMech(c:any,ev:any[],frames:any[],short:string,lineOf:(i:number)=>any
   wasBeyond=beyond;
  }
  return o;
+}
+/** (added after the target-man run) Which flank Roman City's centre-backs cover. Over the frames in which Directia has the
+ * ball in open play: each named man's summed y and frame count (both sides share one y axis), and for Colivă, Siguranță and
+ * Abajur the Directia outfielder nearest them, by frame count. */
+function flankRead(c:any,frames:any[]){
+ const pos=(f:any,i:number)=>{const k=f.l?f.l.indexOf(i):(i<10?i:-1);return k>=0&&f.p[k]?f.p[k]:null;};
+ const P=c.header.players,named=(side:number,s:string)=>P.find((p:any)=>p.side===side&&p.short===s);
+ const watch=[...['Colivă','Siguranță','Abajur'].map(s=>named(0,s)),...['Orlandinho','Varză','Crizatu','Fotoliu','Tramvai'].map(s=>named(1,s))].filter(Boolean);
+ const fdOut=P.filter((p:any)=>p.side===1&&p.role!=='GK'&&!(p.slot===0));
+ const y:Record<string,[number,number]>={},nearest:Record<string,Record<string,number>>={};
+ for(const f of frames){
+  if(f.ps!==1||f.r||f.c)continue;
+  for(const p of watch){const q=pos(f,p.i);if(!q)continue;const k=`${p.side}:${p.short}`;const a=y[k]??(y[k]=[0,0]);a[0]+=q[1]/100;a[1]++;
+   if(p.side===0){let best:string|null=null,bd=Infinity;for(const d of fdOut){const r=pos(f,d.i);if(!r)continue;const dd=Math.hypot((r[0]-q[0])/100,(r[1]-q[1])/100);if(dd<bd){bd=dd;best=d.short;}}
+    if(best){const n=nearest[p.short]??(nearest[p.short]={});n[best]=(n[best]??0)+1;}}}
+ }
+ for(const k in y)y[k]=[Math.round(y[k][0]*10)/10,y[k][1]];
+ return {y,nearest};
 }
 
 export function play(t:{label:string;arm:string;seed:number;duration?:number;detail?:boolean}){
@@ -293,7 +316,8 @@ export function play(t:{label:string;arm:string;seed:number;duration?:number;det
  const PL=matchPlayerStats(c.header,ev,frames);
  const lines=PL.map(l=>{const p=c.header.players.find((q:any)=>q.id===l.id&&q.side===l.side) as any;return [l.side,p?.short??l.id,Math.round(l.m??0),l.sh,l.so??0,l.g,l.st,l.kp??0,l.a];});
  const lineOf=(i:number)=>{const p=c.header.players[i];return p?PL.find(l=>l.id===p.id&&l.side===p.side):undefined;};
- const mech={Crizatu:manMech(c,ev,frames,'Crizatu',lineOf),Fotoliu:manMech(c,ev,frames,'Fotoliu',lineOf)};
+ const mech={Crizatu:manMech(c,ev,frames,'Crizatu',lineOf),Fotoliu:manMech(c,ev,frames,'Fotoliu',lineOf),
+  Orlandinho:manMech(c,ev,frames,'Orlandinho',lineOf),Varză:manMech(c,ev,frames,'Varză',lineOf),flank:flankRead(c,frames)};
  const st=(s:0|1)=>{const x:any=c.stats[s];return {poss:Math.round(x.possession*10)/10,passes:x.passes,completed:x.completed,shots:x.shots,saves:x.saves,turnovers:x.turnovers,tackles:x.tackles,tacklesWon:x.tacklesWon,fouls:x.fouls,surges:x.surges,surgeShots:x.surgeShots};};
  const subs=(c.substitutionNotes??[]).flatMap((n:any)=>n.notes.map((x:any)=>[n.side,x.status,x.time==null?null:Math.round(x.time),x.order??null]));
  const sw=(c.switchNotes??[]).map((n:any)=>[n.side,n.status,n.time==null?null:Math.round(n.time)]);
