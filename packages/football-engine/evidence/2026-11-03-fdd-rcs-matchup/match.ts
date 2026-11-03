@@ -15,8 +15,8 @@ import {PRESETS as LIB_PRESETS} from '../../../../lib/ballers/league';
 import {STYLE_BASE} from '../../../../lib/ballers/approach';
 import {matchPlayerStats} from '../../../../lib/ballers/stats';
 import {ARMS,PRESETS} from './arms.mjs';
-import {SWEEP} from './sweep.mjs';
-Object.assign(ARMS,SWEEP);
+import {SWEEP,AROUND5} from './sweep.mjs';
+Object.assign(ARMS,SWEEP,AROUND5);
 
 /** RCSB (added for sweep Stage 2): Roman City's prep as changed at 13:41 UTC; the same thirteen men, so the same ages. */
 type Sides={RCS:FrozenSide;RCSB?:FrozenSide;FDD:FrozenSide;ages:{RCS:Record<string,number>;FDD:Record<string,number>}};

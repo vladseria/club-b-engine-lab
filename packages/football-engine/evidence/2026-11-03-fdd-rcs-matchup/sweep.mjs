@@ -81,3 +81,22 @@ export const IDEAS={
 export const SWEEP_ARMS=Object.keys(SWEEP);
 /** Seeds: Stage 1 (fresh, shared by every arm) and Stage 2 (new). */
 export const STAGE1_SEEDS='1104000-1104049',STAGE2_SEEDS='1105000-1105399';
+
+// ---- Added after the Bodies-forward-5 run (2026-11-03; SETUPS-SWEEP.md "One setting at a time around wb_commit_5"):
+// wb_commit_5 (1-2-1 Balanced + Bodies forward 5, F1, A0's three orders, free kicks Into the box, taker Auto, no keeper call)
+// with exactly one of the manager's rows changed. Progression and On winning it stay the style's; they are not manager rows.
+const B5=SWEEP.wb_commit_5;
+const one=(row,v,label)=>({...B5,label:`wb_commit_5, ${label}`,approach:{...B5.approach,[row]:v},subs:B5.subs.map(o=>({...o,trigger:{...o.trigger}})),lineup:[...B5.lineup],settings:{...B5.settings}});
+export const AROUND5={
+ a5_width_narrow:one('width','narrow','Width Narrow'),
+ a5_width_wide:one('width','wide','Width Wide'),
+ a5_line_deep:one('line','deep','Line Deep'),
+ a5_line_high:one('line','high','Line High'),
+ a5_press_selective:one('press','selective','Press Selective'),
+ a5_press_aggressive:one('press','aggressive','Press Aggressive'),
+ a5_striker_link:one('striker','link','Striker Drops deep'),
+ a5_striker_pivot:one('striker','pivot','Striker Pivot'),
+ a5_striker_run:one('striker','run','Striker In behind'),
+ a5_onLoss_counterpress:one('onLoss','counterpress','On losing it Counter-press'),
+};
+export const AROUND5_ARMS=Object.keys(AROUND5);
