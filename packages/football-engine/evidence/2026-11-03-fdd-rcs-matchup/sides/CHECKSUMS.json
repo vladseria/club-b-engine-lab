@@ -1,0 +1,9 @@
+{
+ "source": "Supabase SELECT only (read-only, the Supabase MCP), 2026-11-03 ~11:10 UTC. Each *.jsonb.txt is private.ballers_input_side(club, round)::text byte for byte for global league round 11 (1afa341f-d837-4241-afaa-83b50fa789c6), match ed33ea04 (RCS home, FDD away). Neither side carries `voice`. md5 = the server's md5(private.ballers_input_side(...)::text), checked after writing. private.ballers_fitness_side(side, club, round, kickoff) returns the same text (same md5): every man's forecast energy is 100 (no fitness loads, no injuries), so the fitness step of private.ballers_freeze_match changes nothing in the sides. The official match seed was never read: ballers_match_inputs was read only for round 10's sides (input->'sides'), never for round 11.",
+ "taken_at": "2026-11-03",
+ "space": "global",
+ "files": {
+  "RCS.jsonb.txt": {"club": "Roman City Sport Club", "md5": "cd6ff63af9082035bcb99d70dbb8fd93", "formation": "2-2", "notes": "plan Prizantemele Balanced 2-2 (Balanced, press Selective); free kicks Into the box; 1 tired order (Abajur for Colivă, 95); switch to FCD 2nd half Direct 1-2-1 rescue if losing, not before 7:30"},
+  "FDD.jsonb.txt": {"club": "FC Directia Darmanesti", "md5": "29849b2f377d0b33a770dca212ace792", "formation": "1-2-1", "notes": "plan TikiTaka Darmanesti = the Counter preset exactly; free kicks Into the box; 3 tired orders at 95 (Fotoliu for Crizatu, Nevorbitu for Iacob, Tramvai for Varză); no switch"}
+ }
+}
