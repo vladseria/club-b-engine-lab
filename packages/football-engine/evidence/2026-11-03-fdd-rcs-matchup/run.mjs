@@ -18,7 +18,7 @@ import {createHash} from 'node:crypto';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import path from 'node:path';
 import {shardTasks,simWorkers,shardNote} from '../_ci/shard.mjs';
-import {ARMS,SCREEN} from './arms.mjs';
+import {ARMS,SCREEN,SWAPS} from './arms.mjs';
 
 const here=path.dirname(fileURLToPath(import.meta.url));
 
@@ -42,8 +42,8 @@ if(!isMainThread){
  await build({entryPoints:[path.join(here,'match.ts')],bundle:true,format:'esm',platform:'node',target:'node22',outfile:bundle,logLevel:'warning'});
  const mod=await import(pathToFileURL(bundle).href);mod.init(sides);
 
- // ---- every arm must be what the live app can store, and must build a valid input
- for(const [a,arm] of Object.entries(ARMS)){mod.checkArm(sides.FDD,arm,a);mod.inputOf({arm:a,seed:1});}
+ // ---- every arm must be what the live app can store, must build a valid input, and the engine must take all its orders
+ for(const [a,arm] of Object.entries(ARMS)){mod.checkArm(sides.FDD,arm,a);const d=mod.dryCheck({arm:a,seed:1});if(argv.includes('--dry'))console.log(a,JSON.stringify(d));}
 
  if(argv.includes('--probe')){
   const r=mod.play({label:'probe',arm:arg('arm','prep'),seed:Number(arg('seed',1103000)),detail:true});
@@ -51,7 +51,7 @@ if(!isMainThread){
  }
 
  const label=arg('label');if(!label)throw Error('--label is required');
- const armsArg=arg('arms','screen'),arms=armsArg==='screen'?SCREEN:armsArg.split(',');
+ const armsArg=arg('arms','screen'),arms=armsArg==='screen'?SCREEN:armsArg==='swaps'?SWAPS:armsArg.split(',');
  for(const a of arms)if(!ARMS[a])throw Error('unknown arm '+a);
  const seeds=range(arg('seeds','1103000-1103099')),duration=Number(arg('duration',900));
  const every=seeds.flatMap(seed=>arms.map(arm=>({label,arm,seed,duration})));

@@ -91,3 +91,19 @@ export const ARMS={
 };
 /** The screen: every arm, in this order. */
 export const SCREEN=['prep','keepCriz','quickFix','feed','feedFrigider','feedPlus','press','pressPlus','hunt'];
+
+// ---- Added after the screen (2026-11-03, the owner's request through the lead; SETUPS.md "Added after the screen"):
+// three lineup swaps on A0. `stored: true` + `lineup` = A0's frozen side with another five (slot order GK, CB, LW, RW, ST);
+// plan, approach, free kicks, captain (Crizatu) and every order not dropped stay exactly as stored. Same seeds as the screen,
+// paired with the stored A0 rows.
+export const ADDED={
+ // S1: Fotoliu starts at ST; Crizatu takes Orlandinho's LW slot; Orlandinho to the bench. The Crizatu->Fotoliu order is dropped;
+ // Nevorbitu for Iacob (smvv7l5uj0) and Tramvai for Varză (smvv7m9ik1) stay.
+ swapOrl:{stored:true,label:'S1 Fotoliu ST, Crizatu LW (for Orlandinho)',lineup:['Bulan','Iacob','Crizatu','Varză','Fotoliu'],dropOrders:['smvqxfjj21']},
+ // S2: as S1, but Crizatu takes Varză's RW slot; Varză to the bench and his order dropped; Nevorbitu for Iacob stays.
+ swapVar:{stored:true,label:'S2 Fotoliu ST, Crizatu RW (for Varză)',lineup:['Bulan','Iacob','Orlandinho','Crizatu','Fotoliu'],dropOrders:['smvqxfjj21','smvv7m9ik1']},
+ // S3: Frigider in goal instead of Bulan; nothing else changes (all three stored orders stay).
+ frigider:{stored:true,label:'S3 Frigider in goal',lineup:['Frigider','Iacob','Orlandinho','Varză','Crizatu']},
+};
+Object.assign(ARMS,ADDED);
+export const SWAPS=Object.keys(ADDED);

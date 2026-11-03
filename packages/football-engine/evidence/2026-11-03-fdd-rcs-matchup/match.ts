@@ -9,7 +9,7 @@
 // step (private.ballers_fitness_side) leaves them byte-identical (every forecast energy is 100). Side 0 = Roman City
 // (home, always its stored side), side 1 = Directia (the arm). Seeds are this study's own; the fixture's official seed
 // is never read.
-import {computeMatch,validateInput,type FrozenInput,type FrozenSide} from '../../../../lib/ballers/compute';
+import {computeMatch,validateInput,engineTeam,sideOrders,sideSwitches,type FrozenInput,type FrozenSide} from '../../../../lib/ballers/compute';
 import {matchChances,shotChance} from '../../../../lib/ballers/chances';
 import {PRESETS as LIB_PRESETS} from '../../../../lib/ballers/league';
 import {STYLE_BASE} from '../../../../lib/ballers/approach';
@@ -42,8 +42,30 @@ function checkApproach(style:string,a:any,where:string){
 }
 /** Throws unless the arm is something the live Match prep could store (lib/ballers/subs.ts, switch.ts, approach.ts). */
 export function checkArm(base:FrozenSide,a:any,where:string){
- if(a.stored){for(const id of a.dropOrders??[])if(!(base.substitutions??[]).some(o=>o.id===id))throw Error(`${where}: no stored order ${id}`);return;}
  const fail=(m:string)=>{throw Error(`${where}: ${m}`);};
+ if(a.stored){
+  for(const id of a.dropOrders??[])if(!(base.substitutions??[]).some(o=>o.id===id))fail(`no stored order ${id}`);
+  if(!a.lineup)return;
+  // the stored side with another five (added after the screen): the same lineup rules as Match prep (ballers_check_lineup),
+  // and every stored order kept must still be one the engine takes against the new five and bench
+  const ids=a.lineup.map((s:string)=>idOf(base,s,where));
+  if(new Set(ids).size!==5)fail('lineup needs five different players');
+  const pl=(id:string)=>base.players.find(p=>p.id===id)!;
+  if(!isKeeper(pl(ids[0]))||ids.slice(1).some((id:string)=>isKeeper(pl(id))))fail('keeper must be slot 1 and only there');
+  if(!ids.includes(base.captain))fail('the stored captain is not in the new five');
+  const t=(base.settings as any)?.taker;if(t&&!ids.slice(1).includes(t))fail('the stored taker is not in the new five');
+  const kept=(base.substitutions??[]).filter(o=>!(a.dropOrders??[]).includes(o.id));
+  const ins=new Set<string>();
+  for(const o of kept){
+   if(ids.includes(o.in))fail(`order ${o.id}: its incoming man starts`);
+   if(ins.has(o.in))fail(`order ${o.id}: ${o.in} comes on twice`);ins.add(o.in);
+   const out=(o as any).out;if(!ids.includes(out)&&!kept.some(x=>x.in===out))fail(`order ${o.id}: its outgoing man neither starts nor comes on`);
+   if(o.trigger.kind==='tired'&&(o.trigger as any).player!==out)fail(`order ${o.id}: tired out = the tired player`);
+   // private.ballers_check_subs 'keeper': a man in slot 1 is replaced only by a keeper, an outfielder only by an outfielder
+   const slot=ids.indexOf(out);if(slot>=0&&(slot===0)!==isKeeper(pl(o.in)))fail(`order ${o.id}: keeper for keeper only`);
+  }
+  return;
+ }
  if(!['1-2-1','2-2'].includes(a.formation))fail('formation');
  checkApproach(a.style,a.approach,where);
  const ids=a.lineup.map((s:string)=>idOf(base,s,where));
@@ -89,8 +111,12 @@ function withLineup(base:FrozenSide,lineup:string[]):Pick<FrozenSide,'lineup'|'b
 /** Directia's side as Match prep would freeze it for this arm. */
 export function armSide(base:FrozenSide,a:any):FrozenSide{
  if(a.stored){
-  if(!a.dropOrders?.length)return base;
-  return {...base,substitutions:(base.substitutions??[]).filter(o=>!a.dropOrders.includes(o.id))};
+  if(!a.dropOrders?.length&&!a.lineup)return base;
+  const subs=(base.substitutions??[]).filter(o=>!(a.dropOrders??[]).includes(o.id));
+  // another five: lineup in slot order, the bench and the player order rebuilt as ballers_bench / ballers_input_side do;
+  // plan, approach, settings, captain and the kept orders exactly as stored
+  const five=a.lineup?withLineup(base,a.lineup.map((s:string)=>idOf(base,s))):{};
+  return {...base,...five,substitutions:subs};
  }
  const id=(s:string)=>idOf(base,s);
  const lineup=a.lineup.map(id);
@@ -109,6 +135,16 @@ export function inputOf(t:{arm:string;seed:number;duration?:number}):FrozenInput
  const inp={v:1,match:`fdd-rcs-study-${t.seed}`,seed:t.seed,kickoff:(t.seed%2) as 0|1,duration:t.duration??900,sides:[S.RCS,armSide(S.FDD,arm)],
   fitness:{v:1},injuries:{on:true,salt,age:[S.ages.RCS,S.ages.FDD],scale:.47,strength:.15}};
  return validateInput(inp) as FrozenInput;
+}
+/** Builds an arm's input and both sides' engine teams, orders and switches exactly as computeMatch does, WITHOUT playing:
+ * throws if the engine would leave anything out (an order or a switch it refuses). */
+export function dryCheck(t:{arm:string;seed:number}){
+ const inp=inputOf(t),teams=inp.sides.map(engineTeam) as [any,any];
+ const o=sideOrders(inp,teams),w=sideSwitches(inp,teams);
+ if(o.dropped.length||w.dropped.length)throw Error(`${t.arm}: the engine refuses ${[...o.dropped,...w.dropped].join(', ')}`);
+ const mine=(inp.sides[1].substitutions??[]).length;
+ if(o.orders.filter(x=>x.side===1).length!==mine)throw Error(`${t.arm}: ${mine} orders stored, ${o.orders.filter(x=>x.side===1).length} reach the engine`);
+ return {lineup:inp.sides[1].lineup,orders:o.orders.filter(x=>x.side===1).map(x=>x.id)};
 }
 
 // ------------------------------------------------------------------ mechanism
