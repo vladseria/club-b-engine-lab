@@ -15,6 +15,8 @@ import {PRESETS as LIB_PRESETS} from '../../../../lib/ballers/league';
 import {STYLE_BASE} from '../../../../lib/ballers/approach';
 import {matchPlayerStats} from '../../../../lib/ballers/stats';
 import {ARMS,PRESETS} from './arms.mjs';
+import {SWEEP} from './sweep.mjs';
+Object.assign(ARMS,SWEEP);
 
 type Sides={RCS:FrozenSide;FDD:FrozenSide;ages:{RCS:Record<string,number>;FDD:Record<string,number>}};
 let S:Sides|null=null;
