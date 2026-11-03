@@ -127,3 +127,15 @@ export const TIMING={
 };
 Object.assign(ARMS,TIMING);
 export const TIMING_ARMS=Object.keys(TIMING);
+
+// ---- Added after the timing run (2026-11-03; SETUPS.md "Added after the timing run"): other plans. A0's frozen side with ONLY
+// the plan changed (style + its preset, exactly as picking the style in the app sets them: private.ballers_preset, read live,
+// equals PRESETS above); the same five in the same slots, 1-2-1, A0's three orders, A0's free kicks (Into the box), captain.
+// G2 (`press`, the screen's arm, unchanged) plays only the 100 seeds it lacks.
+export const PLANS={
+ planBalanced:{stored:true,label:'P-Balanced preset',plan:{style:'balanced',approach:{...PRESETS.balanced}}},
+ planDirect:{stored:true,label:'P-Direct preset',plan:{style:'direct',approach:{...PRESETS.direct}}},
+ planShort:{stored:true,label:'P-Short preset (combinations)',plan:{style:'combinations',approach:{...PRESETS.combinations}}},
+};
+Object.assign(ARMS,PLANS);
+export const PLAN_ARMS=Object.keys(PLANS);

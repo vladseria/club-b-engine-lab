@@ -60,7 +60,9 @@ export function checkArm(base:FrozenSide,a:any,where:string){
   // the stored side with another five and/or changed orders (added after the screen): the same lineup rules as Match prep
   // (ballers_check_lineup), the order rules of ballers_check_subs and the prep UI's values (Subs.tsx), against the five
   const kept=storedOrders(base,a,where);
-  if(!a.lineup&&!a.patchOrders)return;
+  // another plan (added after the timing run): a style and its approach, checked as a board plan (values, style base)
+  if(a.plan)checkApproach(a.plan.style,a.plan.approach,`${where} plan`);
+  if(!a.lineup&&!a.patchOrders&&!a.plan)return;
   const ids=(a.lineup??[]).length?a.lineup.map((s:string)=>idOf(base,s,where)):[...base.lineup];
   if(new Set(ids).size!==5)fail('lineup needs five different players');
   const pl=(id:string)=>base.players.find(p=>p.id===id)!;
@@ -131,13 +133,14 @@ function withLineup(base:FrozenSide,lineup:string[]):Pick<FrozenSide,'lineup'|'b
 /** Directia's side as Match prep would freeze it for this arm. */
 export function armSide(base:FrozenSide,a:any):FrozenSide{
  if(a.stored){
-  if(!a.dropOrders?.length&&!a.lineup&&!a.patchOrders)return base;
+  if(!a.dropOrders?.length&&!a.lineup&&!a.patchOrders&&!a.plan)return base;
   const subs=storedOrders(base,a);
+  const plan=a.plan?{style:a.plan.style,approach:{...a.plan.approach}}:{};
   // another five: lineup in slot order, the bench and the player order rebuilt as ballers_bench / ballers_input_side do;
   // plan, approach, settings, captain and the kept orders exactly as stored
   const five:any=a.lineup?withLineup(base,a.lineup.map((s:string)=>idOf(base,s))):{};
   const captain=five.lineup&&!five.lineup.includes(base.captain)?{captain:five.lineup[1]}:{};
-  return {...base,...five,...captain,substitutions:subs};
+  return {...base,...five,...captain,...plan,substitutions:subs};
  }
  const id=(s:string)=>idOf(base,s);
  const lineup=a.lineup.map(id);
@@ -166,7 +169,7 @@ export function dryCheck(t:{arm:string;seed:number}){
  const mine=(inp.sides[1].substitutions??[]).length;
  if(o.orders.filter(x=>x.side===1).length!==mine)throw Error(`${t.arm}: ${mine} orders stored, ${o.orders.filter(x=>x.side===1).length} reach the engine`);
  const short=(id?:string)=>id===undefined?undefined:inp.sides[1].players.find(p=>p.id===id)?.short??id;
- return {lineup:inp.sides[1].lineup.map(short),captain:short(inp.sides[1].captain),
+ return {style:inp.sides[1].style,approach:inp.sides[1].approach,settings:inp.sides[1].settings,tactics:teams[1].tactics,lineup:inp.sides[1].lineup.map(short),captain:short(inp.sides[1].captain),
   orders:o.orders.filter(x=>x.side===1).map(x=>({id:x.id,in:short(x.in),out:short(x.out),trigger:x.trigger.kind==='tired'?{...x.trigger,player:short(x.trigger.player)}:x.trigger,...(x.notBefore!==undefined?{notBefore:x.notBefore}:{})}))};
 }
 
