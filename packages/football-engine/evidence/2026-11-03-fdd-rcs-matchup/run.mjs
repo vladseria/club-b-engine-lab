@@ -18,7 +18,7 @@ import {createHash} from 'node:crypto';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import path from 'node:path';
 import {shardTasks,simWorkers,shardNote} from '../_ci/shard.mjs';
-import {ARMS,SCREEN,SWAPS,TIMING_ARMS,PLAN_ARMS,TARGET_ARMS,XSWAP_ARMS,HIGHPRESS_ARMS} from './arms.mjs';
+import {ARMS,SCREEN,SWAPS,TIMING_ARMS,PLAN_ARMS,TARGET_ARMS,XSWAP_ARMS,HIGHPRESS_ARMS,BF5_ARMS} from './arms.mjs';
 import {SWEEP,SWEEP_ARMS} from './sweep.mjs';
 Object.assign(ARMS,SWEEP);
 
@@ -55,7 +55,7 @@ if(!isMainThread){
  }
 
  const label=arg('label');if(!label)throw Error('--label is required');
- const armsArg=arg('arms','screen'),arms=armsArg==='screen'?SCREEN:armsArg==='swaps'?SWAPS:armsArg==='timing'?TIMING_ARMS:armsArg==='plans'?PLAN_ARMS:armsArg==='target'?TARGET_ARMS:armsArg==='xswap'?XSWAP_ARMS:armsArg==='sweep'?SWEEP_ARMS:armsArg==='highpress'?HIGHPRESS_ARMS:armsArg.split(',');
+ const armsArg=arg('arms','screen'),arms=armsArg==='screen'?SCREEN:armsArg==='swaps'?SWAPS:armsArg==='timing'?TIMING_ARMS:armsArg==='plans'?PLAN_ARMS:armsArg==='target'?TARGET_ARMS:armsArg==='xswap'?XSWAP_ARMS:armsArg==='sweep'?SWEEP_ARMS:armsArg==='highpress'?HIGHPRESS_ARMS:armsArg==='bf5'?BF5_ARMS:armsArg.split(',');
  for(const a of arms)if(!ARMS[a])throw Error('unknown arm '+a);
  const seeds=range(arg('seeds','1103000-1103099')),duration=Number(arg('duration',900));
  const every=seeds.flatMap(seed=>arms.map(arm=>({label,arm,seed,duration,...(opp!=='rcs'?{opp}:{})})));

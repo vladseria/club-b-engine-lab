@@ -183,3 +183,14 @@ export const HIGHPRESS={
 };
 Object.assign(ARMS,HIGHPRESS);
 export const HIGHPRESS_ARMS=Object.keys(HIGHPRESS);
+
+// ---- Added after the high-press run (2026-11-03; SETUPS-SWEEP.md "Bodies forward 5 against the new prep"): A0's frozen side
+// (same five, slots, orders, free kicks, captain) with only the plan changed; against --opp rcsb.
+export const BF5={
+ // C5: A0's Counter plan with Bodies forward 5, nothing else (the Counter style still fits)
+ c5:{stored:true,label:'C5 A0 + Bodies forward 5',approachPatch:{commit:5}},
+ // D5L: the Direct preset with Bodies forward 5 and Press Selective; everything else the Direct preset's own
+ d5l:{stored:true,label:'D5L A0 five on Direct + Bodies forward 5 + Press Selective',plan:{style:'direct',approach:{...PRESETS.direct,commit:5,press:'selective'}}},
+};
+Object.assign(ARMS,BF5);
+export const BF5_ARMS=Object.keys(BF5);
