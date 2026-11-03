@@ -139,3 +139,16 @@ export const PLANS={
 };
 Object.assign(ARMS,PLANS);
 export const PLAN_ARMS=Object.keys(PLANS);
+
+// ---- Added after the plans run (2026-11-03; SETUPS.md "Added after the plans run"): Crizatu as the target man. A0's frozen
+// side plus only what is listed: the Striker setting (approachPatch; the Counter style still fits), the Crizatu->Fotoliu order
+// dropped, and a named free-kick taker (settingsPatch) so Crizatu is in the box: Orlandinho (see SETUPS.md).
+export const TARGET={
+ pivFull:{stored:true,label:'P-full Pivot, Crizatu all match, taker Orlandinho',approachPatch:{striker:'pivot'},dropOrders:['smvqxfjj21'],settingsPatch:{taker:'Orlandinho'}},
+ pivOnly:{stored:true,label:'P-only Pivot',approachPatch:{striker:'pivot'}},
+ mixFull:{stored:true,label:'M-full Mixed, Crizatu all match, taker Orlandinho',dropOrders:['smvqxfjj21'],settingsPatch:{taker:'Orlandinho'}},
+ runFull:{stored:true,label:'R-full In behind, Crizatu all match, taker Orlandinho',approachPatch:{striker:'run'},dropOrders:['smvqxfjj21'],settingsPatch:{taker:'Orlandinho'}},
+ runOnly:{stored:true,label:'R-only In behind',approachPatch:{striker:'run'}},
+};
+Object.assign(ARMS,TARGET);
+export const TARGET_ARMS=Object.keys(TARGET);

@@ -62,7 +62,14 @@ export function checkArm(base:FrozenSide,a:any,where:string){
   const kept=storedOrders(base,a,where);
   // another plan (added after the timing run): a style and its approach, checked as a board plan (values, style base)
   if(a.plan)checkApproach(a.plan.style,a.plan.approach,`${where} plan`);
-  if(!a.lineup&&!a.patchOrders&&!a.plan)return;
+  // one setting changed on the stored plan (added after the plans run): the stored style must still fit
+  if(a.approachPatch)checkApproach(base.style,{...base.approach,...a.approachPatch},`${where} approach`);
+  if(a.settingsPatch){
+   const sp=a.settingsPatch,five=(a.lineup??[]).length?a.lineup.map((s:string)=>idOf(base,s,where)):[...base.lineup];
+   if(Object.keys(sp).some(k=>!['keeper','setPiece','taker'].includes(k)))fail('settings key');
+   if(sp.taker!==undefined&&!five.slice(1).includes(idOf(base,sp.taker,where)))fail('settings.taker must be an outfield starter');
+  }
+  if(!a.lineup&&!a.patchOrders&&!a.plan&&!a.approachPatch&&!a.settingsPatch)return;
   const ids=(a.lineup??[]).length?a.lineup.map((s:string)=>idOf(base,s,where)):[...base.lineup];
   if(new Set(ids).size!==5)fail('lineup needs five different players');
   const pl=(id:string)=>base.players.find(p=>p.id===id)!;
@@ -133,9 +140,11 @@ function withLineup(base:FrozenSide,lineup:string[]):Pick<FrozenSide,'lineup'|'b
 /** Directia's side as Match prep would freeze it for this arm. */
 export function armSide(base:FrozenSide,a:any):FrozenSide{
  if(a.stored){
-  if(!a.dropOrders?.length&&!a.lineup&&!a.patchOrders&&!a.plan)return base;
+  if(!a.dropOrders?.length&&!a.lineup&&!a.patchOrders&&!a.plan&&!a.approachPatch&&!a.settingsPatch)return base;
   const subs=storedOrders(base,a);
-  const plan=a.plan?{style:a.plan.style,approach:{...a.plan.approach}}:{};
+  const plan:any=a.plan?{style:a.plan.style,approach:{...a.plan.approach}}:{};
+  if(a.approachPatch)plan.approach={...(plan.approach??base.approach),...a.approachPatch};
+  if(a.settingsPatch){const sp={...a.settingsPatch};if(sp.taker)sp.taker=idOf(base,sp.taker);plan.settings={...(base.settings??{}),...sp};}
   // another five: lineup in slot order, the bench and the player order rebuilt as ballers_bench / ballers_input_side do;
   // plan, approach, settings, captain and the kept orders exactly as stored
   const five:any=a.lineup?withLineup(base,a.lineup.map((s:string)=>idOf(base,s))):{};
@@ -188,6 +197,79 @@ function classify(frames:any[],shotT:number,side:0|1){
 }
 const r3=(v:number)=>Math.round(v*1000)/1000;
 
+// ------------------------------------------------------------------ one man's behaviour (added after the plans run)
+// Read only from the compact replay (events + frames), no engine change. Directia is side 1 and attacks -x (the engine's
+// coordinates are team-relative all match: side 0 attacks +x), so Directia's target goal is at x = 0, y = 0 and a man's
+// distance to it is hypot(x, y). Frame positions are pitch positions; after a substitution `l` maps them to replay indices.
+// Per match, raw counts (the analysis normalises per 15 minutes on the pitch):
+//   sec       seconds on the pitch (matchPlayerStats m)
+//   rec       receptions ('receive' with him as actor); won = balls he won ('turnover' with him as actor)
+//   dist      sum of his distance to goal at those receptions (m); near / mid / far = receptions < 8 / 8-14 / > 14 m from goal
+//   back      receptions with his body facing more than 90° away from the goal (frame angle; "back to goal")
+//   next      what ended each of his spells on the ball (reception or ball won): shot / pass / lost (the next ball event is
+//             Roman City's: their receive, turnover, save, or a tackle that took it off him) / fouled / other (out, whistle,
+//             a team-mate's loose-ball pick-up)
+//   layoff    passes within 2.5 s of his reception, at most 15 m, to a team-mate no nearer the goal than him (+1 m)
+//   drib      spells with a feint or a man beaten by him; carry = spells in which he moved 5 m or more before releasing it
+//   runs      runs in behind: while Directia has the ball and someone else holds it, he goes from level with or behind
+//             Roman City's last outfielder to beyond him (nearer their goal by 0.5 m) while moving at goal at 3 m/s or more;
+//             episodes at least 2 s apart
+//   served    passes to him the engine calls a ball into space or to a man attacking space (its own pass words)
+//   sh / g / kp / a   shots, goals, chances created (last pass before a team-mate's shot or goal) and assists (stats lines)
+//   shots     his shots: [distance to goal m, first time 1/0, after a carry of 5 m or more 1/0, inside the box 1/0, goal 1/0, chance]
+function manMech(c:any,ev:any[],frames:any[],short:string,lineOf:(i:number)=>any){
+ const me=c.header.players.find((p:any)=>p.side===1&&p.short===short);if(!me)return null;
+ const I=me.i,gk0=c.header.players.find((p:any)=>p.side===0&&p.slot===0)?.i;
+ const pos=(f:any,i:number)=>{const k=f.l?f.l.indexOf(i):(i<10?i:-1);return k>=0&&f.p[k]?f.p[k]:null;};
+ let fi=0;const frameAt=(t:number)=>{while(fi<frames.length-1&&frames[fi].t<t)fi++;while(fi>0&&frames[fi-1].t>=t)fi--;return frames[fi];};
+ const goalDist=(q:number[])=>Math.hypot(q[0]/100,q[1]/100);
+ const sideOfIdx=(i:number|undefined)=>i===undefined?undefined:c.header.players[i]?.side;
+ const o:any={sec:0,rec:0,won:0,dist:0,near:0,mid:0,far:0,back:0,next:{shot:0,pass:0,lost:0,fouled:0,other:0},layoff:0,drib:0,carry:0,runs:0,served:0,shots:[] as number[][]};
+ const L=lineOf(I);if(L){o.sec=Math.round(L.m??0);o.sh=L.sh;o.g=L.g;o.kp=L.kp??0;o.a=L.a;}
+ const scoredShots=new Set<any>();
+ for(const g of ev)if(g.k==='goal'&&g.s===1){for(let k=ev.indexOf(g)-1;k>=0&&ev[k].t>=g.t-4000;k--)if(ev[k].k==='shot'){if(sideOfIdx(ev[k].a)===1)scoredShots.add(ev[k]);break;}}
+ for(let j=0;j<ev.length;j++){
+  const e=ev[j];
+  if(e.k==='pass'&&e.g===I&&/în spațiu|atacă spațiul/.test(e.x??''))o.served++;
+  if(!((e.k==='receive'||e.k==='turnover')&&e.a===I))continue;
+  const f0=frameAt(e.t),p0=pos(f0,I);if(!p0)continue;
+  if(e.k==='receive'){
+   o.rec++;const d=goalDist(p0);o.dist+=d;if(d<8)o.near++;else if(d<=14)o.mid++;else o.far++;
+   const ang=p0[2]/1000,gx=-p0[0],gy=-p0[1],dot=Math.cos(ang)*gx+Math.sin(ang)*gy;if(dot<0)o.back++;
+  }else o.won++;
+  let dribbled=false,end='other',endEv:any=null;
+  for(let k=j+1;k<ev.length;k++){
+   const x=ev[k];
+   if((x.k==='feint'||x.k==='beat')&&x.a===I){dribbled=true;continue;}
+   if(x.k==='tackle'&&x.a===I)continue; // he rode a tackle and kept it
+   if((x.k==='shot'||x.k==='pass'||x.k==='clearance')&&x.a===I){end=x.k==='shot'?'shot':x.k==='pass'?'pass':'other';endEv=x;break;}
+   if(x.k==='foul'&&x.g===I){end='fouled';break;}
+   if(x.k==='tackle'&&x.g===I&&sideOfIdx(x.a)===0){end='lost';break;}
+   if(['receive','turnover','save'].includes(x.k)){end=sideOfIdx(x.a)===0?'lost':'other';break;}
+   if(['out','goal','restart','stoppage','half','end','offside','foul','block'].includes(x.k)){end=x.k==='block'?'lost':'other';break;}
+  }
+  o.next[end]++;if(dribbled)o.drib++;
+  let carried=false;
+  if(endEv){const p1=pos(frameAt(endEv.t),I);if(p1&&Math.hypot((p1[0]-p0[0])/100,(p1[1]-p0[1])/100)>=5){o.carry++;carried=true;}
+   if(end==='pass'&&endEv.t-e.t<=2500&&endEv.g!==undefined){const fq=frameAt(endEv.t),q=pos(fq,endEv.g),pm=pos(fq,I);
+    if(q&&pm&&Math.hypot((q[0]-pm[0])/100,(q[1]-pm[1])/100)<=15&&goalDist(q)>=goalDist(pm)-1)o.layoff++;}
+   if(end==='shot'){const so=endEv.sh?.o??[p0[0],p0[1]],d=goalDist(so);
+    o.shots.push([Math.round(d*10)/10,/din prima/.test(endEv.x??'')?1:0,carried?1:0,(so[0]/100<=8&&Math.abs(so[1]/100)<=8)?1:0,scoredShots.has(endEv)?1:0,r3(shotChance(endEv)??0)]);}}
+ }
+ // runs in behind, from the frames
+ let wasBeyond=true,lastRun=-1e9;
+ for(let n=1;n<frames.length;n++){
+  const f=frames[n],pf=frames[n-1];if(f.ps!==1||f.r||f.c){wasBeyond=true;continue;}
+  const me1=pos(f,I),me0=pos(pf,I);if(!me1||!me0){wasBeyond=true;continue;}
+  if(f.o===I){wasBeyond=true;continue;}
+  let last=Infinity;for(let i=0;i<c.header.players.length;i++){const p=c.header.players[i];if(p.side!==0||p.i===gk0)continue;const q=pos(f,p.i);if(q)last=Math.min(last,q[0]/100);}
+  const x=me1[0]/100,beyond=x<last-.5,dt=(f.t-pf.t)/1000,vx=dt>0?(me1[0]-me0[0])/100/dt:0;
+  if(beyond&&!wasBeyond&&vx<=-3&&f.t-lastRun>=2000){o.runs++;lastRun=f.t;}
+  wasBeyond=beyond;
+ }
+ return o;
+}
+
 export function play(t:{label:string;arm:string;seed:number;duration?:number;detail?:boolean}){
  const inp=inputOf(t),t0=performance.now();
  const r=computeMatch(inp);
@@ -207,13 +289,20 @@ export function play(t:{label:string;arm:string;seed:number;duration?:number;det
   // [side, chance, kind (0 read, 1 head, 2 volley, 3 fk), origin, start x, secs from spell start, match second, shooter, goal]
   return [side,r3(shotChance(e)??0),e.q!==undefined?0:e.sk??-1,rk??'won',Math.round(cl.startX*10)/10,Math.round((e.t-cl.startT)/100)/10,Math.round(e.t/1000),(P.get(e.a) as any)?.short??null,scored.has(e)?1:0];
  });
- // every player who stood on the pitch: [side, short, seconds, shots, on target, goals, started]
- const lines=matchPlayerStats(c.header,ev,frames).map(l=>{const p=c.header.players.find((q:any)=>q.id===l.id&&q.side===l.side) as any;return [l.side,p?.short??l.id,Math.round(l.m??0),l.sh,l.so??0,l.g,l.st];});
+ // every player who stood on the pitch: [side, short, seconds, shots, on target, goals, started, chances created, assists]
+ const PL=matchPlayerStats(c.header,ev,frames);
+ const lines=PL.map(l=>{const p=c.header.players.find((q:any)=>q.id===l.id&&q.side===l.side) as any;return [l.side,p?.short??l.id,Math.round(l.m??0),l.sh,l.so??0,l.g,l.st,l.kp??0,l.a];});
+ const lineOf=(i:number)=>{const p=c.header.players[i];return p?PL.find(l=>l.id===p.id&&l.side===p.side):undefined;};
+ const mech={Crizatu:manMech(c,ev,frames,'Crizatu',lineOf),Fotoliu:manMech(c,ev,frames,'Fotoliu',lineOf)};
  const st=(s:0|1)=>{const x:any=c.stats[s];return {poss:Math.round(x.possession*10)/10,passes:x.passes,completed:x.completed,shots:x.shots,saves:x.saves,turnovers:x.turnovers,tackles:x.tackles,tacklesWon:x.tacklesWon,fouls:x.fouls,surges:x.surges,surgeShots:x.surgeShots};};
  const subs=(c.substitutionNotes??[]).flatMap((n:any)=>n.notes.map((x:any)=>[n.side,x.status,x.time==null?null:Math.round(x.time),x.order??null]));
  const sw=(c.switchNotes??[]).map((n:any)=>[n.side,n.status,n.time==null?null:Math.round(n.time)]);
  const injuries=(r.injuries??[]).map(j=>[j.side,(c.header.players.find((q:any)=>q.id===j.id&&q.side===j.side) as any)?.short??j.id,Math.round(j.t),j.cause,j.off==null?null:Math.round(j.off),j.played_on?1:0]);
  const kinds:Record<string,number>={};if(t.detail)for(const e of ev)kinds[e.k]=(kinds[e.k]??0)+1;
+ // probe only: the raw events after Crizatu's first receptions, to check the reading above by eye
+ if(t.detail){const cz=c.header.players.find((p:any)=>p.side===1&&p.short==='Crizatu');const nm=(i:any)=>i===undefined?'':(c.header.players[i]?.short??i);
+  const seqs:string[][]=[];for(let j=0;j<ev.length&&seqs.length<10;j++)if(ev[j].k==='receive'&&ev[j].a===cz?.i)seqs.push(ev.slice(j,j+6).map((e:any)=>`${(e.t/1000).toFixed(1)} ${e.k} ${nm(e.a)}${e.g!==undefined?'>'+nm(e.g):''} | ${(e.x??'').slice(0,60)}`));
+  (kinds as any).__crizatu=seqs;}
  return {label:t.label,arm:t.arm,seed:t.seed,duration:inp.duration,build:r.engineBuild.slice(0,8),score:c.score,chances:ch?ch.map(v=>r3(v)):null,
-  stats:[st(0),st(1)],shots:shotRows,lines,...(subs.length?{subs}:{}),...(sw.length?{sw}:{}),...(injuries.length?{injuries}:{}),...(t.detail?{kinds}:{}),dropped:r.dropped,ms};
+  stats:[st(0),st(1)],shots:shotRows,lines,mech,...(subs.length?{subs}:{}),...(sw.length?{sw}:{}),...(injuries.length?{injuries}:{}),...(t.detail?{kinds}:{}),dropped:r.dropped,ms};
 }
