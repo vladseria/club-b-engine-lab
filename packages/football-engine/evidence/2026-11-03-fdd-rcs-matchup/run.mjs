@@ -37,7 +37,9 @@ if(!isMainThread){
  const readSide=f=>{const txt=readFileSync(path.join(here,'sides',f),'utf8'),md5=createHash('md5').update(txt).digest('hex'),want=sums[f]?.md5;
   if(md5!==want)throw Error(`${f}: md5 ${md5} is not the server's ${want}`);return JSON.parse(txt);};
  const ages=JSON.parse(readFileSync(path.join(here,'sides/AGES.json'),'utf8'));
- const sides={RCS:readSide('RCS.jsonb.txt'),FDD:readSide('FDD.jsonb.txt'),ages:{RCS:ages.RCS,FDD:ages.FDD}};
+ const sides={RCS:readSide('RCS.jsonb.txt'),RCSB:readSide('RCSB.jsonb.txt'),FDD:readSide('FDD.jsonb.txt'),ages:{RCS:ages.RCS,FDD:ages.FDD}};
+ // --opp rcs (default: the round-11 side as first snapshotted) | rcsb (Roman City's prep as changed at 13:41 UTC)
+ const opp=arg('opp','rcs');if(!['rcs','rcsb'].includes(opp))throw Error('--opp rcs|rcsb');
 
  const outDir=path.join(here,'results');mkdirSync(outDir,{recursive:true});
  const bundle=path.join(outDir,'.match.bundle.mjs');
@@ -45,7 +47,7 @@ if(!isMainThread){
  const mod=await import(pathToFileURL(bundle).href);mod.init(sides);
 
  // ---- every arm must be what the live app can store, must build a valid input, and the engine must take all its orders
- for(const [a,arm] of Object.entries(ARMS)){mod.checkArm(sides.FDD,arm,a);const d=mod.dryCheck({arm:a,seed:1});if(argv.includes('--dry'))console.log(a,JSON.stringify(d));}
+ for(const [a,arm] of Object.entries(ARMS)){mod.checkArm(sides.FDD,arm,a);const d=mod.dryCheck({arm:a,seed:1,opp});if(argv.includes('--dry'))console.log(a,JSON.stringify(d));}
 
  if(argv.includes('--probe')){
   const r=mod.play({label:'probe',arm:arg('arm','prep'),seed:Number(arg('seed',1103000)),detail:true});
@@ -56,8 +58,8 @@ if(!isMainThread){
  const armsArg=arg('arms','screen'),arms=armsArg==='screen'?SCREEN:armsArg==='swaps'?SWAPS:armsArg==='timing'?TIMING_ARMS:armsArg==='plans'?PLAN_ARMS:armsArg==='target'?TARGET_ARMS:armsArg==='xswap'?XSWAP_ARMS:armsArg==='sweep'?SWEEP_ARMS:armsArg.split(',');
  for(const a of arms)if(!ARMS[a])throw Error('unknown arm '+a);
  const seeds=range(arg('seeds','1103000-1103099')),duration=Number(arg('duration',900));
- const every=seeds.flatMap(seed=>arms.map(arm=>({label,arm,seed,duration})));
- const key=j=>`${j.arm}:${j.seed}:${j.duration??900}`;
+ const every=seeds.flatMap(seed=>arms.map(arm=>({label,arm,seed,duration,...(opp!=='rcs'?{opp}:{})})));
+ const key=j=>`${j.arm}:${j.seed}:${j.duration??900}:${j.opp??'rcs'}`;
  const out=path.join(outDir,`${label}.jsonl`);
  const done=new Set(existsSync(out)?readFileSync(out,'utf8').trim().split('\n').filter(Boolean).map(l=>key(JSON.parse(l))):[]);
  const tasks=shardTasks(every).filter(t=>!done.has(key(t)));

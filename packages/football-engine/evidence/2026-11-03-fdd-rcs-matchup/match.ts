@@ -18,7 +18,8 @@ import {ARMS,PRESETS} from './arms.mjs';
 import {SWEEP} from './sweep.mjs';
 Object.assign(ARMS,SWEEP);
 
-type Sides={RCS:FrozenSide;FDD:FrozenSide;ages:{RCS:Record<string,number>;FDD:Record<string,number>}};
+/** RCSB (added for sweep Stage 2): Roman City's prep as changed at 13:41 UTC; the same thirteen men, so the same ages. */
+type Sides={RCS:FrozenSide;RCSB?:FrozenSide;FDD:FrozenSide;ages:{RCS:Record<string,number>;FDD:Record<string,number>}};
 let S:Sides|null=null;
 /** run.mjs reads and md5-checks the side files, then hands them over. */
 export function init(s:Sides){S=s;}
@@ -163,11 +164,12 @@ export function armSide(base:FrozenSide,a:any):FrozenSide{
  return {...rest,formation:a.formation,style:a.style,approach:{...a.approach},captain:lineup.includes(base.captain)?base.captain:lineup[1],...withLineup(base,lineup),plans:[],
   substitutions:subs,...(Object.keys(ms).length?{settings:ms}:{}),...sw};
 }
-export function inputOf(t:{arm:string;seed:number;duration?:number}):FrozenInput{
+export function inputOf(t:{arm:string;seed:number;duration?:number;opp?:string}):FrozenInput{
  if(!S)throw Error('sides not loaded');
  const arm=(ARMS as any)[t.arm];if(!arm)throw Error('unknown arm '+t.arm);
+ const home=!t.opp||t.opp==='rcs'?S.RCS:t.opp==='rcsb'?S.RCSB:undefined;if(!home)throw Error('unknown or unloaded opponent '+t.opp);
  const salt=Number((BigInt(t.seed)*2654435761n)%4294967296n);
- const inp={v:1,match:`fdd-rcs-study-${t.seed}`,seed:t.seed,kickoff:(t.seed%2) as 0|1,duration:t.duration??900,sides:[S.RCS,armSide(S.FDD,arm)],
+ const inp={v:1,match:`fdd-rcs-study-${t.seed}`,seed:t.seed,kickoff:(t.seed%2) as 0|1,duration:t.duration??900,sides:[home,armSide(S.FDD,arm)],
   fitness:{v:1},injuries:{on:true,salt,age:[S.ages.RCS,S.ages.FDD],scale:.47,strength:.15}};
  return validateInput(inp) as FrozenInput;
 }
@@ -295,7 +297,7 @@ function flankRead(c:any,frames:any[]){
  return {y,nearest};
 }
 
-export function play(t:{label:string;arm:string;seed:number;duration?:number;detail?:boolean}){
+export function play(t:{label:string;arm:string;seed:number;duration?:number;detail?:boolean;opp?:string}){
  const inp=inputOf(t),t0=performance.now();
  const r=computeMatch(inp);
  const ms=Math.round(performance.now()-t0),c=r.compact;
@@ -329,6 +331,6 @@ export function play(t:{label:string;arm:string;seed:number;duration?:number;det
  if(t.detail){const cz=c.header.players.find((p:any)=>p.side===1&&p.short==='Crizatu');const nm=(i:any)=>i===undefined?'':(c.header.players[i]?.short??i);
   const seqs:string[][]=[];for(let j=0;j<ev.length&&seqs.length<10;j++)if(ev[j].k==='receive'&&ev[j].a===cz?.i)seqs.push(ev.slice(j,j+6).map((e:any)=>`${(e.t/1000).toFixed(1)} ${e.k} ${nm(e.a)}${e.g!==undefined?'>'+nm(e.g):''} | ${(e.x??'').slice(0,60)}`));
   (kinds as any).__crizatu=seqs;}
- return {label:t.label,arm:t.arm,seed:t.seed,duration:inp.duration,build:r.engineBuild.slice(0,8),score:c.score,chances:ch?ch.map(v=>r3(v)):null,
+ return {label:t.label,arm:t.arm,...(t.opp&&t.opp!=="rcs"?{opp:t.opp}:{}),seed:t.seed,duration:inp.duration,build:r.engineBuild.slice(0,8),score:c.score,chances:ch?ch.map(v=>r3(v)):null,
   stats:[st(0),st(1)],shots:shotRows,lines,mech,...(subs.length?{subs}:{}),...(sw.length?{sw}:{}),...(injuries.length?{injuries}:{}),...(t.detail?{kinds}:{}),dropped:r.dropped,ms};
 }
