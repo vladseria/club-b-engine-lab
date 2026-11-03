@@ -100,3 +100,22 @@ export const AROUND5={
  a5_onLoss_counterpress:one('onLoss','counterpress','On losing it Counter-press'),
 };
 export const AROUND5_ARMS=Object.keys(AROUND5);
+
+// ---- Added after the around-wb_commit_5 run (2026-11-03; SETUPS-SWEEP.md "A change of plan on B*"): B* = a5_striker_run plus
+// exactly one change of plan, in the frozen-switch shape the freezer builds (lib/ballers/switch-input.ts FrozenSwitch; id 'sw',
+// trigger, notBefore, to: {plan, style, approach, settings}); same formation, so no slot map (a tactics-only switch, `fits`).
+// The target plans keep B*'s free-kick call (Into the box); a switch never carries a taker.
+const BSTAR=AROUND5.a5_striker_run;
+const CHASE5={...PRESETS.direct,commit:5,press:'selective'};
+const withSwitch=(label,trigger,notBefore,to)=>({...BSTAR,label,approach:{...BSTAR.approach},lineup:[...BSTAR.lineup],settings:{...BSTAR.settings},
+ subs:BSTAR.subs.map(o=>({...o,trigger:{...o.trigger}})),switch:{trigger,notBefore,to}});
+export const SWITCHES={
+ sw_lose:withSwitch('B* + if losing from 10:00, Chase (Direct + Bodies forward 5 + Press Selective)',{kind:'score',state:'losing'},600,{plan:'Chase',style:'direct',approach:{...CHASE5},settings:{setPiece:'delivery'}}),
+ sw_draw:withSwitch('B* + if level from 12:00, Chase',{kind:'score',state:'drawing'},720,{plan:'Chase',style:'direct',approach:{...CHASE5},settings:{setPiece:'delivery'}}),
+ sw_win:withSwitch('B* + if winning from 12:00, Short preset',{kind:'score',state:'winning'},720,{plan:'Keep it',style:'combinations',approach:{...PRESETS.combinations},settings:{setPiece:'delivery'}}),
+};
+// TK: B* with a named free-kick taker (Orlandinho) instead of Auto; no change of plan. A named taker takes free kicks and
+// penalties (practice-set-pieces.ts chooseFreeKickTaker / choosePenaltyTaker), never corners.
+SWITCHES.tk_orl={...BSTAR,label:'B* + free-kick taker Orlandinho',approach:{...BSTAR.approach},lineup:[...BSTAR.lineup],settings:{...BSTAR.settings,taker:'Orlandinho'},
+ subs:BSTAR.subs.map(o=>({...o,trigger:{...o.trigger}}))};
+export const SWITCH_ARMS=Object.keys(SWITCHES);

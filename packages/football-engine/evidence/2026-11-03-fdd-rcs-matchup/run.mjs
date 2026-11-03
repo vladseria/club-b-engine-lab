@@ -19,8 +19,8 @@ import {fileURLToPath,pathToFileURL} from 'node:url';
 import path from 'node:path';
 import {shardTasks,simWorkers,shardNote} from '../_ci/shard.mjs';
 import {ARMS,SCREEN,SWAPS,TIMING_ARMS,PLAN_ARMS,TARGET_ARMS,XSWAP_ARMS,HIGHPRESS_ARMS,BF5_ARMS} from './arms.mjs';
-import {SWEEP,SWEEP_ARMS,AROUND5,AROUND5_ARMS} from './sweep.mjs';
-Object.assign(ARMS,SWEEP,AROUND5);
+import {SWEEP,SWEEP_ARMS,AROUND5,AROUND5_ARMS,SWITCHES,SWITCH_ARMS} from './sweep.mjs';
+Object.assign(ARMS,SWEEP,AROUND5,SWITCHES);
 
 const here=path.dirname(fileURLToPath(import.meta.url));
 
@@ -50,12 +50,12 @@ if(!isMainThread){
  for(const [a,arm] of Object.entries(ARMS)){mod.checkArm(sides.FDD,arm,a);const d=mod.dryCheck({arm:a,seed:1,opp});if(argv.includes('--dry'))console.log(a,JSON.stringify(d));}
 
  if(argv.includes('--probe')){
-  const r=mod.play({label:'probe',arm:arg('arm','prep'),seed:Number(arg('seed',1103000)),detail:true});
+  const r=mod.play({label:'probe',arm:arg('arm','prep'),seed:Number(arg('seed',1103000)),detail:true,...(opp!=='rcs'?{opp}:{})});
   console.log(JSON.stringify({...r,shots:undefined}));console.log(r.shots.map(s=>JSON.stringify(s)).join('\n'));process.exit(r.dropped.length?1:0);
  }
 
  const label=arg('label');if(!label)throw Error('--label is required');
- const armsArg=arg('arms','screen'),arms=armsArg==='screen'?SCREEN:armsArg==='swaps'?SWAPS:armsArg==='timing'?TIMING_ARMS:armsArg==='plans'?PLAN_ARMS:armsArg==='target'?TARGET_ARMS:armsArg==='xswap'?XSWAP_ARMS:armsArg==='sweep'?SWEEP_ARMS:armsArg==='highpress'?HIGHPRESS_ARMS:armsArg==='bf5'?BF5_ARMS:armsArg==='around5'?AROUND5_ARMS:armsArg.split(',');
+ const armsArg=arg('arms','screen'),arms=armsArg==='screen'?SCREEN:armsArg==='swaps'?SWAPS:armsArg==='timing'?TIMING_ARMS:armsArg==='plans'?PLAN_ARMS:armsArg==='target'?TARGET_ARMS:armsArg==='xswap'?XSWAP_ARMS:armsArg==='sweep'?SWEEP_ARMS:armsArg==='highpress'?HIGHPRESS_ARMS:armsArg==='bf5'?BF5_ARMS:armsArg==='around5'?AROUND5_ARMS:armsArg==='switches'?SWITCH_ARMS:armsArg.split(',');
  for(const a of arms)if(!ARMS[a])throw Error('unknown arm '+a);
  const seeds=range(arg('seeds','1103000-1103099')),duration=Number(arg('duration',900));
  const every=seeds.flatMap(seed=>arms.map(arm=>({label,arm,seed,duration,...(opp!=='rcs'?{opp}:{})})));

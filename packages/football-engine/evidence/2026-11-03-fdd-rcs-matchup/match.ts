@@ -15,8 +15,8 @@ import {PRESETS as LIB_PRESETS} from '../../../../lib/ballers/league';
 import {STYLE_BASE} from '../../../../lib/ballers/approach';
 import {matchPlayerStats} from '../../../../lib/ballers/stats';
 import {ARMS,PRESETS} from './arms.mjs';
-import {SWEEP,AROUND5} from './sweep.mjs';
-Object.assign(ARMS,SWEEP,AROUND5);
+import {SWEEP,AROUND5,SWITCHES} from './sweep.mjs';
+Object.assign(ARMS,SWEEP,AROUND5,SWITCHES);
 
 /** RCSB (added for sweep Stage 2): Roman City's prep as changed at 13:41 UTC; the same thirteen men, so the same ages. */
 type Sides={RCS:FrozenSide;RCSB?:FrozenSide;FDD:FrozenSide;ages:{RCS:Record<string,number>;FDD:Record<string,number>}};
@@ -182,7 +182,9 @@ export function dryCheck(t:{arm:string;seed:number}){
  const mine=(inp.sides[1].substitutions??[]).length;
  if(o.orders.filter(x=>x.side===1).length!==mine)throw Error(`${t.arm}: ${mine} orders stored, ${o.orders.filter(x=>x.side===1).length} reach the engine`);
  const short=(id?:string)=>id===undefined?undefined:inp.sides[1].players.find(p=>p.id===id)?.short??id;
- return {style:inp.sides[1].style,approach:inp.sides[1].approach,settings:inp.sides[1].settings,tactics:teams[1].tactics,lineup:inp.sides[1].lineup.map(short),captain:short(inp.sides[1].captain),
+ if((inp.sides[1] as any).switch&&!w.switches.some(x=>x.side===1))throw Error(`${t.arm}: its change of plan does not reach the engine`);
+ return {switches:w.switches.map(x=>({id:x.id,side:x.side,trigger:x.trigger,notBefore:x.notBefore,to:{style:(x.tactics as any).style,progression:x.tactics.progression,press:x.tactics.press,commit:x.tactics.commit,striker:x.tactics.striker,line:x.tactics.line,width:x.tactics.width,transition:x.tactics.transition,onLoss:(x.tactics as any).onLoss,formation:x.tactics.formation}})),
+  style:inp.sides[1].style,approach:inp.sides[1].approach,settings:inp.sides[1].settings,tactics:teams[1].tactics,lineup:inp.sides[1].lineup.map(short),captain:short(inp.sides[1].captain),
   orders:o.orders.filter(x=>x.side===1).map(x=>({id:x.id,in:short(x.in),out:short(x.out),trigger:x.trigger.kind==='tired'?{...x.trigger,player:short(x.trigger.player)}:x.trigger,...(x.notBefore!==undefined?{notBefore:x.notBefore}:{})}))};
 }
 
@@ -320,6 +322,10 @@ export function play(t:{label:string;arm:string;seed:number;duration?:number;det
  const PL=matchPlayerStats(c.header,ev,frames);
  const lines=PL.map(l=>{const p=c.header.players.find((q:any)=>q.id===l.id&&q.side===l.side) as any;return [l.side,p?.short??l.id,Math.round(l.m??0),l.sh,l.so??0,l.g,l.st,l.kp??0,l.a];});
  const lineOf=(i:number)=>{const p=c.header.players[i];return p?PL.find(l=>l.id===p.id&&l.side===p.side):undefined;};
+ // (added for the taker arm) every free kick, indirect free kick and penalty: [side, kind, taker short, match second, what he
+ // did with it (pass / shot / clearance)]. The engine marks the event that TAKES a restart with its kind (practice.ts: the
+ // release's event gets restartKind); its actor is the taker.
+ const setp=ev.filter((e:any)=>e.rk&&['freeKick','indirect','penalty'].includes(e.rk)&&['pass','shot','clearance'].includes(e.k)&&e.a!==undefined).map((e:any)=>[(c.header.players[e.a] as any)?.side??null,e.rk,(c.header.players[e.a] as any)?.short??null,Math.round(e.t/1000),e.k]);
  const mech={Crizatu:manMech(c,ev,frames,'Crizatu',lineOf),Fotoliu:manMech(c,ev,frames,'Fotoliu',lineOf),
   Orlandinho:manMech(c,ev,frames,'Orlandinho',lineOf),Varză:manMech(c,ev,frames,'Varză',lineOf),flank:flankRead(c,frames)};
  const st=(s:0|1)=>{const x:any=c.stats[s];return {poss:Math.round(x.possession*10)/10,passes:x.passes,completed:x.completed,shots:x.shots,saves:x.saves,turnovers:x.turnovers,tackles:x.tackles,tacklesWon:x.tacklesWon,fouls:x.fouls,surges:x.surges,surgeShots:x.surgeShots};};
@@ -332,5 +338,5 @@ export function play(t:{label:string;arm:string;seed:number;duration?:number;det
   const seqs:string[][]=[];for(let j=0;j<ev.length&&seqs.length<10;j++)if(ev[j].k==='receive'&&ev[j].a===cz?.i)seqs.push(ev.slice(j,j+6).map((e:any)=>`${(e.t/1000).toFixed(1)} ${e.k} ${nm(e.a)}${e.g!==undefined?'>'+nm(e.g):''} | ${(e.x??'').slice(0,60)}`));
   (kinds as any).__crizatu=seqs;}
  return {label:t.label,arm:t.arm,...(t.opp&&t.opp!=="rcs"?{opp:t.opp}:{}),seed:t.seed,duration:inp.duration,build:r.engineBuild.slice(0,8),score:c.score,chances:ch?ch.map(v=>r3(v)):null,
-  stats:[st(0),st(1)],shots:shotRows,lines,mech,...(subs.length?{subs}:{}),...(sw.length?{sw}:{}),...(injuries.length?{injuries}:{}),...(t.detail?{kinds}:{}),dropped:r.dropped,ms};
+  stats:[st(0),st(1)],shots:shotRows,lines,mech,setp,...(subs.length?{subs}:{}),...(sw.length?{sw}:{}),...(injuries.length?{injuries}:{}),...(t.detail?{kinds}:{}),dropped:r.dropped,ms};
 }
