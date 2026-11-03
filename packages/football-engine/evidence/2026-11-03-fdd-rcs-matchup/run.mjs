@@ -18,7 +18,7 @@ import {createHash} from 'node:crypto';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import path from 'node:path';
 import {shardTasks,simWorkers,shardNote} from '../_ci/shard.mjs';
-import {ARMS,SCREEN,SWAPS} from './arms.mjs';
+import {ARMS,SCREEN,SWAPS,TIMING_ARMS} from './arms.mjs';
 
 const here=path.dirname(fileURLToPath(import.meta.url));
 
@@ -51,7 +51,7 @@ if(!isMainThread){
  }
 
  const label=arg('label');if(!label)throw Error('--label is required');
- const armsArg=arg('arms','screen'),arms=armsArg==='screen'?SCREEN:armsArg==='swaps'?SWAPS:armsArg.split(',');
+ const armsArg=arg('arms','screen'),arms=armsArg==='screen'?SCREEN:armsArg==='swaps'?SWAPS:armsArg==='timing'?TIMING_ARMS:armsArg.split(',');
  for(const a of arms)if(!ARMS[a])throw Error('unknown arm '+a);
  const seeds=range(arg('seeds','1103000-1103099')),duration=Number(arg('duration',900));
  const every=seeds.flatMap(seed=>arms.map(arm=>({label,arm,seed,duration})));

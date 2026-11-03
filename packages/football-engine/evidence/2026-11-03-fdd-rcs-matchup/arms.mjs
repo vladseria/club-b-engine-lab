@@ -107,3 +107,23 @@ export const ADDED={
 };
 Object.assign(ARMS,ADDED);
 export const SWAPS=Object.keys(ADDED);
+
+// ---- Added after the swaps (2026-11-03; SETUPS.md "Added after the swaps"): the timing of the Crizatu<->Fotoliu change.
+// A0's frozen side with only the Crizatu order (smvqxfjj21) changed in place (same id, same place in the list); Iacob->Nevorbitu
+// and Varză->Tramvai stay as stored. A0 itself (prep) and A1 (keepCriz) are the other two timings.
+export const TIMING={
+ // "a bit tired" (code 97 = energy 88), no "not before"
+ critEarly:{stored:true,label:'T-early Crizatu off at "a bit tired"',patchOrders:{smvqxfjj21:{trigger:{kind:'tired',player:'Crizatu',threshold:97}}}},
+ // "tired" (95), not before 10:00
+ crit10:{stored:true,label:'T-10 Crizatu off when tired, not before 10:00',patchOrders:{smvqxfjj21:{notBefore:600}}},
+ // "tired" (95), not before 12:00
+ crit12:{stored:true,label:'T-12 Crizatu off when tired, not before 12:00',patchOrders:{smvqxfjj21:{notBefore:720}}},
+ // reverse: Fotoliu starts at ST (Crizatu's slot), Crizatu on for him at half-time
+ revHalf:{stored:true,label:'R-half Fotoliu starts, Crizatu on at half-time',lineup:['Bulan','Iacob','Orlandinho','Varză','Fotoliu'],
+  patchOrders:{smvqxfjj21:{in:'Crizatu',out:'Fotoliu',trigger:{kind:'half'}}}},
+ // reverse: Fotoliu starts at ST, Crizatu on for him when Fotoliu is tired (95), not before 10:00
+ revLate:{stored:true,label:'R-late Fotoliu starts, Crizatu on when Fotoliu tired, not before 10:00',lineup:['Bulan','Iacob','Orlandinho','Varză','Fotoliu'],
+  patchOrders:{smvqxfjj21:{in:'Crizatu',out:'Fotoliu',trigger:{kind:'tired',player:'Fotoliu',threshold:95},notBefore:600}}},
+};
+Object.assign(ARMS,TIMING);
+export const TIMING_ARMS=Object.keys(TIMING);

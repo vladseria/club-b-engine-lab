@@ -41,22 +41,42 @@ function checkApproach(style:string,a:any,where:string){
  if(a.progression!==b.progression||a.transition!==b.transition)throw Error(`${where}: approach is not ${style}'s base`);
 }
 /** Throws unless the arm is something the live Match prep could store (lib/ballers/subs.ts, switch.ts, approach.ts). */
+/** A stored-side arm's orders: the stored list, minus `dropOrders`, with `patchOrders` (id -> {in?, out?, trigger?, notBefore?},
+ * players by short name; notBefore null removes it) merged in place, so the list keeps its stored order and ids. */
+function storedOrders(base:FrozenSide,a:any,where=''):any[]{
+ for(const id of [...(a.dropOrders??[]),...Object.keys(a.patchOrders??{})])if(!(base.substitutions??[]).some(o=>o.id===id))throw Error(`${where}: no stored order ${id}`);
+ const id=(s:string)=>idOf(base,s,where);
+ return (base.substitutions??[]).filter(o=>!(a.dropOrders??[]).includes(o.id)).map(o=>{
+  const p=a.patchOrders?.[o.id];if(!p)return o;
+  const {notBefore:_n,...rest}=o as any;
+  const nb=p.notBefore===undefined?(o as any).notBefore:p.notBefore;
+  const trigger=p.trigger?(p.trigger.kind==='tired'?{...p.trigger,player:id(p.trigger.player)}:p.trigger):o.trigger;
+  return {...rest,...(p.in?{in:id(p.in)}:{}),...(p.out?{out:id(p.out)}:{}),trigger,...(nb!=null?{notBefore:nb}:{})};
+ });
+}
 export function checkArm(base:FrozenSide,a:any,where:string){
  const fail=(m:string)=>{throw Error(`${where}: ${m}`);};
  if(a.stored){
-  for(const id of a.dropOrders??[])if(!(base.substitutions??[]).some(o=>o.id===id))fail(`no stored order ${id}`);
-  if(!a.lineup)return;
-  // the stored side with another five (added after the screen): the same lineup rules as Match prep (ballers_check_lineup),
-  // and every stored order kept must still be one the engine takes against the new five and bench
-  const ids=a.lineup.map((s:string)=>idOf(base,s,where));
+  // the stored side with another five and/or changed orders (added after the screen): the same lineup rules as Match prep
+  // (ballers_check_lineup), the order rules of ballers_check_subs and the prep UI's values (Subs.tsx), against the five
+  const kept=storedOrders(base,a,where);
+  if(!a.lineup&&!a.patchOrders)return;
+  const ids=(a.lineup??[]).length?a.lineup.map((s:string)=>idOf(base,s,where)):[...base.lineup];
   if(new Set(ids).size!==5)fail('lineup needs five different players');
   const pl=(id:string)=>base.players.find(p=>p.id===id)!;
   if(!isKeeper(pl(ids[0]))||ids.slice(1).some((id:string)=>isKeeper(pl(id))))fail('keeper must be slot 1 and only there');
-  if(!ids.includes(base.captain))fail('the stored captain is not in the new five');
+  // the captain never reaches the engine; one not in the five passes the armband to slot 2, as ballers_resolve_setup does (armSide)
   const t=(base.settings as any)?.taker;if(t&&!ids.slice(1).includes(t))fail('the stored taker is not in the new five');
-  const kept=(base.substitutions??[]).filter(o=>!(a.dropOrders??[]).includes(o.id));
+  if(kept.length>3)fail('at most 3 substitutions');
   const ins=new Set<string>();
   for(const o of kept){
+   const tr=o.trigger;
+   if(tr.kind==='tired'){if(!THRESHOLDS.includes(tr.threshold))fail(`order ${o.id}: tired level code`);}
+   else if(tr.kind==='score'){if(!['losing','drawing','winning'].includes(tr.state))fail(`order ${o.id}: score state`);}
+   else if(tr.kind==='margin'){if(tr.atLeast!==2||!['up','down'].includes(tr.direction))fail(`order ${o.id}: margin`);}
+   else if(tr.kind==='half'){if(o.notBefore!==undefined)fail(`order ${o.id}: half-time takes no "not before"`);}
+   else fail(`order ${o.id}: trigger kind`);
+   if(o.notBefore!==undefined&&!NOT_BEFORE.includes(o.notBefore))fail(`order ${o.id}: notBefore must be one of ${NOT_BEFORE}`);
    if(ids.includes(o.in))fail(`order ${o.id}: its incoming man starts`);
    if(ins.has(o.in))fail(`order ${o.id}: ${o.in} comes on twice`);ins.add(o.in);
    const out=(o as any).out;if(!ids.includes(out)&&!kept.some(x=>x.in===out))fail(`order ${o.id}: its outgoing man neither starts nor comes on`);
@@ -111,12 +131,13 @@ function withLineup(base:FrozenSide,lineup:string[]):Pick<FrozenSide,'lineup'|'b
 /** Directia's side as Match prep would freeze it for this arm. */
 export function armSide(base:FrozenSide,a:any):FrozenSide{
  if(a.stored){
-  if(!a.dropOrders?.length&&!a.lineup)return base;
-  const subs=(base.substitutions??[]).filter(o=>!(a.dropOrders??[]).includes(o.id));
+  if(!a.dropOrders?.length&&!a.lineup&&!a.patchOrders)return base;
+  const subs=storedOrders(base,a);
   // another five: lineup in slot order, the bench and the player order rebuilt as ballers_bench / ballers_input_side do;
   // plan, approach, settings, captain and the kept orders exactly as stored
-  const five=a.lineup?withLineup(base,a.lineup.map((s:string)=>idOf(base,s))):{};
-  return {...base,...five,substitutions:subs};
+  const five:any=a.lineup?withLineup(base,a.lineup.map((s:string)=>idOf(base,s))):{};
+  const captain=five.lineup&&!five.lineup.includes(base.captain)?{captain:five.lineup[1]}:{};
+  return {...base,...five,...captain,substitutions:subs};
  }
  const id=(s:string)=>idOf(base,s);
  const lineup=a.lineup.map(id);
@@ -144,7 +165,9 @@ export function dryCheck(t:{arm:string;seed:number}){
  if(o.dropped.length||w.dropped.length)throw Error(`${t.arm}: the engine refuses ${[...o.dropped,...w.dropped].join(', ')}`);
  const mine=(inp.sides[1].substitutions??[]).length;
  if(o.orders.filter(x=>x.side===1).length!==mine)throw Error(`${t.arm}: ${mine} orders stored, ${o.orders.filter(x=>x.side===1).length} reach the engine`);
- return {lineup:inp.sides[1].lineup,orders:o.orders.filter(x=>x.side===1).map(x=>x.id)};
+ const short=(id?:string)=>id===undefined?undefined:inp.sides[1].players.find(p=>p.id===id)?.short??id;
+ return {lineup:inp.sides[1].lineup.map(short),captain:short(inp.sides[1].captain),
+  orders:o.orders.filter(x=>x.side===1).map(x=>({id:x.id,in:short(x.in),out:short(x.out),trigger:x.trigger.kind==='tired'?{...x.trigger,player:short(x.trigger.player)}:x.trigger,...(x.notBefore!==undefined?{notBefore:x.notBefore}:{})}))};
 }
 
 // ------------------------------------------------------------------ mechanism
