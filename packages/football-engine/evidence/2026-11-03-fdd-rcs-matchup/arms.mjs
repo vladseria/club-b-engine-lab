@@ -165,3 +165,21 @@ export const XSWAP={
 };
 Object.assign(ARMS,XSWAP);
 export const XSWAP_ARMS=Object.keys(XSWAP);
+
+// ---- Added after the sweep (2026-11-03; SETUPS-SWEEP.md "High press against the new prep"): the owner's own three arms,
+// against Roman City's prep as changed at 13:41 UTC (--opp rcsb). Press Aggressive and Bodies forward 5 on a preset whose
+// Line stays its own. Free kicks Into the box (A0's), taker Auto, no keeper call. Orders exactly as the owner specified.
+const t95o=(id,inn,out)=>({id,in:inn,out,trigger:{kind:'tired',player:out,threshold:95}});
+export const HIGHPRESS={
+ // 2-2 (GK, LCB, RCB, LW, RW): Crizatu left wing, Orlandinho right wing; one order, Varză for Orlandinho when tired
+ h22b:{label:'H22-B 2-2 Balanced + Press Aggressive + Bodies forward 5',formation:'2-2',style:'balanced',approach:{...PRESETS.balanced,press:'aggressive',commit:5},
+  lineup:['Bulan','Iacob','Nevorbitu','Crizatu','Orlandinho'],settings:{setPiece:'delivery'},subs:[t95o('o1','Varză','Orlandinho')]},
+ // 1-2-1 (GK, CB, LW, RW, ST) as X2: Crizatu in Varză's RW slot, Varză at ST; X2's orders (Iacob->Nevorbitu, Varză->Tramvai)
+ h121b:{label:'H121-B 1-2-1 Balanced + Press Aggressive + Bodies forward 5, Varză ST, Crizatu RW',formation:'1-2-1',style:'balanced',approach:{...PRESETS.balanced,press:'aggressive',commit:5},
+  lineup:['Bulan','Iacob','Orlandinho','Crizatu','Varză'],settings:{setPiece:'delivery'},subs:[t95o('smvv7l5uj0','Nevorbitu','Iacob'),t95o('smvv7m9ik1','Tramvai','Varză')]},
+ // as H22-B on the Direct preset (its own Line Standard, Width Wide, Striker In behind)
+ h22d:{label:'H22-D 2-2 Direct + Press Aggressive + Bodies forward 5',formation:'2-2',style:'direct',approach:{...PRESETS.direct,press:'aggressive',commit:5},
+  lineup:['Bulan','Iacob','Nevorbitu','Crizatu','Orlandinho'],settings:{setPiece:'delivery'},subs:[t95o('o1','Varză','Orlandinho')]},
+};
+Object.assign(ARMS,HIGHPRESS);
+export const HIGHPRESS_ARMS=Object.keys(HIGHPRESS);
