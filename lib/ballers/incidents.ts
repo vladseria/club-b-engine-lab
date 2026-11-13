@@ -204,7 +204,10 @@ export function buildIncidents(input:IncidentInput):Incident[]{
  if(!header.interval){const half=Math.round((header.fullTime??header.duration)*1000/2); // half the match length, not of a last attack's extra seconds
   if(dur>=300000&&half<=horizon){const f=frames[Math.max(0,frameIndex(frames,half))];add({t:half,kind:'half',side:null,actors:[],engine:'',score:f?[f.s[0],f.s[1]]:[0,0],facts:{}});}}
  else{const h=events.find(e=>e.k==='half'),kick=h?events.find(e=>e.t>=h.t&&e.rk==='kickoff'&&e.k!=='restart'):undefined;
-  if(kick){const ks=(kick.s??side(kick.a)) as 0|1|undefined;add({t:kick.t,kind:'second_half',side:ks??null,actors:kick.a===undefined?[]:[kick.a],engine:kick.x,facts:{}});}}
+  // its score is the score AT that kickoff (the half-time score), never the running one: left to the default it took
+  // the score where the reading stopped, so a replay (and a broadcast holding the whole match) printed the final score
+  // in "Repriza a doua, la {score}" while the second half was still to be played
+  if(kick){const ks=(kick.s??side(kick.a)) as 0|1|undefined;add({t:kick.t,kind:'second_half',side:ks??null,actors:kick.a===undefined?[]:[kick.a],engine:kick.x,score:scoreAt(out,kick.t),facts:{}});}}
 
  // Ideas that came off (P5 names them for their owner; here: that one did).
  if(input.ideas?.length)ideaIncidents(input.ideas,events,horizon).forEach(x=>add({...x,score:scoreAt(out,x.t)}));

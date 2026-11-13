@@ -397,16 +397,20 @@ export function topScorers(lines:Iterable<SeasonLine>,limit=10):(SeasonLine&{ran
 export type Board='assists'|'chances'|'tackles'|'saves'|'cleanSheets'|'passing';
 /** Pass % counts from this many minutes, and at least half the minutes of the season's busiest player. */
 export const PASSING_MIN_MINUTES=30;
+/** Save % counts a keeper with at least half the season's busiest keeper's time in goal and this many shots on target
+ * faced (owner, 4 Nov 2026: the board ranks how well a keeper saves, not how many shots his defence lets through). */
+export const SAVES_MIN_SHOTS=10;
 /** A leaderboard: the value, then fewer appearances; ties (value and apps) share a rank. Nobody on nothing. */
 export function leaders(lines:Iterable<SeasonLine>,board:Board,limit=5):(SeasonLine&{rank:number;value:number})[]{
  const all=[...lines];
  const most=Math.max(0,...all.map(l=>l.seconds));
+ const mostKept=Math.max(0,...all.map(l=>l.keeperSeconds));
  const value=(l:SeasonLine):number|null=>{
   switch(board){
    case 'assists':return l.assists||null;
    case 'chances':return l.chances||null;
    case 'tackles':return l.tackles+l.interceptions||null;
-   case 'saves':return l.keeperApps?l.shotSaves||null:null;
+   case 'saves':return l.keeperSeconds>0&&l.keeperSeconds*2>=mostKept&&l.shotsFaced>=SAVES_MIN_SHOTS?savePct(l):null;
    case 'cleanSheets':return l.cleanSheets||null;
    case 'passing':return l.seconds>=Math.max(PASSING_MIN_MINUTES*60,most/2)&&l.passes>=10?passPct(l):null;
   }
