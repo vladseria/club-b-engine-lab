@@ -4,10 +4,11 @@
 // Four engine runs: a 120 s match (no half-time) through compute with and without the marker and once straight through
 // the engine (its full frames), and a 600 s match with a half-time and a change straight through the engine. If frames
 // ever stop being recorded, loads would silently become zero: this fails first.
+// And the compact replay's injury mark: an injury event's `ij` carries his energy (`e`), on stub results (no match).
 // It plays matches, so it runs on the public cloud lab (the laptop match guard blocks it locally):
 // node packages/football-engine/evidence/_ci/cloud.mjs --app-tests --ref <branch> --suites ballers-fitness-compute
 import {describe,it,expect} from 'vitest';
-import {computeMatch,energySpent,engineTeam,submission,validateInput,type FrozenInput,type FrozenSide} from '../lib/ballers/simulation';
+import {compact,computeMatch,energySpent,engineTeam,submission,validateInput,type EngineResult,type FrozenInput,type FrozenSide} from '../lib/ballers/simulation';
 import {runMatch} from '../packages/football-engine/src/index';
 import {gunzipSync} from 'node:zlib';
 
@@ -129,5 +130,53 @@ describe('the frozen input\'s fitness keys',()=>{
   for(const bad of [{fitness:{v:2}},{fitness:true},{fitness:null},{injuries:{on:true,salt:7,scale:-0.1}},{injuries:{on:true,salt:7,scale:10.5}},
    {injuries:{on:true,salt:7,strength:1.2}},{injuries:{on:true,salt:7,strength:'0.15'}},{injuries:{on:true,salt:7,scale:Number.NaN}}])
    expect(()=>validateInput({...base,...bad} as never)).toThrow('invalid_input');
+ });
+});
+
+// ------------------------------------------------------------------ the compact replay's injury energy (ij.e)
+// The injury event's `ij` carries his energy as he was hurt, rounded like a substitution's `e` (lib/ballers/compute.ts
+// compact, from the engine's InjuryMark.energy); the treatment and the forced change carry the engine's {cause, matches}
+// only, so they never get it. On stub engine results: no match is played here (this file is on the lab for its other
+// tests, the laptop match guard sending every suite that imports compute.ts there). That a real match without the
+// injuries key stays byte-identical is ballers-pipeline's pinned seed.
+describe('the compact replay: an injury carries his energy (ij.e)',()=>{
+ const inp=input(60,1);
+ const ids=inp.sides.flatMap((s,k)=>s.lineup.map(id=>({id:`${k}:${id}`,side:k as 0|1,role:'CM'})));
+ const hurt=`0:${inp.sides[0].lineup[2]}`,bench=`0:${inp.sides[0].bench[0]}`,tackler=`1:${inp.sides[1].lineup[1]}`;
+ const pose={x:24,y:0,angle:0};
+ const frames:EngineResult['frames']=Array.from({length:301},(_,n)=>({time:Math.round(n*200)/1000,players:ids.map(()=>pose),ball:{x:24,y:0,z:0,owner:null},score:[0,0],restart:false,side:0}));
+ type Ev=EngineResult['events'][number];
+ const plain:Ev[]=[{time:0,kind:'start',text:''},{time:5,kind:'pass',text:'',actor:ids[1].id,target:ids[2].id,side:0},{time:30,kind:'receive',text:'',actor:ids[2].id,side:0},{time:60,kind:'end',text:''}];
+ /** The engine's three marks of one knock: the injury (with or without energy), the treatment and the forced change. */
+ const knock=(injury:NonNullable<Ev['injury']>,by?:string):Ev[]=>[{time:10,kind:'injury',text:'x',actor:hurt,...(by?{target:by}:{}),side:0,injury},
+  {time:12,kind:'treatment',text:'y',actor:hurt,side:0,injury:{cause:injury.cause,matches:injury.matches}},
+  {time:14,kind:'substitution',text:'z',actor:bench,target:hurt,side:0,injury:{cause:injury.cause,matches:injury.matches}}];
+ const events=(more:Ev[]=[])=>compact(inp,{duration:60,players:ids,score:[0,0],stats:[{} as never,{} as never],frames,
+  events:[...plain,...more].sort((a,b)=>a.time-b.time)}).chunks.flatMap(c=>c.e);
+ const of=(es:ReturnType<typeof events>,k:string)=>es.find(e=>e.k===k)!;
+
+ it('an injury\'s energy is rounded onto its `ij` like a substitution\'s: 70.5 gives e 71; a hard tackle keeps h',()=>{
+  const es=events(knock({cause:'fatigue',matches:2,energy:70.5}));
+  expect(of(es,'injury').ij).toEqual({c:'fatigue',n:2,e:71});
+  const hard=events(knock({cause:'tackle',hard:true,matches:3,energy:82.4},tackler));
+  expect(of(hard,'injury').ij).toEqual({c:'tackle',n:3,h:1,e:82});
+  expect(JSON.stringify(of(hard,'injury').ij)).toBe('{"c":"tackle","n":3,"h":1,"e":82}');
+ });
+ it('no energy, or one that is not a finite number: no `e`, the mark as before',()=>{
+  for(const energy of [undefined,Number.NaN,Number.POSITIVE_INFINITY,Number.NEGATIVE_INFINITY]){
+   const ij=of(events(knock({cause:'fatigue',matches:2,...(energy===undefined?{}:{energy})})),'injury').ij!;
+   expect(ij).toEqual({c:'fatigue',n:2});
+   expect('e' in ij).toBe(false);
+  }
+ });
+ it('the treatment and the forced change never get `e`; the change is still sb k injury',()=>{
+  const es=events(knock({cause:'fatigue',matches:2,energy:70.5}));
+  for(const k of ['treatment','substitution']){expect(of(es,k).ij).toEqual({c:'fatigue',n:2});expect('e' in of(es,k).ij!).toBe(false);}
+  expect(of(es,'substitution').sb).toEqual({k:'injury'});
+ });
+ it('a result without injury events is unchanged: no `ij`, and every other event as it is beside a knock',()=>{
+  const without=events(),beside=events(knock({cause:'fatigue',matches:2,energy:70.5}));
+  expect(without.some(e=>'ij' in e||'sb' in e||'st' in e)).toBe(false);
+  expect(beside.filter(e=>!['injury','treatment','substitution'].includes(e.k))).toEqual(without);
  });
 });
