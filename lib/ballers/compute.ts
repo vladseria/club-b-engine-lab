@@ -225,7 +225,8 @@ export function engineInjuries(input:FrozenInput,raw:unknown):ComputedInjury[]{
 interface EngineFrame {time:number;cut?:boolean;lineup?:number[];players:{x:number;y:number;angle:number;duty?:string;energy?:number}[];ball:{x:number;y:number;z:number;owner:string|null};score:[number,number];restart:boolean;restartInfo?:{taker:string};side:0|1;control?:{owner:string}}
 interface EngineEvent {time:number;kind:string;text:string;actor?:string;target?:string;side?:0|1;lastTouch?:string;restartKind?:string;firstTime?:boolean;shot?:{aim:{x:number;y:number};origin:{x:number;y:number};assessment?:{quality:number}};technique?:string;freeKick?:unknown;
  substitution?:{order:string;trigger:SubstitutionTrigger;energy:number;score:[number,number]};
- /** Bebe's showcase (contracts/ENGINE.md §3): on the `injury` event and on its forced `substitution`. */
+ /** With the injuries key (contracts/ENGINE.md §3; Bebe's showcase, a league match with fitness on): on the `injury`
+  * event (energy too) and on its `treatment` and forced `substitution`. */
  injury?:{cause:'tackle'|'fatigue';hard?:boolean;matches:number;energy?:number};
  /** A player match-state begins or ends (football-engine practice-states.ts; contracts/ENGINE.md §10). */
  state?:{id:'injured';on:boolean};switch?:{order:string;trigger:SwitchTrigger;score:[number,number];formation?:string;players?:{id:string;role:string;lane:number}[]}}
@@ -302,12 +303,15 @@ export function compact(input:FrozenInput,r:EngineResult):CompactMatch{
    if(q!==undefined&&Number.isFinite(q))out.q=Math.round(q*1000)/1000;else if(e.technique==='header')out.sk=1;else if(e.technique==='volley')out.sk=2;else if(e.freeKick)out.sk=3;}
   if(e.substitution){const t=e.substitution.trigger;
    out.sb={k:t.kind,...(t.kind==='score'?{st:t.state}:t.kind==='margin'?{n:t.atLeast,d:t.direction}:{}),e:Math.round(e.substitution.energy)};}
-  // Bebe's showcase: an injury, and the engine's forced change for it (no order: sb k 'injury'). League events
-  // never carry `injury`, so their compact is byte-identical.
-  if(e.injury){out.ij={c:e.injury.cause,n:e.injury.matches,...(e.injury.hard?{h:1 as const}:{})};
+  // An injury, and the engine's forced change for it (no order: sb k 'injury'): Bebe's showcase, and a league match
+  // played with the injuries key (fitness on for both clubs). A match without the key carries no `injury`, so its
+  // compact is byte-identical. `e`: his energy as he was hurt, rounded like a substitution's `e`; only the
+  // `injury` event carries it (the engine's InjuryMark.energy), so the treatment and the forced change are as before.
+  if(e.injury){const en=e.injury.energy;
+   out.ij={c:e.injury.cause,n:e.injury.matches,...(e.injury.hard?{h:1 as const}:{}),...(typeof en==='number'&&Number.isFinite(en)?{e:Math.round(en)}:{})};
    if(e.kind==='substitution'&&!e.substitution)out.sb={k:'injury'};}
-  // A player match-state (today: a hurt man playing on, Bebe's showcase): which, and whether it ends. League events never
-  // carry `state`, so their compact is byte-identical.
+  // A player match-state (today: a hurt man playing on, under the injuries key as above): which, and whether it ends. A
+  // match without the key never carries `state`, so its compact is byte-identical.
   if(e.state)out.st={i:e.state.id,...(e.state.on?{}:{e:1 as const})};
   // The plan switch's marker: the trigger and the style now played (never the plan's name).
   if(e.switch&&e.side!==undefined){const t=e.switch.trigger;

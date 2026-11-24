@@ -72,13 +72,15 @@ export interface ReplayFrame {t:number;p:[number,number,number][];b:[number,numb
  * outgoing player's energy). */
 /** k 'injury' (Bebe's showcase, contracts/ENGINE.md §3): the engine's forced change for an injured man, no order behind it. */
 export interface ReplaySub {k:'tired'|'score'|'margin'|'half'|'injury';st?:string;n?:number;d?:string;e?:number}
-/** An injury (Bebe's showcase only; contracts/ENGINE.md §3), on the `injury` event and on its forced `substitution`:
- * c the cause, n the matches he misses, h a hard tackle (it floored him, or a foul). Absent from every league replay. */
-export interface ReplayInjury {c:'tackle'|'fatigue';n:number;h?:1}
+/** An injury (contracts/ENGINE.md §3: Bebe's showcase, and a league match played with fitness on for both clubs), on the
+ * `injury` event and on its forced `substitution`: c the cause, n the matches the engine rolled, h a hard tackle (it
+ * floored him, or a foul), e (on the `injury` event only; older replays lack it) his energy as he was hurt,
+ * rounded. Absent from every other replay. */
+export interface ReplayInjury {c:'tackle'|'fatigue';n:number;h?:1;e?:number}
 /** A player match-state (football-engine practice-states.ts; contracts/ENGINE.md §10), on the engine's `state` event
  * (k 'state', a = the man, s = his side): i = which state, e = it ends (absent: it begins). It holds from that event until
  * its end, or to full time. Today only 'injured' (a hurt man with no change left playing on, from the moment he gets up;
- * Bebe's showcase): absent from every league replay, so the version stays 2. */
+ * Bebe's showcase, and a league match played with fitness on): absent from every other replay, so the version stays 2. */
 export interface ReplayState {i:'injured';e?:1}
 /** A shot (from 4 Oct; absent on older replays): q = the engine's own quality
  * read at the strike (0-1, 3 decimals), or sk = which unread shot it was

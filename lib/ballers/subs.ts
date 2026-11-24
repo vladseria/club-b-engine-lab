@@ -52,7 +52,7 @@ export const MAX_SUBS=3;
 export const TIRED_LEVELS=[
  {id:'bit',label:'a bit tired',name:'A bit tired',threshold:97,energy:88,around:'5:00',never:'never got a bit tired'},
  {id:'tired',label:'tired',name:'Tired',threshold:95,energy:79,around:'9:30',never:'never got tired'},
- {id:'empty',label:'running on empty',name:'Running on empty',threshold:92,energy:75,around:'12:00',never:'never ran on empty'},
+ {id:'empty',label:'exhausted',name:'Exhausted',threshold:92,energy:75,around:'12:00',never:'never got exhausted'},
 ] as const;
 export type TiredLevel=typeof TIRED_LEVELS[number];
 /** The level a stored threshold belongs to (the nearest code). */
