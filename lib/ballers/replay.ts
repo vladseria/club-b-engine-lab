@@ -75,8 +75,10 @@ export interface ReplaySub {k:'tired'|'score'|'margin'|'half'|'injury';st?:strin
 /** An injury (contracts/ENGINE.md §3: Bebe's showcase, and a league match played with fitness on for both clubs), on the
  * `injury` event and on its forced `substitution`: c the cause, n the matches the engine rolled, h a hard tackle (it
  * floored him, or a foul), e (on the `injury` event only; older replays lack it) his energy as he was hurt,
- * rounded. Absent from every other replay. */
-export interface ReplayInjury {c:'tackle'|'fatigue';n:number;h?:1;e?:number}
+ * rounded, t (on the `injury` event only, from 25 Nov; absent on older replays and for T0) the injury type picked when
+ * the match was computed (lib/ballers/injury-types.ts: a missing or unknown id reads as T0, today's words). Absent from
+ * every other replay. */
+export interface ReplayInjury {c:'tackle'|'fatigue';n:number;h?:1;e?:number;t?:string}
 /** A player match-state (football-engine practice-states.ts; contracts/ENGINE.md §10), on the engine's `state` event
  * (k 'state', a = the man, s = his side): i = which state, e = it ends (absent: it begins). It holds from that event until
  * its end, or to full time. Today only 'injured' (a hurt man with no change left playing on, from the moment he gets up;

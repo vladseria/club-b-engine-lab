@@ -15,6 +15,8 @@ import type {LessonSpec} from '../../packages/football-engine/src/practice-lesso
 import {engineOrder,type PrepOrder} from './subs';
 import {KEEPER_SWEEP,normalizeSettings,settingsSquad,settingsTactics,type MatchSettings} from './match-settings';
 import {normalizeVoice,type Voice} from './voice';
+import {hurtDoing} from './injury-doing';
+import {injurySeed,pickMatchTypes,tiredLevelAt,typingMatches,type InjuryMoment} from './injury-types';
 
 export interface FrozenPlayer {id:string;name:string;short:string;number:number;roles:EnginePlayer['roles'];skills:EnginePlayer['skills'];traits:EnginePlayer['traits'];energy:number;archetype:string;temperament:string;note:string;portrait:string}
 /** `lineup`: the five the idea was drawn for (slot n = lineup[n-1]); `assign`:
@@ -147,16 +149,23 @@ export function validateInput(value:unknown):FrozenInput{
 
 /** An injury as the showcase stores it (ballers_showcase_submit `injuries`), from the engine's InjuryRecord
  * (contracts/ENGINE.md §3) as given, severity included: `id` the frozen player id, `t` the match second, `by` the
- * tackler's name and `by_id` his frozen id, `off` when he went off, `played_on` nobody was left to come on. */
-export interface ComputedInjury {id:string;side:0|1;t:number;cause:'tackle'|'fatigue';by?:string;by_id?:string;hard:boolean;energy?:number;matches:number;off?:number;played_on?:true}
+ * tackler's name and `by_id` his frozen id, `off` when he went off, `played_on` nobody was left to come on. `type`: the
+ * injury type picked for it (lib/ballers/injury-types.ts, the replay's `ij.t`), absent for T0; the league writer stores
+ * it (public.ballers_injuries.type), Bebe's door ignores it. */
+export interface ComputedInjury {id:string;side:0|1;t:number;cause:'tackle'|'fatigue';by?:string;by_id?:string;hard:boolean;energy?:number;matches:number;off?:number;played_on?:true;type?:string}
+/** What the caller knows about the match that the frozen input does not say. `league`: a league match (the compute
+ * route's kind), so a tiredness injury's type is picked for the length the league stores (capped at
+ * LEAGUE_FATIGUE_MAX); absent or false (Bebe's showcase, practice, a tool), the engine's own roll, and a tiredness
+ * injury of 3 or more matches reads T0. Nothing else changes with it. */
+export interface ComputeOptions {league?:boolean}
 /** One man's energy drain in the match (Ballers fitness): `id` the frozen squad id, `spent` 2 decimals. */
 export interface EnergySpent {id:string;side:0|1;spent:number}
 export interface Computed {compact:CompactMatch;dropped:string[];engineBuild:string;
  /** Present when the input carried `injuries` and the engine reported any. */ injuries?:ComputedInjury[];
  /** Ballers fitness: present only when the input carries the `fitness` marker. */ energy?:EnergySpent[]}
 
-/** Runs the whole match once. Deterministic for (input, ENGINE_BUILD). */
-export function computeMatch(input:FrozenInput,progress?:(t:number)=>void):Computed{
+/** Runs the whole match once. Deterministic for (input, ENGINE_BUILD, o.league). */
+export function computeMatch(input:FrozenInput,progress?:(t:number)=>void,o:ComputeOptions={}):Computed{
  const teams=input.sides.map(engineTeam) as [Team,Team];
  const plans=input.sides.map(sidePlans);
  const playbooks=plans.flatMap((p,side)=>p.plans.length?[{side:side as 0|1,plans:p.plans,adaptive:true}]:[]) as PlaybookConfig[];
@@ -170,7 +179,39 @@ export function computeMatch(input:FrozenInput,progress?:(t:number)=>void):Compu
  // Ballers fitness: each man's drain, read from the recorded frames (the engine output itself is unchanged); only with
  // the marker, so an input without it computes exactly what it always did.
  const energy=input.fitness?energySpent(input,run.result as unknown as EngineResult):undefined;
- return {compact:compact(input,run.result as unknown as EngineResult),dropped:[...plans.flatMap(p=>p.dropped),...subs.dropped,...sw.dropped],engineBuild:run.engineBuild,...(injuries.length?{injuries}:{}),...(energy?{energy}:{})};
+ const cm=compact(input,run.result as unknown as EngineResult,o);
+ // each injury's type as compact picked it for the replay (the same id in the payload, so the row names what the match did)
+ const typed=injuries.length?withTypes(injuries,cm):injuries;
+ return {compact:cm,dropped:[...plans.flatMap(p=>p.dropped),...subs.dropped,...sw.dropped],engineBuild:run.engineBuild,...(typed.length?{injuries:typed}:{}),...(energy?{energy}:{})};
+}
+
+/** The computed injuries with the type compact put on each one's replay event (`ij.t`, by his side and squad id: a man
+ * is hurt at most once a match); an injury typed T0 (no `ij.t`) is left as it was. */
+export function withTypes(injuries:readonly ComputedInjury[],cm:CompactMatch):ComputedInjury[]{
+ const ids=new Map<string,string>();
+ for(const ch of cm.chunks)for(const e of ch.e){
+  if(e.k!=='injury'||!e.ij?.t||e.a===undefined||e.s===undefined)continue;
+  const p=cm.header.players.find(q=>q.i===e.a);if(p)ids.set(`${e.s}:${p.id}`,e.ij.t);
+ }
+ return injuries.map(i=>{const t=ids.get(`${i.side}:${i.id}`);return t?{...i,type:t}:i;});
+}
+
+/** (injury types, 25 Nov) Each `injury` event's type, picked once from the compact frames and events
+ * (lib/ballers/injury-types.ts): what he was doing (lib/ballers/injury-doing.ts hurtDoing, the same reading as the "while
+ * …" words on every screen), the cause, a hard tackle, whether he keeps goal, the length as stored (a league tiredness
+ * injury capped: ComputeOptions.league), whether he was exhausted (his `ij.e`), and a seed from the match seed and the
+ * injury. In event order, so a match never gets two fun ones. Written as `ij.t`, only when not T0, so a match with no
+ * injury, and a T0 one, is byte-identical to before. */
+function typeInjuries(input:FrozenInput,frames:readonly ReplayFrame[],events:ReplayEvent[],players:readonly ReplayPlayer[],o:ComputeOptions){
+ const hurt=events.filter(e=>e.k==='injury'&&e.ij&&e.a!==undefined&&e.s!==undefined);
+ if(!hurt.length)return;
+ const list=hurt.map(e=>{
+  const p=players.find(q=>q.i===e.a),ij=e.ij!;
+  const moment:InjuryMoment={cause:ij.c,hard:ij.h===1,keeper:!!p&&(p.role==='GK'||p.slot===0),
+   doing:hurtDoing(frames,events,{t:e.t,player:e.a!,side:e.s!}),matches:typingMatches(ij.c,ij.n,o.league===true),exhausted:tiredLevelAt(ij.e)==='empty'};
+  return {moment,seed:injurySeed(input.seed,e.t,p?.id??String(e.a))};
+ });
+ pickMatchTypes(list).forEach((t,k)=>{if(t!=='T0')hurt[k].ij={...hurt[k].ij!,t};});
 }
 
 /** Ballers fitness (deliverables/ballers-fitness/DESIGN.md §3.2): each man's energy spent in the match, from the
@@ -233,7 +274,7 @@ interface EngineEvent {time:number;kind:string;text:string;actor?:string;target?
 interface EngineSelection {time:number;planId:string|null;name:string;status:string;endedAt?:number;endReason?:string;endDetail?:string;side?:0|1;trace?:{time:number;stepId:string;phase:string;intent?:string;actor?:string;target?:string;responsibility?:string;evidence?:{spaceId?:string}}[]}
 export interface EngineResult {duration:number;played?:number;players:{id:string;side:0|1;role:string}[];frames:EngineFrame[];events:EngineEvent[];stats:[TeamStats,TeamStats];score:[number,number];playbookSelections?:EngineSelection[];substitutionNotes?:SubstitutionNote[];switchNotes?:SwitchNote[];surges?:{side:0|1;regain:number;start:number}[]}
 
-export function compact(input:FrozenInput,r:EngineResult):CompactMatch{
+export function compact(input:FrozenInput,r:EngineResult,o:ComputeOptions={}):CompactMatch{
  // Engine roster ids are `${side}:${playerId}`. Replay indices: 0-9 the
  // starters (side*5 + slot), then every bench player (home first), so a
  // substitute already has an index when he comes on (the header, public from
@@ -320,6 +361,8 @@ export function compact(input:FrozenInput,r:EngineResult):CompactMatch{
     ...(e.switch.formation?{f:e.switch.formation}:{}),...(e.switch.players?{ro:e.switch.players.map(p=>[idx(p.id),p.role,p.lane] as [number,string,number])}:{})};}
   return out;
  });
+ // (injury types, 25 Nov) each injury's type on its own event's `ij` (none hurt: nothing added, byte-identical)
+ typeInjuries(input,frames,events,players,o);
  // (styles as identities, slice 2) the style moments, each marked on the event it ends at; a Short side's or a surge's
  // tallies ride along. No Short side and no surge = nothing added: the compact is byte-identical to before.
  const styles=input.sides.map(sd=>engineStyle(sd.style,sd.approach));

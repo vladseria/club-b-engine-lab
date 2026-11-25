@@ -298,7 +298,9 @@ export const fitnessOn=(club:MyClub|null|undefined,space:readonly string[]|undef
 /** One active injury in the read door: league or showcase, counted in days (`until` = the day he is back). */
 export interface FitnessInjury {player:string;club:string;kind:'league'|'showcase';match:string;cause:'tackle'|'fatigue';
  /** Who tackled him (the replay's display name), when a tackle did it. */ by:string|null;
- /** The engine's severity (1-6) and the days it means. */ matches:number;days:number;from:string;until:string}
+ /** The engine's severity (1-6) and the days it means. */ matches:number;days:number;from:string;until:string;
+ /** (injury types, 25 Nov) a league row's stored type (public.ballers_injuries.type, lib/ballers/injury-types.ts); the
+  * door sends it only when there is one, so a row without (older, Bebe's) reads T0. */ type?:string|null}
 /** public.ballers_fitness(p_space): the space's folded state as of `at`. `players`: men with a counted load (clubs with
  * fitness on); everyone else starts fresh. `injured`: visible, not over yet. With `on` false nothing else comes. */
 export interface FitnessRead {on:boolean;at:string;players:{id:string;club:string;d:number;at:string}[];injured:FitnessInjury[]}
@@ -318,7 +320,9 @@ export function loadFitness(space:string,fresh=false):Promise<FitnessRead|null>{
 export interface LeagueInjury {playerId:string;clubId:string;cause:'tackle'|'fatigue';by:string|null;byId:string|null;
  /** A hard tackle (it floored him, or a foul). */ hard:boolean;days:number;
  /** His energy as he was hurt (the column `energy`, one decimal; null when the engine gave none). A tiredness injury's
-  * caption says how tired he was from it when the replay carries no `ij.e` (older replays). */ energy?:number|null}
+  * caption says how tired he was from it when the replay carries no `ij.e` (older replays). */ energy?:number|null;
+ /** (injury types, 25 Nov) the type picked when the match was computed (the column `type`; null on rows written before,
+  * and for T0): the paper names it (lib/ballers/injury-types.ts). */ type?:string|null}
 /** Some matches' league injuries, by match id (a match with none is simply absent). Only the rows of the result as it
  * stands: a row whose `from_at` is not the match's live kickoff (`liveFrom`, to the second) was left behind by an earlier
  * run of the match, and the fitness fold ignores it too (lib/ballers/fitness.ts eventsOf). Null when the table can't be
@@ -328,15 +332,17 @@ export async function loadInjuries(matches:readonly {id:string;liveFrom:string}[
  const ids=matches.map(m=>m.id);
  try{
   for(let i=0;i<ids.length;i+=40){
-   const r=await supabase().from('ballers_injuries').select('match_id,player_id,club_id,cause,by_name,by_id,hard,days,energy,from_at').in('match_id',ids.slice(i,i+40));
+   // every column (injury types, 25 Nov): `type` is read when the table has it, so this read answers the same before and
+   // after its migration (naming a column the table lacks fails the whole read, and the paper would lose every injury)
+   const r=await supabase().from('ballers_injuries').select('*').in('match_id',ids.slice(i,i+40));
    if(r.error||!Array.isArray(r.data))return null;
-   for(const x of r.data as {match_id:string;player_id:string;club_id:string;cause:string;by_name:string|null;by_id:string|null;hard:boolean|null;days:number;energy:number|string|null;from_at:string}[]){
+   for(const x of r.data as {match_id:string;player_id:string;club_id:string;cause:string;by_name:string|null;by_id:string|null;hard:boolean|null;days:number;energy:number|string|null;from_at:string;type?:unknown}[]){
     if(Math.floor(Date.parse(x.from_at)/1000)!==kick.get(x.match_id))continue;
     if(!out.has(x.match_id))out.set(x.match_id,[]);
     // numeric(4, 1): a number, or a string should the API ever send numerics as text
     const energy=x.energy===null||x.energy===undefined?null:Number(x.energy);
     out.get(x.match_id)!.push({playerId:x.player_id,clubId:x.club_id,cause:x.cause==='fatigue'?'fatigue':'tackle',by:x.by_name,byId:x.by_id,hard:x.hard===true,days:x.days,
-     energy:Number.isFinite(energy)?energy:null});
+     energy:Number.isFinite(energy)?energy:null,...(typeof x.type==='string'?{type:x.type}:{})});
    }
   }
   return out;
