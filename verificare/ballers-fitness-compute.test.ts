@@ -11,7 +11,8 @@ import {describe,it,expect} from 'vitest';
 import {compact,computeMatch,energySpent,engineTeam,submission,validateInput,withTypes,type EngineResult,type FrozenInput,type FrozenSide} from '../lib/ballers/simulation';
 import {runMatch} from '../packages/football-engine/src/index';
 import {injurySeed} from '../lib/ballers/injury-types';
-import {gunzipSync} from 'node:zlib';
+import {gunzipSync,gzipSync} from 'node:zlib';
+import {onPitch} from '../lib/ballers/replay';
 
 /** A packed payload part (simulation.ts pack) back to its JSON. */
 const unpack=(b64:string)=>JSON.parse(gunzipSync(Buffer.from(b64,'base64')).toString());
@@ -269,4 +270,84 @@ describe('the compact replay: an injury carries his energy (ij.e)',()=>{
   // the same squad id on the other side is not him
   expect(withTypes([{...mine,side:1}],cm)).toEqual([{...mine,side:1}]);
  });
+});
+
+// ------------------------------------------------------------------ the live report's energy readings (en, 25 Nov)
+// One whole-number reading per man on the pitch at the end of each match minute, on each chunk's last frame
+// (lib/ballers/energy-readings.ts), in a LEAGUE match frozen with the fitness marker only: Bebe's showcase (compute's
+// league option false), practice, tools and a league match without fitness stay byte-identical, so a guest's energy never
+// reaches a browser. The reader's rules (newest at or before the playhead, the fade) are verificare/ballers-live-energy.test.ts
+// on the laptop.
+describe('the live report: one energy reading per man at the end of each match minute (en)',()=>{
+ const plainInp=input(180,7),fit=input(180,7,{fitness:{v:1}});
+ const ids=plainInp.sides.flatMap((s,k)=>s.lineup.map(id=>({id:`${k}:${id}`,side:k as 0|1,role:'CM'})));
+ // 3:00 at 0.2 s: each man's energy falls a point a minute from 100 minus his position, 0.4 off so the rounding shows
+ const frames:EngineResult['frames']=Array.from({length:901},(_,n)=>{const t=Math.round(n*200)/1000;
+  return {time:t,players:ids.map((_,j)=>({x:24,y:0,angle:0,energy:100-j-t/60-.4})),ball:{x:24,y:0,z:0,owner:null},score:[0,0] as [number,number],restart:false,side:0 as const};});
+ const result=(fr=frames):EngineResult=>({duration:180,players:ids,score:[0,0],stats:[{} as never,{} as never],frames:fr,events:[{time:0,kind:'start',text:''},{time:180,kind:'end',text:''}]});
+ const LEAGUE={league:true};
+ /** The compact without its readings. */
+ const strip=(cm:unknown)=>JSON.stringify(JSON.parse(JSON.stringify(cm),(k,v)=>k==='en'?undefined:v));
+
+ it('a league match frozen with the fitness marker: each chunk\'s last frame carries every position\'s energy, rounded; no other frame does',()=>{
+  const cm=compact(fit,result(),LEAGUE);
+  expect(cm.chunks.map(c=>c.f.at(-1)!.t)).toEqual([59800,119800,180000]);
+  for(const c of cm.chunks){
+   const last=c.f.at(-1)!;
+   expect(last.en).toEqual(ids.map((_,j)=>Math.round(100-j-last.t/60000-.4)));
+   expect(c.f.slice(0,-1).some(f=>'en' in f)).toBe(false);
+  }
+ });
+ it('Bebe\'s showcase, practice, a tool (not a league match): no reading, the compact exactly as before',()=>{
+  for(const o of [undefined,{},{league:false}])expect(JSON.stringify(compact(fit,result(),o))).not.toContain('"en"');
+  expect(JSON.stringify(compact(fit,result(),{league:false}))).toBe(JSON.stringify(compact(fit,result())));
+ });
+ it('a league match without the fitness marker: no reading, the compact exactly as before',()=>{
+  const cm=compact(plainInp,result(),LEAGUE);
+  expect(JSON.stringify(cm)).not.toContain('"en"');
+  expect(JSON.stringify(cm)).toBe(JSON.stringify(compact(plainInp,result())));
+ });
+ it('the readings are the only thing they add: without them a league match\'s compact is exactly any other caller\'s',()=>{
+  expect(strip(compact(fit,result(),LEAGUE))).toBe(JSON.stringify(compact(fit,result())));
+ });
+ it('a minute where the engine gave someone no energy: no reading for it (nothing guessed)',()=>{
+  const holed=frames.map(f=>f.time===119.8?{...f,players:f.players.map((p,j)=>j===3?{x:p.x,y:p.y,angle:p.angle}:p)}:f);
+  const cm=compact(fit,result(holed),LEAGUE);
+  expect('en' in cm.chunks[1].f.at(-1)!).toBe(false);
+  expect(cm.chunks[0].f.at(-1)!.en).toHaveLength(10);
+  expect(cm.chunks[2].f.at(-1)!.en).toHaveLength(10);
+ });
+
+ it('a real league match (15:00, a half-time, a change at the interval): a reading at every chunk\'s end, the engine\'s own; the size it adds',()=>{
+  const base=input(900,1234,{fitness:{v:1}});
+  const order={id:'s1',in:base.sides[0].bench[0],out:base.sides[0].lineup[3],trigger:{kind:'half' as const}};
+  const inp:FrozenInput={...base,sides:[{...base.sides[0],substitutions:[order]},base.sides[1]]};
+  const c=computeMatch(validateInput(inp),undefined,LEAGUE),cm=c.compact;
+  const r=engineRun(inp,[{...order,side:0}]) as unknown as EngineResult;
+  const half=cm.chunks.flatMap(ch=>ch.e).find(e=>e.k==='half')!;
+  expect(half).toBeDefined();
+  // the first half's chunk ends at the whistle, and so does its reading (before the break's rest)
+  expect(cm.chunks.some(ch=>ch.f.at(-1)!.t===half.t&&!ch.f.at(-1)!.c&&ch.f.at(-1)!.en)).toBe(true);
+  const index=new Map(cm.header.players.map(p=>[`${p.side}:${p.id}`,p.i]));
+  for(const ch of cm.chunks){
+   const last=ch.f.at(-1)!;
+   expect(last.en).toHaveLength(10);
+   // the engine's frame at that instant (the last one at it, as compact keeps), mapped position by position
+   const ef=[...r.frames].reverse().find(f=>Math.round(f.time*1000)===last.t&&!f.cut)!;
+   const want=ef.players.map(p=>Math.round(p.energy!));
+   expect(last.en).toEqual(want);
+   // and `l` names the same men the engine's lineup does
+   expect(onPitch(last.l)).toEqual(ef.players.map((_,j)=>index.get(r.players[ef.lineup?ef.lineup[j]:j].id)));
+  }
+  // what it adds, as the server stores it (each chunk gzipped, simulation.ts pack) and as JSON
+  const json=(x:unknown)=>Buffer.byteLength(JSON.stringify(x)),gz=(x:unknown)=>gzipSync(JSON.stringify(x)).length;
+  const bare=JSON.parse(strip(cm.chunks)) as unknown[];
+  const add={json:cm.chunks.reduce((n,ch,i)=>n+json(ch)-json(bare[i]),0),gzip:cm.chunks.reduce((n,ch,i)=>n+gz(ch)-gz(bare[i]),0),
+   chunks:cm.chunks.length,allJson:cm.chunks.reduce((n,ch)=>n+json(ch),0),allGzip:cm.chunks.reduce((n,ch)=>n+gz(ch),0)};
+  console.log(`[live report] energy readings add ${add.json} B of JSON (${(100*add.json/add.allJson).toFixed(3)} %) and ${add.gzip} B gzipped (${(100*add.gzip/add.allGzip).toFixed(3)} %) over ${add.chunks} chunks of ${add.allJson} B / ${add.allGzip} B`);
+  expect(add.json).toBeGreaterThan(0);
+  expect(add.json).toBeLessThan(80*add.chunks);
+  // and the same match through any other caller: no reading, otherwise the same compact
+  expect(strip(cm)).toBe(JSON.stringify(computeMatch(validateInput(inp)).compact));
+ },600_000);
 });

@@ -17,6 +17,7 @@ import {KEEPER_SWEEP,normalizeSettings,settingsSquad,settingsTactics,type MatchS
 import {normalizeVoice,type Voice} from './voice';
 import {hurtDoing} from './injury-doing';
 import {injurySeed,pickMatchTypes,tiredLevelAt,typingMatches,type InjuryMoment} from './injury-types';
+import {stampReadings} from './energy-readings';
 
 export interface FrozenPlayer {id:string;name:string;short:string;number:number;roles:EnginePlayer['roles'];skills:EnginePlayer['skills'];traits:EnginePlayer['traits'];energy:number;archetype:string;temperament:string;note:string;portrait:string}
 /** `lineup`: the five the idea was drawn for (slot n = lineup[n-1]); `assign`:
@@ -315,6 +316,10 @@ export function compact(input:FrozenInput,r:EngineResult,o:ComputeOptions={}):Co
 
  let last=-Infinity;
  const frames:ReplayFrame[]=[];
+ // (the live report, 25 Nov) a league match frozen with the fitness marker: each kept frame's engine frame, so each chunk's
+ // last frame can take every on-pitch man's energy (lib/ballers/energy-readings.ts). Anything else keeps none: its compact
+ // is byte-identical, and Bebe's guests' energy never reaches a browser.
+ const source=o.league===true&&input.fitness?new Map<ReplayFrame,EngineFrame>():null;
  r.frames.forEach((f,n)=>{
   // the whistle at half-time (the frame a same-instant cut follows) is always kept: the first half ends on it, and the
   // live edge must reach it for the half-time line to show at the whistle (only the half-time has such a pair)
@@ -329,6 +334,7 @@ export function compact(input:FrozenInput,r:EngineResult,o:ComputeOptions={}):Co
   const down=f.players.flatMap((p,k)=>p.duty==='down'?[k]:[]);if(down.length)frame.d=down;
   // Two frames at one instant: the later one wins unless it is a camera cut.
   if(frames.length&&frames[frames.length-1].t===frame.t&&!frame.c)frames[frames.length-1]=frame;else frames.push(frame);
+  source?.set(frame,f);
  });
  const events:ReplayEvent[]=r.events.map(e=>{
   const out:ReplayEvent={t:ms(e.time),k:e.kind,x:e.text};
@@ -389,6 +395,8 @@ export function compact(input:FrozenInput,r:EngineResult,o:ComputeOptions={}):Co
  const chunks:ReplayChunk[]=bounds.map((b,i)=>({v:REPLAY_VERSION,i,t0:b.t0,t1:b.t1,f:[],e:[],...(i===bounds.length-1&&(played!==r.duration||clockFull!==r.duration)?{end:{played,fullTime:clockFull}}:{})}));
  frames.forEach((f,n)=>chunks[chunkOf(f.t,halfMs===null||(cutAt<0?f.t<halfMs:n<cutAt))].f.push(f));
  events.forEach(e=>chunks[chunkOf(e.t,halfMs===null||e.t<halfMs||e.t===halfMs&&e.k==='half')].e.push(e));
+ // (the live report) one energy reading per man on the pitch at the end of each match minute: the last frame of each chunk
+ if(source)stampReadings(chunks,f=>source.get(f)?.players);
  // A set-piece routine chosen at a stoppage that was never kicked (full time
  // came first) did not run: it is left out, not counted as broke.
  const ideas:ReplayIdea[]=(r.playbookSelections??[]).flatMap((sel,seq)=>sel.planId!==null&&routineUnkicked(sel as never,lessonOf(input,sel))?[]:[{seq,side:(sel.side??0) as 0|1,t:ms(sel.time),endedAt:sel.endedAt===undefined?null:ms(sel.endedAt),

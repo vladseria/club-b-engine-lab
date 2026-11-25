@@ -63,8 +63,12 @@ export interface ReplayHeader {
  * at each of the ten positions, present from the first substitution on;
  * d = the positions (0-9) of players lying on the floor after a duel (engine
  * duty 'down', from 16 Oct). Optional and present only in frames where someone
- * is down, so the version stays 2 and older replays render exactly as before. */
-export interface ReplayFrame {t:number;p:[number,number,number][];b:[number,number,number];o:number;ps:0|1;s:[number,number];r?:1;c?:1;l?:number[];d?:number[]}
+ * is down, so the version stays 2 and older replays render exactly as before.
+ * en = (the live report, from 25 Nov) each position's energy, a whole number in the frame's own order (`l`, or the
+ * starters): on the last frame of each chunk only, the end of that match minute (the half-time whistle's frame, the final
+ * whistle's), and only in a league match frozen with the fitness marker (lib/ballers/energy-readings.ts). Absent from
+ * every other replay, Bebe's showcase included, which therefore stay byte-identical. Never shown as a number. */
+export interface ReplayFrame {t:number;p:[number,number,number][];b:[number,number,number];o:number;ps:0|1;s:[number,number];r?:1;c?:1;l?:number[];d?:number[];en?:number[]}
 /** Every engine event, slimmed: kind, Romanian engine text, actor/target and
  * last touch as player indices, the side it concerns. Shots keep origin/aim.
  * A substitution: a = the player coming on, g = the one going off, sb = the
