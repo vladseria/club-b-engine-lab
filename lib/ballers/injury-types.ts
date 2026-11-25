@@ -1,7 +1,8 @@
 // Ballers injury types (deliverables/ballers-injury-types/CATALOGUE.md, approved with the owner's decisions of 25 Nov):
-// which injury a hurt man got, picked ONCE when the match is computed (lib/ballers/compute.ts compact) and stored, so
-// every screen and the paper name the same injury: on the replay's injury event (`ij.t`), in the submit payload's
-// injuries (`type`) and in public.ballers_injuries (`type`, written by private.ballers_fitness_after_submit).
+// which injury a hurt man got, picked ONCE when a league match is computed (lib/ballers/compute.ts compact) and stored,
+// so every screen and the paper name the same injury: on the replay's injury event (`ij.t`), in the submit payload's
+// injuries (`type`) and in public.ballers_injuries (`type`, written by private.ballers_fitness_after_submit). Bebe's
+// nights stay untyped for now (the owner's choice, 25 Nov): compute types league matches only.
 //
 // Pure and deterministic: the picking reads only the moment's facts and a seed drawn from the match seed and the injury.
 // It imports nothing that plays a match, so its rules are checked on the laptop (verificare/ballers-injury-types.test.ts).
@@ -27,6 +28,9 @@ export const injuryType=(v:unknown):InjuryType=>typeof v==='string'&&KNOWN.has(v
 /** The fun ones (owner, 25 Nov: about 1 in 6 of the 1-match injuries where one fits, never two in the same match). */
 export const FUN_TYPES:ReadonlySet<InjuryType>=new Set<InjuryType>(['F1','F2','F3']);
 export const FUN_ODDS=1/6;
+/** The long ones (4-6 matches, or a knee): a man who plays on with one (no change left) is said only to be down and in
+ * pain, then that he plays on (CATALOGUE §5: never „s-a rupt” or weeks out, then on his feet). */
+export const LONG_TYPES:ReadonlySet<InjuryType>=new Set<InjuryType>(['T7','T8','T9']);
 /** The league stores a tiredness injury at most this many matches long (migration 20261124120000): the TWIN of
  * FITNESS.fatigueMaxMatches (lib/ballers/fitness.ts; verificare/ballers-injury-types.test.ts checks they agree). Kept
  * here so the match computation does not load the fitness screens' module. */

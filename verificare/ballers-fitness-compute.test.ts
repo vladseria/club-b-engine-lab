@@ -10,6 +10,7 @@
 import {describe,it,expect} from 'vitest';
 import {compact,computeMatch,energySpent,engineTeam,submission,validateInput,withTypes,type EngineResult,type FrozenInput,type FrozenSide} from '../lib/ballers/simulation';
 import {runMatch} from '../packages/football-engine/src/index';
+import {injurySeed} from '../lib/ballers/injury-types';
 import {gunzipSync} from 'node:zlib';
 
 /** A packed payload part (simulation.ts pack) back to its JSON. */
@@ -152,23 +153,24 @@ describe('the compact replay: an injury carries his energy (ij.e)',()=>{
   {time:12,kind:'treatment',text:'y',actor:hurt,side:0,injury:{cause:injury.cause,matches:injury.matches}},
   {time:14,kind:'substitution',text:'z',actor:bench,target:hurt,side:0,injury:{cause:injury.cause,matches:injury.matches}}];
  const result=(more:Ev[]=[]):EngineResult=>({duration:60,players:ids,score:[0,0],stats:[{} as never,{} as never],frames,events:[...plain,...more].sort((a,b)=>a.time-b.time)});
+ // (no options: not a league match, so no injury is typed and these marks are exactly as before injury types)
  const events=(more:Ev[]=[],o?:{league?:boolean})=>compact(inp,result(more),o).chunks.flatMap(c=>c.e);
  const of=(es:ReturnType<typeof events>,k:string)=>es.find(e=>e.k===k)!;
- /** The mark without its type (injury types, 25 Nov: `ij.t`, checked in its own block below). */
- const noT=(ij:NonNullable<ReturnType<typeof of>['ij']>)=>{const {t:_t,...rest}=ij;void _t;return rest;};
+ const LEAGUE={league:true};
 
  it('an injury\'s energy is rounded onto its `ij` like a substitution\'s: 70.5 gives e 71; a hard tackle keeps h',()=>{
   const es=events(knock({cause:'fatigue',matches:2,energy:70.5}));
-  expect(noT(of(es,'injury').ij!)).toEqual({c:'fatigue',n:2,e:71});
+  expect(of(es,'injury').ij).toEqual({c:'fatigue',n:2,e:71});
   const hard=events(knock({cause:'tackle',hard:true,matches:3,energy:82.4},tackler));
-  expect(noT(of(hard,'injury').ij!)).toEqual({c:'tackle',n:3,h:1,e:82});
-  // the stored key order: the type, when there is one, last
-  expect(JSON.stringify(of(hard,'injury').ij)).toMatch(/^\{"c":"tackle","n":3,"h":1,"e":82(,"t":"T(5|8)")?\}$/);
+  expect(of(hard,'injury').ij).toEqual({c:'tackle',n:3,h:1,e:82});
+  expect(JSON.stringify(of(hard,'injury').ij)).toBe('{"c":"tackle","n":3,"h":1,"e":82}');
+  // a league match: the type, last
+  expect(JSON.stringify(of(events(knock({cause:'tackle',hard:true,matches:3,energy:82.4},tackler),LEAGUE),'injury').ij)).toMatch(/^\{"c":"tackle","n":3,"h":1,"e":82,"t":"T(5|8)"\}$/);
  });
  it('no energy, or one that is not a finite number: no `e`, the mark as before',()=>{
   for(const energy of [undefined,Number.NaN,Number.POSITIVE_INFINITY,Number.NEGATIVE_INFINITY]){
    const ij=of(events(knock({cause:'fatigue',matches:2,...(energy===undefined?{}:{energy})})),'injury').ij!;
-   expect(noT(ij)).toEqual({c:'fatigue',n:2});
+   expect(ij).toEqual({c:'fatigue',n:2});
    expect('e' in ij).toBe(false);
   }
  });
@@ -184,34 +186,82 @@ describe('the compact replay: an injury carries his energy (ij.e)',()=>{
  });
 
  // ---------------------------------------------------------------- the injury type (ij.t, 25 Nov)
- // compact picks each injury's type once (lib/ballers/injury-types.ts; its rules are verificare/ballers-injury-types.test.ts,
- // on the laptop) and writes it on the injury event only; computeMatch copies it onto the payload's injuries (withTypes).
- it('an injury event carries its type, the treatment and the forced change never do; the same input gives the same type',()=>{
-  const es=events(knock({cause:'fatigue',matches:2,energy:70.5}));
+ // compact picks each injury's type once, in a league match only (lib/ballers/injury-types.ts; its rules are
+ // verificare/ballers-injury-types.test.ts, on the laptop) and writes it on the injury event only; computeMatch copies it
+ // onto the payload's injuries (withTypes). Bebe's nights stay untyped for now (the owner's choice, 25 Nov).
+ it('a league match: the injury event carries its type, the treatment and the forced change never do; the same input gives the same type',()=>{
+  const es=events(knock({cause:'fatigue',matches:2,energy:70.5}),LEAGUE);
   // he was doing nothing in particular (the frames never move), a tiredness injury of 2: a tight calf or a thigh strain
   expect(['T2','T3']).toContain(of(es,'injury').ij!.t);
   for(const k of ['treatment','substitution'])expect('t' in of(es,k).ij!).toBe(false);
-  expect(events(knock({cause:'fatigue',matches:2,energy:70.5}))).toEqual(es);
-  // a hard tackle of 3: a twisted ankle or a knee sprain; a soft one of 5: a torn thigh muscle
-  expect(['T5','T8']).toContain(of(events(knock({cause:'tackle',hard:true,matches:3,energy:82.4},tackler)),'injury').ij!.t);
-  expect(of(events(knock({cause:'tackle',matches:5,energy:90},tackler)),'injury').ij!.t).toBe('T7');
+  expect(events(knock({cause:'fatigue',matches:2,energy:70.5}),LEAGUE)).toEqual(es);
+  expect(of(events(knock({cause:'tackle',matches:5,energy:90},tackler),LEAGUE),'injury').ij!.t).toBe('T7');
  });
- it('a tiredness injury rolled 3 or more: typed for the league\'s capped length in a league match, T0 (no `t`) otherwise',()=>{
-  for(const matches of [3,4,6]){
-   const k=knock({cause:'fatigue',matches,energy:70.5});
-   expect(['T2','T3']).toContain(of(events(k,{league:true}),'injury').ij!.t);
-   expect('t' in of(events(k),'injury').ij!).toBe(false);
-   // the engine's roll stays in the replay either way
-   expect(of(events(k,{league:true}),'injury').ij!.n).toBe(matches);
+ it('Bebe\'s showcase (not a league match): no injury event carries a type, whatever the knock; the compact is as before',()=>{
+  const knocks=[knock({cause:'fatigue',matches:1,energy:70}),knock({cause:'fatigue',matches:4,energy:70}),knock({cause:'tackle',hard:true,matches:3,energy:82},tackler),
+   knock({cause:'tackle',matches:5,energy:90},tackler),[hurtOf(keeper,{cause:'tackle',matches:1,energy:90},10,tackler)]];
+  for(const k of knocks)for(const o of [undefined,{},{league:false}]){
+   const es=events(k,o);
+   expect(es.filter(e=>e.ij).every(e=>!('t' in e.ij!))).toBe(true);
+   expect(JSON.stringify(compact(inp,result(k),o))).toBe(JSON.stringify(compact(inp,result(k))));
   }
+  // and over many seeds, never a type
+  expect(setOf(typesOver([hurtOf(hurt,{cause:'fatigue',matches:1,energy:70})],[hurt],60,{}))).toEqual(['T0']);
+ });
+ it('a league tiredness injury rolled 3 or more: typed for the capped length; the engine\'s roll stays in the replay',()=>{
+  for(const matches of [3,4,6]){
+   const ij=of(events(knock({cause:'fatigue',matches,energy:70.5}),LEAGUE),'injury').ij!;
+   expect(['T2','T3']).toContain(ij.t);
+   expect(ij.n).toBe(matches);
+  }
+  expect(setOf(typesOver([hurtOf(hurt,{cause:'fatigue',matches:5,energy:80})],[hurt]))).toEqual(['T2','T3']);
  });
  it('a match without an injury: the compact is the same whatever the options, and no event has a type',()=>{
   const r=result();
   expect(JSON.stringify(compact(inp,r,{league:true}))).toBe(JSON.stringify(compact(inp,r)));
   expect(JSON.stringify(compact(inp,r,{}))).toBe(JSON.stringify(compact(inp,r)));
  });
+ // The exact sets a moment draws, collected over many match seeds (each seed is its own injury seed: injurySeed of the
+ // match seed, the second and the man). On these stub frames nobody moves and no pass reaches anyone in time, so what
+ // he was doing reads "nothing in particular".
+ const keeper=`0:${inp.sides[0].lineup[0]}`,other=`0:${inp.sides[0].lineup[3]}`;
+ /** One injury event on `who` at `at` seconds (no treatment, no change: compact types the `injury` event alone). */
+ const hurtOf=(who:string,injury:NonNullable<Ev['injury']>,at=10,by?:string):Ev=>({time:at,kind:'injury',text:'x',actor:who,...(by?{target:by}:{}),side:0,injury});
+ /** The replay index compact gives a frozen engine id (starters: side × 5 + slot). */
+ const at=(engineId:string)=>{const [side,id]=engineId.split(':');return Number(side)*5+inp.sides[Number(side)].lineup.indexOf(id);};
+ /** For each of `n` match seeds, the types of these injury events, in the order of `who` ('T0' when there is no `t`);
+  * a league match unless `o` says otherwise. */
+ const typesOver=(more:Ev[],who:string[],n=120,o:{league?:boolean}=LEAGUE)=>Array.from({length:n},(_,k)=>{
+  const es=compact({...inp,seed:1000+k*7919},result(more),o).chunks.flatMap(c=>c.e).filter(e=>e.k==='injury');
+  return who.map(w=>es.find(e=>e.a===at(w))?.ij?.t??'T0');});
+ const setOf=(rows:string[][])=>[...new Set(rows.map(r=>r.join('/')))].sort();
+ it('a keeper hurt in a tackle for a match or two: exactly the finger or the shoulder; longer, as an outfielder',()=>{
+  for(const hard of [false,true])for(const matches of [1,2])
+   expect(setOf(typesOver([hurtOf(keeper,{cause:'tackle',hard,matches,energy:90},10,tackler)],[keeper])),`hard ${hard}, ${matches}`).toEqual(['T10','T11']);
+  expect(setOf(typesOver([hurtOf(keeper,{cause:'tackle',hard:true,matches:3,energy:90},10,tackler)],[keeper]))).toEqual(['T5','T8']);
+  expect(setOf(typesOver([hurtOf(keeper,{cause:'tackle',matches:5,energy:90},10,tackler)],[keeper]))).toEqual(['T7']);
+  // on his own: the calf, or cramps when exhausted for one match
+  expect(setOf(typesOver([hurtOf(keeper,{cause:'fatigue',matches:1,energy:74})],[keeper]))).toEqual(['T1','T2']);
+  expect(setOf(typesOver([hurtOf(keeper,{cause:'fatigue',matches:2,energy:74})],[keeper]))).toEqual(['T2']);
+ });
+ it('cramps: an exhausted man (ij.e 75 or less) out for one match, nothing in particular, draws exactly T1, T2, T3; not exhausted, exactly T2, T3',()=>{
+  for(const energy of [60,74.6,75])
+   expect(setOf(typesOver([hurtOf(hurt,{cause:'fatigue',matches:1,energy})],[hurt])),String(energy)).toEqual(['T1','T2','T3']);
+  for(const energy of [75.5,76,90])
+   expect(setOf(typesOver([hurtOf(hurt,{cause:'fatigue',matches:1,energy})],[hurt])),String(energy)).toEqual(['T2','T3']);
+  // no energy on the event: never exhausted
+  expect(setOf(typesOver([hurtOf(hurt,{cause:'fatigue',matches:1})],[hurt]))).toEqual(['T2','T3']);
+  // exhausted but out for two: never cramps
+  expect(setOf(typesOver([hurtOf(hurt,{cause:'fatigue',matches:2,energy:70})],[hurt]))).toEqual(['T2','T3']);
+ });
+ it('two men hurt at the same second: independent seeds, so every pair of their types turns up',()=>{
+  const both=[hurtOf(hurt,{cause:'fatigue',matches:2,energy:80}),hurtOf(other,{cause:'fatigue',matches:2,energy:80})];
+  expect(setOf(typesOver(both,[hurt,other]))).toEqual(['T2/T2','T2/T3','T3/T2','T3/T3']);
+  // and the seeds themselves differ
+  expect(injurySeed(inp.seed,10_000,inp.sides[0].lineup[2])).not.toBe(injurySeed(inp.seed,10_000,inp.sides[0].lineup[3]));
+ });
  it('withTypes: each computed injury gets its event\'s type by side and squad id; a T0 one is left as it was',()=>{
-  const cm=compact(inp,result(knock({cause:'tackle',hard:true,matches:3,energy:82.4},tackler)));
+  const cm=compact(inp,result(knock({cause:'tackle',hard:true,matches:3,energy:82.4},tackler)),LEAGUE);
   const t=cm.chunks.flatMap(c=>c.e).find(e=>e.k==='injury')!.ij!.t!;
   const mine={id:inp.sides[0].lineup[2],side:0 as const,t:10,cause:'tackle' as const,hard:true,matches:3};
   const other={id:inp.sides[1].lineup[0],side:1 as const,t:20,cause:'fatigue' as const,hard:false,matches:1};

@@ -150,13 +150,13 @@ export function validateInput(value:unknown):FrozenInput{
 /** An injury as the showcase stores it (ballers_showcase_submit `injuries`), from the engine's InjuryRecord
  * (contracts/ENGINE.md §3) as given, severity included: `id` the frozen player id, `t` the match second, `by` the
  * tackler's name and `by_id` his frozen id, `off` when he went off, `played_on` nobody was left to come on. `type`: the
- * injury type picked for it (lib/ballers/injury-types.ts, the replay's `ij.t`), absent for T0; the league writer stores
- * it (public.ballers_injuries.type), Bebe's door ignores it. */
+ * injury type picked for it (lib/ballers/injury-types.ts, the replay's `ij.t`), a league match's only, absent for T0;
+ * the league writer stores it (public.ballers_injuries.type). */
 export interface ComputedInjury {id:string;side:0|1;t:number;cause:'tackle'|'fatigue';by?:string;by_id?:string;hard:boolean;energy?:number;matches:number;off?:number;played_on?:true;type?:string}
 /** What the caller knows about the match that the frozen input does not say. `league`: a league match (the compute
- * route's kind), so a tiredness injury's type is picked for the length the league stores (capped at
- * LEAGUE_FATIGUE_MAX); absent or false (Bebe's showcase, practice, a tool), the engine's own roll, and a tiredness
- * injury of 3 or more matches reads T0. Nothing else changes with it. */
+ * route's kind): only then are its injuries typed (`ij.t`), a tiredness injury for the length the league stores (capped
+ * at LEAGUE_FATIGUE_MAX). Absent or false (Bebe's showcase, practice, a tool): no injury is typed, so the compact is
+ * exactly what it was before injury types. Bebe's nights stay untyped for now (the owner's choice, 25 Nov). */
 export interface ComputeOptions {league?:boolean}
 /** One man's energy drain in the match (Ballers fitness): `id` the frozen squad id, `spent` 2 decimals. */
 export interface EnergySpent {id:string;side:0|1;spent:number}
@@ -199,16 +199,18 @@ export function withTypes(injuries:readonly ComputedInjury[],cm:CompactMatch):Co
 /** (injury types, 25 Nov) Each `injury` event's type, picked once from the compact frames and events
  * (lib/ballers/injury-types.ts): what he was doing (lib/ballers/injury-doing.ts hurtDoing, the same reading as the "while
  * …" words on every screen), the cause, a hard tackle, whether he keeps goal, the length as stored (a league tiredness
- * injury capped: ComputeOptions.league), whether he was exhausted (his `ij.e`), and a seed from the match seed and the
- * injury. In event order, so a match never gets two fun ones. Written as `ij.t`, only when not T0, so a match with no
- * injury, and a T0 one, is byte-identical to before. */
+ * injury capped), whether he was exhausted (his `ij.e`), and a seed from the match seed and the injury. In event order,
+ * so a match never gets two fun ones. Written as `ij.t`, only when not T0, so a match with no injury, and a T0 one, is
+ * byte-identical to before. A league match only (ComputeOptions.league): Bebe's nights stay untyped for now, the owner's
+ * choice (25 Nov), so a showcase replay carries no `ij.t` and every Bebe screen keeps its words. */
 function typeInjuries(input:FrozenInput,frames:readonly ReplayFrame[],events:ReplayEvent[],players:readonly ReplayPlayer[],o:ComputeOptions){
+ if(o.league!==true)return;
  const hurt=events.filter(e=>e.k==='injury'&&e.ij&&e.a!==undefined&&e.s!==undefined);
  if(!hurt.length)return;
  const list=hurt.map(e=>{
   const p=players.find(q=>q.i===e.a),ij=e.ij!;
   const moment:InjuryMoment={cause:ij.c,hard:ij.h===1,keeper:!!p&&(p.role==='GK'||p.slot===0),
-   doing:hurtDoing(frames,events,{t:e.t,player:e.a!,side:e.s!}),matches:typingMatches(ij.c,ij.n,o.league===true),exhausted:tiredLevelAt(ij.e)==='empty'};
+   doing:hurtDoing(frames,events,{t:e.t,player:e.a!,side:e.s!}),matches:typingMatches(ij.c,ij.n,true),exhausted:tiredLevelAt(ij.e)==='empty'};
   return {moment,seed:injurySeed(input.seed,e.t,p?.id??String(e.a))};
  });
  pickMatchTypes(list).forEach((t,k)=>{if(t!=='T0')hurt[k].ij={...hurt[k].ij!,t};});
@@ -361,7 +363,8 @@ export function compact(input:FrozenInput,r:EngineResult,o:ComputeOptions={}):Co
     ...(e.switch.formation?{f:e.switch.formation}:{}),...(e.switch.players?{ro:e.switch.players.map(p=>[idx(p.id),p.role,p.lane] as [number,string,number])}:{})};}
   return out;
  });
- // (injury types, 25 Nov) each injury's type on its own event's `ij` (none hurt: nothing added, byte-identical)
+ // (injury types, 25 Nov) a league match: each injury's type on its own event's `ij` (none hurt, or not a league match:
+ // nothing added, byte-identical)
  typeInjuries(input,frames,events,players,o);
  // (styles as identities, slice 2) the style moments, each marked on the event it ends at; a Short side's or a surge's
  // tallies ride along. No Short side and no surge = nothing added: the compact is byte-identical to before.
